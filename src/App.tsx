@@ -13,7 +13,7 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 
 import Login from "@/pages/Login";
 import Onboarding from "@/pages/Onboarding";
-import RootRedirect from "@/pages/app/RootRedirect";
+import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/app/Dashboard";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
@@ -24,7 +24,7 @@ const AppRoutes = () => {
   useInitAuth();
   return (
     <Routes>
-      <Route path="/" element={<RootRedirect />} />
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
