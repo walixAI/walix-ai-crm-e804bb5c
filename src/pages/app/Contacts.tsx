@@ -19,6 +19,7 @@ import { sellers, allTags, statusBadgeClass, relativeTime, type LeadStatus, type
 import { useContacts } from "@/lib/queries/contacts";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
+import { TableSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -236,7 +237,19 @@ export default function Contacts() {
         </Collapsible>
 
         {/* Content */}
-        {view === "list" ? (
+        {isLoading && allContacts.length === 0 ? (
+          view === "list"
+            ? <TableSkeleton rows={8} columns={7} />
+            : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card p-5 shadow-card">
+                    <ListRowsSkeleton rows={3} className="!divide-y-0" />
+                  </div>
+                ))}
+              </div>
+            )
+        ) : view === "list" ? (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
