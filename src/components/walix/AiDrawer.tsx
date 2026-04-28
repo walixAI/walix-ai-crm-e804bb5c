@@ -1,10 +1,11 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { AI_MODEL_LABEL } from "@/services/ai";
+import { AI_MODEL_LABEL, type AiAction } from "@/services/ai";
 import { QUICK_AI_PROMPTS } from "@/mock/ai";
+import { useNavigate } from "react-router-dom";
 
 function renderMarkdown(md: string) {
   // very small markdown: **bold**, *italic*, lists, line breaks
@@ -32,6 +33,25 @@ function renderMarkdown(md: string) {
 
 export function AiDrawer() {
   const { open, closeDrawer, current, loading, history, ask, source } = useAiDrawer();
+  const navigate = useNavigate();
+
+  const runAction = (a: AiAction) => {
+    switch (a.type) {
+      case "open_deal":      navigate(`/pipeline${a.id ? `?dealId=${a.id}` : ""}`); break;
+      case "open_contact":   navigate(a.id ? `/contacts/${a.id}` : "/contacts"); break;
+      case "open_conversation": navigate(`/whatsapp${a.id ? `?conversationId=${a.id}` : ""}`); break;
+      case "open_pipeline":  navigate("/pipeline"); break;
+      case "open_inbox":     navigate("/ai-inbox"); break;
+    }
+    closeDrawer();
+  };
+
+  const iconFor = (t: AiAction["type"]) =>
+    t === "open_deal" ? KanbanSquare
+    : t === "open_conversation" ? MessageCircle
+    : t === "open_contact" ? UserIcon
+    : t === "open_pipeline" ? KanbanSquare
+    : Inbox;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && closeDrawer()}>
@@ -68,6 +88,29 @@ export function AiDrawer() {
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                   {renderMarkdown(current.answer)}
                 </div>
+                {current.actions && current.actions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Acciones sugeridas
+                    </div>
+                    {current.actions.map((a, i) => {
+                      const Icon = iconFor(a.type);
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => runAction(a)}
+                          className="w-full group flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-background hover:bg-primary/5 hover:border-primary/40 transition-colors px-3 py-2 text-sm"
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            <Icon className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate text-foreground">{a.label}</span>
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

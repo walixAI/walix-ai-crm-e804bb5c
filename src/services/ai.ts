@@ -18,8 +18,22 @@ import { mockAiResponse, mockDealScore } from "@/mock/ai";
 
 export const AI_MODEL_LABEL = "Claude Sonnet";
 
+export type AiActionType =
+  | "open_deal"
+  | "open_contact"
+  | "open_conversation"
+  | "open_pipeline"
+  | "open_inbox";
+
+export interface AiAction {
+  label: string;
+  type: AiActionType;
+  id?: string;
+}
+
 export interface AskAiResult {
   text: string;
+  actions: AiAction[];
   source: "live" | "fallback";
 }
 
@@ -36,11 +50,11 @@ export async function askAi(opts: {
       body: { mode: "ask", prompt: opts.prompt, history: opts.history ?? [] },
     });
     if (error) throw error;
-    if (data?.text) return { text: data.text, source: "live" };
+    if (data?.text) return { text: data.text, actions: Array.isArray(data.actions) ? data.actions : [], source: "live" };
     throw new Error("Respuesta vacía");
   } catch (err) {
     console.warn("[ai.askAi] fallback to mock:", err);
-    return { text: mockAiResponse(opts.prompt), source: "fallback" };
+    return { text: mockAiResponse(opts.prompt), actions: [], source: "fallback" };
   }
 }
 
@@ -116,5 +130,45 @@ export async function suggestPipeline(business: string): Promise<PipelineSuggest
   } catch (err) {
     console.warn("[ai.suggestPipeline] fallback:", err);
     return { ...FALLBACK_SUGGESTION, source: "fallback" };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// AI Inbox — proactive suggestions
+// ────────────────────────────────────────────────────────────────────────
+
+export type AiInboxItemType =
+  | "cold_deal" | "hot_deal" | "unread_message" | "missing_followup" | "stale_lead";
+export type AiInboxCategory = "deals" | "messages" | "pipeline";
+export type AiInboxSeverity = "low" | "medium" | "high";
+
+export interface AiInboxItem {
+  id: string;
+  type: AiInboxItemType;
+  category: AiInboxCategory;
+  severity: AiInboxSeverity;
+  title: string;
+  description: string;
+  amount?: number;
+  daysSince?: number;
+  action: { label: string; type: "open_deal" | "open_conversation" | "open_contact"; id: string };
+  createdAt: string;
+}
+
+export interface AiInboxResponse {
+  suggestions: AiInboxItem[];
+  counts: { total: number; deals: number; messages: number; pipeline: number };
+  source: "live" | "fallback";
+}
+
+export async function fetchAiInbox(): Promise<AiInboxResponse> {
+  try {
+    const { data, error } = await supabase.functions.invoke("ai-inbox", { body: {} });
+    if (error) throw error;
+    if (!data?.suggestions) throw new Error("Respuesta vacía");
+    return { ...data, source: "live" };
+  } catch (err) {
+    console.warn("[ai.fetchAiInbox] fallback:", err);
+    return { suggestions: [], counts: { total: 0, deals: 0, messages: 0, pipeline: 0 }, source: "fallback" };
   }
 }

@@ -1,4 +1,4 @@
-import { Bell, Sparkles, Menu, LogOut, User as UserIcon } from "lucide-react";
+import { Bell, Sparkles, Menu, LogOut, User as UserIcon, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -99,6 +99,13 @@ export function TopBar() {
                     <Sparkles className="inline h-3 w-3 mr-1 text-accent" />{p}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); navigate("/ai-inbox"); setFocused(false); }}
+                  className="text-xs px-2.5 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
+                >
+                  <Inbox className="inline h-3 w-3 mr-1" />Ver AI Inbox
+                </button>
               </div>
             </div>
           )}
