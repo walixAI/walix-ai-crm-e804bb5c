@@ -23,7 +23,8 @@ function formatMXN(n: number) {
 }
 
 // Inline citation renderer for executive summary: [deal:UUID|Label]
-const CITATION_RE = /\[(deal|contact|convo):([a-zA-Z0-9-]+)\|([^\]]+)\]/g;
+// Accept both `convo` and `conversation` for robustness against model variations.
+const CITATION_RE = /\[(deal|contact|conversation|convo):([a-zA-Z0-9-]+)\|([^\]]+)\]/g;
 function renderCitations(text: string, onCite: (k: string, id: string) => void): ReactNode[] {
   const parts: ReactNode[] = [];
   let last = 0; let key = 0;
@@ -68,7 +69,7 @@ export function DashboardAiSection() {
   const handleCitation = (kind: string, id: string) => {
     if (kind === "deal") navigate(`/pipeline?dealId=${id}`);
     else if (kind === "contact") navigate(`/contacts/${id}`);
-    else if (kind === "convo") navigate(`/whatsapp?conversationId=${id}`);
+    else if (kind === "convo" || kind === "conversation") navigate(`/whatsapp?conversationId=${id}`);
   };
 
   const openEntity = (type: RiskWidget["entityType"], id?: string) => {
