@@ -132,3 +132,43 @@ export async function suggestPipeline(business: string): Promise<PipelineSuggest
     return { ...FALLBACK_SUGGESTION, source: "fallback" };
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// AI Inbox — proactive suggestions
+// ────────────────────────────────────────────────────────────────────────
+
+export type AiInboxItemType =
+  | "cold_deal" | "hot_deal" | "unread_message" | "missing_followup" | "stale_lead";
+export type AiInboxCategory = "deals" | "messages" | "pipeline";
+export type AiInboxSeverity = "low" | "medium" | "high";
+
+export interface AiInboxItem {
+  id: string;
+  type: AiInboxItemType;
+  category: AiInboxCategory;
+  severity: AiInboxSeverity;
+  title: string;
+  description: string;
+  amount?: number;
+  daysSince?: number;
+  action: { label: string; type: "open_deal" | "open_conversation" | "open_contact"; id: string };
+  createdAt: string;
+}
+
+export interface AiInboxResponse {
+  suggestions: AiInboxItem[];
+  counts: { total: number; deals: number; messages: number; pipeline: number };
+  source: "live" | "fallback";
+}
+
+export async function fetchAiInbox(): Promise<AiInboxResponse> {
+  try {
+    const { data, error } = await supabase.functions.invoke("ai-inbox", { body: {} });
+    if (error) throw error;
+    if (!data?.suggestions) throw new Error("Respuesta vacía");
+    return { ...data, source: "live" };
+  } catch (err) {
+    console.warn("[ai.fetchAiInbox] fallback:", err);
+    return { suggestions: [], counts: { total: 0, deals: 0, messages: 0, pipeline: 0 }, source: "fallback" };
+  }
+}
