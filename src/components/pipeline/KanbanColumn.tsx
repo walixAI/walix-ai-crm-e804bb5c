@@ -7,6 +7,7 @@ import { DealCard } from "./DealCard";
 
 interface Props {
   stage: PipelineStage;
+  allStages: PipelineStage[];
   deals: PipelineDeal[];
   contactName: (id: string | null) => string | undefined;
   contactColor: (id: string | null) => string | null | undefined;
@@ -15,11 +16,17 @@ interface Props {
   unreadByContact: Map<string, number>;
   onOpenDeal: (deal: PipelineDeal) => void;
   onAddDeal: (stage: PipelineStage) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (dealId: string) => void;
+  selectionActive: boolean;
+  onRequestLost: (deal: PipelineDeal) => void;
+  onNewTask: (deal: PipelineDeal) => void;
   wipLimit?: number;
 }
 
 export function KanbanColumn({
-  stage, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, onOpenDeal, onAddDeal, wipLimit = 10,
+  stage, allStages, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact,
+  onOpenDeal, onAddDeal, selectedIds, onToggleSelect, selectionActive, onRequestLost, onNewTask, wipLimit = 10,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage } });
   const total = deals.reduce((s, d) => s + d.amount, 0);
@@ -71,12 +78,18 @@ export function KanbanColumn({
           <DealCard
             key={d.id}
             deal={d}
+            stages={allStages}
             contactName={contactName(d.contactId)}
             contactColor={contactColor(d.contactId)}
             contactLastActivityAt={contactLastActivityAt(d.contactId)}
             tasks={tasksByDeal.get(d.id)}
             unread={d.contactId ? unreadByContact.get(d.contactId) ?? 0 : 0}
             onOpen={onOpenDeal}
+            selected={selectedIds.has(d.id)}
+            onToggleSelect={onToggleSelect}
+            selectionActive={selectionActive}
+            onRequestLost={onRequestLost}
+            onNewTask={onNewTask}
           />
         ))}
         {deals.length === 0 && (

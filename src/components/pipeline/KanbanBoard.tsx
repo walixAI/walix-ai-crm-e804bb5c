@@ -22,12 +22,17 @@ interface Props {
   unreadByContact: Map<string, number>;
   onOpenDeal: (deal: PipelineDeal) => void;
   onAddDeal: (stage: PipelineStage) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (dealId: string) => void;
+  onRequestLost: (deal: PipelineDeal) => void;
+  onNewTask: (deal: PipelineDeal) => void;
 }
 
 export function KanbanBoard(props: Props) {
   const { stages, deals } = props;
   const [active, setActive] = useState<PipelineDeal | null>(null);
   const update = useUpdateDealStage();
+  const selectionActive = props.selectedIds.size > 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -48,6 +53,11 @@ export function KanbanBoard(props: Props) {
     const stage = stages.find(s => s.id === targetStageId);
     if (!deal || !stage) return;
     if (deal.stageId === stage.id) return;
+    // Si destino es "Cerrado Perdido", abre el modal y NO mueve aún
+    if (stage.isLost) {
+      props.onRequestLost(deal);
+      return;
+    }
     update.mutate(
       { dealId, stage },
       {
@@ -66,6 +76,7 @@ export function KanbanBoard(props: Props) {
           <KanbanColumn
             key={stage.id}
             stage={stage}
+            allStages={stages}
             deals={deals.filter(d => d.stageId === stage.id)}
             contactName={props.contactName}
             contactColor={props.contactColor}
@@ -74,6 +85,11 @@ export function KanbanBoard(props: Props) {
             unreadByContact={props.unreadByContact}
             onOpenDeal={props.onOpenDeal}
             onAddDeal={props.onAddDeal}
+            selectedIds={props.selectedIds}
+            onToggleSelect={props.onToggleSelect}
+            selectionActive={selectionActive}
+            onRequestLost={props.onRequestLost}
+            onNewTask={props.onNewTask}
           />
         ))}
       </div>
