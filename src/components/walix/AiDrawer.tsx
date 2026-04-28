@@ -1,31 +1,70 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { AI_MODEL_LABEL, type AiAction } from "@/services/ai";
+import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating } from "@/services/ai";
 import { QUICK_AI_PROMPTS } from "@/mock/ai";
 import { useNavigate } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
 
-function renderMarkdown(md: string) {
-  // very small markdown: **bold**, *italic*, lists, line breaks
+// ── Citation rendering ──────────────────────────────────────────────────
+// Model emits inline tokens like [deal:UUID|Label], [contact:UUID|Label],
+// [convo:UUID|Label]. We split each line into text + clickable chips.
+const CITATION_RE = /\[(deal|contact|convo):([a-zA-Z0-9-]+)\|([^\]]+)\]/g;
+
+function renderInline(text: string, onCite: (kind: string, id: string) => void): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let lastIdx = 0;
+  let key = 0;
+  text.replace(CITATION_RE, (match, kind, id, label, offset: number) => {
+    if (offset > lastIdx) {
+      parts.push(renderFormatted(text.slice(lastIdx, offset), `t-${key++}`));
+    }
+    parts.push(
+      <button
+        key={`c-${key++}`}
+        type="button"
+        onClick={() => onCite(kind, id)}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-medium transition-colors align-baseline"
+      >
+        {label}
+      </button>,
+    );
+    lastIdx = offset + match.length;
+    return match;
+  });
+  if (lastIdx < text.length) {
+    parts.push(renderFormatted(text.slice(lastIdx), `t-${key++}`));
+  }
+  return parts;
+}
+
+function renderFormatted(s: string, key: string): ReactNode {
+  const html = s
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em class="text-muted-foreground">$1</em>');
+  return <span key={key} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) {
   const lines = md.split("\n");
   return (
     <div className="space-y-2 text-sm leading-relaxed">
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
-        const html = line
-          .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
-          .replace(/\*(.+?)\*/g, '<em class="text-muted-foreground">$1</em>');
         if (/^\d+\.\s/.test(line) || line.startsWith("- ")) {
+          const stripped = line.replace(/^(\d+\.|-)\s/, "");
           return (
             <div key={i} className="flex gap-2 pl-1">
               <span className="text-primary">•</span>
-              <span dangerouslySetInnerHTML={{ __html: html.replace(/^(\d+\.|-)\s/, "") }} />
+              <span>{renderInline(stripped, onCite)}</span>
             </div>
           );
         }
-        return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+        return <p key={i}>{renderInline(line, onCite)}</p>;
       })}
     </div>
   );
@@ -34,6 +73,10 @@ function renderMarkdown(md: string) {
 export function AiDrawer() {
   const { open, closeDrawer, current, loading, history, ask, source } = useAiDrawer();
   const navigate = useNavigate();
+  const [rating, setRating] = useState<AiRating | null>(null);
+  const [showCommentBox, setShowCommentBox] = useState(false);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -45,6 +88,51 @@ export function AiDrawer() {
     }
     closeDrawer();
   };
+
+  const handleCitation = (kind: string, id: string) => {
+    if (kind === "deal") navigate(`/pipeline?dealId=${id}`);
+    else if (kind === "contact") navigate(`/contacts/${id}`);
+    else if (kind === "convo") navigate(`/whatsapp?conversationId=${id}`);
+    closeDrawer();
+  };
+
+  // Reset feedback when current answer changes
+  const currentId = current?.id ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  if (currentId && rating === null && submitting) { /* noop */ }
+
+  const sendFeedback = async (r: AiRating, withComment = false) => {
+    if (!current) return;
+    if (r === -1 && withComment === false && !showCommentBox) {
+      // Show comment box first for negative feedback
+      setRating(-1);
+      setShowCommentBox(true);
+      return;
+    }
+    setSubmitting(true);
+    const res = await submitAiFeedback({
+      prompt: current.prompt,
+      answer: current.answer,
+      rating: r,
+      comment: comment.trim() || undefined,
+    });
+    setSubmitting(false);
+    if (res.ok) {
+      setRating(r);
+      setShowCommentBox(false);
+      setComment("");
+      toast({ title: "Gracias por tu feedback", description: r === 1 ? "Nos ayuda a afinar Walix IA." : "Lo tendremos en cuenta para mejorar." });
+    } else {
+      toast({ title: "No se pudo guardar", description: res.error ?? "Intenta de nuevo.", variant: "destructive" });
+    }
+  };
+
+  // When the user opens a new question, reset feedback state
+  // (current.id changes per query)
+  if (current && rating !== null && submitting === false) {
+    // Detect mismatch: if this current.id has not yet been rated this session,
+    // we keep state simple by resetting on each ask (handled via key prop below).
+  }
 
   const iconFor = (t: AiAction["type"]) =>
     t === "open_deal" ? KanbanSquare
@@ -71,7 +159,7 @@ export function AiDrawer() {
         </SheetHeader>
 
         <ScrollArea className="flex-1">
-          <div className="p-5 space-y-6">
+          <div className="p-5 space-y-6" key={current?.id ?? "empty"}>
             {loading && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -86,7 +174,7 @@ export function AiDrawer() {
                   {current.prompt}
                 </div>
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  {renderMarkdown(current.answer)}
+                  {renderMarkdown(current.answer, handleCitation)}
                 </div>
                 {current.actions && current.actions.length > 0 && (
                   <div className="space-y-1.5">
@@ -109,6 +197,59 @@ export function AiDrawer() {
                         </button>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Feedback row */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    ¿Te fue útil?
+                  </span>
+                  {rating !== null ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-success">
+                      <Check className="h-3 w-3" /> Feedback enviado
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => sendFeedback(1)}
+                        className="h-7 w-7 grid place-items-center rounded-md border border-border hover:bg-success/10 hover:border-success/40 hover:text-success transition-colors disabled:opacity-50"
+                        aria-label="Útil"
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => sendFeedback(-1)}
+                        className="h-7 w-7 grid place-items-center rounded-md border border-border hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors disabled:opacity-50"
+                        aria-label="No útil"
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {showCommentBox && rating === null && (
+                  <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                    <div className="text-xs font-medium text-foreground">¿Qué falló?</div>
+                    <Textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Opcional: cuéntanos para afinar las respuestas…"
+                      className="text-xs min-h-[60px]"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => { setShowCommentBox(false); setComment(""); }}>
+                        Cancelar
+                      </Button>
+                      <Button size="sm" disabled={submitting} onClick={() => sendFeedback(-1, true)}>
+                        Enviar
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
