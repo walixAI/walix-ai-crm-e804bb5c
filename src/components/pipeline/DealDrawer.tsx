@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Lock, Pencil, Save, Sparkles, X } from "lucide-react";
+import { ArrowRight, Lock, Pencil, Save, Sparkles, X } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { WBadge } from "@/components/walix/Badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  formatMXN, useDealActivity, useDealAiSuggestions, useUpdateDeal,
+  formatMXN, useDealActivity, useDealAiSuggestions, useUpdateDeal, useStageHistory,
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 import { relativeTime } from "@/mock/contacts";
@@ -54,6 +54,12 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
 
   const { data: activity = [] } = useDealActivity(deal?.id);
   const { data: aiSuggestions = [] } = useDealAiSuggestions(deal?.id, deal?.contactId);
+  const { data: stageHistory = [] } = useStageHistory(deal?.id);
+
+  const lastStageChangeAt = stageHistory[0]?.changedAt ?? deal?.updatedAt ?? null;
+  const daysInStage = lastStageChangeAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(lastStageChangeAt).getTime()) / 86_400_000))
+    : 0;
 
   if (!deal) return null;
 
@@ -122,9 +128,10 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
         </SheetHeader>
 
         <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mx-5 mt-3 grid grid-cols-3">
+          <TabsList className="mx-5 mt-3 grid grid-cols-4">
             <TabsTrigger value="summary">Resumen</TabsTrigger>
             <TabsTrigger value="activity">Actividad</TabsTrigger>
+            <TabsTrigger value="history">Historial</TabsTrigger>
             <TabsTrigger value="ai">IA</TabsTrigger>
           </TabsList>
 
@@ -201,6 +208,37 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
                       <div className="text-sm">{a.description}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{relativeTime(a.occurred_at)}</div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-3 m-0">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1">
+                  Tiempo en etapa actual
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold">{daysInStage}</span>
+                  <span className="text-sm text-muted-foreground">{daysInStage === 1 ? "día" : "días"} en "{deal.stageName}"</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Cambios de etapa
+                </div>
+                {stageHistory.length === 0 && (
+                  <div className="text-sm text-muted-foreground italic py-4 text-center">
+                    Sin historial de cambios.
+                  </div>
+                )}
+                {stageHistory.map((h) => (
+                  <div key={h.id} className="flex items-center gap-2 text-sm rounded-md border border-border bg-card px-3 py-2">
+                    <span className="text-muted-foreground">{h.fromStageName ?? "Inicio"}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium flex-1 truncate">{h.toStageName ?? "—"}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{relativeTime(h.changedAt)}</span>
                   </div>
                 ))}
               </div>
