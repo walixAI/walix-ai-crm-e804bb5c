@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContactDeals } from "@/lib/queries/contacts";
-import { usePipelineStages, useCreateDeal } from "@/lib/queries/pipeline";
+import { useStages, useCreateDeal } from "@/lib/queries/pipeline";
 import { useLinkDealToConversation } from "@/lib/queries/whatsapp";
 
 function fmt(n: number) {
@@ -29,7 +29,7 @@ interface Props {
 export function LinkDealDialog({ open, onOpenChange, conversationId, contactId, contactName, currentDealId }: Props) {
   const [tab, setTab] = useState<"link" | "create">("link");
   const { data: deals = [] } = useContactDeals(contactId);
-  const { data: stages = [] } = usePipelineStages();
+  const { data: stages = [] } = useStages();
   const link = useLinkDealToConversation();
   const create = useCreateDeal();
 
