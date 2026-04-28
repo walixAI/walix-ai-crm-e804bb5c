@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { AlertTriangle, Lightbulb, RefreshCw, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Lightbulb, RefreshCw, Sparkles, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { WBadge } from "@/components/walix/Badge";
-import { useAnalyzePipeline, type PipelineAnalysis } from "@/lib/queries/pipelineAi";
+import { useAnalyzePipeline, useBulkSuggest, type PipelineAnalysis } from "@/lib/queries/pipelineAi";
 import type { PipelineDeal } from "@/lib/queries/pipeline";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,7 @@ const sevToVariant = (s: "low" | "medium" | "high") =>
 export function AiInsightsPanel({ open, onClose, deals, contactLastActivityById }: Props) {
   const [analysis, setAnalysis] = useState<PipelineAnalysis | null>(null);
   const analyze = useAnalyzePipeline();
+  const bulk = useBulkSuggest();
 
   async function run() {
     if (deals.length === 0) {
@@ -32,6 +33,19 @@ export function AiInsightsPanel({ open, onClose, deals, contactLastActivityById 
       setAnalysis(result);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al analizar");
+    }
+  }
+
+  async function runBulk() {
+    if (deals.length === 0) {
+      toast.error("No hay deals para sugerir");
+      return;
+    }
+    try {
+      const r = await bulk.mutateAsync({ deals, contactLastActivityById });
+      toast.success(`${r.count} sugerencias generadas en las tarjetas`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al generar sugerencias");
     }
   }
 
@@ -137,6 +151,20 @@ export function AiInsightsPanel({ open, onClose, deals, contactLastActivityById 
               <Button variant="outline" size="sm" className="w-full" onClick={run} disabled={analyze.isPending}>
                 <RefreshCw className="h-3.5 w-3.5" /> Re-analizar
               </Button>
+
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Wand2 className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Sugerencias por deal</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Genera una recomendación específica para cada deal activo y muéstrala en su tarjeta del Kanban.
+                </p>
+                <Button size="sm" className="w-full bg-primary hover:bg-primary/90" onClick={runBulk} disabled={bulk.isPending}>
+                  <Wand2 className={cn("h-3.5 w-3.5", bulk.isPending && "animate-pulse")} />
+                  {bulk.isPending ? "Generando…" : "Generar sugerencias"}
+                </Button>
+              </div>
             </>
           )}
         </div>
