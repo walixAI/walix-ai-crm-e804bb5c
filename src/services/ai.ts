@@ -63,3 +63,58 @@ export function relativeTime(iso: string): string {
   const d = Math.round(h / 24);
   return `hace ${d} d`;
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Pipeline configuration suggestion (Onboarding)
+// ────────────────────────────────────────────────────────────────────────
+
+export interface SuggestedStage { name: string; probability: number }
+export interface SuggestedField { label: string; type: "text" | "number" | "date" | "select"; reason: string }
+export interface SuggestedAutomation { trigger: string; action: string }
+
+export interface PipelineSuggestion {
+  stages: SuggestedStage[];
+  customFields: SuggestedField[];
+  automations: SuggestedAutomation[];
+  source: "live" | "fallback";
+}
+
+const FALLBACK_SUGGESTION: Omit<PipelineSuggestion, "source"> = {
+  stages: [
+    { name: "Nuevo lead", probability: 10 },
+    { name: "Contactado", probability: 25 },
+    { name: "Cotización enviada", probability: 50 },
+    { name: "Negociación", probability: 70 },
+    { name: "Cerrado ganado", probability: 100 },
+    { name: "Cerrado perdido", probability: 0 },
+  ],
+  customFields: [
+    { label: "Presupuesto estimado", type: "number", reason: "Calificar leads por capacidad de compra." },
+    { label: "Fecha tentativa de cierre", type: "date", reason: "Pronosticar ingresos del mes." },
+    { label: "Origen del lead", type: "select", reason: "Saber qué canales convierten mejor." },
+  ],
+  automations: [
+    { trigger: "Lead nuevo sin atender >2h", action: "Notificar al vendedor y enviar mensaje de bienvenida." },
+    { trigger: "Deal sin actividad >7 días", action: "Crear tarea de seguimiento para el dueño." },
+    { trigger: "Cliente abre la cotización 3 veces", action: "Sugerir llamada inmediata al vendedor." },
+  ],
+};
+
+export async function suggestPipeline(business: string): Promise<PipelineSuggestion> {
+  try {
+    const { data, error } = await supabase.functions.invoke("pipeline-suggest", {
+      body: { business },
+    });
+    if (error) throw error;
+    if (!data?.stages?.length) throw new Error("Respuesta vacía");
+    return {
+      stages: data.stages,
+      customFields: data.customFields ?? [],
+      automations: data.automations ?? [],
+      source: "live",
+    };
+  } catch (err) {
+    console.warn("[ai.suggestPipeline] fallback:", err);
+    return { ...FALLBACK_SUGGESTION, source: "fallback" };
+  }
+}
