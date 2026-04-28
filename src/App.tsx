@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
-  Users, KanbanSquare, MessageCircle, BarChart3, Zap, Settings, Shield, Store
+  BarChart3, Zap, Settings, Shield, Store
 } from "lucide-react";
 
 import { useInitAuth } from "@/hooks/useAuth";
@@ -18,6 +18,7 @@ import Dashboard from "@/pages/app/Dashboard";
 import Contacts from "@/pages/app/Contacts";
 import ContactDetail from "@/pages/app/ContactDetail";
 import Pipeline from "@/pages/app/Pipeline";
+import Whatsapp from "@/pages/app/Whatsapp";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -36,7 +37,7 @@ const AppRoutes = () => {
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/contacts/:id" element={<ContactDetail />} />
         <Route path="/pipeline" element={<Pipeline />} />
-        <Route path="/whatsapp" element={<Stub icon={MessageCircle} title="WhatsApp" description="Bandeja unificada multi-agente con IA" badge="12 sin leer" />} />
+        <Route path="/whatsapp" element={<Whatsapp />} />
         <Route path="/reports" element={<Stub icon={BarChart3} title="Reportes & Analytics" description="Métricas en tiempo real, embudos y exportables" />} />
         <Route path="/automations" element={<Stub icon={Zap} title="Automatizaciones" description="Flujos no-code: triggers, condiciones y acciones con IA" />} />
         <Route path="/settings" element={
