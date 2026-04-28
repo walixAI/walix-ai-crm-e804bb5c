@@ -15,6 +15,9 @@ import { useAiDrawer } from "@/store/aiDrawer";
 import { QUICK_AI_PROMPTS } from "@/mock/ai";
 
 export function TopBar() {
+  // Intentionally untyped prop is ignored; the palette is opened via the
+  // global ⌘K shortcut handled in AppLayout. The kbd hint stays as a visual
+  // affordance that focusing the input also triggers IA suggestions.
   const { user } = useAuth();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, ChevronLeft } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/hooks/use-toast";
@@ -66,6 +66,9 @@ export default function Whatsapp() {
   const [summaryText, setSummaryText] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const aiMutation = useWhatsappAi();
+  // Track per-session conversations that already received an auto-draft so we
+  // don't re-spend credits when the user toggles back and forth.
+  const autoDraftedRef = useRef<Set<string>>(new Set());
 
   // load tenant id once
   useEffect(() => {
@@ -183,6 +186,36 @@ export default function Whatsapp() {
       toast({ title: "IA no disponible", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
     }
   };
+
+  // Auto-draft IA: cuando se abre una conversación cuyo último mensaje es
+  // entrante y aún no se respondió, generamos un borrador automáticamente.
+  // El vendedor todavía tiene que leerlo, editarlo y presionar Enviar.
+  useEffect(() => {
+    if (!activeConv || !messages.length) return;
+    if (autoDraftedRef.current.has(activeConv.id)) return;
+    if (draft.trim()) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.direction !== "inbound") return;
+    const ageH = (Date.now() - new Date(last.sentAt).getTime()) / 3_600_000;
+    if (ageH > 24 * 7) return;
+
+    autoDraftedRef.current.add(activeConv.id);
+    (async () => {
+      try {
+        const text = await aiMutation.mutateAsync({
+          mode: "suggest_reply",
+          conversationId: activeConv.id,
+          contactName: activeConv.contactName,
+          contactCompany: activeConv.contactCompany,
+        });
+        if (!draft.trim()) {
+          setDraft(text);
+          setAiDraftActive(true);
+          toast({ title: "Borrador IA listo", description: "Revisa y edita antes de enviar." });
+        }
+      } catch (_) { /* opportunistic, ignore */ }
+    })();
+  }, [activeConv?.id, messages.length]); // eslint-disable-line
 
   // Mobile flow: when a conv is selected, hide the list
   const showList = !isMobile || !activeId;
