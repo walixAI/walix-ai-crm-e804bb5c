@@ -20,6 +20,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { DashboardAiSection } from "@/components/walix/DashboardAiSection";
+import { KpiCardsSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
 
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
@@ -55,8 +56,8 @@ export default function Dashboard() {
   const openDrawer = useAiDrawer((s) => s.openDrawer);
   const [showAlert, setShowAlert] = useState(true);
 
-  const { data: kpis } = useDashboardKpis();
-  const { data: activity = [] } = useRecentActivity(10);
+  const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
+  const { data: activity = [], isLoading: activityLoading } = useRecentActivity(10);
   const { data: aiSuggestions = [] } = useDashboardAiSuggestions();
   const { data: pipelineByStage = [] } = usePipelineByStage();
   const { data: dealsTimeline = [] } = useDealsClosedTimeline(30);
@@ -114,6 +115,9 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards */}
+      {kpisLoading && !kpis ? (
+        <KpiCardsSkeleton />
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiData.map((k) => {
           const Icon = k.icon;
@@ -147,6 +151,7 @@ export default function Dashboard() {
           );
         })}
       </div>
+      )}
 
       {/* AI Intelligence section: health, opportunities, risks, summary, weekly report */}
       <DashboardAiSection />
@@ -163,7 +168,11 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" className="text-primary">Ver todo</Button>
           </div>
           <div className="divide-y divide-border">
-            {activity.map((a) => {
+            {activityLoading && activity.length === 0 ? (
+              <ListRowsSkeleton rows={5} />
+            ) : (
+              <>
+              {activity.map((a) => {
               const meta = activityIcon[a.type] ?? activityIcon.note;
               const ActIcon = meta.icon;
               return (
@@ -199,6 +208,8 @@ export default function Dashboard() {
             })}
             {activity.length === 0 && (
               <div className="px-5 py-8 text-center text-sm text-muted-foreground">Sin actividad reciente.</div>
+            )}
+              </>
             )}
           </div>
         </div>
