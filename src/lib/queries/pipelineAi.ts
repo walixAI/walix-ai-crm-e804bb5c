@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { PipelineDeal } from "@/lib/queries/pipeline";
 import { computeDealHealth } from "@/lib/dealHealth";
@@ -78,5 +78,68 @@ export function useScoreProbability() {
         deal: dealLite(args.deal, args.lastActivityAt),
       });
     },
+  });
+}
+
+export interface DealAiSuggestion {
+  id: string;
+  dealId: string;
+  text: string;
+  cta: string | null;
+  urgency: "low" | "medium" | "high";
+}
+
+function urgencyFromKind(kind: string | null): "low" | "medium" | "high" {
+  if (kind?.endsWith("_high")) return "high";
+  if (kind?.endsWith("_medium")) return "medium";
+  return "low";
+}
+
+export function useAiSuggestionsByDeal() {
+  return useQuery({
+    queryKey: ["pipeline-ai-suggestions-map"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_suggestions")
+        .select("id, deal_id, text, cta, kind, dismissed")
+        .like("kind", "ai_next_step_%")
+        .eq("dismissed", false)
+        .not("deal_id", "is", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map = new Map<string, DealAiSuggestion>();
+      for (const r of data ?? []) {
+        if (!r.deal_id || map.has(r.deal_id)) continue;
+        map.set(r.deal_id, {
+          id: r.id, dealId: r.deal_id, text: r.text, cta: r.cta,
+          urgency: urgencyFromKind(r.kind),
+        });
+      }
+      return map;
+    },
+  });
+}
+
+export function useBulkSuggest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { deals: PipelineDeal[]; contactLastActivityById: Map<string, string | null> }) => {
+      const lite = args.deals
+        .filter(d => !d.isWon && !d.isLost)
+        .map(d => dealLite(d, d.contactId ? args.contactLastActivityById.get(d.contactId) : null));
+      return invoke<{ count: number }>({ mode: "bulk_suggest", deals: lite });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline-ai-suggestions-map"] }),
+  });
+}
+
+export function useDismissSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("ai_suggestions").update({ dismissed: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline-ai-suggestions-map"] }),
   });
 }
