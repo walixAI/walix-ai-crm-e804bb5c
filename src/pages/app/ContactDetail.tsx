@@ -1,10 +1,13 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, MessageCircle, FileText, PanelLeft, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { contacts, getContactStats, getContactActivity, getContactDeals, getContactConversations, relativeTime } from "@/mock/contacts";
+import { relativeTime } from "@/mock/contacts";
+import {
+  useContact, useContactDeals, useContactActivity,
+  useContactConversations, useContactStats,
+} from "@/lib/queries/contacts";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
 import { ContactStatsBar } from "@/components/contacts/detail/ContactStatsBar";
@@ -15,11 +18,25 @@ import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
 
 export default function ContactDetail() {
   const { id } = useParams();
-  const contact = contacts.find(c => c.id === id) ?? contacts[0];
-  const stats = getContactStats(contact.id);
-  const activity = getContactActivity(contact.id);
-  const deals = getContactDeals(contact.id);
-  const convs = getContactConversations(contact.id);
+  const { data: contact, isLoading } = useContact(id);
+  const { data: deals = [] } = useContactDeals(id);
+  const { data: activity = [] } = useContactActivity(id);
+  const { data: convs = [] } = useContactConversations(id);
+  const stats = useContactStats(id, contact?.lastActivity, contact?.createdAt);
+
+  if (isLoading) {
+    return <div className="p-8 text-sm text-muted-foreground">Cargando contacto…</div>;
+  }
+  if (!contact) {
+    return (
+      <div className="p-8 space-y-3">
+        <Link to="/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> Contactos
+        </Link>
+        <p className="text-sm">Contacto no encontrado.</p>
+      </div>
+    );
+  }
 
   const openWA = () => window.open(`https://wa.me/${contact.phone.replace(/[^0-9]/g, "")}`, "_blank");
 
@@ -30,7 +47,12 @@ export default function ContactDetail() {
       </Link>
 
       <ContactHeader contact={contact} onWhatsApp={openWA} />
-      <ContactStatsBar stats={stats} />
+      <ContactStatsBar stats={{
+        pipelineValue: stats.pipelineValue,
+        probability: stats.probability,
+        lastContactRelative: stats.lastContactAt ? relativeTime(stats.lastContactAt) : "—",
+        customerSince: stats.customerSince,
+      }} />
 
       {/* Mobile: paneles como sheets */}
       <div className="flex gap-2 lg:hidden">
@@ -63,7 +85,7 @@ export default function ContactDetail() {
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
-              <SummaryTab contact={contact} onWhatsApp={openWA} />
+              <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} />
             </TabsContent>
 
             <TabsContent value="conversations" className="mt-4">
@@ -73,11 +95,14 @@ export default function ContactDetail() {
                     <div className="h-10 w-10 rounded-full bg-success/10 grid place-items-center"><MessageCircle className="h-5 w-5 text-success" /></div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm truncate">{c.preview}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{c.time}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{relativeTime(c.lastAt)}</div>
                     </div>
                     {c.unread > 0 && <span className="h-5 min-w-5 px-1.5 rounded-full bg-success text-success-foreground text-[10px] font-bold grid place-items-center">{c.unread}</span>}
                   </div>
                 ))}
+                {convs.length === 0 && (
+                  <div className="p-8 text-center text-sm text-muted-foreground">Sin conversaciones todavía.</div>
+                )}
               </div>
             </TabsContent>
 
@@ -103,6 +128,11 @@ export default function ContactDetail() {
                     </div>
                   </div>
                 ))}
+                {deals.length === 0 && (
+                  <div className="md:col-span-2 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                    Sin deals para este contacto.
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -124,6 +154,9 @@ export default function ContactDetail() {
                       </div>
                     </div>
                   ))}
+                  {activity.length === 0 && (
+                    <div className="text-sm text-muted-foreground italic">Aún no hay actividad registrada.</div>
+                  )}
                 </div>
               </div>
             </TabsContent>
