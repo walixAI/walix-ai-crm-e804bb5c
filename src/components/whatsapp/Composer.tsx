@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Paperclip, Smile, Send, StickyNote, Sparkles, FileText } from "lucide-react";
+import { Paperclip, Smile, Send, StickyNote, Sparkles, FileText, Slash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -15,11 +15,14 @@ interface Props {
   onAiSummarize?: () => void;
   onAiPrompt?: (prompt: string) => void;
   aiLoading?: boolean;
+  onOpenTemplates?: () => void;
+  onPickTemplate?: (t: MessageTemplate) => void;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
+  onOpenTemplates, onPickTemplate,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -63,7 +66,11 @@ export function Composer({
   };
 
   const insertTemplate = (t: MessageTemplate) => {
-    onDraftChange(t.content);
+    if (onPickTemplate) {
+      onPickTemplate(t);
+    } else {
+      onDraftChange(t.content);
+    }
     setShowTemplates(false);
     setTimeout(() => taRef.current?.focus(), 0);
   };
@@ -124,6 +131,9 @@ export function Composer({
         </Button>
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Emoji">
           <Smile className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Plantillas" onClick={onOpenTemplates}>
+          <Slash className="h-4 w-4" />
         </Button>
         <Button
           variant={internal ? "default" : "ghost"}
