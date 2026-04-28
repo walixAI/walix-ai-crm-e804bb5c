@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
         .order("amount", { ascending: false })
         .limit(40),
       supabase.from("conversations")
-        .select("id, contact_id, status, unread_count, last_message_preview, last_message_at, assignee_id")
+        .select("id, contact_id, status, unread_count, preview, last_message_at, assignee_id")
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(30),
       supabase.from("contacts")
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
       `## Conversaciones recientes (max 10)`,
       ...convos.slice(0, 10).map((c: any) => {
         const cn = contacts.find((k: any) => k.id === c.contact_id);
-        return `- ${cn?.name ?? "—"} · estado ${c.status ?? "—"} · sin leer ${c.unread_count ?? 0} · "${(c.last_message_preview ?? "").slice(0, 60)}"`;
+        return `- ${cn?.name ?? "—"} · estado ${c.status ?? "—"} · sin leer ${c.unread_count ?? 0} · "${(c.preview ?? "").slice(0, 60)}"`;
       }),
     ].join("\n");
 
