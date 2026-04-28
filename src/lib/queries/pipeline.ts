@@ -3,6 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { sellers } from "@/mock/contacts";
 
+export interface Pipeline {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  position: number;
+}
+
 export interface PipelineStage {
   id: string;
   name: string;
@@ -10,6 +17,7 @@ export interface PipelineStage {
   color: string;
   isWon: boolean;
   isLost: boolean;
+  pipelineId: string | null;
 }
 
 export interface PipelineDeal {
@@ -71,14 +79,32 @@ function mapDeal(r: any): PipelineDeal {
   };
 }
 
-export function useStages() {
+export function usePipelines() {
   return useQuery({
-    queryKey: ["pipeline-stages"],
-    queryFn: async (): Promise<PipelineStage[]> => {
+    queryKey: ["pipelines"],
+    queryFn: async (): Promise<Pipeline[]> => {
       const { data, error } = await supabase
+        .from("pipelines")
+        .select("*")
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({
+        id: p.id, name: p.name, isDefault: !!p.is_default, position: p.position,
+      }));
+    },
+  });
+}
+
+export function useStages(pipelineId?: string | null) {
+  return useQuery({
+    queryKey: ["pipeline-stages", pipelineId ?? "all"],
+    queryFn: async (): Promise<PipelineStage[]> => {
+      let query = supabase
         .from("pipeline_stages")
         .select("*")
         .order("position", { ascending: true });
+      if (pipelineId) query = query.eq("pipeline_id", pipelineId);
+      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []).map((s: any) => ({
         id: s.id,
@@ -87,9 +113,101 @@ export function useStages() {
         color: s.color ?? "hsl(220 13% 65%)",
         isWon: !!s.is_won,
         isLost: !!s.is_lost,
+        pipelineId: s.pipeline_id ?? null,
       }));
     },
   });
+}
+
+export function useCreatePipeline() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      if (!tenantId) throw new Error("No hay tenant activo");
+      const { data: existing } = await supabase
+        .from("pipelines")
+        .select("position")
+        .order("position", { ascending: false })
+        .limit(1);
+      const nextPos = (existing?.[0]?.position ?? -1) + 1;
+      const { data, error } = await supabase
+        .from("pipelines")
+        .insert({ tenant_id: tenantId, name, is_default: false, position: nextPos })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipelines"] }),
+  });
+}
+
+export function useRenamePipeline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { id: string; name: string }) => {
+      const { error } = await supabase.from("pipelines").update({ name: args.name }).eq("id", args.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipelines"] }),
+  });
+}
+
+export function useDeletePipeline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("pipelines").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipelines"] });
+      qc.invalidateQueries({ queryKey: ["pipeline-stages"] });
+    },
+  });
+}
+
+export interface StageHistoryRow {
+  id: string;
+  fromStageId: string | null;
+  toStageId: string | null;
+  fromStageName: string | null;
+  toStageName: string | null;
+  changedAt: string;
+}
+
+export function useStageHistory(dealId: string | undefined) {
+  return useQuery({
+    queryKey: ["deal-stage-history", dealId],
+    enabled: !!dealId,
+    queryFn: async (): Promise<StageHistoryRow[]> => {
+      const { data, error } = await supabase
+        .from("deal_stage_history")
+        .select("*")
+        .eq("deal_id", dealId!)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        fromStageId: r.from_stage_id,
+        toStageId: r.to_stage_id,
+        fromStageName: r.from_stage_name,
+        toStageName: r.to_stage_name,
+        changedAt: r.changed_at,
+      }));
+    },
+  });
+}
+
+/**
+ * Days the deal has been sitting in its current stage,
+ * computed from the latest deal_stage_history entry. Falls back to deal.updatedAt.
+ */
+export function useDaysInCurrentStage(dealId: string | undefined, fallbackIso: string) {
+  const { data: history } = useStageHistory(dealId);
+  const lastChange = history?.[0]?.changedAt ?? fallbackIso;
+  return daysSince(lastChange);
 }
 
 export function useDeals() {
