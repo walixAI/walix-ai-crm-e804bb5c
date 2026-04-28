@@ -5,7 +5,11 @@ import { KanbanBoard } from "@/components/pipeline/KanbanBoard";
 import { DealsListView } from "@/components/pipeline/DealsListView";
 import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
-import { emptyFilters, type PipelineFiltersValue } from "@/components/pipeline/PipelineFilters";
+import { type PipelineFiltersValue } from "@/components/pipeline/PipelineFilters";
+import { LostReasonDialog } from "@/components/pipeline/LostReasonDialog";
+import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { BulkActionsBar } from "@/components/pipeline/BulkActionsBar";
+import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite,
   type PipelineDeal, type PipelineStage,
@@ -18,11 +22,53 @@ export default function Pipeline() {
   const { data: unreadByContact = new Map() } = useUnreadByContactMap();
   const { data: contacts = [] } = useContactsLite();
 
-  const [view, setView] = useState<"kanban" | "list">("kanban");
-  const [filters, setFilters] = useState<PipelineFiltersValue>(emptyFilters);
+  const [prefs, setPrefs] = usePipelinePrefs();
+
+  // Hydrate filters from prefs (Date is serialized as ISO)
+  const filters: PipelineFiltersValue = useMemo(() => ({
+    ownerName: prefs.filters.ownerName,
+    amountMin: prefs.filters.amountMin,
+    amountMax: prefs.filters.amountMax,
+    closeBefore: prefs.filters.closeBefore ? new Date(prefs.filters.closeBefore) : undefined,
+    source: prefs.filters.source,
+    tag: prefs.filters.tag,
+  }), [prefs.filters]);
+
+  const setFilters = (v: PipelineFiltersValue) =>
+    setPrefs({
+      ...prefs,
+      filters: {
+        ownerName: v.ownerName,
+        amountMin: v.amountMin,
+        amountMax: v.amountMax,
+        closeBefore: v.closeBefore ? v.closeBefore.toISOString() : null,
+        source: v.source,
+        tag: v.tag,
+      },
+    });
+
+  const view = prefs.view;
+  const setView = (v: "kanban" | "list") => setPrefs({ ...prefs, view: v });
+  const search = prefs.search;
+  const setSearch = (v: string) => setPrefs({ ...prefs, search: v });
+
   const [newDealOpen, setNewDealOpen] = useState(false);
   const [newDealStage, setNewDealStage] = useState<string | null>(null);
   const [openDeal, setOpenDeal] = useState<PipelineDeal | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lostDeal, setLostDeal] = useState<PipelineDeal | null>(null);
+  const [taskDeal, setTaskDeal] = useState<PipelineDeal | null>(null);
+
+  const lostStage = stages.find((s) => s.isLost) ?? null;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const contactById = useMemo(() => {
     const m = new Map(contacts.map(c => [c.id, c]));
@@ -38,6 +84,7 @@ export default function Pipeline() {
   const contactLastActivityAt = (id: string | null) => (id ? contactById.get(id)?.lastActivityAt ?? null : null);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return deals.filter(d => {
       if (filters.ownerName !== "all" && d.ownerName !== filters.ownerName) return false;
       if (filters.amountMin && d.amount < Number(filters.amountMin)) return false;
@@ -45,9 +92,14 @@ export default function Pipeline() {
       if (filters.closeBefore && d.expectedCloseDate && new Date(d.expectedCloseDate) > filters.closeBefore) return false;
       if (filters.source !== "all" && d.source !== filters.source) return false;
       if (filters.tag && !d.name.toLowerCase().includes(filters.tag.toLowerCase()) && !(d.notes ?? "").toLowerCase().includes(filters.tag.toLowerCase())) return false;
+      if (q) {
+        const cName = contactName(d.contactId)?.toLowerCase() ?? "";
+        const hay = `${d.name} ${d.notes ?? ""} ${cName}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [deals, filters]);
+  }, [deals, filters, search, contactById]);
 
   const activeDeals = filtered.filter(d => !d.isWon && !d.isLost);
   const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
@@ -89,6 +141,8 @@ export default function Pipeline() {
         onView={setView}
         filters={filters}
         onFilters={setFilters}
+        search={search}
+        onSearch={setSearch}
         onNew={() => openNewDeal()}
         totalAmount={totalAmount}
         weightedAmount={weightedAmount}
@@ -108,6 +162,10 @@ export default function Pipeline() {
           unreadByContact={unreadByContact}
           onOpenDeal={setOpenDeal}
           onAddDeal={openNewDeal}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onRequestLost={setLostDeal}
+          onNewTask={setTaskDeal}
         />
       ) : (
         <DealsListView deals={filtered} contactName={contactName} onOpenDeal={setOpenDeal} />
@@ -126,6 +184,25 @@ export default function Pipeline() {
         open={!!openDeal}
         onClose={() => setOpenDeal(null)}
         contactName={openDeal ? contactName(openDeal.contactId) : undefined}
+      />
+
+      <LostReasonDialog
+        open={!!lostDeal}
+        deal={lostDeal}
+        lostStage={lostStage}
+        onClose={() => setLostDeal(null)}
+      />
+
+      <QuickTaskDialog
+        open={!!taskDeal}
+        deal={taskDeal}
+        onClose={() => setTaskDeal(null)}
+      />
+
+      <BulkActionsBar
+        selectedIds={Array.from(selectedIds)}
+        stages={stages}
+        onClear={() => setSelectedIds(new Set())}
       />
     </div>
   );
