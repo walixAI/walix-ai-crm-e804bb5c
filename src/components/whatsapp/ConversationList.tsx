@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 import { useMessageSearch } from "@/lib/queries/whatsapp";
+import { ConversationListSkeleton } from "@/components/walix/Skeletons";
 
 type Tab = "all" | "mine" | "unassigned" | "resolved";
 
@@ -114,9 +115,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
 
       {/* List */}
       <ScrollArea className="flex-1">
-        {loading && (
-          <div className="p-6 text-sm text-muted-foreground text-center">Cargando…</div>
-        )}
+        {loading && <ConversationListSkeleton rows={8} />}
         {!loading && filtered.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground text-center">Sin conversaciones</div>
         )}

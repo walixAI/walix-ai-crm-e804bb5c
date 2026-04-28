@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { fetchAiInbox, AI_MODEL_LABEL, type AiInboxItem, type AiInboxCategory } from "@/services/ai";
+import { AiInboxSkeleton } from "@/components/walix/Skeletons";
 
 const TABS: { id: "all" | AiInboxCategory; label: string }[] = [
   { id: "all", label: "Todos" },
@@ -146,12 +147,7 @@ export default function AiInbox() {
 
       <ScrollArea className="flex-1">
         <div className="p-6 max-w-4xl mx-auto">
-          {loading && (
-            <div className="flex items-center justify-center py-16 text-muted-foreground gap-2 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Analizando tu CRM…
-            </div>
-          )}
+          {loading && <AiInboxSkeleton rows={5} />}
 
           {!loading && visible.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">

@@ -3,6 +3,7 @@ import { Check, CheckCheck, FileText, MapPin, Image as ImageIcon, Mic, StickyNot
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { MessageItem } from "@/lib/queries/whatsapp";
+import { MessageListSkeleton } from "@/components/walix/Skeletons";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -81,7 +82,7 @@ export function MessageList({ messages, loading }: { messages: MessageItem[]; lo
   }, [messages.length]);
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Cargando mensajes…</div>;
+    return <MessageListSkeleton rows={6} />;
   }
   if (!messages.length) {
     return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Sin mensajes todavía</div>;

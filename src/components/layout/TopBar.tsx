@@ -1,4 +1,4 @@
-import { Bell, Sparkles, Menu, LogOut, User as UserIcon, Inbox } from "lucide-react";
+import { Bell, Sparkles, Menu, LogOut, User as UserIcon, Inbox, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -72,7 +72,7 @@ export function TopBar() {
         </div>
       </div>
 
-      <form onSubmit={submitPrompt} className="flex-1 max-w-2xl" ref={wrapRef as any}>
+      <form onSubmit={submitPrompt} className="flex-1 max-w-2xl" ref={wrapRef as any} data-tour="ai-prompt">
         <div className={`relative group transition-all duration-200 ${focused ? "scale-[1.01]" : ""}`}>
           <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />
           <Input
@@ -115,7 +115,7 @@ export function TopBar() {
         </div>
       </form>
 
-      <Button variant="ghost" size="icon" className="relative">
+      <Button variant="ghost" size="icon" className="relative" data-tour="notifications">
         <Bell className="h-5 w-5" />
         <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-danger" />
       </Button>
@@ -137,6 +137,11 @@ export function TopBar() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem><UserIcon className="h-4 w-4 mr-2" /> Perfil</DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => window.dispatchEvent(new CustomEvent("walix:restart-tour"))}
+          >
+            <HelpCircle className="h-4 w-4 mr-2" /> Ver tour de bienvenida
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOut} className="text-danger focus:text-danger">
             <LogOut className="h-4 w-4 mr-2" /> Cerrar sesión
