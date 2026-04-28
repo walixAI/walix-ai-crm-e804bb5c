@@ -18,8 +18,22 @@ import { mockAiResponse, mockDealScore } from "@/mock/ai";
 
 export const AI_MODEL_LABEL = "Claude Sonnet";
 
+export type AiActionType =
+  | "open_deal"
+  | "open_contact"
+  | "open_conversation"
+  | "open_pipeline"
+  | "open_inbox";
+
+export interface AiAction {
+  label: string;
+  type: AiActionType;
+  id?: string;
+}
+
 export interface AskAiResult {
   text: string;
+  actions: AiAction[];
   source: "live" | "fallback";
 }
 
@@ -36,11 +50,11 @@ export async function askAi(opts: {
       body: { mode: "ask", prompt: opts.prompt, history: opts.history ?? [] },
     });
     if (error) throw error;
-    if (data?.text) return { text: data.text, source: "live" };
+    if (data?.text) return { text: data.text, actions: Array.isArray(data.actions) ? data.actions : [], source: "live" };
     throw new Error("Respuesta vacía");
   } catch (err) {
     console.warn("[ai.askAi] fallback to mock:", err);
-    return { text: mockAiResponse(opts.prompt), source: "fallback" };
+    return { text: mockAiResponse(opts.prompt), actions: [], source: "fallback" };
   }
 }
 
