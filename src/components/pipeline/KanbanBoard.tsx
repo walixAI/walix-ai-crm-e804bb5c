@@ -17,6 +17,7 @@ interface Props {
   deals: PipelineDeal[];
   contactName: (id: string | null) => string | undefined;
   contactColor: (id: string | null) => string | null | undefined;
+  contactLastActivityAt: (id: string | null) => string | null | undefined;
   tasksByDeal: Map<string, DealTaskRow[]>;
   unreadByContact: Map<string, number>;
   onOpenDeal: (deal: PipelineDeal) => void;
@@ -68,6 +69,7 @@ export function KanbanBoard(props: Props) {
             deals={deals.filter(d => d.stageId === stage.id)}
             contactName={props.contactName}
             contactColor={props.contactColor}
+            contactLastActivityAt={props.contactLastActivityAt}
             tasksByDeal={props.tasksByDeal}
             unreadByContact={props.unreadByContact}
             onOpenDeal={props.onOpenDeal}
@@ -101,6 +103,7 @@ export function KanbanBoard(props: Props) {
               deal={active}
               contactName={props.contactName(active.contactId)}
               contactColor={props.contactColor(active.contactId)}
+              contactLastActivityAt={props.contactLastActivityAt(active.contactId)}
               tasks={props.tasksByDeal.get(active.id)}
               unread={active.contactId ? props.unreadByContact.get(active.contactId) ?? 0 : 0}
               onOpen={() => {}}
