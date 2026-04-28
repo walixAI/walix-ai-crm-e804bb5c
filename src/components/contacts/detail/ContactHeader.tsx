@@ -2,11 +2,12 @@ import { MessageCircle, Edit, MoreHorizontal, Plus } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Contact, statusBadgeClass, getTagMeta } from "@/mock/contacts";
+import { statusBadgeClass, getTagMeta } from "@/mock/contacts";
+import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  contact: Contact;
+  contact: ContactRow;
   onWhatsApp: () => void;
 }
 

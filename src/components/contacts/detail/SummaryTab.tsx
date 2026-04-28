@@ -1,7 +1,9 @@
 import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Contact, getContactActivity, relativeTime } from "@/mock/contacts";
+import { relativeTime } from "@/mock/contacts";
+import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
+import { useContactAiSuggestions } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -12,10 +14,12 @@ const iconMap = {
   task: { Icon: CheckCircle2, bg: "bg-muted", color: "text-muted-foreground" },
 };
 
-interface Props { contact: Contact; onWhatsApp: () => void }
+interface Props { contact: ContactRow; onWhatsApp: () => void; activity: ActivityRow[] }
 
-export function SummaryTab({ contact, onWhatsApp }: Props) {
-  const activity = getContactActivity(contact.id).slice(0, 5);
+export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
+  const { data: suggestions = [] } = useContactAiSuggestions(contact.id);
+  const top = suggestions[0];
+  const recent = activity.slice(0, 5);
 
   return (
     <div className="space-y-4">
@@ -28,11 +32,11 @@ export function SummaryTab({ contact, onWhatsApp }: Props) {
           <span className="text-xs font-semibold text-primary uppercase tracking-wide">Próximo paso sugerido</span>
         </div>
         <p className="text-sm leading-relaxed">
-          Han pasado <strong>3 días</strong> sin contacto con <strong>{contact.name}</strong>. Envíale el catálogo que pidió — mostró interés en la propuesta de <strong>$25,000</strong>.
+          {top ? top.text : `Sin sugerencias activas para ${contact.name} por ahora.`}
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
           <Button onClick={onWhatsApp} size="sm" className="bg-success hover:bg-success/90 text-success-foreground h-8">
-            <Send className="h-3.5 w-3.5" /> Enviar por WhatsApp
+            <Send className="h-3.5 w-3.5" /> {top?.cta ?? "Enviar por WhatsApp"}
           </Button>
           <Button variant="outline" size="sm" className="h-8">Agendar llamada</Button>
           <Button variant="ghost" size="sm" className="h-8">Otra sugerencia</Button>
@@ -44,7 +48,7 @@ export function SummaryTab({ contact, onWhatsApp }: Props) {
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Últimos eventos</h3>
         <div className="relative">
           <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
-          {activity.map(a => {
+          {recent.map(a => {
             const { Icon, bg, color } = iconMap[a.type];
             return (
               <div key={a.id} className="relative flex gap-4 pb-4 last:pb-0">
@@ -61,6 +65,9 @@ export function SummaryTab({ contact, onWhatsApp }: Props) {
               </div>
             );
           })}
+          {recent.length === 0 && (
+            <div className="text-sm text-muted-foreground italic">Aún no hay eventos.</div>
+          )}
         </div>
       </div>
     </div>

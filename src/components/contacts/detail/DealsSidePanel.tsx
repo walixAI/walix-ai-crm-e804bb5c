@@ -1,10 +1,10 @@
 import { CheckCircle2, Plus } from "lucide-react";
-import { getContactDeals } from "@/mock/contacts";
+import { useContactDeals } from "@/lib/queries/contacts";
 
 interface Props { contactId: string }
 
 export function DealsSidePanel({ contactId }: Props) {
-  const deals = getContactDeals(contactId);
+  const { data: deals = [] } = useContactDeals(contactId);
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-border bg-card overflow-hidden shadow-card">
