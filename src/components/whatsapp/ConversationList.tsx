@@ -114,9 +114,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
 
       {/* List */}
       <ScrollArea className="flex-1">
-        {loading && (
-          <div className="p-6 text-sm text-muted-foreground text-center">Cargando…</div>
-        )}
+        {loading && <ConversationListSkeleton rows={8} />}
         {!loading && filtered.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground text-center">Sin conversaciones</div>
         )}
