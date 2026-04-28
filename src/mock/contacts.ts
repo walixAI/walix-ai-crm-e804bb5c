@@ -29,6 +29,44 @@ export const sellers = [
 
 export const allTags = ["cliente", "prospecto", "inactivo", "vip", "frio", "caliente", "recompra"];
 
+export type TagFamily = "temperature" | "cycle" | "special";
+
+export const tagMeta: Record<string, { family: TagFamily; icon: string; className: string }> = {
+  caliente:  { family: "temperature", icon: "🔥", className: "bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400" },
+  tibio:     { family: "temperature", icon: "♨️", className: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400" },
+  frio:      { family: "temperature", icon: "❄️", className: "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400" },
+  cliente:   { family: "cycle",       icon: "✓",  className: "bg-success/10 text-success border-success/20" },
+  prospecto: { family: "cycle",       icon: "◐",  className: "bg-primary/10 text-primary border-primary/20" },
+  inactivo:  { family: "cycle",       icon: "○",  className: "bg-muted text-muted-foreground border-border" },
+  vip:       { family: "special",     icon: "⭐", className: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400" },
+  referido:  { family: "special",     icon: "🤝", className: "bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400" },
+  recompra:  { family: "special",     icon: "🔁", className: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:text-indigo-400" },
+};
+
+export function getTagMeta(tag: string) {
+  return tagMeta[tag] ?? { family: "special" as TagFamily, icon: "#", className: "bg-muted text-muted-foreground border-border" };
+}
+
+export interface ContactStats {
+  pipelineValue: number;
+  probability: number;
+  lastContactRelative: string;
+  customerSince: string;
+}
+
+export function getContactStats(contactId: string): ContactStats {
+  const deals = getContactDeals(contactId);
+  const pipelineValue = deals.reduce((s, d) => s + d.amount, 0);
+  const probability = deals.length ? Math.round(deals.reduce((s, d) => s + d.probability, 0) / deals.length) : 0;
+  const c = contacts.find(x => x.id === contactId);
+  return {
+    pipelineValue,
+    probability,
+    lastContactRelative: c ? relativeTime(c.lastActivity) : "—",
+    customerSince: c ? new Date(c.createdAt).toLocaleDateString("es-MX", { month: "short", year: "numeric" }) : "—",
+  };
+}
+
 const firstNames = ["Lucía", "Pedro", "Mariana", "Roberto", "Sofía", "Andrés", "Gabriela", "José", "Laura", "Miguel", "Patricia", "Javier", "Daniela", "Ricardo", "Karla", "Fernando", "Adriana", "Sergio", "Valeria", "Eduardo", "Paola", "Héctor", "Ximena", "Raúl", "Beatriz"];
 const lastNames = ["Hernández", "García", "Martínez", "Rodríguez", "Sánchez", "Ramírez", "López", "González", "Pérez", "Torres", "Flores", "Vega", "Ortiz", "Castillo", "Mendoza"];
 const companies = ["Tacos El Güero", "Restaurante La Plaza", "Hotel Misión", "Ferretería Norte", "Boutique Andrea", "Café Central", "Distribuidora MX", "Refaccionaria San Juan", "Panadería Doña Lupe", "Lavandería Express", "—"];
