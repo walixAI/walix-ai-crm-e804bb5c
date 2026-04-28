@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatMXN, type DealTaskRow, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
 import { DealCard } from "./DealCard";
+import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 
 interface Props {
   stage: PipelineStage;
@@ -14,6 +15,7 @@ interface Props {
   contactLastActivityAt: (id: string | null) => string | null | undefined;
   tasksByDeal: Map<string, DealTaskRow[]>;
   unreadByContact: Map<string, number>;
+  aiSuggestionsByDeal: Map<string, DealAiSuggestion>;
   onOpenDeal: (deal: PipelineDeal) => void;
   onAddDeal: (stage: PipelineStage) => void;
   selectedIds: Set<string>;
@@ -25,7 +27,7 @@ interface Props {
 }
 
 export function KanbanColumn({
-  stage, allStages, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact,
+  stage, allStages, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, aiSuggestionsByDeal,
   onOpenDeal, onAddDeal, selectedIds, onToggleSelect, selectionActive, onRequestLost, onNewTask, wipLimit = 10,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage } });
@@ -84,6 +86,7 @@ export function KanbanColumn({
             contactLastActivityAt={contactLastActivityAt(d.contactId)}
             tasks={tasksByDeal.get(d.id)}
             unread={d.contactId ? unreadByContact.get(d.contactId) ?? 0 : 0}
+            aiSuggestion={aiSuggestionsByDeal.get(d.id)}
             onOpen={onOpenDeal}
             selected={selectedIds.has(d.id)}
             onToggleSelect={onToggleSelect}

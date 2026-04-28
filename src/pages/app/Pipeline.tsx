@@ -11,6 +11,7 @@ import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { BulkActionsBar } from "@/components/pipeline/BulkActionsBar";
 import { PipelineManagerDialog } from "@/components/pipeline/PipelineManagerDialog";
 import { AiInsightsPanel } from "@/components/pipeline/AiInsightsPanel";
+import { useAiSuggestionsByDeal } from "@/lib/queries/pipelineAi";
 import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
@@ -40,6 +41,7 @@ export default function Pipeline() {
   const { data: tasksByDeal = new Map() } = useDealTasksMap();
   const { data: unreadByContact = new Map() } = useUnreadByContactMap();
   const { data: contacts = [] } = useContactsLite();
+  const { data: aiSuggestionsByDeal = new Map() } = useAiSuggestionsByDeal();
 
   // Hydrate filters from prefs (Date is serialized as ISO)
   const filters: PipelineFiltersValue = useMemo(() => ({
@@ -193,6 +195,7 @@ export default function Pipeline() {
           contactLastActivityAt={contactLastActivityAt}
           tasksByDeal={tasksByDeal}
           unreadByContact={unreadByContact}
+          aiSuggestionsByDeal={aiSuggestionsByDeal}
           onOpenDeal={setOpenDeal}
           onAddDeal={openNewDeal}
           selectedIds={selectedIds}

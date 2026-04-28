@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries/pipeline";
 import { KanbanColumn } from "./KanbanColumn";
 import { DealCard } from "./DealCard";
+import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 
 interface Props {
   stages: PipelineStage[];
@@ -20,6 +21,7 @@ interface Props {
   contactLastActivityAt: (id: string | null) => string | null | undefined;
   tasksByDeal: Map<string, DealTaskRow[]>;
   unreadByContact: Map<string, number>;
+  aiSuggestionsByDeal: Map<string, DealAiSuggestion>;
   onOpenDeal: (deal: PipelineDeal) => void;
   onAddDeal: (stage: PipelineStage) => void;
   selectedIds: Set<string>;
@@ -83,6 +85,7 @@ export function KanbanBoard(props: Props) {
             contactLastActivityAt={props.contactLastActivityAt}
             tasksByDeal={props.tasksByDeal}
             unreadByContact={props.unreadByContact}
+            aiSuggestionsByDeal={props.aiSuggestionsByDeal}
             onOpenDeal={props.onOpenDeal}
             onAddDeal={props.onAddDeal}
             selectedIds={props.selectedIds}
@@ -122,6 +125,7 @@ export function KanbanBoard(props: Props) {
               contactLastActivityAt={props.contactLastActivityAt(active.contactId)}
               tasks={props.tasksByDeal.get(active.id)}
               unread={active.contactId ? props.unreadByContact.get(active.contactId) ?? 0 : 0}
+              aiSuggestion={props.aiSuggestionsByDeal.get(active.id)}
               onOpen={() => {}}
               isOverlay
             />

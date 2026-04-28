@@ -1,6 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ClipboardList, MessageCircle } from "lucide-react";
+import { ClipboardList, MessageCircle, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,6 +9,7 @@ import { formatMXN, type DealTaskRow, type PipelineDeal, type PipelineStage } fr
 import { computeDealHealth } from "@/lib/dealHealth";
 import { HealthBadges } from "./HealthBadges";
 import { QuickActions } from "./QuickActions";
+import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 
 interface Props {
   deal: PipelineDeal;
@@ -18,6 +19,7 @@ interface Props {
   contactLastActivityAt?: string | null;
   tasks?: DealTaskRow[];
   unread?: number;
+  aiSuggestion?: DealAiSuggestion;
   onOpen: (deal: PipelineDeal) => void;
   selected?: boolean;
   onToggleSelect?: (dealId: string) => void;
@@ -34,7 +36,7 @@ function probabilityColor(p: number): string {
 }
 
 export function DealCard({
-  deal, stages = [], contactName, contactColor, contactLastActivityAt, tasks, unread = 0,
+  deal, stages = [], contactName, contactColor, contactLastActivityAt, tasks, unread = 0, aiSuggestion,
   onOpen, selected, onToggleSelect, selectionActive, onRequestLost, onNewTask, isOverlay,
 }: Props) {
   const navigate = useNavigate();
@@ -138,6 +140,26 @@ export function DealCard({
           </AvatarFallback>
         </Avatar>
       </div>
+
+      {aiSuggestion && (
+        <div
+          className={cn(
+            "mt-2 rounded-md border px-2 py-1.5 flex items-start gap-1.5",
+            aiSuggestion.urgency === "high"
+              ? "bg-danger/5 border-danger/30"
+              : aiSuggestion.urgency === "medium"
+                ? "bg-warning/5 border-warning/30"
+                : "bg-primary/5 border-primary/20",
+          )}
+        >
+          <Sparkles className={cn(
+            "h-3 w-3 shrink-0 mt-0.5",
+            aiSuggestion.urgency === "high" ? "text-danger"
+              : aiSuggestion.urgency === "medium" ? "text-warning" : "text-primary",
+          )} />
+          <span className="text-[11px] leading-tight line-clamp-2 text-foreground/90">{aiSuggestion.text}</span>
+        </div>
+      )}
 
       {/* Probability progress bar at the bottom */}
       <div className="absolute left-0 right-0 bottom-0 h-1 bg-muted/50">
