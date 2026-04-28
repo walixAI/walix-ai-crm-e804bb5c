@@ -1,112 +1,197 @@
+# Plan: Mejoras del módulo Pipeline
 
-# Plan: Módulo Pipeline Kanban
+Implementación dividida en **5 fases incrementales**. Cada fase es desplegable por sí sola y aporta valor visible. Puedes aprobar todo el plan y ejecutarlo de corrido, o cortar en cualquier fase.
 
-## Estado actual
+---
 
-- `/pipeline` muestra el componente `Stub` genérico.
-- Ya existen tablas reales en Supabase: `deals`, `pipeline_stages`, `contacts`, `activities`, `ai_suggestions`, `tasks`, `conversations` con RLS por `tenant_id`.
-- Hay **6 etapas** del seed (`Nuevo Lead, Contactado, Calificado, Propuesta, Negociación, Cerrado`) y **8 deals** de prueba. La spec pide 7 etapas (separar Cerrado Ganado / Cerrado Perdido) y 15 deals.
-- Los seeds usan tenant fijo `11111111-...`. La UI ya consume datos reales mediante hooks en `src/lib/queries/*`.
-- React Query, Tailwind, shadcn, Vaul (drawer), `react-day-picker` ya instalados. **Falta `@dnd-kit/core` + `@dnd-kit/sortable`**.
+## Fase 1 — Inteligencia visual y forecast (impacto inmediato)
 
-## Cambios de base de datos (migración)
+**Objetivo:** que de un vistazo sepas qué deals están sanos, en riesgo y cuánto vas a cerrar realmente.
 
-1. Renombrar etapa `Cerrado` → `Cerrado Ganado` y agregar `Cerrado Perdido` (position 7) para el tenant seed.
-2. Agregar columna `pipeline_stages.color text` (default neutral) para el círculo configurable de cada columna.
-3. Agregar columna `pipeline_stages.is_won boolean` y `is_lost boolean` para identificar etapas terminales.
-4. Insertar **7 deals adicionales** (total 15) repartidos entre las 7 etapas con montos $5k–$150k MXN, fechas de cierre variadas y `owner_id` rotativo (NULL — el `ownerFromId` mapea a vendedores mock).
-5. Insertar 2–3 `ai_suggestions` con `contact_id` ligado a deals destacados para el tab IA del drawer (no hay `deal_id` en la tabla; se buscarán por `contact_id` del deal).
-6. Insertar 4–5 `tasks` con `deal_id` para mostrar el icono 📋 en las tarjetas con tareas pendientes.
+### 1.1 Indicadores de salud en `DealCard`
+Reemplazar el badge actual de "días en etapa" por un sistema de señales:
+- 🔥 **Hot** — actividad WhatsApp en últimas 24h
+- 💤 **Cold** — sin actividad en >7 días
+- ⚠️ **Stale** — >14 días en la misma etapa (por `updatedAt` del deal vs último cambio de stage)
+- 📅 **Overdue** — `expected_close_date` ya pasó y sigue activo
 
-No se crean tablas nuevas — el modelo actual cubre todo.
+Pequeñas píldoras de color en la esquina inferior izquierda de la card. Tooltip con el detalle al hacer hover.
 
-## Dependencias nuevas
+### 1.2 Forecast ponderado en `PipelineHeader`
+Reemplazar la barra actual por 3 KPIs en línea:
+- **Pipeline total**: Σ(amount) — lo que hay
+- **Pipeline ponderado**: Σ(amount × probability/100) — lo esperado
+- **Cierre este mes**: Σ de deals con `expected_close_date` en el mes actual
+- Indicador ▲/▼ vs mes anterior (calculado de `created_at` y `updated_at`)
 
-- `@dnd-kit/core` y `@dnd-kit/sortable` para drag-and-drop accesible.
+### 1.3 WIP limits por columna
+En `KanbanColumn`, si una etapa supera un umbral (configurable por etapa, default 10), mostrar borde superior naranja + badge "Cuello de botella" en el header de la columna.
 
-## Archivos nuevos
+**Datos:** No requiere cambios de schema. Todo se calcula en cliente con queries existentes (`useDeals`, `useUnreadByContactMap`).
 
+---
+
+## Fase 2 — Acciones rápidas y captura de datos (productividad)
+
+### 2.1 Quick actions en hover sobre `DealCard`
+Botones flotantes que aparecen al hacer hover (esquina superior derecha):
+- 💬 WhatsApp — navega a `/inbox` con el contacto
+- ✅ Marcar ganado — mueve a stage `is_won`
+- ❌ Marcar perdido — abre modal de razón (ver 2.2)
+- 📅 Nueva tarea — modal mínimo
+
+Implementado con `stopPropagation` para no abrir el drawer.
+
+### 2.2 Modal de razón de pérdida
+Cuando un deal se mueve a "Cerrado Perdido" (drag o quick action):
+- Modal obligatorio con select: Precio · Timing · Competencia · No responde · Otro
+- Textarea opcional de comentario
+- Se guarda en columnas nuevas del deal: `lost_reason`, `lost_comment`
+
+**Schema:** migración añade dos columnas a `deals`.
+
+### 2.3 Multi-selección en Kanban
+- Checkbox que aparece en hover de la card
+- Barra flotante inferior con acciones masivas: "Mover a etapa…", "Reasignar vendedor…", "Eliminar"
+- Estado local en `Pipeline.tsx` (set de IDs seleccionados)
+
+### 2.4 Búsqueda global en header
+Input en `PipelineHeader` que filtra por `name`, `notes` y nombre de contacto. Combinable con los filtros estructurados existentes.
+
+### 2.5 Persistencia de vista y filtros
+Guardar en `localStorage` por usuario:
+- View activa (kanban/lista)
+- Filtros aplicados
+- Pipeline seleccionado
+
+Hook `usePipelinePrefs()` con sync bidireccional.
+
+---
+
+## Fase 3 — Múltiples pipelines y trazabilidad (arquitectura)
+
+### 3.1 Tabla `pipelines` y soporte multi-pipeline
+**Schema:**
 ```text
-src/lib/queries/pipeline.ts          // hooks: useStages, useDeals, useUpdateDealStage,
-                                      // useUpdateDealAmount, useCreateDeal, useDealTasks,
-                                      // useUnreadByContact
-src/components/pipeline/
-  PipelineHeader.tsx                  // nombre+dropdown, toggle vista, filtros, +Nuevo Deal, totales
-  PipelineFilters.tsx                 // popover con vendedor, monto min/max, fecha, fuente, tag
-  KanbanBoard.tsx                     // DndContext + columnas + sensors
-  KanbanColumn.tsx                    // header (color, nombre, count, total, +) + droppable
-  DealCard.tsx                        // tarjeta arrastrable con todos los chips/badges
-  DealsListView.tsx                   // tabla ordenable + export CSV
-  PipelineFooter.tsx                  // sticky bottom slate-800 con totales por columna
-  NewDealDialog.tsx                   // modal con react-hook-form + zod
-  DealDrawer.tsx                      // drawer 480px con tabs Resumen | Actividad | IA
-  drawer/DealSummaryTab.tsx
-  drawer/DealActivityTab.tsx          // reusa estilo timeline de SummaryTab de contactos
-  drawer/DealAiTab.tsx                // sugerencias + explicación probabilidad + botón bloqueado
+pipelines
+  id uuid PK
+  tenant_id uuid
+  name text
+  is_default boolean
+  position int
+  created_at timestamptz
+
+pipeline_stages
+  + pipeline_id uuid (FK lógico)
 ```
 
-## Archivos modificados
+- Migrar las stages actuales a un pipeline default por tenant
+- UI de gestión: dropdown del header se vuelve funcional, opción "Gestionar pipelines" abre dialog para crear/renombrar/reordenar pipelines y sus etapas
+- Casos de uso: "Ventas B2B", "Renovaciones", "Soporte Premium"
 
-- `src/App.tsx` — reemplazar `Stub` de `/pipeline` por nueva página `Pipeline`.
-- `src/pages/app/Pipeline.tsx` (nuevo) — orquesta header/board/lista/drawer/modal/footer.
-- `package.json` — añadir dnd-kit.
+### 3.2 Historial de cambios de etapa
+**Schema:**
+```text
+deal_stage_history
+  id uuid PK
+  tenant_id uuid
+  deal_id uuid
+  from_stage_id uuid
+  to_stage_id uuid
+  changed_by uuid
+  changed_at timestamptz
+```
 
-## Detalle por componente
+- Trigger en `deals` que inserta automáticamente al cambiar `stage_id`
+- Habilita: tiempo real en etapa (no en el deal completo), velocidad del pipeline, tasas de conversión
+- Mejora el badge de "días en etapa" para que use el cambio real, no `updatedAt`
 
-**PipelineHeader**
-- Selector de pipeline (un solo pipeline real por ahora; dropdown muestra el actual + opción "Nuevo pipeline" deshabilitada).
-- `ToggleGroup` Kanban / Lista.
-- Botón filtros abre `Popover` con `Select` vendedor (mock sellers), inputs monto min/max, datepicker rango, select fuente, multiselect tags.
-- Botón **+ Nuevo Deal** primary indigo (`bg-primary`).
-- Línea de totales: `Pipeline total: $X MXN · N deals activos` (excluye won/lost).
+### 3.3 Razón de pérdida obligatoria refinada
+Si Fase 2.2 ya está, aprovechar para mostrar analytics básicos de razones en el header del pipeline cuando hay deals perdidos en el periodo.
 
-**KanbanBoard**
-- `DndContext` con `PointerSensor` + `KeyboardSensor`.
-- `overflow-x-auto` con columnas `min-w-[280px]`.
-- `onDragEnd`: si la columna destino cambió → mutación que actualiza `stage_id`, `stage_name`, y si la etapa es terminal marca `is_won`/`is_lost`. Optimistic update vía React Query.
+---
 
-**KanbanColumn**
-- Header: círculo `stage.color`, nombre, badge con `deals.length`, total formateado MXN, botón `+` que abre `NewDealDialog` con etapa precargada.
-- Lista de `DealCard` con scroll vertical interno.
+## Fase 4 — Capa de IA (diferenciador Walix)
 
-**DealCard**
-- Calcula `daysInStage` desde `updated_at` (al cambiar etapa también se actualiza). Badge naranja >5, rojo >10.
-- Probabilidad pintada como barra fina absoluta abajo (verde/amarillo/rojo según rangos).
-- Icono 📋 si `useDealTasks(deal.id)` tiene alguna `completed=false`.
-- Icono 💬 + conteo `conversations.unread_count` por `contact_id`.
-- Click: abre drawer. Click en monto: input inline (`onBlur` guarda). Click en chip de contacto: `navigate("/contacts/:id")` con `e.stopPropagation()`.
+Todo via **Lovable AI Gateway** (ya tenemos `LOVABLE_API_KEY`), modelo `google/gemini-2.5-flash` por costo/latencia.
 
-**DealDrawer (Vaul + side="right" 480px)**
-- Tabs Resumen | Actividad | IA.
-- Resumen: campos editables (monto, etapa, fecha cierre, probabilidad slider, fuente texto, notas textarea — la tabla `deals` no tiene `notes`/`source`; se agregarán en la migración como `notes text` y `source lead_source default 'Manual'`).
-- Actividad: `activities` filtradas por `deal_id`.
-- IA: sugerencias por `contact_id` del deal + bloque heurístico de explicación (alta/media/baja según probabilidad y `last_activity_at` del contacto) + botón "Generar propuesta PDF" deshabilitado con badge "Pro".
+### 4.1 Edge function `pipeline-ai-analyze`
+Recibe el pipeline del tenant, devuelve:
+- 3 deals en riesgo con razón
+- Top deal recomendado para empujar
+- Comparativa de conversión vs periodo anterior
+- Resumen ejecutivo de 2-3 líneas
 
-**PipelineFooter**
-- Sticky bottom dentro del contenedor de la página, una celda por etapa con MXN acumulado + celda total. Fondo `bg-slate-800` texto blanco.
+Botón **"Análisis IA"** en el header que abre un panel lateral con esta info.
 
-**DealsListView**
-- `<Table>` shadcn con sort por columna (estado local). Botón "Exportar CSV" genera blob client-side desde `deals` filtrados.
+### 4.2 Edge function `deal-ai-suggest-stage`
+Disparada cuando llegan mensajes nuevos del contacto. Analiza últimos 10 mensajes y, si detecta intención de avance, inserta una `ai_suggestion` con `kind='stage_advance'` y `cta` para mover.
 
-**NewDealDialog**
-- React Hook Form + Zod. Campos: nombre*, monto MXN*, etapa (Select de stages), contacto (Command/search sobre `useContacts`), vendedor (mock), fecha (DatePicker shadcn), fuente, notas, probabilidad (Switch IA-auto vs Slider manual; auto = 50 hasta tener IA real).
-- Inserta en `deals` con `tenant_id` resuelto vía `useTenantId()`.
+UI: toast en el pipeline + ícono ✨ en la card que abre la sugerencia.
 
-## Comportamiento de filtros
+### 4.3 Auto-cálculo de probabilidad
+Al abrir el `DealDrawer`, botón "Sugerir probabilidad con IA" en el campo correspondiente. Llama edge function que combina:
+- Sentimiento de últimos mensajes
+- Días en etapa vs promedio histórico (de `deal_stage_history`)
+- Cantidad/cadencia de actividades
 
-Estado de filtros en la página, aplicado en cliente sobre el resultado de `useDeals` (sin re-fetch). Persistencia simple en URL search params para compartir vistas (opcional, baja prioridad si se complica).
+Devuelve número 0-100 con explicación. Usuario decide si lo aplica.
 
-## Datos de prueba
+---
 
-Migración inserta:
-- 7 deals adicionales (total 15) con mezcla de etapas, montos `15000, 32000, 58000, 7500, 125000, 150000, 95000`, fechas mayo–julio 2026.
-- 1 deal en `Cerrado Ganado` con `is_won=true`, 1 en `Cerrado Perdido` con `is_lost=true`.
-- 4 tasks con `deal_id` (3 pendientes, 1 completada).
-- 3 ai_suggestions adicionales para los deals de mayor monto.
+## Fase 5 — Pulido y deleite
 
-## Validación
+### 5.1 Realtime con Supabase
+Suscripción a `postgres_changes` en `deals` filtrada por tenant. Si dos vendedores tienen el pipeline abierto, ven cambios en vivo. Optimistic updates ya existentes siguen funcionando.
 
-- `useDeals` excluye won/lost del conteo "deals activos" pero los incluye en sus columnas.
-- RLS ya existe; las nuevas mutaciones funcionarán al pasar `tenant_id`.
-- DnD entre columnas dispara mutación con rollback en error (toast sonner).
-- Vista responsive: en <768px el board hace scroll horizontal natural; el drawer ocupa 100% del ancho.
+### 5.2 Vista agrupada alternativa
+Toggle adicional en header: agrupar columnas por **Vendedor** o **Mes de cierre** en lugar de por etapa. Reutiliza el componente `KanbanColumn` con groupKey configurable.
+
+### 5.3 Modo compacto/expandido
+Toggle visual que cambia altura y densidad de info en `DealCard` (compacto: solo nombre + monto; expandido: todo). Persistido en `usePipelinePrefs`.
+
+### 5.4 Animación de victoria
+Confeti (lib `canvas-confetti`) cuando un deal entra en columna `is_won`. Toast: *"🎉 ¡Deal ganado! +$X al pipeline cerrado este mes"*.
+
+### 5.5 Sparkline en header de columna
+Gráfica mini de 7 días (cantidad de deals en esa etapa por día, sacado de `deal_stage_history` de Fase 3). Indica si la etapa crece o se vacía.
+
+### 5.6 Optimización
+Si hay >150 deals visibles, virtualizar columnas con `@tanstack/react-virtual`. Solo se activa cuando se necesita.
+
+---
+
+## Resumen de cambios técnicos
+
+### Schema (migraciones)
+- Fase 2: `deals.lost_reason`, `deals.lost_comment`
+- Fase 3: tabla `pipelines`, columna `pipeline_stages.pipeline_id`, tabla `deal_stage_history` + trigger
+
+### Nuevos componentes
+- `pipeline/HealthBadges.tsx`, `pipeline/ForecastKpis.tsx`
+- `pipeline/QuickActions.tsx`, `pipeline/LostReasonDialog.tsx`, `pipeline/BulkActionsBar.tsx`
+- `pipeline/PipelineManagerDialog.tsx`
+- `pipeline/AiAnalysisPanel.tsx`
+
+### Nuevas queries / hooks
+- `usePipelinePrefs()` (localStorage)
+- `useDealHealth(deal)` (calcula señales)
+- `useStageHistory(dealId)` 
+- `usePipelineForecast()` (KPIs ponderados)
+
+### Edge functions
+- `pipeline-ai-analyze`, `deal-ai-suggest-stage`, `deal-ai-suggest-probability`
+
+### Dependencias nuevas
+- `canvas-confetti` (Fase 5.4)
+- `@tanstack/react-virtual` (Fase 5.6, condicional)
+
+---
+
+## Mi recomendación
+
+**Empezar por Fase 1 + Fase 2** en una sola pasada. Son las que más mueven la aguja para el usuario final, no requieren IA y solo una mini-migración.
+
+Después decides si vas a Fase 3 (arquitectura) o saltas directo a Fase 4 (IA, el diferenciador comercial de Walix).
+
+¿Apruebas el plan completo, o prefieres que arranque solo con Fase 1 + 2 y vamos viendo?
