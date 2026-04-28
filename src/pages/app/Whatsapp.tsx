@@ -33,6 +33,7 @@ export default function Whatsapp() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [draft, setDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
+  const [aiDraftActive, setAiDraftActive] = useState(false);
 
   // pick first conversation by default
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function Whatsapp() {
   useEffect(() => {
     setNotesDraft(activeConv?.internalNotes ?? "");
     setDraft("");
+    setAiDraftActive(false);
   }, [activeConv?.id]); // eslint-disable-line
 
   const { data: messages = [], isLoading: msgsLoading } = useMessages(activeId);
@@ -91,6 +93,7 @@ export default function Whatsapp() {
 
   function pickTemplate(t: MessageTemplate) {
     setDraft(renderTemplate(t.content, tplContext()));
+    setAiDraftActive(false);
     setTemplatesOpen(false);
   }
 
@@ -114,6 +117,7 @@ export default function Whatsapp() {
         body,
         isInternalNote: opts?.internal,
       });
+      setAiDraftActive(false);
     } catch (e: any) {
       toast({ title: "Error al enviar", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
     }
@@ -138,6 +142,7 @@ export default function Whatsapp() {
         contactCompany: activeConv.contactCompany,
       });
       setDraft(text);
+      setAiDraftActive(true);
       toast({ title: "Sugerencia lista", description: "Revisa y edita antes de enviar." });
     } catch (e: any) {
       toast({ title: "IA no disponible", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
@@ -173,6 +178,7 @@ export default function Whatsapp() {
         contactCompany: activeConv.contactCompany,
       });
       setDraft(text);
+      setAiDraftActive(true);
     } catch (e: any) {
       toast({ title: "IA no disponible", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
     }
@@ -238,7 +244,10 @@ export default function Whatsapp() {
                 <MessageList messages={messages} loading={msgsLoading} />
                 <Composer
                   draft={draft}
-                  onDraftChange={setDraft}
+                  onDraftChange={(v) => {
+                    setDraft(v);
+                    if (aiDraftActive) setAiDraftActive(false);
+                  }}
                   templates={templates}
                   onSend={handleSend}
                   sending={sendMutation.isPending}
@@ -248,6 +257,8 @@ export default function Whatsapp() {
                   onAiSummarize={runAiSummarize}
                   onAiPrompt={runAiPrompt}
                   aiLoading={aiMutation.isPending}
+                  aiDraftActive={aiDraftActive}
+                  onClearAiDraft={() => { setDraft(""); setAiDraftActive(false); }}
                 />
               </>
             )}
