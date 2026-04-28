@@ -217,6 +217,7 @@ export default function Pipeline() {
         open={!!openDeal}
         onClose={() => setOpenDeal(null)}
         contactName={openDeal ? contactName(openDeal.contactId) : undefined}
+        contactLastActivityAt={openDeal ? contactLastActivityAt(openDeal.contactId) : null}
       />
 
       <LostReasonDialog
