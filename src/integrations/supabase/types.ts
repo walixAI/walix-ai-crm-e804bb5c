@@ -77,6 +77,7 @@ export type Database = {
           contact_id: string | null
           created_at: string
           cta: string | null
+          deal_id: string | null
           dismissed: boolean
           id: string
           kind: string | null
@@ -87,6 +88,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           cta?: string | null
+          deal_id?: string | null
           dismissed?: boolean
           id?: string
           kind?: string | null
@@ -97,6 +99,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           cta?: string | null
+          deal_id?: string | null
           dismissed?: boolean
           id?: string
           kind?: string | null
@@ -278,8 +281,10 @@ export type Database = {
           is_lost: boolean
           is_won: boolean
           name: string
+          notes: string | null
           owner_id: string | null
           probability: number
+          source: Database["public"]["Enums"]["lead_source"]
           stage_id: string | null
           stage_name: string | null
           tenant_id: string
@@ -294,8 +299,10 @@ export type Database = {
           is_lost?: boolean
           is_won?: boolean
           name: string
+          notes?: string | null
           owner_id?: string | null
           probability?: number
+          source?: Database["public"]["Enums"]["lead_source"]
           stage_id?: string | null
           stage_name?: string | null
           tenant_id: string
@@ -310,8 +317,10 @@ export type Database = {
           is_lost?: boolean
           is_won?: boolean
           name?: string
+          notes?: string | null
           owner_id?: string | null
           probability?: number
+          source?: Database["public"]["Enums"]["lead_source"]
           stage_id?: string | null
           stage_name?: string | null
           tenant_id?: string
@@ -388,22 +397,31 @@ export type Database = {
       }
       pipeline_stages: {
         Row: {
+          color: string
           created_at: string
           id: string
+          is_lost: boolean
+          is_won: boolean
           name: string
           position: number
           tenant_id: string
         }
         Insert: {
+          color?: string
           created_at?: string
           id?: string
+          is_lost?: boolean
+          is_won?: boolean
           name: string
           position?: number
           tenant_id: string
         }
         Update: {
+          color?: string
           created_at?: string
           id?: string
+          is_lost?: boolean
+          is_won?: boolean
           name?: string
           position?: number
           tenant_id?: string
