@@ -205,3 +205,89 @@ export async function fetchAiInbox(): Promise<AiInboxResponse> {
     return { suggestions: [], counts: { total: 0, deals: 0, messages: 0, pipeline: 0 }, source: "fallback" };
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Dashboard AI widgets + weekly report
+// ────────────────────────────────────────────────────────────────────────
+
+export interface PipelineHealthWidget {
+  score: number;
+  status: "excellent" | "good" | "warning" | "critical";
+  summary: string;
+  signals: { label: string; value: string; tone: "positive" | "neutral" | "negative" }[];
+}
+
+export interface OpportunityWidget {
+  dealId: string;
+  name: string;
+  amount: number;
+  reason: string;
+  nextAction: string;
+}
+
+export interface RiskWidget {
+  title: string;
+  severity: "low" | "medium" | "high";
+  detail: string;
+  entityType: "deal" | "conversation" | "contact" | "pipeline";
+  entityId?: string;
+}
+
+export interface WeeklyReportWidget {
+  headline: string;
+  highlights: string[];
+  concerns: string[];
+  nextWeekFocus: string[];
+}
+
+export interface DashboardAiResponse {
+  pipelineHealth: PipelineHealthWidget;
+  opportunities: OpportunityWidget[];
+  risks: RiskWidget[];
+  executiveSummary: string;
+  weeklyReport?: WeeklyReportWidget;
+  generatedAt: string;
+  week: string;
+  source: "live" | "fallback";
+}
+
+const FALLBACK_DASHBOARD: Omit<DashboardAiResponse, "generatedAt" | "week" | "source"> = {
+  pipelineHealth: {
+    score: 72,
+    status: "good",
+    summary: "Pipeline saludable con algunos deals que requieren seguimiento.",
+    signals: [
+      { label: "Deals activos", value: "—", tone: "neutral" },
+      { label: "Forecast ponderado", value: "—", tone: "positive" },
+      { label: "Estancados", value: "—", tone: "negative" },
+    ],
+  },
+  opportunities: [],
+  risks: [],
+  executiveSummary: "Sin datos suficientes para generar el resumen IA. Conecta tu pipeline para ver insights en tiempo real.",
+  weeklyReport: {
+    headline: "Semana en marcha",
+    highlights: ["Conecta tus datos para ver el resumen semanal."],
+    concerns: [],
+    nextWeekFocus: [],
+  },
+};
+
+export async function fetchDashboardAiWidgets(includeReport = true): Promise<DashboardAiResponse> {
+  try {
+    const { data, error } = await supabase.functions.invoke("dashboard-ai-widgets", {
+      body: { includeReport },
+    });
+    if (error) throw error;
+    if (!data?.pipelineHealth) throw new Error("Respuesta vacía");
+    return { ...data, source: "live" };
+  } catch (err) {
+    console.warn("[ai.fetchDashboardAiWidgets] fallback:", err);
+    return {
+      ...FALLBACK_DASHBOARD,
+      generatedAt: new Date().toISOString(),
+      week: new Date().toISOString().slice(0, 10),
+      source: "fallback",
+    };
+  }
+}
