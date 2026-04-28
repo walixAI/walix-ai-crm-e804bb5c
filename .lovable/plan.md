@@ -1,73 +1,112 @@
-## Refactor UX del módulo de Contactos
 
-Aplicamos los cambios validados en el wireframe (opción "Detalle de contacto"), con el ajuste de layout solicitado: **3 columnas con central protagonista**.
+# Plan: Módulo Pipeline Kanban
 
----
+## Estado actual
 
-### 1. Detalle de contacto (`/contacts/:id`)
+- `/pipeline` muestra el componente `Stub` genérico.
+- Ya existen tablas reales en Supabase: `deals`, `pipeline_stages`, `contacts`, `activities`, `ai_suggestions`, `tasks`, `conversations` con RLS por `tenant_id`.
+- Hay **6 etapas** del seed (`Nuevo Lead, Contactado, Calificado, Propuesta, Negociación, Cerrado`) y **8 deals** de prueba. La spec pide 7 etapas (separar Cerrado Ganado / Cerrado Perdido) y 15 deals.
+- Los seeds usan tenant fijo `11111111-...`. La UI ya consume datos reales mediante hooks en `src/lib/queries/*`.
+- React Query, Tailwind, shadcn, Vaul (drawer), `react-day-picker` ya instalados. **Falta `@dnd-kit/core` + `@dnd-kit/sortable`**.
 
-**Layout nuevo (desktop ≥1024px):**
+## Cambios de base de datos (migración)
+
+1. Renombrar etapa `Cerrado` → `Cerrado Ganado` y agregar `Cerrado Perdido` (position 7) para el tenant seed.
+2. Agregar columna `pipeline_stages.color text` (default neutral) para el círculo configurable de cada columna.
+3. Agregar columna `pipeline_stages.is_won boolean` y `is_lost boolean` para identificar etapas terminales.
+4. Insertar **7 deals adicionales** (total 15) repartidos entre las 7 etapas con montos $5k–$150k MXN, fechas de cierre variadas y `owner_id` rotativo (NULL — el `ownerFromId` mapea a vendedores mock).
+5. Insertar 2–3 `ai_suggestions` con `contact_id` ligado a deals destacados para el tab IA del drawer (no hay `deal_id` en la tabla; se buscarán por `contact_id` del deal).
+6. Insertar 4–5 `tasks` con `deal_id` para mostrar el icono 📋 en las tarjetas con tareas pendientes.
+
+No se crean tablas nuevas — el modelo actual cubre todo.
+
+## Dependencias nuevas
+
+- `@dnd-kit/core` y `@dnd-kit/sortable` para drag-and-drop accesible.
+
+## Archivos nuevos
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│ Header compacto: avatar + nombre + status + WhatsApp + ⋯    │
-├──────────────────────────────────────────────────────────────┤
-│ Tags strip (chips de colores por familia)                    │
-├──────────────────────────────────────────────────────────────┤
-│ Stats bar: Pipeline · Probabilidad · Última conv · Cliente   │
-├──────────┬──────────────────────────────────────┬────────────┤
-│ INFO     │ MAIN (tabs)                          │ DEALS      │
-│ 256px    │ flex-1  ← protagonista               │ 256px      │
-│          │                                      │            │
-│ Contacto │ [Resumen][Conversaciones][Deals]     │ Deals      │
-│ Empresa  │ [Actividad][Notas]                   │ activos    │
-│ CRM      │                                      │            │
-│          │ Contenido del tab seleccionado       │ + tareas   │
-└──────────┴──────────────────────────────────────┴────────────┘
-                                              FAB IA flotante ✨
+src/lib/queries/pipeline.ts          // hooks: useStages, useDeals, useUpdateDealStage,
+                                      // useUpdateDealAmount, useCreateDeal, useDealTasks,
+                                      // useUnreadByContact
+src/components/pipeline/
+  PipelineHeader.tsx                  // nombre+dropdown, toggle vista, filtros, +Nuevo Deal, totales
+  PipelineFilters.tsx                 // popover con vendedor, monto min/max, fecha, fuente, tag
+  KanbanBoard.tsx                     // DndContext + columnas + sensors
+  KanbanColumn.tsx                    // header (color, nombre, count, total, +) + droppable
+  DealCard.tsx                        // tarjeta arrastrable con todos los chips/badges
+  DealsListView.tsx                   // tabla ordenable + export CSV
+  PipelineFooter.tsx                  // sticky bottom slate-800 con totales por columna
+  NewDealDialog.tsx                   // modal con react-hook-form + zod
+  DealDrawer.tsx                      // drawer 480px con tabs Resumen | Actividad | IA
+  drawer/DealSummaryTab.tsx
+  drawer/DealActivityTab.tsx          // reusa estilo timeline de SummaryTab de contactos
+  drawer/DealAiTab.tsx                // sugerencias + explicación probabilidad + botón bloqueado
 ```
 
-- **Panel izquierdo (256px)** — `InfoSidePanel.tsx`: 3 secciones colapsables (Contacto / Empresa / CRM), edición inline.
-- **Panel central (flex-1, protagonista)** — Tabs con `Resumen` por defecto, que muestra: sugerencia IA destacada arriba + últimos eventos (timeline corto). Aquí vive todo el contenido principal.
-- **Panel derecho (256px, mismo ancho que el izquierdo)** — `DealsSidePanel.tsx`: lista compacta de deals activos con barra de progreso + bloque "Próximas tareas" debajo.
-- **Tablet (768–1023px)**: panel derecho colapsa debajo del central. Izquierdo se mantiene.
-- **Mobile (<768px)**: ambos paneles se vuelven sheets accesibles con botones "Info" y "Deals" sobre los tabs.
-- **AI Panel** → FAB flotante (`AiFloatingPanel.tsx`) que expande a card 360px abajo-derecha.
+## Archivos modificados
 
-**Tags por familia (color-coded):**
-- 🔥 Temperatura: rojo (caliente), ámbar (tibio), azul (frío)
-- ⏱ Ciclo: verde (cliente), índigo (prospecto), gris (perdido)
-- ⭐ Especiales: ámbar (vip), morado (referido)
+- `src/App.tsx` — reemplazar `Stub` de `/pipeline` por nueva página `Pipeline`.
+- `src/pages/app/Pipeline.tsx` (nuevo) — orquesta header/board/lista/drawer/modal/footer.
+- `package.json` — añadir dnd-kit.
 
----
+## Detalle por componente
 
-### 2. Lista de contactos (`/contacts`) — referencia rápida
+**PipelineHeader**
+- Selector de pipeline (un solo pipeline real por ahora; dropdown muestra el actual + opción "Nuevo pipeline" deshabilitada).
+- `ToggleGroup` Kanban / Lista.
+- Botón filtros abre `Popover` con `Select` vendedor (mock sellers), inputs monto min/max, datepicker rango, select fuente, multiselect tags.
+- Botón **+ Nuevo Deal** primary indigo (`bg-primary`).
+- Línea de totales: `Pipeline total: $X MXN · N deals activos` (excluye won/lost).
 
-Aunque tu selección fue el detalle, mantenemos los cambios ya planeados para la lista (toolbar unificada + chips de filtros activos + tabla compacta de 6 columnas). Si quieres que también te muestre wireframe para validar, lo hago antes de tocar la lista.
+**KanbanBoard**
+- `DndContext` con `PointerSensor` + `KeyboardSensor`.
+- `overflow-x-auto` con columnas `min-w-[280px]`.
+- `onDragEnd`: si la columna destino cambió → mutación que actualiza `stage_id`, `stage_name`, y si la etapa es terminal marca `is_won`/`is_lost`. Optimistic update vía React Query.
 
----
+**KanbanColumn**
+- Header: círculo `stage.color`, nombre, badge con `deals.length`, total formateado MXN, botón `+` que abre `NewDealDialog` con etapa precargada.
+- Lista de `DealCard` con scroll vertical interno.
 
-### Detalles técnicos
+**DealCard**
+- Calcula `daysInStage` desde `updated_at` (al cambiar etapa también se actualiza). Badge naranja >5, rojo >10.
+- Probabilidad pintada como barra fina absoluta abajo (verde/amarillo/rojo según rangos).
+- Icono 📋 si `useDealTasks(deal.id)` tiene alguna `completed=false`.
+- Icono 💬 + conteo `conversations.unread_count` por `contact_id`.
+- Click: abre drawer. Click en monto: input inline (`onBlur` guarda). Click en chip de contacto: `navigate("/contacts/:id")` con `e.stopPropagation()`.
 
-**Archivos nuevos:**
-- `src/components/contacts/detail/ContactHeader.tsx` — header compacto + tags strip
-- `src/components/contacts/detail/ContactStatsBar.tsx`
-- `src/components/contacts/detail/InfoSidePanel.tsx` — 256px, secciones colapsables (Collapsible de shadcn)
-- `src/components/contacts/detail/DealsSidePanel.tsx` — 256px, deals + tareas
-- `src/components/contacts/detail/SummaryTab.tsx` — tab default
-- `src/components/contacts/detail/AiFloatingPanel.tsx` — FAB + Popover/Card
-- `src/components/contacts/detail/tabs/{ConversationsTab,DealsTab,ActivityTab,NotesTab}.tsx`
+**DealDrawer (Vaul + side="right" 480px)**
+- Tabs Resumen | Actividad | IA.
+- Resumen: campos editables (monto, etapa, fecha cierre, probabilidad slider, fuente texto, notas textarea — la tabla `deals` no tiene `notes`/`source`; se agregarán en la migración como `notes text` y `source lead_source default 'Manual'`).
+- Actividad: `activities` filtradas por `deal_id`.
+- IA: sugerencias por `contact_id` del deal + bloque heurístico de explicación (alta/media/baja según probabilidad y `last_activity_at` del contacto) + botón "Generar propuesta PDF" deshabilitado con badge "Pro".
 
-**Archivos modificados:**
-- `src/pages/app/ContactDetail.tsx` — orquesta el nuevo layout grid `[256px_1fr_256px]`
-- `src/mock/contacts.ts` — añade `tagFamily` (temperature/cycle/special) y helpers de stats por contacto
+**PipelineFooter**
+- Sticky bottom dentro del contenedor de la página, una celda por etapa con MXN acumulado + celda total. Fondo `bg-slate-800` texto blanco.
 
-**Stack reutilizado:** Tailwind grid responsive, `Collapsible`, `Sheet` (mobile), `Popover` (FAB IA), `Tabs`, mock data existente. Sin nuevas dependencias.
+**DealsListView**
+- `<Table>` shadcn con sort por columna (estado local). Botón "Exportar CSV" genera blob client-side desde `deals` filtrados.
 
-**Sin cambios en backend** — todo es frontend sobre los mocks actuales.
+**NewDealDialog**
+- React Hook Form + Zod. Campos: nombre*, monto MXN*, etapa (Select de stages), contacto (Command/search sobre `useContacts`), vendedor (mock), fecha (DatePicker shadcn), fuente, notas, probabilidad (Switch IA-auto vs Slider manual; auto = 50 hasta tener IA real).
+- Inserta en `deals` con `tenant_id` resuelto vía `useTenantId()`.
 
----
+## Comportamiento de filtros
 
-### Pregunta antes de implementar
+Estado de filtros en la página, aplicado en cliente sobre el resultado de `useDeals` (sin re-fetch). Persistencia simple en URL search params para compartir vistas (opcional, baja prioridad si se complica).
 
-¿Avanzo solo con el **detalle de contacto** (lo que validaste con wireframe) o incluyo también el refactor de la **lista** en el mismo paso?
+## Datos de prueba
+
+Migración inserta:
+- 7 deals adicionales (total 15) con mezcla de etapas, montos `15000, 32000, 58000, 7500, 125000, 150000, 95000`, fechas mayo–julio 2026.
+- 1 deal en `Cerrado Ganado` con `is_won=true`, 1 en `Cerrado Perdido` con `is_lost=true`.
+- 4 tasks con `deal_id` (3 pendientes, 1 completada).
+- 3 ai_suggestions adicionales para los deals de mayor monto.
+
+## Validación
+
+- `useDeals` excluye won/lost del conteo "deals activos" pero los incluye en sus columnas.
+- RLS ya existe; las nuevas mutaciones funcionarán al pasar `tenant_id`.
+- DnD entre columnas dispara mutación con rollback en error (toast sonner).
+- Vista responsive: en <768px el board hace scroll horizontal natural; el drawer ocupa 100% del ancho.
