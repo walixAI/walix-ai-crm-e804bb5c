@@ -1,4 +1,4 @@
-import { Bell, Sparkles, Menu, LogOut, User as UserIcon, Inbox } from "lucide-react";
+import { Bell, Sparkles, Menu, LogOut, User as UserIcon, Inbox, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -137,6 +137,11 @@ export function TopBar() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem><UserIcon className="h-4 w-4 mr-2" /> Perfil</DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => window.dispatchEvent(new CustomEvent("walix:restart-tour"))}
+          >
+            <HelpCircle className="h-4 w-4 mr-2" /> Ver tour de bienvenida
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOut} className="text-danger focus:text-danger">
             <LogOut className="h-4 w-4 mr-2" /> Cerrar sesión

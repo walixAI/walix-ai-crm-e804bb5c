@@ -5,9 +5,13 @@ import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { AiDrawer } from "@/components/walix/AiDrawer";
 import { CommandPalette } from "@/components/walix/CommandPalette";
+import { OnboardingTour, useAutoOnboardingTour, resetTour } from "@/components/walix/OnboardingTour";
+import { useAuth } from "@/hooks/useAuth";
 
 export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const tour = useAutoOnboardingTour();
+  const { user } = useAuth();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -19,6 +23,16 @@ export function AppLayout() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Allow restart via global event (TopBar dispatches it from the avatar menu).
+  useEffect(() => {
+    const onRestart = () => {
+      resetTour(user?.id);
+      tour.start();
+    };
+    window.addEventListener("walix:restart-tour", onRestart);
+    return () => window.removeEventListener("walix:restart-tour", onRestart);
+  }, [tour, user?.id]);
 
   return (
     <div className="min-h-screen w-full flex bg-background">
@@ -32,6 +46,7 @@ export function AppLayout() {
       <BottomNav />
       <AiDrawer />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <OnboardingTour open={tour.open} onClose={tour.close} />
     </div>
   );
 }
