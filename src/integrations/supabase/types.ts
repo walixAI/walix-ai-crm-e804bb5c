@@ -159,6 +159,116 @@ export type Database = {
           },
         ]
       }
+      automation_runs: {
+        Row: {
+          automation_id: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string
+          mode: string
+          payload: Json | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          mode?: string
+          payload?: Json | null
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          mode?: string
+          payload?: Json | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          error_count: number
+          icon: string
+          id: string
+          is_draft: boolean
+          last_error: string | null
+          last_run_at: string | null
+          name: string
+          run_count: number
+          tenant_id: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          error_count?: number
+          icon?: string
+          id?: string
+          is_draft?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          name: string
+          run_count?: number
+          tenant_id: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          error_count?: number
+          icon?: string
+          id?: string
+          is_draft?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          name?: string
+          run_count?: number
+          tenant_id?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_tags: {
         Row: {
           created_at: string
