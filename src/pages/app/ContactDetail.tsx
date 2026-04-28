@@ -15,6 +15,7 @@ import { InfoSidePanel } from "@/components/contacts/detail/InfoSidePanel";
 import { DealsSidePanel } from "@/components/contacts/detail/DealsSidePanel";
 import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
+import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -25,7 +26,7 @@ export default function ContactDetail() {
   const stats = useContactStats(id, contact?.lastActivity, contact?.createdAt);
 
   if (isLoading) {
-    return <div className="p-8 text-sm text-muted-foreground">Cargando contacto…</div>;
+    return <div className="p-6"><ContactDetailSkeleton /></div>;
   }
   if (!contact) {
     return (
