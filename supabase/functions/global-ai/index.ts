@@ -109,6 +109,14 @@ Deno.serve(async (req) => {
       }),
     ].join("\n");
 
+    // Build a catalog of entity IDs the model is allowed to reference in actions.
+    const dealCatalog = deals.slice(0, 15).map((d: any) => ({ id: d.id, name: d.name }));
+    const convoCatalog = convos.slice(0, 10).map((c: any) => {
+      const cn = contacts.find((k: any) => k.id === c.contact_id);
+      return { id: c.id, contactName: cn?.name ?? "—" };
+    });
+    const contactCatalog = contacts.slice(0, 15).map((k: any) => ({ id: k.id, name: k.name }));
+
     const messages = [
       {
         role: "system",
@@ -116,21 +124,69 @@ Deno.serve(async (req) => {
           "Eres Walix.ai, el asistente de ventas del usuario en español (México). " +
           "Respondes de forma concisa, accionable y honesta usando ÚNICAMENTE el contexto del CRM proporcionado. " +
           "Si la pregunta no se puede responder con ese contexto, dilo brevemente. " +
-          "Formato Markdown: negritas en nombres, listas cortas, montos en MXN. Máx 180 palabras.",
+          "Formato Markdown: negritas en nombres, listas cortas, montos en MXN. Máx 180 palabras. " +
+          "Cuando menciones deals, conversaciones o contactos del catálogo, SIEMPRE usa la herramienta `suggest_actions` " +
+          "para proponer 1-4 botones de acción que abran la entidad correspondiente. Nunca inventes IDs.",
       },
       { role: "system", content: ctx },
+      {
+        role: "system",
+        content:
+          "Catálogo de IDs válidos para acciones (usa SOLO estos):\n" +
+          `Deals: ${JSON.stringify(dealCatalog)}\n` +
+          `Conversaciones: ${JSON.stringify(convoCatalog)}\n` +
+          `Contactos: ${JSON.stringify(contactCatalog)}`,
+      },
       ...(body.history ?? []).slice(-4),
       { role: "user", content: body.prompt },
     ];
 
-    const out = await callGateway({ model: "google/gemini-2.5-flash", messages });
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "suggest_actions",
+          description: "Propone botones accionables al usuario para abrir entidades del CRM relacionadas con la respuesta.",
+          parameters: {
+            type: "object",
+            properties: {
+              actions: {
+                type: "array",
+                maxItems: 4,
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string", description: "Texto corto del botón (máx 32 chars)" },
+                    type: { type: "string", enum: ["open_deal", "open_contact", "open_conversation", "open_pipeline", "open_inbox"] },
+                    id: { type: "string", description: "UUID de la entidad. Omitir para open_pipeline / open_inbox." },
+                  },
+                  required: ["label", "type"],
+                },
+              },
+            },
+            required: ["actions"],
+          },
+        },
+      },
+    ];
+
+    const out = await callGateway({ model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" });
     if ("error" in out) {
       return new Response(JSON.stringify({ error: out.error }), {
         status: out.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const text = out.json?.choices?.[0]?.message?.content ?? "";
-    return new Response(JSON.stringify({ text }), {
+    const choice = out.json?.choices?.[0]?.message;
+    const text = choice?.content ?? "";
+    let actions: any[] = [];
+    const toolCall = choice?.tool_calls?.[0];
+    if (toolCall?.function?.name === "suggest_actions") {
+      try {
+        const parsed = JSON.parse(toolCall.function.arguments ?? "{}");
+        if (Array.isArray(parsed.actions)) actions = parsed.actions.slice(0, 4);
+      } catch (_) { /* ignore */ }
+    }
+    return new Response(JSON.stringify({ text, actions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
