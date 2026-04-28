@@ -173,8 +173,8 @@ export function useUpdateDealAmount() {
 export function useUpdateDeal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { dealId: string; patch: Partial<{ name: string; amount: number; probability: number; expected_close_date: string | null; source: string; notes: string | null; stage_id: string; stage_name: string; is_won: boolean; is_lost: boolean }> }) => {
-      const { error } = await supabase.from("deals").update(args.patch).eq("id", args.dealId);
+    mutationFn: async (args: { dealId: string; patch: Record<string, any> }) => {
+      const { error } = await supabase.from("deals").update(args.patch as any).eq("id", args.dealId);
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
