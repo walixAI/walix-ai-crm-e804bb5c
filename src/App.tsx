@@ -15,6 +15,8 @@ import Login from "@/pages/Login";
 import Onboarding from "@/pages/Onboarding";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/app/Dashboard";
+import Contacts from "@/pages/app/Contacts";
+import ContactDetail from "@/pages/app/ContactDetail";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -30,8 +32,8 @@ const AppRoutes = () => {
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/contacts" element={<Stub icon={Users} title="Contactos" description="Vista 360° de tus clientes y prospectos" badge="2,481 activos" />} />
-        <Route path="/contacts/:id" element={<Stub icon={Users} title="Detalle de contacto" description="Historial completo, conversaciones, oportunidades y notas" />} />
+        <Route path="/contacts" element={<Contacts />} />
+        <Route path="/contacts/:id" element={<ContactDetail />} />
         <Route path="/pipeline" element={<Stub icon={KanbanSquare} title="Pipeline" description="Tablero Kanban arrastrar-y-soltar de oportunidades" badge="287 deals" />} />
         <Route path="/whatsapp" element={<Stub icon={MessageCircle} title="WhatsApp" description="Bandeja unificada multi-agente con IA" badge="12 sin leer" />} />
         <Route path="/reports" element={<Stub icon={BarChart3} title="Reportes & Analytics" description="Métricas en tiempo real, embudos y exportables" />} />
