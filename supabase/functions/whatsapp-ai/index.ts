@@ -106,7 +106,14 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "Resumes conversaciones de ventas en español. Devuelve EXACTAMENTE este formato Markdown:\n- 3 a 5 bullets con los puntos clave\n- Línea 'Interés principal: …'\n- Línea 'Objeción detectada: …' (o 'Ninguna')\n- Línea 'Último acuerdo: …' (o 'Sin acuerdo claro')\nSé conciso, sin preámbulos.",
+              "Resumes conversaciones de ventas en español (México). Devuelve EXACTAMENTE este formato Markdown, sin preámbulo y sin texto extra:\n\n" +
+              "**Resumen**\n" +
+              "1. **Contexto:** quién es el cliente y qué quiere (1 línea).\n" +
+              "2. **Interés principal:** producto, monto o necesidad concreta.\n" +
+              "3. **Objeciones o dudas:** lo que frenó al cliente (o 'Ninguna detectada').\n" +
+              "4. **Último acuerdo / próximo paso:** lo más reciente acordado (o 'Sin acuerdo claro').\n" +
+              "5. **Temperatura del lead:** 🔥 caliente / 🌤️ tibio / ❄️ frío + 1 frase justificándolo.\n\n" +
+              "Sé conciso (máx 1-2 líneas por bullet). No inventes datos que no estén en la conversación.",
           },
           { role: "user", content: `${ctxHeader}\n\n${convo}` },
         ],

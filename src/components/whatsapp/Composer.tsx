@@ -17,12 +17,19 @@ interface Props {
   aiLoading?: boolean;
   onOpenTemplates?: () => void;
   onPickTemplate?: (t: MessageTemplate) => void;
+  /**
+   * Marca el draft actual como generado por IA. Cuando es true se muestra
+   * un badge "Borrador IA" sobre el textarea y se limpia automáticamente
+   * cuando el usuario edita el contenido.
+   */
+  aiDraftActive?: boolean;
+  onClearAiDraft?: () => void;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
-  onOpenTemplates, onPickTemplate,
+  onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -125,7 +132,7 @@ export function Composer({
       )}
 
       {/* Composer */}
-      <div className={cn("p-3 flex items-end gap-2", internal && "bg-warning/5")}>
+      <div className={cn("p-3 flex items-end gap-2", internal && "bg-warning/5", aiDraftActive && !internal && "bg-primary/5")}>
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Adjuntar">
           <Paperclip className="h-4 w-4" />
         </Button>
@@ -145,15 +152,36 @@ export function Composer({
           <StickyNote className="h-4 w-4" />
         </Button>
 
-        <Textarea
-          ref={taRef}
-          value={draft}
-          onChange={(e) => onDraftChange(e.target.value)}
-          onKeyDown={onKey}
-          placeholder={internal ? "Nota interna (no se envía al cliente)…" : "Escribe un mensaje…  ('/' para plantillas)"}
-          rows={1}
-          className="flex-1 resize-none min-h-[36px] max-h-[160px] py-2"
-        />
+        <div className="flex-1 relative">
+          {aiDraftActive && (
+            <div className="absolute -top-2 left-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
+              <Sparkles className="h-2.5 w-2.5" />
+              Borrador IA
+              {onClearAiDraft && (
+                <button
+                  type="button"
+                  onClick={onClearAiDraft}
+                  className="ml-0.5 opacity-80 hover:opacity-100"
+                  aria-label="Descartar borrador IA"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
+          <Textarea
+            ref={taRef}
+            value={draft}
+            onChange={(e) => onDraftChange(e.target.value)}
+            onKeyDown={onKey}
+            placeholder={internal ? "Nota interna (no se envía al cliente)…" : "Escribe un mensaje…  ('/' para plantillas)"}
+            rows={1}
+            className={cn(
+              "resize-none min-h-[36px] max-h-[160px] py-2 w-full",
+              aiDraftActive && "border-primary/40 focus-visible:ring-primary",
+            )}
+          />
+        </div>
 
         <Button onClick={submit} disabled={!draft.trim() || sending} size="icon" className="h-9 w-9 shrink-0">
           <Send className="h-4 w-4" />

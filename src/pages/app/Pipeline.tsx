@@ -12,6 +12,8 @@ import { BulkActionsBar } from "@/components/pipeline/BulkActionsBar";
 import { PipelineManagerDialog } from "@/components/pipeline/PipelineManagerDialog";
 import { AiInsightsPanel } from "@/components/pipeline/AiInsightsPanel";
 import { useAiSuggestionsByDeal } from "@/lib/queries/pipelineAi";
+import { AiAlertBanner } from "@/components/walix/AiAlertBanner";
+import { Clock } from "lucide-react";
 import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
@@ -135,6 +137,17 @@ export default function Pipeline() {
   const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
   const weightedAmount = activeDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
 
+  // Stale deals (>10 días sin actividad reciente del contacto / sin updates)
+  const staleDeals = useMemo(() => {
+    const now = Date.now();
+    return activeDeals.filter((d) => {
+      const lastContact = d.contactId ? contactLastActivityById.get(d.contactId) : null;
+      const ref = lastContact ?? d.updatedAt;
+      return (now - new Date(ref).getTime()) / 86_400_000 > 10;
+    });
+  }, [activeDeals, contactLastActivityById]);
+  const staleAmount = staleDeals.reduce((s, d) => s + d.amount, 0);
+
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -185,6 +198,17 @@ export default function Pipeline() {
         closingDeltaPct={closingDeltaPct}
         activeCount={activeDeals.length}
       />
+
+      {staleDeals.length > 0 && (
+        <AiAlertBanner
+          variant="warning"
+          icon={<Clock className="h-4 w-4" />}
+          title={`${staleDeals.length} deal${staleDeals.length === 1 ? "" : "s"} sin actividad hace más de 10 días`}
+          description={`Suman ${new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(staleAmount)} en pipeline. Revísalos antes de que se enfríen.`}
+          actionLabel="Ver insights IA"
+          onAction={() => setAiOpen(true)}
+        />
+      )}
 
       {view === "kanban" ? (
         <KanbanBoard
