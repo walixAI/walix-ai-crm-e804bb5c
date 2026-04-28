@@ -16,9 +16,11 @@ interface Props {
   onChangeAssignee: (id: string | null) => void;
   onTogglePanel: () => void;
   panelOpen: boolean;
+  onLinkDeal: () => void;
+  onMarkUnread: () => void;
 }
 
-export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePanel, panelOpen }: Props) {
+export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePanel, panelOpen, onLinkDeal, onMarkUnread }: Props) {
   return (
     <div className="border-b border-border bg-card px-4 py-3 flex items-center gap-3">
       <Link to={`/contacts/${conv.contactId}`} className="flex items-center gap-3 group min-w-0">
@@ -75,9 +77,9 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5">
+        <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={onLinkDeal}>
           <Link2 className="h-3 w-3" />
-          <span className="hidden lg:inline">Vincular Deal</span>
+          <span className="hidden lg:inline">{conv.dealId ? "Deal vinculado" : "Vincular Deal"}</span>
         </Button>
 
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onTogglePanel} title={panelOpen ? "Ocultar panel" : "Mostrar panel"}>
@@ -91,7 +93,7 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Marcar no leído</DropdownMenuItem>
+            <DropdownMenuItem onClick={onMarkUnread}>Marcar no leído</DropdownMenuItem>
             <DropdownMenuItem>Silenciar</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive">Archivar</DropdownMenuItem>
           </DropdownMenuContent>
