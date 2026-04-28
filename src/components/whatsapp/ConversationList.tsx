@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
+import { useMessageSearch } from "@/lib/queries/whatsapp";
 
 type Tab = "all" | "mine" | "unassigned" | "resolved";
 
@@ -33,6 +34,8 @@ interface Props {
 export function ConversationList({ conversations, activeId, onSelect, myUserId, loading }: Props) {
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
+  const term = q.trim();
+  const { data: matchingConvIds, isFetching: searching } = useMessageSearch(term);
 
   const filtered = useMemo(() => {
     let list = conversations;
@@ -40,17 +43,18 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
     if (tab === "unassigned") list = list.filter((c) => !c.assigneeId);
     if (tab === "resolved") list = list.filter((c) => c.status === "Resuelto");
     if (tab === "all") list = list.filter((c) => c.status !== "Resuelto");
-    const term = q.trim().toLowerCase();
-    if (term) {
+    const lower = term.toLowerCase();
+    if (lower) {
       list = list.filter(
         (c) =>
-          c.contactName.toLowerCase().includes(term) ||
-          c.preview.toLowerCase().includes(term) ||
-          c.contactPhone.includes(term),
+          c.contactName.toLowerCase().includes(lower) ||
+          c.preview.toLowerCase().includes(lower) ||
+          c.contactPhone.includes(lower) ||
+          (matchingConvIds?.has(c.id) ?? false),
       );
     }
     return list;
-  }, [conversations, tab, q, myUserId]);
+  }, [conversations, tab, term, myUserId, matchingConvIds]);
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unread ?? 0), 0);
 
@@ -102,6 +106,9 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
             placeholder="Buscar nombre o mensaje…"
             className="pl-9 h-9 text-sm"
           />
+          {term.length >= 2 && searching && (
+            <Loader2 className="h-3.5 w-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />
+          )}
         </div>
       </div>
 
