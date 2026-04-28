@@ -25,7 +25,7 @@ function colorFromId(id: string) {
 // ───────────────────────── types ─────────────────────────
 export type ConversationStatus = "Nuevo" | "En atención" | "Esperando" | "Resuelto";
 export type MessageType = "text" | "image" | "document" | "audio" | "location";
-export type MessageDirection = "in" | "out";
+export type MessageDirection = "inbound" | "outbound";
 
 export interface ConversationItem {
   id: string;
@@ -200,7 +200,7 @@ export function useSendMessage() {
       const { error } = await supabase.from("messages").insert({
         conversation_id: input.conversationId,
         tenant_id: input.tenantId,
-        direction: "out",
+        direction: "outbound",
         body: input.body,
         type: "text",
         is_internal_note: !!input.isInternalNote,
