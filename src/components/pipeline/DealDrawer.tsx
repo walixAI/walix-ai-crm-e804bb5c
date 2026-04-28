@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Lock, Pencil, Save, Sparkles, X } from "lucide-react";
+import { ArrowRight, Lock, Pencil, RefreshCw, Save, Sparkles, X, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   formatMXN, useDealActivity, useDealAiSuggestions, useUpdateDeal, useStageHistory,
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
+import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type ProbabilityScore } from "@/lib/queries/pipelineAi";
 import { relativeTime } from "@/mock/contacts";
 import { cn } from "@/lib/utils";
 
@@ -30,12 +31,17 @@ interface Props {
   open: boolean;
   onClose: () => void;
   contactName?: string;
+  contactLastActivityAt?: string | null;
 }
 
-export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) {
+export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<any>({});
   const update = useUpdateDeal();
+  const suggestNextStep = useSuggestNextStep();
+  const scoreProbability = useScoreProbability();
+  const [aiSuggestion, setAiSuggestion] = useState<NextStepSuggestion | null>(null);
+  const [aiScore, setAiScore] = useState<ProbabilityScore | null>(null);
 
   useEffect(() => {
     if (deal) {
@@ -49,6 +55,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
         notes: deal.notes ?? "",
       });
       setEditing(false);
+      setAiSuggestion(null);
+      setAiScore(null);
     }
   }, [deal]);
 
@@ -96,6 +104,36 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
       : deal.probability >= 40
         ? "Probabilidad media: hay interés pero faltan señales claras de cierre."
         : "Probabilidad baja: poca actividad reciente. Reactiva al contacto.";
+
+  async function runSuggestNextStep() {
+    if (!deal) return;
+    try {
+      const r = await suggestNextStep.mutateAsync({ deal, lastActivityAt: contactLastActivityAt });
+      setAiSuggestion(r);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al sugerir siguiente paso");
+    }
+  }
+
+  async function runScoreProbability() {
+    if (!deal) return;
+    try {
+      const r = await scoreProbability.mutateAsync({ deal, lastActivityAt: contactLastActivityAt });
+      setAiScore(r);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al calcular probabilidad");
+    }
+  }
+
+  async function applyAiProbability() {
+    if (!deal || !aiScore) return;
+    try {
+      await update.mutateAsync({ dealId: deal.id, patch: { probability: aiScore.probability } });
+      toast.success(`Probabilidad actualizada a ${aiScore.probability}%`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al guardar");
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -250,21 +288,45 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
                   <div className="h-7 w-7 rounded-lg bg-gradient-brand grid place-items-center">
                     <Sparkles className="h-4 w-4 text-primary-foreground" />
                   </div>
-                  <span className="text-xs font-semibold text-primary uppercase tracking-wide">Siguiente paso</span>
+                  <span className="text-xs font-semibold text-primary uppercase tracking-wide flex-1">Siguiente paso</span>
+                  {aiSuggestion && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={runSuggestNextStep} disabled={suggestNextStep.isPending}>
+                      <RefreshCw className={cn("h-3 w-3", suggestNextStep.isPending && "animate-spin")} />
+                    </Button>
+                  )}
                 </div>
-                <p className="text-sm leading-relaxed">
-                  {aiSuggestions[0]?.text ?? "Sin sugerencias activas para este deal por ahora."}
-                </p>
-                {aiSuggestions[0]?.cta && (
-                  <Button size="sm" className="mt-3 bg-success hover:bg-success/90 text-success-foreground h-8">
-                    {aiSuggestions[0].cta}
-                  </Button>
+                {aiSuggestion ? (
+                  <>
+                    <p className="text-sm leading-relaxed font-medium">{aiSuggestion.next_step}</p>
+                    <p className="text-xs text-muted-foreground mt-2 italic">{aiSuggestion.reasoning}</p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <WBadge variant={aiSuggestion.urgency === "high" ? "danger" : aiSuggestion.urgency === "medium" ? "warning" : "info"}>
+                        Urgencia: {aiSuggestion.urgency}
+                      </WBadge>
+                    </div>
+                  </>
+                ) : suggestNextStep.isPending ? (
+                  <div className="text-sm text-muted-foreground animate-pulse">Pensando…</div>
+                ) : (
+                  <>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {aiSuggestions[0]?.text ?? "Genera una recomendación de IA basada en el contexto actual del deal."}
+                    </p>
+                    <Button size="sm" className="mt-3 bg-primary hover:bg-primary/90 h-8" onClick={runSuggestNextStep}>
+                      <Sparkles className="h-3 w-3" /> Sugerir siguiente paso
+                    </Button>
+                  </>
                 )}
               </div>
 
               <div className="rounded-xl border border-border bg-card p-4">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                  Probabilidad de cierre
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                    Probabilidad de cierre
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={runScoreProbability} disabled={scoreProbability.isPending}>
+                    <Zap className={cn("h-3 w-3", scoreProbability.isPending && "animate-pulse")} /> Auto-calcular
+                  </Button>
                 </div>
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-3xl font-bold">{deal.probability}%</span>
@@ -272,7 +334,31 @@ export function DealDrawer({ deal, stages, open, onClose, contactName }: Props) 
                     {deal.probability >= 70 ? "Alta" : deal.probability >= 40 ? "Media" : "Baja"}
                   </WBadge>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">{explanation}</p>
+                {aiScore ? (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">IA sugiere:</span>
+                      <span className={cn(
+                        "text-lg font-bold",
+                        aiScore.probability >= 70 ? "text-success"
+                          : aiScore.probability >= 40 ? "text-warning" : "text-danger",
+                      )}>{aiScore.probability}%</span>
+                      {aiScore.probability !== deal.probability && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs ml-auto" onClick={applyAiProbability} disabled={update.isPending}>
+                          Aplicar
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{aiScore.reasoning}</p>
+                    {aiScore.signals.length > 0 && (
+                      <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
+                        {aiScore.signals.map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground leading-relaxed">{explanation}</p>
+                )}
               </div>
 
               <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">

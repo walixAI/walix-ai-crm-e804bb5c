@@ -1,4 +1,4 @@
-import { ChevronDown, KanbanSquare, List, Plus, Search, Settings2, X } from "lucide-react";
+import { ChevronDown, KanbanSquare, List, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +17,7 @@ interface Props {
   search: string;
   onSearch: (v: string) => void;
   onNew: () => void;
+  onOpenAi: () => void;
   pipelines: Pipeline[];
   activePipeline: Pipeline | null;
   onSelectPipeline: (id: string) => void;
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export function PipelineHeader({
-  view, onView, filters, onFilters, search, onSearch, onNew,
+  view, onView, filters, onFilters, search, onSearch, onNew, onOpenAi,
   pipelines, activePipeline, onSelectPipeline, onManagePipelines,
   totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount,
 }: Props) {
@@ -96,6 +97,15 @@ export function PipelineHeader({
           </ToggleGroup>
 
           <PipelineFilters value={filters} onChange={onFilters} />
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
+            onClick={onOpenAi}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Insights IA
+          </Button>
 
           <Button size="sm" className="h-9 bg-primary hover:bg-primary/90" onClick={onNew}>
             <Plus className="h-3.5 w-3.5" /> Nuevo Deal
