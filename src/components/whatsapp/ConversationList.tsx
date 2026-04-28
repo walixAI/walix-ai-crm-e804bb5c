@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 import { useMessageSearch } from "@/lib/queries/whatsapp";
+import { ConversationListSkeleton } from "@/components/walix/Skeletons";
 
 type Tab = "all" | "mine" | "unassigned" | "resolved";
 

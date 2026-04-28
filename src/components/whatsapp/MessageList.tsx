@@ -81,7 +81,7 @@ export function MessageList({ messages, loading }: { messages: MessageItem[]; lo
   }, [messages.length]);
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Cargando mensajes…</div>;
+    return <MessageListSkeleton rows={6} />;
   }
   if (!messages.length) {
     return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Sin mensajes todavía</div>;
