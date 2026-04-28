@@ -1,3 +1,5 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -18,7 +20,7 @@ interface DealLite {
   source?: string;
 }
 
-type Mode = "analyze_pipeline" | "suggest_next_step" | "score_probability";
+type Mode = "analyze_pipeline" | "suggest_next_step" | "score_probability" | "bulk_suggest";
 
 async function callGateway(body: Record<string, unknown>) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -131,6 +133,110 @@ Deno.serve(async (req) => {
         });
       }
       return new Response(JSON.stringify(args), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (mode === "bulk_suggest") {
+      if (!Array.isArray(deals) || deals.length === 0) {
+        return new Response(JSON.stringify({ error: "Sin deals para sugerir" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!;
+      const supabase = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      // Resolve user's tenant via profiles (RLS allows reading own profile)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: "No autenticado" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
+      const tenantId = profile?.tenant_id;
+      if (!tenantId) {
+        return new Response(JSON.stringify({ error: "Sin tenant" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Limit to top 15 deals to keep latency/cost reasonable
+      const targets = deals.slice(0, 15);
+      const result = await callGateway({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "Eres un asesor de ventas en español. Para cada deal sugieres UNA acción concreta para avanzarlo. Sé específico y breve (máx 100 chars por acción)." },
+          { role: "user", content: `Sugiere siguiente paso para cada deal. JSON:\n${JSON.stringify(targets)}` },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "bulk_suggestions",
+            parameters: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      deal_id: { type: "string" },
+                      next_step: { type: "string", description: "Acción concreta (máx 100 chars)" },
+                      cta_label: { type: "string", description: "Texto corto botón (máx 25 chars)" },
+                      urgency: { type: "string", enum: ["low", "medium", "high"] },
+                    },
+                    required: ["deal_id", "next_step", "cta_label", "urgency"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["suggestions"],
+              additionalProperties: false,
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "bulk_suggestions" } },
+      });
+      if (result.error) {
+        return new Response(JSON.stringify({ error: result.error }), {
+          status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const args = extractToolArgs(result.data);
+      const suggestions: Array<{ deal_id: string; next_step: string; cta_label: string; urgency: string }> = args?.suggestions ?? [];
+      const validIds = new Set(targets.map(d => d.id));
+      const rows = suggestions
+        .filter(s => validIds.has(s.deal_id))
+        .map(s => ({
+          tenant_id: tenantId,
+          deal_id: s.deal_id,
+          text: s.next_step,
+          cta: s.cta_label,
+          kind: `ai_next_step_${s.urgency}`,
+          dismissed: false,
+        }));
+
+      if (rows.length > 0) {
+        // Replace previous AI next-step suggestions for these deals
+        await supabase
+          .from("ai_suggestions")
+          .delete()
+          .in("deal_id", rows.map(r => r.deal_id))
+          .like("kind", "ai_next_step_%");
+        const { error: insErr } = await supabase.from("ai_suggestions").insert(rows);
+        if (insErr) {
+          console.error("insert ai_suggestions error", insErr);
+          return new Response(JSON.stringify({ error: insErr.message }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+      return new Response(JSON.stringify({ count: rows.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
