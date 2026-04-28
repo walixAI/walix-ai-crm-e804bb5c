@@ -10,6 +10,8 @@ import { computeDealHealth } from "@/lib/dealHealth";
 import { HealthBadges } from "./HealthBadges";
 import { QuickActions } from "./QuickActions";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { scoreDeal } from "@/services/ai";
 
 interface Props {
   deal: PipelineDeal;
@@ -42,6 +44,23 @@ export function DealCard({
   const navigate = useNavigate();
   const pendingTask = (tasks ?? []).some(t => !t.completed);
   const health = computeDealHealth(deal, contactLastActivityAt);
+
+  // Tooltip explanation for the probability bar.
+  // Reuses the shared `scoreDeal()` helper so the explanation phrasing
+  // matches the model output ("Respondió en <2h, lleva X días en esta etapa").
+  const daysInStage = Math.max(
+    0,
+    Math.round((Date.now() - new Date(deal.updatedAt).getTime()) / 86_400_000),
+  );
+  const daysSinceLastActivity = contactLastActivityAt
+    ? Math.max(0, Math.round((Date.now() - new Date(contactLastActivityAt).getTime()) / 86_400_000))
+    : daysInStage;
+  const scoreExplain = scoreDeal({
+    daysInStage,
+    daysSinceLastActivity,
+    openedProposalCount: 0,
+    responseTimeHours: daysSinceLastActivity <= 1 ? 1 : 24,
+  });
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
@@ -162,12 +181,27 @@ export function DealCard({
       )}
 
       {/* Probability progress bar at the bottom */}
-      <div className="absolute left-0 right-0 bottom-0 h-1 bg-muted/50">
-        <div
-          className={cn("h-full transition-all", probabilityColor(deal.probability))}
-          style={{ width: `${deal.probability}%` }}
-        />
-      </div>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="absolute left-0 right-0 bottom-0 h-1.5 bg-muted/50 cursor-help"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className={cn("h-full transition-all", probabilityColor(deal.probability))}
+                style={{ width: `${deal.probability}%` }}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[260px] text-xs">
+            <div className="font-semibold mb-0.5">
+              Probabilidad de cierre {deal.probability}%
+            </div>
+            <div className="text-muted-foreground leading-snug">{scoreExplain.reason}</div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
