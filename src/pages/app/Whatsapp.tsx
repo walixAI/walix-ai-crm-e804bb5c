@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ChevronLeft } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/hooks/use-toast";
 import {
   useConversations, useMessages, useMessageTemplates,
   useSendMessage, useUpdateConversation, useMarkConversationRead,
+  useMarkConversationUnread, renderTemplate,
+  type MessageTemplate,
 } from "@/lib/queries/whatsapp";
+import { useContactDeals } from "@/lib/queries/contacts";
 import { ConversationList } from "@/components/whatsapp/ConversationList";
 import { ChatHeader } from "@/components/whatsapp/ChatHeader";
 import { MessageList } from "@/components/whatsapp/MessageList";
 import { Composer } from "@/components/whatsapp/Composer";
 import { ContactSidePanel } from "@/components/whatsapp/ContactSidePanel";
+import { TemplatesDialog } from "@/components/whatsapp/TemplatesDialog";
+import { LinkDealDialog } from "@/components/whatsapp/LinkDealDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { sellers } from "@/mock/contacts";
 
 export default function Whatsapp() {
   const user = useAuthStore((s) => s.user);
@@ -48,6 +53,40 @@ export default function Whatsapp() {
   const sendMutation = useSendMessage();
   const updateMutation = useUpdateConversation();
   const markRead = useMarkConversationRead();
+  const markUnread = useMarkConversationUnread();
+
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [linkDealOpen, setLinkDealOpen] = useState(false);
+
+  // load tenant id once
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
+      setTenantId(data?.tenant_id ?? null);
+    })();
+  }, [user?.id]); // eslint-disable-line
+
+  // pull deals of the active contact (for {monto} variable)
+  const { data: contactDeals = [] } = useContactDeals(activeConv?.contactId);
+  const topDeal = contactDeals[0] ?? null;
+
+  function tplContext(): Parameters<typeof renderTemplate>[1] {
+    const sellerName = sellers.find((s) => s.id === activeConv?.assigneeId)?.name;
+    return {
+      nombre: activeConv?.contactName.split(" ")[0],
+      empresa: activeConv?.contactCompany ?? undefined,
+      vendedor: sellerName ?? "",
+      monto: topDeal?.amount ?? null,
+    };
+  }
+
+  function pickTemplate(t: MessageTemplate) {
+    setDraft(renderTemplate(t.content, tplContext()));
+    setTemplatesOpen(false);
+  }
 
   // mark as read when opening
   useEffect(() => {
@@ -56,24 +95,16 @@ export default function Whatsapp() {
     }
   }, [activeConv?.id]); // eslint-disable-line
 
-  const tenantId = (activeConv as any)?.tenant_id; // not exposed; we infer from current state below
-
   const handleSend = async (body: string, opts?: { internal?: boolean }) => {
     if (!activeConv || !user) return;
-    // tenant_id: get from contact via current conversation by re-querying not ideal; use profile tenant from auth via user.user_metadata fallback
-    // We rely on a single tenant per user — fetch it lazily
+    if (!tenantId) {
+      toast({ title: "Sin tenant", description: "No se pudo identificar tu organización.", variant: "destructive" });
+      return;
+    }
     try {
-      // fetch tenant_id from profiles
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
-      const tid = profile?.tenant_id;
-      if (!tid) {
-        toast({ title: "Sin tenant", description: "No se pudo identificar tu organización.", variant: "destructive" });
-        return;
-      }
       await sendMutation.mutateAsync({
         conversationId: activeConv.id,
-        tenantId: tid,
+        tenantId,
         body,
         isInternalNote: opts?.internal,
       });
@@ -142,6 +173,11 @@ export default function Whatsapp() {
                   onChangeAssignee={(id) =>
                     updateMutation.mutate({ id: activeConv.id, patch: { assignee_id: id } })
                   }
+                  onLinkDeal={() => setLinkDealOpen(true)}
+                  onMarkUnread={() => {
+                    markUnread.mutate(activeConv.id);
+                    toast({ title: "Marcado como no leído" });
+                  }}
                 />
                 <MessageList messages={messages} loading={msgsLoading} />
                 <Composer
@@ -150,6 +186,8 @@ export default function Whatsapp() {
                   templates={templates}
                   onSend={handleSend}
                   sending={sendMutation.isPending}
+                  onOpenTemplates={() => setTemplatesOpen(true)}
+                  onPickTemplate={pickTemplate}
                   onAiSuggest={() => toast({ title: "IA", description: "Conectaremos esto en la fase 3." })}
                   onAiSummarize={() => toast({ title: "IA", description: "Conectaremos esto en la fase 3." })}
                   onAiPrompt={() => toast({ title: "IA", description: "Conectaremos esto en la fase 3." })}
@@ -164,9 +202,28 @@ export default function Whatsapp() {
               notesDraft={notesDraft}
               onNotesChange={setNotesDraft}
               onSaveNotes={handleSaveNotes}
+              onLinkDeal={() => setLinkDealOpen(true)}
             />
           )}
         </main>
+      )}
+
+      <TemplatesDialog
+        open={templatesOpen}
+        onOpenChange={setTemplatesOpen}
+        tenantId={tenantId}
+        onUse={pickTemplate}
+      />
+
+      {activeConv && (
+        <LinkDealDialog
+          open={linkDealOpen}
+          onOpenChange={setLinkDealOpen}
+          conversationId={activeConv.id}
+          contactId={activeConv.contactId}
+          contactName={activeConv.contactName}
+          currentDealId={activeConv.dealId}
+        />
       )}
     </div>
   );
