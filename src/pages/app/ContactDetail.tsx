@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { contacts, getContactStats, getContactActivity, getContactDeals, getContactConversations, relativeTime } from "@/mock/contacts";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
 import { ContactStatsBar } from "@/components/contacts/detail/ContactStatsBar";
 import { InfoSidePanel } from "@/components/contacts/detail/InfoSidePanel";
@@ -150,5 +149,3 @@ export default function ContactDetail() {
     </div>
   );
 }
-
-const _used = cn; // keep import
