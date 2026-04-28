@@ -37,6 +37,39 @@ export interface AskAiResult {
   source: "live" | "fallback";
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// Feedback (👍/👎) on AI responses
+// ────────────────────────────────────────────────────────────────────────
+
+export type AiRating = 1 | -1;
+
+export async function submitAiFeedback(opts: {
+  prompt: string;
+  answer: string;
+  rating: AiRating;
+  comment?: string;
+  surface?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+    if (!user) return { ok: false, error: "No autenticado" };
+    const { error } = await supabase.from("ai_feedback").insert({
+      user_id: user.id,
+      prompt: opts.prompt,
+      answer: opts.answer,
+      rating: opts.rating,
+      comment: opts.comment ?? null,
+      surface: opts.surface ?? "ai_drawer",
+    });
+    if (error) throw error;
+    return { ok: true };
+  } catch (err) {
+    console.warn("[ai.submitAiFeedback] error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Error" };
+  }
+}
+
 /**
  * Free-form question for the global AiDrawer.
  * Sends conversation messages so the model can carry context.

@@ -72,6 +72,42 @@ export type Database = {
           },
         ]
       }
+      ai_feedback: {
+        Row: {
+          answer: string
+          comment: string | null
+          created_at: string
+          id: string
+          prompt: string
+          rating: number
+          surface: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          answer: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          prompt: string
+          rating: number
+          surface?: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          prompt?: string
+          rating?: number
+          surface?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_suggestions: {
         Row: {
           contact_id: string | null
