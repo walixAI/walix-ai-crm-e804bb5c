@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
+import { KanbanSkeleton, TableSkeleton } from "@/components/walix/Skeletons";
 import { KanbanBoard } from "@/components/pipeline/KanbanBoard";
 import { DealsListView } from "@/components/pipeline/DealsListView";
 import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
@@ -171,8 +171,10 @@ export default function Pipeline() {
 
   if (stagesLoading || dealsLoading || pipelinesLoading) {
     return (
-      <div className="grid place-items-center h-64">
-        <LoadingSpinner />
+      <div className="space-y-4 max-w-full">
+        {prefs.view === "kanban"
+          ? <KanbanSkeleton columns={5} cardsPerColumn={3} />
+          : <TableSkeleton rows={8} columns={6} />}
       </div>
     );
   }
