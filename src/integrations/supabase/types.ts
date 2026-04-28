@@ -225,31 +225,43 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assignee_id: string | null
           contact_id: string
           created_at: string
+          deal_id: string | null
           id: string
+          internal_notes: string | null
           last_message_at: string | null
           preview: string | null
+          status: Database["public"]["Enums"]["conversation_status"]
           tenant_id: string
           unread_count: number
           updated_at: string
         }
         Insert: {
+          assignee_id?: string | null
           contact_id: string
           created_at?: string
+          deal_id?: string | null
           id?: string
+          internal_notes?: string | null
           last_message_at?: string | null
           preview?: string | null
+          status?: Database["public"]["Enums"]["conversation_status"]
           tenant_id: string
           unread_count?: number
           updated_at?: string
         }
         Update: {
+          assignee_id?: string | null
           contact_id?: string
           created_at?: string
+          deal_id?: string | null
           id?: string
+          internal_notes?: string | null
           last_message_at?: string | null
           preview?: string | null
+          status?: Database["public"]["Enums"]["conversation_status"]
           tenant_id?: string
           unread_count?: number
           updated_at?: string
@@ -392,6 +404,39 @@ export type Database = {
           },
         ]
       }
+      message_templates: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           body: string
@@ -399,8 +444,13 @@ export type Database = {
           created_at: string
           direction: Database["public"]["Enums"]["message_direction"]
           id: string
+          is_internal_note: boolean
+          media_url: string | null
+          metadata: Json | null
+          read_at: string | null
           sent_at: string
           tenant_id: string
+          type: Database["public"]["Enums"]["message_type"]
         }
         Insert: {
           body: string
@@ -408,8 +458,13 @@ export type Database = {
           created_at?: string
           direction: Database["public"]["Enums"]["message_direction"]
           id?: string
+          is_internal_note?: boolean
+          media_url?: string | null
+          metadata?: Json | null
+          read_at?: string | null
           sent_at?: string
           tenant_id: string
+          type?: Database["public"]["Enums"]["message_type"]
         }
         Update: {
           body?: string
@@ -417,8 +472,13 @@ export type Database = {
           created_at?: string
           direction?: Database["public"]["Enums"]["message_direction"]
           id?: string
+          is_internal_note?: boolean
+          media_url?: string | null
+          metadata?: Json | null
+          read_at?: string | null
           sent_at?: string
           tenant_id?: string
+          type?: Database["public"]["Enums"]["message_type"]
         }
         Relationships: [
           {
@@ -677,6 +737,7 @@ export type Database = {
     Enums: {
       activity_type: "wa_sent" | "wa_received" | "note" | "deal" | "task"
       app_role: "super_admin" | "tenant_admin" | "sales_manager" | "sales_rep"
+      conversation_status: "Nuevo" | "En atención" | "Esperando" | "Resuelto"
       lead_source: "WhatsApp" | "Formulario web" | "Referido" | "Manual"
       lead_status:
         | "Nuevo"
@@ -686,6 +747,7 @@ export type Database = {
         | "Cliente"
         | "Inactivo"
       message_direction: "inbound" | "outbound"
+      message_type: "text" | "image" | "document" | "audio" | "location"
       tag_family: "temperature" | "cycle" | "special"
     }
     CompositeTypes: {
@@ -816,6 +878,7 @@ export const Constants = {
     Enums: {
       activity_type: ["wa_sent", "wa_received", "note", "deal", "task"],
       app_role: ["super_admin", "tenant_admin", "sales_manager", "sales_rep"],
+      conversation_status: ["Nuevo", "En atención", "Esperando", "Resuelto"],
       lead_source: ["WhatsApp", "Formulario web", "Referido", "Manual"],
       lead_status: [
         "Nuevo",
@@ -826,6 +889,7 @@ export const Constants = {
         "Inactivo",
       ],
       message_direction: ["inbound", "outbound"],
+      message_type: ["text", "image", "document", "audio", "location"],
       tag_family: ["temperature", "cycle", "special"],
     },
   },
