@@ -15,9 +15,10 @@ interface Props {
   notesDraft: string;
   onNotesChange: (v: string) => void;
   onSaveNotes: () => void;
+  onLinkDeal: () => void;
 }
 
-export function ContactSidePanel({ conv, notesDraft, onNotesChange, onSaveNotes }: Props) {
+export function ContactSidePanel({ conv, notesDraft, onNotesChange, onSaveNotes, onLinkDeal }: Props) {
   const { data: deals } = useContactDeals(conv.contactId);
 
   return (
@@ -73,7 +74,7 @@ export function ContactSidePanel({ conv, notesDraft, onNotesChange, onSaveNotes 
                   <p className="text-[11px] text-muted-foreground mt-0.5">{d.stage}</p>
                 </div>
               ))}
-              <Button variant="outline" size="sm" className="w-full h-8 text-xs">
+              <Button variant="outline" size="sm" className="w-full h-8 text-xs" onClick={onLinkDeal}>
                 <Plus className="h-3 w-3 mr-1" />
                 Vincular o crear deal
               </Button>
