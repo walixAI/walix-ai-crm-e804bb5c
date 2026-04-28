@@ -275,18 +275,18 @@ export function useUnreadByContactMap() {
   });
 }
 
-export interface ContactLite { id: string; name: string; lastName: string | null; phone: string; avatarColor: string | null }
+export interface ContactLite { id: string; name: string; lastName: string | null; phone: string; avatarColor: string | null; lastActivityAt: string | null }
 export function useContactsLite() {
   return useQuery({
     queryKey: ["pipeline-contacts-lite"],
     queryFn: async (): Promise<ContactLite[]> => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("id, name, last_name, phone, avatar_color")
+        .select("id, name, last_name, phone, avatar_color, last_activity_at")
         .order("name");
       if (error) throw error;
       return (data ?? []).map((c: any) => ({
-        id: c.id, name: c.name, lastName: c.last_name, phone: c.phone, avatarColor: c.avatar_color,
+        id: c.id, name: c.name, lastName: c.last_name, phone: c.phone, avatarColor: c.avatar_color, lastActivityAt: c.last_activity_at,
       }));
     },
   });
