@@ -1,28 +1,31 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, ChevronLeft, ChevronRight
+  Zap, Settings, Shield, Store, ChevronLeft, ChevronRight, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/walix/Logo";
 import { WBadge } from "@/components/walix/Badge";
-
-const items = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/contacts", label: "Contactos", icon: Users },
-  { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle, badge: 12 },
-  { to: "/reports", label: "Reportes", icon: BarChart3 },
-  { to: "/automations", label: "Automatizaciones", icon: Zap },
-];
+import { useAiInboxCount } from "@/pages/app/AiInbox";
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const { roles } = useAuth();
   const isAdmin = roles.includes("tenant_admin") || roles.includes("super_admin");
   const isSuperAdmin = roles.includes("super_admin");
+  const aiCount = useAiInboxCount();
+
+  const items = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/ai-inbox", label: "AI Inbox", icon: Sparkles, badge: aiCount > 0 ? aiCount : undefined, accent: true },
+    { to: "/contacts", label: "Contactos", icon: Users },
+    { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+    { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle, badge: 12 },
+    { to: "/reports", label: "Reportes", icon: BarChart3 },
+    { to: "/automations", label: "Automatizaciones", icon: Zap },
+  ];
 
   const adminItems = [
     ...(isAdmin ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
@@ -69,7 +72,7 @@ export function Sidebar() {
   );
 }
 
-function NavItem({ to, label, icon: Icon, badge, collapsed }: any) {
+function NavItem({ to, label, icon: Icon, badge, collapsed, accent }: any) {
   return (
     <NavLink
       to={to}
@@ -79,10 +82,12 @@ function NavItem({ to, label, icon: Icon, badge, collapsed }: any) {
         collapsed && "justify-center px-0",
         isActive
           ? "bg-primary text-primary-foreground shadow-glow"
-          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          : accent
+            ? "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
     >
-      <Icon className="h-[18px] w-[18px] shrink-0" />
+      <Icon className={cn("h-[18px] w-[18px] shrink-0", accent && "text-accent")} />
       {!collapsed && <span className="flex-1 truncate">{label}</span>}
       {!collapsed && badge && <WBadge variant="brand">{badge}</WBadge>}
       {collapsed && badge && (
