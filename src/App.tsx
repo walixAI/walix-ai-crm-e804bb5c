@@ -19,6 +19,7 @@ import Contacts from "@/pages/app/Contacts";
 import ContactDetail from "@/pages/app/ContactDetail";
 import Pipeline from "@/pages/app/Pipeline";
 import Whatsapp from "@/pages/app/Whatsapp";
+import AiInbox from "@/pages/app/AiInbox";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -38,6 +39,7 @@ const AppRoutes = () => {
         <Route path="/contacts/:id" element={<ContactDetail />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/whatsapp" element={<Whatsapp />} />
+        <Route path="/ai-inbox" element={<AiInbox />} />
         <Route path="/reports" element={<Stub icon={BarChart3} title="Reportes & Analytics" description="Métricas en tiempo real, embudos y exportables" />} />
         <Route path="/automations" element={<Stub icon={Zap} title="Automatizaciones" description="Flujos no-code: triggers, condiciones y acciones con IA" />} />
         <Route path="/settings" element={
