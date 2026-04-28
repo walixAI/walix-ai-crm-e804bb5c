@@ -10,6 +10,7 @@ import {
   fetchDashboardAiWidgets, AI_MODEL_LABEL,
   type DashboardAiResponse, type PipelineHealthWidget, type RiskWidget,
 } from "@/services/ai";
+import { AiSectionSkeleton } from "@/components/walix/Skeletons";
 
 const REPORT_CACHE_KEY = "walix.weeklyReport.v1";
 
@@ -107,12 +108,7 @@ export function DashboardAiSection() {
   useEffect(() => { load(false); /* eslint-disable-next-line */ }, []);
 
   if (loading && !data) {
-    return (
-      <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 p-8 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        Generando inteligencia IA del dashboard…
-      </div>
-    );
+    return <AiSectionSkeleton />;
   }
   if (!data) return null;
 
