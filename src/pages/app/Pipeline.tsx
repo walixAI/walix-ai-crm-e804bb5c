@@ -35,6 +35,7 @@ export default function Pipeline() {
     return c ? `${c.name}${c.lastName ? " " + c.lastName : ""}` : undefined;
   };
   const contactColor = (id: string | null) => (id ? contactById.get(id)?.avatarColor ?? null : null);
+  const contactLastActivityAt = (id: string | null) => (id ? contactById.get(id)?.lastActivityAt ?? null : null);
 
   const filtered = useMemo(() => {
     return deals.filter(d => {
@@ -50,6 +51,23 @@ export default function Pipeline() {
 
   const activeDeals = filtered.filter(d => !d.isWon && !d.isLost);
   const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
+  const weightedAmount = activeDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const closingThisMonth = activeDeals
+    .filter(d => d.expectedCloseDate && new Date(d.expectedCloseDate) >= startOfMonth && new Date(d.expectedCloseDate) < endOfMonth)
+    .reduce((s, d) => s + d.amount, 0);
+
+  const closingPrevMonth = filtered
+    .filter(d => d.expectedCloseDate && new Date(d.expectedCloseDate) >= startOfPrevMonth && new Date(d.expectedCloseDate) < startOfMonth)
+    .reduce((s, d) => s + d.amount, 0);
+
+  const closingDeltaPct =
+    closingPrevMonth > 0 ? ((closingThisMonth - closingPrevMonth) / closingPrevMonth) * 100 : null;
 
   function openNewDeal(stage?: PipelineStage) {
     setNewDealStage(stage?.id ?? null);
@@ -73,6 +91,9 @@ export default function Pipeline() {
         onFilters={setFilters}
         onNew={() => openNewDeal()}
         totalAmount={totalAmount}
+        weightedAmount={weightedAmount}
+        closingThisMonth={closingThisMonth}
+        closingDeltaPct={closingDeltaPct}
         activeCount={activeDeals.length}
       />
 
@@ -82,6 +103,7 @@ export default function Pipeline() {
           deals={filtered}
           contactName={contactName}
           contactColor={contactColor}
+          contactLastActivityAt={contactLastActivityAt}
           tasksByDeal={tasksByDeal}
           unreadByContact={unreadByContact}
           onOpenDeal={setOpenDeal}
