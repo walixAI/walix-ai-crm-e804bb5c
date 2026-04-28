@@ -1,197 +1,188 @@
-# Plan: Mejoras del módulo Pipeline
 
-Implementación dividida en **5 fases incrementales**. Cada fase es desplegable por sí sola y aporta valor visible. Puedes aprobar todo el plan y ejecutarlo de corrido, o cortar en cualquier fase.
+# Módulo de Automatizaciones (/automations)
 
----
+## Sugerencias clave de UX (lo que añado a tu prompt)
 
-## Fase 1 — Inteligencia visual y forecast (impacto inmediato)
+Estas son decisiones que harán la diferencia entre una página "bonita" y una herramienta que un dueño de Tacos El Güero use sin manual:
 
-**Objetivo:** que de un vistazo sepas qué deals están sanos, en riesgo y cuánto vas a cerrar realmente.
+1. **Galería de plantillas como punto de entrada principal.** En vez de empezar con "+ Nueva Automatización" en blanco, el botón principal abre un selector con ~8 plantillas listas ("Bienvenida a nuevo contacto", "Recordar deal frío", "Asignar lead a vendedor con menos carga"…). Crear desde cero es la opción avanzada (link discreto). Esto reduce el time-to-first-automation de minutos a 15 segundos.
+2. **Lenguaje natural en toda la UI, no jerga técnica.** En lugar de "trigger / condición / acción" mostramos:
+   - **CUANDO pase esto…** (trigger)
+   - **SOLO SI…** (condición opcional, oculta por default)
+   - **HAZ ESTO…** (acción)
+3. **Vista previa en tiempo real ("Así se vería").** En el paso final, una tarjeta narrativa: *"Cuando llegue un nuevo lead de WhatsApp, si la fuente es Facebook Ads, asignar a Carlos Méndez y enviar plantilla 'Bienvenida'"*. Editable por chips clicables.
+4. **Modo Simulación (dry-run) antes de activar.** Botón "Probar con datos reales" muestra a qué deals/contactos de los últimos 7 días se les habría aplicado la automatización, sin ejecutarla. Quita el miedo a "qué pasa si la prendo".
+5. **Historial de ejecuciones por automatización.** Tab dentro de cada card que muestra las últimas 20 ejecuciones (timestamp, qué entidad, éxito/error). Da confianza y debugging.
+6. **Asistente IA "Crear con lenguaje natural".** Botón secundario donde el usuario escribe *"avísame cuando un cliente lleve 3 días sin contestarme un WhatsApp"* y la IA pre-rellena el builder. Reusa `lovable-ai-gateway`.
+7. **Pausas inteligentes (anti-spam).** Setting global "no enviar mensajes WA entre 22:00 y 08:00" y "máximo 1 mensaje automático por contacto cada 24h". Evita quemar la relación con clientes.
+8. **Etiqueta "Recomendado para ti"** en plantillas relevantes según el estado actual del CRM (ej. si tienen 5+ deals estancados, recomendar "Alerta deal estancado" arriba).
+9. **Toggle Activa/Pausada con confirmación si afecta muchos.** Si una automatización ya tiene 50+ ejecuciones, al pausar mostrar mini-modal "Esto detendrá X envíos programados".
+10. **Builder como Sheet lateral**, no modal de pantalla completa ni página propia. Mantiene el contexto de la lista visible y se cierra fácil.
 
-### 1.1 Indicadores de salud en `DealCard`
-Reemplazar el badge actual de "días en etapa" por un sistema de señales:
-- 🔥 **Hot** — actividad WhatsApp en últimas 24h
-- 💤 **Cold** — sin actividad en >7 días
-- ⚠️ **Stale** — >14 días en la misma etapa (por `updatedAt` del deal vs último cambio de stage)
-- 📅 **Overdue** — `expected_close_date` ya pasó y sigue activo
+## Estructura de la página
 
-Pequeñas píldoras de color en la esquina inferior izquierda de la card. Tooltip con el detalle al hacer hover.
-
-### 1.2 Forecast ponderado en `PipelineHeader`
-Reemplazar la barra actual por 3 KPIs en línea:
-- **Pipeline total**: Σ(amount) — lo que hay
-- **Pipeline ponderado**: Σ(amount × probability/100) — lo esperado
-- **Cierre este mes**: Σ de deals con `expected_close_date` en el mes actual
-- Indicador ▲/▼ vs mes anterior (calculado de `created_at` y `updated_at`)
-
-### 1.3 WIP limits por columna
-En `KanbanColumn`, si una etapa supera un umbral (configurable por etapa, default 10), mostrar borde superior naranja + badge "Cuello de botella" en el header de la columna.
-
-**Datos:** No requiere cambios de schema. Todo se calcula en cliente con queries existentes (`useDeals`, `useUnreadByContactMap`).
-
----
-
-## Fase 2 — Acciones rápidas y captura de datos (productividad)
-
-### 2.1 Quick actions en hover sobre `DealCard`
-Botones flotantes que aparecen al hacer hover (esquina superior derecha):
-- 💬 WhatsApp — navega a `/inbox` con el contacto
-- ✅ Marcar ganado — mueve a stage `is_won`
-- ❌ Marcar perdido — abre modal de razón (ver 2.2)
-- 📅 Nueva tarea — modal mínimo
-
-Implementado con `stopPropagation` para no abrir el drawer.
-
-### 2.2 Modal de razón de pérdida
-Cuando un deal se mueve a "Cerrado Perdido" (drag o quick action):
-- Modal obligatorio con select: Precio · Timing · Competencia · No responde · Otro
-- Textarea opcional de comentario
-- Se guarda en columnas nuevas del deal: `lost_reason`, `lost_comment`
-
-**Schema:** migración añade dos columnas a `deals`.
-
-### 2.3 Multi-selección en Kanban
-- Checkbox que aparece en hover de la card
-- Barra flotante inferior con acciones masivas: "Mover a etapa…", "Reasignar vendedor…", "Eliminar"
-- Estado local en `Pipeline.tsx` (set de IDs seleccionados)
-
-### 2.4 Búsqueda global en header
-Input en `PipelineHeader` que filtra por `name`, `notes` y nombre de contacto. Combinable con los filtros estructurados existentes.
-
-### 2.5 Persistencia de vista y filtros
-Guardar en `localStorage` por usuario:
-- View activa (kanban/lista)
-- Filtros aplicados
-- Pipeline seleccionado
-
-Hook `usePipelinePrefs()` con sync bidireccional.
-
----
-
-## Fase 3 — Múltiples pipelines y trazabilidad (arquitectura)
-
-### 3.1 Tabla `pipelines` y soporte multi-pipeline
-**Schema:**
 ```text
-pipelines
-  id uuid PK
-  tenant_id uuid
-  name text
-  is_default boolean
-  position int
-  created_at timestamptz
-
-pipeline_stages
-  + pipeline_id uuid (FK lógico)
+/automations
+├─ Header
+│  ├─ "Automatizaciones" + sub: "Pon tu CRM en piloto automático"
+│  ├─ Contador de plan: "2 de 3 usadas · Plan Pro"  (pill)
+│  └─ [+ Nueva automatización]  → abre Galería
+│
+├─ Banner "Empieza rápido" (solo si 0 automatizaciones)
+│  └─ 3 plantillas destacadas en cards grandes con CTA "Activar en 1 clic"
+│
+├─ Tabs: Activas (4) · Pausadas (2) · Borradores (1) · Todas
+│  └─ Filtro lateral: "por trigger" · "por última ejecución"
+│
+└─ Grid de cards (1 col mobile, 2 col tablet, 3 col desktop)
+   └─ AutomationCard
+      ├─ Icono + nombre + descripción narrativa de 1 línea
+      ├─ Badge estado (Activa verde / Pausada gris / Error rojo / Borrador)
+      ├─ Stats: "Ejecutada 23 veces · Última hace 2h · 91% éxito"
+      ├─ Mini gráfico sparkline de ejecuciones últimos 7 días
+      ├─ Toggle Activa/Pausada (con confirm si tiene muchos runs)
+      └─ Menu (⋯): Editar · Ver historial · Duplicar · Eliminar
 ```
 
-- Migrar las stages actuales a un pipeline default por tenant
-- UI de gestión: dropdown del header se vuelve funcional, opción "Gestionar pipelines" abre dialog para crear/renombrar/reordenar pipelines y sus etapas
-- Casos de uso: "Ventas B2B", "Renovaciones", "Soporte Premium"
+## Builder (Sheet lateral, ~600px ancho)
 
-### 3.2 Historial de cambios de etapa
-**Schema:**
+5 pasos con stepper visible. Botón "Anterior" y "Siguiente" abajo, "Guardar como borrador" siempre disponible.
+
 ```text
-deal_stage_history
-  id uuid PK
-  tenant_id uuid
-  deal_id uuid
-  from_stage_id uuid
-  to_stage_id uuid
-  changed_by uuid
-  changed_at timestamptz
+Paso 1 — Información
+   nombre + descripción opcional + icono (auto-sugerido)
+
+Paso 2 — CUANDO pase esto (trigger)
+   Cards de selección, una activa a la vez:
+   ⏰ Deal sin actividad por [N] días
+   📱 Llega nuevo lead de WhatsApp
+   👤 Se crea un contacto nuevo
+   📊 Deal se mueve [de etapa] → [a etapa]
+   ✅ Deal marcado como Ganado
+   ❌ Deal marcado como Perdido
+   📅 Fecha de cierre se acerca en [N] días
+   💬 Contacto sin respuesta hace [N] días  (extra sugerido)
+
+Paso 3 — SOLO SI (condición opcional)
+   Toggle "Agregar filtro"
+   Builder visual: [campo] [operador] [valor]
+   Soporta hasta 3 condiciones con AND/OR
+   Campos: monto deal, vendedor, fuente, etiqueta contacto, etapa, etc.
+
+Paso 4 — HAZ ESTO (acción)
+   📲 Enviar mensaje WhatsApp [plantilla]
+   🔔 Notificar al vendedor (in-app + email)
+   📋 Crear tarea
+   👥 Reasignar contacto (vendedor o round-robin)
+   🏷️ Agregar etiqueta
+   📊 Mover deal a etapa
+   ⚡ Encadenar otra acción (botón "+ otra acción")
+
+Paso 5 — Revisar y activar
+   Tarjeta narrativa: "CUANDO ... SOLO SI ... ENTONCES ..."
+   Botón [Probar con datos reales] → muestra dry-run
+   Toggle activar al guardar
+   Botón [Guardar y activar]
 ```
 
-- Trigger en `deals` que inserta automáticamente al cambiar `stage_id`
-- Habilita: tiempo real en etapa (no en el deal completo), velocidad del pipeline, tasas de conversión
-- Mejora el badge de "días en etapa" para que use el cambio real, no `updatedAt`
+Al inicio del Sheet, banner discreto: *"¿Prefieres describirla? [Crear con IA →]"* abre un input de texto libre.
 
-### 3.3 Razón de pérdida obligatoria refinada
-Si Fase 2.2 ya está, aprovechar para mostrar analytics básicos de razones en el header del pipeline cuando hay deals perdidos en el periodo.
+## Plantillas pre-cargadas (galería)
 
----
+Mismas que pediste + 4 sugeridas:
 
-## Fase 4 — Capa de IA (diferenciador Walix)
+| # | Nombre | Trigger | Acción | Estado default |
+|---|---|---|---|---|
+| 1 | Recordatorio de seguimiento | Deal sin actividad N días | Notificar vendedor | Activa |
+| 2 | Asignación automática de leads | Nuevo lead WhatsApp | Round-robin entre vendedores | Activa |
+| 3 | Mensaje de bienvenida | Nuevo contacto | Enviar plantilla WA | Pausada (necesita plantilla) |
+| 4 | Alerta deal estancado | Deal sin avanzar 10 días | Notificar gerente | Activa |
+| 5 | Felicitar al ganar | Deal marcado Ganado | Tarea de seguimiento + WA agradecimiento | Borrador |
+| 6 | Recuperar deal perdido | Deal marcado Perdido | Tarea de revisión a 30 días | Borrador |
+| 7 | Recordar cierre próximo | Fecha cierre en 3 días | Notificar vendedor + tarea | Borrador |
+| 8 | Re-engage cliente frío | Sin mensaje WA hace 14 días | Plantilla "te extrañamos" | Borrador |
 
-Todo via **Lovable AI Gateway** (ya tenemos `LOVABLE_API_KEY`), modelo `google/gemini-2.5-flash` por costo/latencia.
+## Gating por plan
 
-### 4.1 Edge function `pipeline-ai-analyze`
-Recibe el pipeline del tenant, devuelve:
-- 3 deals en riesgo con razón
-- Top deal recomendado para empujar
-- Comparativa de conversión vs periodo anterior
-- Resumen ejecutivo de 2-3 líneas
+Lee `tenant.plan` (mock actualmente: "Pro"). Mapeo:
 
-Botón **"Análisis IA"** en el header que abre un panel lateral con esta info.
+- **Starter:** ver todas, activar 0. Cards bloqueadas con candado y badge *"Disponible en plan PyME"*. CTA "Mejorar plan".
+- **PyME / Pro:** máximo 3 activas. Pill "2 de 3 usadas". Al intentar activar la 4ª → modal upsell.
+- **Growth / Enterprise:** ilimitadas, sin pill de límite.
 
-### 4.2 Edge function `deal-ai-suggest-stage`
-Disparada cuando llegan mensajes nuevos del contacto. Analiza últimos 10 mensajes y, si detecta intención de avance, inserta una `ai_suggestion` con `kind='stage_advance'` y `cta` para mover.
+## Detalles técnicos
 
-UI: toast en el pipeline + ícono ✨ en la card que abre la sugerencia.
+### Backend (Lovable Cloud)
 
-### 4.3 Auto-cálculo de probabilidad
-Al abrir el `DealDrawer`, botón "Sugerir probabilidad con IA" en el campo correspondiente. Llama edge function que combina:
-- Sentimiento de últimos mensajes
-- Días en etapa vs promedio histórico (de `deal_stage_history`)
-- Cantidad/cadencia de actividades
+Dos tablas nuevas vía migración:
 
-Devuelve número 0-100 con explicación. Usuario decide si lo aplica.
+**`automations`** — definición de la regla
+- `id`, `tenant_id`, `name`, `description`, `icon`, `enabled` (bool)
+- `trigger_type` (enum), `trigger_config` (jsonb)
+- `conditions` (jsonb: array de `{field, operator, value, logic}`)
+- `actions` (jsonb: array de `{type, config}`)
+- `created_by`, `created_at`, `updated_at`, `last_run_at`, `run_count`, `error_count`
+- RLS: tenant-scoped (mismo patrón que `deals`).
 
----
+**`automation_runs`** — historial
+- `id`, `automation_id`, `tenant_id`, `entity_type`, `entity_id`
+- `status` (success | error | dry_run), `error_message`, `payload` (jsonb), `created_at`
+- RLS: tenant-scoped, solo SELECT/INSERT.
 
-## Fase 5 — Pulido y deleite
+### Edge Functions
 
-### 5.1 Realtime con Supabase
-Suscripción a `postgres_changes` en `deals` filtrada por tenant. Si dos vendedores tienen el pipeline abierto, ven cambios en vivo. Optimistic updates ya existentes siguen funcionando.
+- **`automations-evaluate`** — endpoint invocable manualmente (dry-run) y por cron. Acepta `{automationId, mode: "dry"|"live"}`. Recorre entidades candidatas, evalúa condiciones en JS, ejecuta acciones (insert tasks, update deals, send WA via webhook futuro, notificar). Registra cada paso en `automation_runs`.
+- **`automations-ai-draft`** — recibe texto en lenguaje natural, devuelve borrador JSON del builder usando `google/gemini-2.5-flash` (rápido y barato).
+- **Cron pg_cron** cada 15 min llama a `automations-evaluate` para cada automatización activa con triggers basados en tiempo (deal sin actividad, fecha cierre próxima). Triggers reactivos (nuevo lead, deal movido) se ejecutan vía hooks en mutaciones existentes (`useCreateContact`, `useMoveDeal`).
 
-### 5.2 Vista agrupada alternativa
-Toggle adicional en header: agrupar columnas por **Vendedor** o **Mes de cierre** en lugar de por etapa. Reutiliza el componente `KanbanColumn` con groupKey configurable.
+### Frontend
 
-### 5.3 Modo compacto/expandido
-Toggle visual que cambia altura y densidad de info en `DealCard` (compacto: solo nombre + monto; expandido: todo). Persistido en `usePipelinePrefs`.
+```text
+src/pages/app/Automations.tsx                  página principal con tabs y galería
+src/components/automations/
+  AutomationCard.tsx                           card individual con sparkline
+  AutomationTemplateGallery.tsx                grid de plantillas
+  AutomationBuilderSheet.tsx                   Sheet con stepper de 5 pasos
+  steps/
+    Step1Info.tsx
+    Step2Trigger.tsx
+    Step3Conditions.tsx
+    Step4Actions.tsx
+    Step5Review.tsx
+  AutomationDryRunDialog.tsx                   muestra resultados de simulación
+  AutomationHistoryDrawer.tsx                  últimas 20 ejecuciones
+  AutomationAiDraftDialog.tsx                  input de lenguaje natural
+  PlanLimitBanner.tsx                          contador y upsell
+src/lib/queries/automations.ts                 useAutomations, useCreateAutomation, useDryRun, useToggle…
+src/services/automations.ts                    fetch a edge functions
+src/lib/automations/templates.ts               las 8 plantillas como datos
+src/lib/automations/registry.ts                catálogos de triggers/acciones/operadores con metadata UI
+```
 
-### 5.4 Animación de victoria
-Confeti (lib `canvas-confetti`) cuando un deal entra en columna `is_won`. Toast: *"🎉 ¡Deal ganado! +$X al pipeline cerrado este mes"*.
+Reemplazo de `<Route path="/automations" element={<Stub …/>} />` por el componente real.
 
-### 5.5 Sparkline en header de columna
-Gráfica mini de 7 días (cantidad de deals en esa etapa por día, sacado de `deal_stage_history` de Fase 3). Indica si la etapa crece o se vacía.
+### Sin cambios destructivos
 
-### 5.6 Optimización
-Si hay >150 deals visibles, virtualizar columnas con `@tanstack/react-virtual`. Solo se activa cuando se necesita.
+- No se toca ninguna tabla existente.
+- El cron y los hooks reactivos solo se activan si hay automatizaciones activas (no impacto en perf).
+- Plantillas mock primero, ejecución real en una segunda fase si el alcance lo requiere.
 
----
+## Alcance de esta entrega
 
-## Resumen de cambios técnicos
+**Incluido en esta iteración:**
+- Página completa con galería, lista, tabs y filtros
+- Builder Sheet de 5 pasos funcional
+- 8 plantillas pre-cargadas (datos)
+- Migración de tablas + RLS
+- CRUD completo (crear, editar, duplicar, pausar, eliminar) con persistencia
+- Dry-run para triggers basados en consulta SQL (deal sin actividad, fecha cierre próxima)
+- Gating por plan (visual + bloqueo)
+- Vista de historial (lectura)
+- Asistente IA opcional (botón visible, edge function lista)
 
-### Schema (migraciones)
-- Fase 2: `deals.lost_reason`, `deals.lost_comment`
-- Fase 3: tabla `pipelines`, columna `pipeline_stages.pipeline_id`, tabla `deal_stage_history` + trigger
+**Fuera de alcance (siguiente iteración):**
+- Ejecución real cron + hooks reactivos en mutaciones (queda la edge function preparada pero sin programar)
+- Envío real de mensajes WhatsApp (depende de integración WA externa)
+- Encadenamiento de múltiples acciones (UI lista pero solo 1 acción ejecutable por ahora)
 
-### Nuevos componentes
-- `pipeline/HealthBadges.tsx`, `pipeline/ForecastKpis.tsx`
-- `pipeline/QuickActions.tsx`, `pipeline/LostReasonDialog.tsx`, `pipeline/BulkActionsBar.tsx`
-- `pipeline/PipelineManagerDialog.tsx`
-- `pipeline/AiAnalysisPanel.tsx`
-
-### Nuevas queries / hooks
-- `usePipelinePrefs()` (localStorage)
-- `useDealHealth(deal)` (calcula señales)
-- `useStageHistory(dealId)` 
-- `usePipelineForecast()` (KPIs ponderados)
-
-### Edge functions
-- `pipeline-ai-analyze`, `deal-ai-suggest-stage`, `deal-ai-suggest-probability`
-
-### Dependencias nuevas
-- `canvas-confetti` (Fase 5.4)
-- `@tanstack/react-virtual` (Fase 5.6, condicional)
-
----
-
-## Mi recomendación
-
-**Empezar por Fase 1 + Fase 2** en una sola pasada. Son las que más mueven la aguja para el usuario final, no requieren IA y solo una mini-migración.
-
-Después decides si vas a Fase 3 (arquitectura) o saltas directo a Fase 4 (IA, el diferenciador comercial de Walix).
-
-¿Apruebas el plan completo, o prefieres que arranque solo con Fase 1 + 2 y vamos viendo?
+¿Procedo con esta implementación o quieres ajustar algo? Un par de preguntas si tienes preferencia: ¿el Builder lo prefieres como Sheet lateral (mi recomendación) o como página dedicada `/automations/new`? ¿Activo el botón "Crear con IA" en esta entrega o lo dejo para después?
