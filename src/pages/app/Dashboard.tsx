@@ -1,16 +1,14 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAiDrawer } from "@/store/aiDrawer";
 import {
-  kpiData,
-  recentActivity,
-  aiDailySuggestions,
-  pipelineByStageMXN,
-  dealsClosedTimeline,
-  atRiskDealsCount,
-} from "@/mock/dashboard";
+  useDashboardKpis, useRecentActivity, useDashboardAiSuggestions,
+  usePipelineByStage, useDealsClosedTimeline,
+} from "@/lib/queries/dashboard";
+import { relativeTime } from "@/mock/contacts";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
   Sparkles, AlertTriangle, X, ArrowRight, Clock,
@@ -22,14 +20,12 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-const iconMap = { wallet: Wallet, target: Target, message: MessageSquare, trending: TrendingUp };
-
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
-  message: { icon: FileText, color: "text-accent bg-accent/10" },
-  contact: { icon: UserPlus, color: "text-info bg-info/10" },
+  wa_sent: { icon: FileText, color: "text-accent bg-accent/10" },
+  wa_received: { icon: FileText, color: "text-success bg-success/10" },
   note: { icon: StickyNote, color: "text-warning bg-warning/10" },
-  won: { icon: CheckCircle2, color: "text-success bg-success/10" },
+  task: { icon: CheckCircle2, color: "text-success bg-success/10" },
 };
 
 function formatMXN(n: number) {
@@ -57,6 +53,20 @@ export default function Dashboard() {
   const ask = useAiDrawer((s) => s.ask);
   const openDrawer = useAiDrawer((s) => s.openDrawer);
   const [showAlert, setShowAlert] = useState(true);
+
+  const { data: kpis } = useDashboardKpis();
+  const { data: activity = [] } = useRecentActivity(10);
+  const { data: aiSuggestions = [] } = useDashboardAiSuggestions();
+  const { data: pipelineByStage = [] } = usePipelineByStage();
+  const { data: dealsTimeline = [] } = useDealsClosedTimeline(30);
+
+  const atRiskDealsCount = kpis?.staleDeals ?? 0;
+  const kpiData = [
+    { label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN", delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet },
+    { label: "Deals Activos", value: String(kpis?.activeDeals ?? 0), suffix: "deals", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
+    { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare },
+    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp },
+  ];
 
   const name = (user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "ahí").split(" ")[0];
   const today = new Date().toLocaleDateString("es-MX", {
@@ -105,7 +115,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiData.map((k) => {
-          const Icon = iconMap[k.icon as keyof typeof iconMap];
+          const Icon = k.icon;
           const TrendIcon = k.trend === "up" ? ArrowUpRight : ArrowDownRight;
           return (
             <div
@@ -149,24 +159,32 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" className="text-primary">Ver todo</Button>
           </div>
           <div className="divide-y divide-border">
-            {recentActivity.map((a) => {
-              const meta = activityIcon[a.type];
+            {activity.map((a) => {
+              const meta = activityIcon[a.type] ?? activityIcon.note;
               const ActIcon = meta.icon;
               return (
                 <div key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/50 transition-colors">
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="bg-gradient-brand text-primary-foreground text-xs font-semibold">
-                      {a.agent}
+                      {a.contactName ? a.contactName.split(" ").map(s => s[0]).slice(0, 2).join("") : "•"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 text-sm">
                     <p className="truncate">
-                      <span className="font-medium text-foreground">{a.agentName}</span>{" "}
-                      <span className="text-muted-foreground">{a.action}</span>{" "}
-                      <span className="font-medium text-foreground">{a.target}</span>
+                      <span className="text-muted-foreground">{a.description}</span>
+                      {a.contactName && (
+                        <>
+                          {" · "}
+                          {a.contactId ? (
+                            <Link to={`/contacts/${a.contactId}`} className="font-medium text-foreground hover:text-primary">
+                              {a.contactName}
+                            </Link>
+                          ) : <span className="font-medium text-foreground">{a.contactName}</span>}
+                        </>
+                      )}
                     </p>
                     <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                      <Clock className="h-3 w-3" /> {a.time}
+                      <Clock className="h-3 w-3" /> {relativeTime(a.occurredAt)}
                     </div>
                   </div>
                   <div className={cn("h-7 w-7 grid place-items-center rounded-lg shrink-0", meta.color)}>
@@ -175,6 +193,9 @@ export default function Dashboard() {
                 </div>
               );
             })}
+            {activity.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-muted-foreground">Sin actividad reciente.</div>
+            )}
           </div>
         </div>
 
@@ -192,7 +213,7 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground mb-4">Acciones que mueven la aguja hoy</p>
 
           <div className="space-y-3 flex-1">
-            {aiDailySuggestions.map((s) => (
+            {aiSuggestions.map((s) => (
               <div
                 key={s.id}
                 className="rounded-lg bg-card border border-border p-3 hover:border-primary/40 transition-colors"
@@ -202,10 +223,13 @@ export default function Dashboard() {
                   onClick={() => ask(s.text)}
                   className="text-xs font-semibold text-primary hover:gap-1.5 inline-flex items-center gap-1 transition-all"
                 >
-                  {s.cta} <ArrowRight className="h-3 w-3" />
+                  {s.cta ?? "Ver"} <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
             ))}
+            {aiSuggestions.length === 0 && (
+              <div className="text-xs text-muted-foreground italic">No hay sugerencias por ahora.</div>
+            )}
           </div>
 
           <button
@@ -229,7 +253,7 @@ export default function Dashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={pipelineByStageMXN} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+              <BarChart data={pipelineByStage} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="stage"
@@ -260,8 +284,8 @@ export default function Dashboard() {
                   formatter={(v: number) => [formatMXN(v), "Valor"]}
                 />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  {pipelineByStageMXN.map((_, i) => (
-                    <Cell key={i} fill={stageColors[i]} />
+                  {pipelineByStage.map((_, i) => (
+                    <Cell key={i} fill={stageColors[i % stageColors.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -282,7 +306,7 @@ export default function Dashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dealsClosedTimeline} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+              <AreaChart data={dealsTimeline} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gClosed" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />
