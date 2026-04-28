@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { KanbanBoard } from "@/components/pipeline/KanbanBoard";
@@ -9,20 +9,36 @@ import { type PipelineFiltersValue } from "@/components/pipeline/PipelineFilters
 import { LostReasonDialog } from "@/components/pipeline/LostReasonDialog";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { BulkActionsBar } from "@/components/pipeline/BulkActionsBar";
+import { PipelineManagerDialog } from "@/components/pipeline/PipelineManagerDialog";
 import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
 import {
-  useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite,
+  useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 
 export default function Pipeline() {
-  const { data: stages = [], isLoading: stagesLoading } = useStages();
+  const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines();
+  const [prefs, setPrefs] = usePipelinePrefs();
+
+  // Resolve active pipeline (prefer prefs, fall back to default)
+  const activePipeline =
+    pipelines.find((p) => p.id === prefs.pipelineId) ??
+    pipelines.find((p) => p.isDefault) ??
+    pipelines[0] ??
+    null;
+
+  useEffect(() => {
+    if (activePipeline && prefs.pipelineId !== activePipeline.id) {
+      setPrefs({ ...prefs, pipelineId: activePipeline.id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePipeline?.id]);
+
+  const { data: stages = [], isLoading: stagesLoading } = useStages(activePipeline?.id);
   const { data: deals = [], isLoading: dealsLoading } = useDeals();
   const { data: tasksByDeal = new Map() } = useDealTasksMap();
   const { data: unreadByContact = new Map() } = useUnreadByContactMap();
   const { data: contacts = [] } = useContactsLite();
-
-  const [prefs, setPrefs] = usePipelinePrefs();
 
   // Hydrate filters from prefs (Date is serialized as ISO)
   const filters: PipelineFiltersValue = useMemo(() => ({
@@ -58,6 +74,7 @@ export default function Pipeline() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lostDeal, setLostDeal] = useState<PipelineDeal | null>(null);
   const [taskDeal, setTaskDeal] = useState<PipelineDeal | null>(null);
+  const [managerOpen, setManagerOpen] = useState(false);
 
   const lostStage = stages.find((s) => s.isLost) ?? null;
 
@@ -85,7 +102,10 @@ export default function Pipeline() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const stageIds = new Set(stages.map(s => s.id));
     return deals.filter(d => {
+      // Only deals belonging to current pipeline's stages
+      if (d.stageId && !stageIds.has(d.stageId)) return false;
       if (filters.ownerName !== "all" && d.ownerName !== filters.ownerName) return false;
       if (filters.amountMin && d.amount < Number(filters.amountMin)) return false;
       if (filters.amountMax && d.amount > Number(filters.amountMax)) return false;
@@ -99,7 +119,7 @@ export default function Pipeline() {
       }
       return true;
     });
-  }, [deals, filters, search, contactById]);
+  }, [deals, filters, search, contactById, stages]);
 
   const activeDeals = filtered.filter(d => !d.isWon && !d.isLost);
   const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
@@ -126,7 +146,7 @@ export default function Pipeline() {
     setNewDealOpen(true);
   }
 
-  if (stagesLoading || dealsLoading) {
+  if (stagesLoading || dealsLoading || pipelinesLoading) {
     return (
       <div className="grid place-items-center h-64">
         <LoadingSpinner />
@@ -144,6 +164,10 @@ export default function Pipeline() {
         search={search}
         onSearch={setSearch}
         onNew={() => openNewDeal()}
+        pipelines={pipelines}
+        activePipeline={activePipeline}
+        onSelectPipeline={(id) => setPrefs({ ...prefs, pipelineId: id })}
+        onManagePipelines={() => setManagerOpen(true)}
         totalAmount={totalAmount}
         weightedAmount={weightedAmount}
         closingThisMonth={closingThisMonth}
@@ -203,6 +227,12 @@ export default function Pipeline() {
         selectedIds={Array.from(selectedIds)}
         stages={stages}
         onClear={() => setSelectedIds(new Set())}
+      />
+
+      <PipelineManagerDialog
+        open={managerOpen}
+        onClose={() => setManagerOpen(false)}
+        onSelect={(id) => setPrefs({ ...prefs, pipelineId: id })}
       />
     </div>
   );
