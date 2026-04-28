@@ -103,11 +103,11 @@ export function useCreateAutomation() {
           enabled: input.enabled ?? false,
           is_draft: input.isDraft ?? false,
           trigger_type: input.triggerType,
-          trigger_config: input.triggerConfig ?? {},
-          conditions: input.conditions ?? [],
-          actions: input.actions,
+          trigger_config: (input.triggerConfig ?? {}) as any,
+          conditions: (input.conditions ?? []) as any,
+          actions: input.actions as any,
           created_by: user?.id ?? null,
-        })
+        } as any)
         .select("*")
         .single();
       if (error) throw error;
@@ -176,11 +176,11 @@ export function useDuplicateAutomation() {
         enabled: false,
         is_draft: a.isDraft,
         trigger_type: a.triggerType,
-        trigger_config: a.triggerConfig,
-        conditions: a.conditions,
-        actions: a.actions,
+        trigger_config: a.triggerConfig as any,
+        conditions: a.conditions as any,
+        actions: a.actions as any,
         created_by: user?.id ?? null,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["automations"] }),
