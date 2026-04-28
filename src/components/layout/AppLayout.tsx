@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
+import { AiDrawer } from "@/components/walix/AiDrawer";
 
 export function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
+      <AiDrawer />
     </div>
   );
 }

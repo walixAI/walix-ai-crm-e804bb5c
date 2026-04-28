@@ -10,13 +10,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { tenant } from "@/mock";
-import { toast } from "sonner";
 import { useState } from "react";
+import { useAiDrawer } from "@/store/aiDrawer";
 
 export function TopBar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
+  const ask = useAiDrawer((s) => s.ask);
+  const [focused, setFocused] = useState(false);
 
   const initials = (user?.user_metadata?.full_name ?? user?.email ?? "U")
     .split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
@@ -29,7 +31,7 @@ export function TopBar() {
   const submitPrompt = (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
-    toast.success("IA Walix", { description: `Procesando: "${prompt}"` });
+    ask(prompt);
     setPrompt("");
   };
 
@@ -50,13 +52,15 @@ export function TopBar() {
       </div>
 
       <form onSubmit={submitPrompt} className="flex-1 max-w-2xl">
-        <div className="relative group">
+        <div className={`relative group transition-all duration-200 ${focused ? "scale-[1.01]" : ""}`}>
           <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />
           <Input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Pregunta algo a tu IA... ej: ¿Cuánto vale mi pipeline hoy?"
-            className="pl-9 pr-20 h-10 bg-background border-border focus-visible:ring-accent rounded-xl"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="Pregunta a tu IA... ej: ¿Cuáles son mis deals más calientes?"
+            className={`pl-9 pr-20 h-10 bg-background border-border focus-visible:ring-primary rounded-xl transition-shadow ${focused ? "shadow-glow" : ""}`}
           />
           <kbd className="hidden md:inline-flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
             ⌘ K
