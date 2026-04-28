@@ -1,5 +1,6 @@
-import { ChevronDown, KanbanSquare, List, Plus } from "lucide-react";
+import { ChevronDown, KanbanSquare, List, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -12,6 +13,8 @@ interface Props {
   onView: (v: "kanban" | "list") => void;
   filters: PipelineFiltersValue;
   onFilters: (v: PipelineFiltersValue) => void;
+  search: string;
+  onSearch: (v: string) => void;
   onNew: () => void;
   totalAmount: number;
   weightedAmount: number;
@@ -20,7 +23,10 @@ interface Props {
   activeCount: number;
 }
 
-export function PipelineHeader({ view, onView, filters, onFilters, onNew, totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount }: Props) {
+export function PipelineHeader({
+  view, onView, filters, onFilters, search, onSearch, onNew,
+  totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount,
+}: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -42,6 +48,26 @@ export function PipelineHeader({ view, onView, filters, onFilters, onNew, totalA
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => onSearch(e.target.value.slice(0, 100))}
+              placeholder="Buscar deals…"
+              className="h-9 pl-7 pr-7 w-[200px]"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => onSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
           <ToggleGroup type="single" value={view} onValueChange={(v) => v && onView(v as any)} className="border border-border rounded-md">
             <ToggleGroupItem value="kanban" size="sm" aria-label="Kanban">
               <KanbanSquare className="h-3.5 w-3.5" /> Kanban

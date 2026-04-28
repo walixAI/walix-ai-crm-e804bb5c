@@ -280,6 +280,8 @@ export type Database = {
           id: string
           is_lost: boolean
           is_won: boolean
+          lost_comment: string | null
+          lost_reason: string | null
           name: string
           notes: string | null
           owner_id: string | null
@@ -298,6 +300,8 @@ export type Database = {
           id?: string
           is_lost?: boolean
           is_won?: boolean
+          lost_comment?: string | null
+          lost_reason?: string | null
           name: string
           notes?: string | null
           owner_id?: string | null
@@ -316,6 +320,8 @@ export type Database = {
           id?: string
           is_lost?: boolean
           is_won?: boolean
+          lost_comment?: string | null
+          lost_reason?: string | null
           name?: string
           notes?: string | null
           owner_id?: string | null

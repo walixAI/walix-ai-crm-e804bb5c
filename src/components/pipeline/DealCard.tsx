@@ -3,19 +3,27 @@ import { CSS } from "@dnd-kit/utilities";
 import { ClipboardList, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { formatMXN, type DealTaskRow, type PipelineDeal } from "@/lib/queries/pipeline";
+import { formatMXN, type DealTaskRow, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
 import { computeDealHealth } from "@/lib/dealHealth";
 import { HealthBadges } from "./HealthBadges";
+import { QuickActions } from "./QuickActions";
 
 interface Props {
   deal: PipelineDeal;
+  stages?: PipelineStage[];
   contactName?: string;
   contactColor?: string | null;
   contactLastActivityAt?: string | null;
   tasks?: DealTaskRow[];
   unread?: number;
   onOpen: (deal: PipelineDeal) => void;
+  selected?: boolean;
+  onToggleSelect?: (dealId: string) => void;
+  selectionActive?: boolean;
+  onRequestLost?: (deal: PipelineDeal) => void;
+  onNewTask?: (deal: PipelineDeal) => void;
   isOverlay?: boolean;
 }
 
@@ -25,7 +33,10 @@ function probabilityColor(p: number): string {
   return "bg-danger";
 }
 
-export function DealCard({ deal, contactName, contactColor, contactLastActivityAt, tasks, unread = 0, onOpen, isOverlay }: Props) {
+export function DealCard({
+  deal, stages = [], contactName, contactColor, contactLastActivityAt, tasks, unread = 0,
+  onOpen, selected, onToggleSelect, selectionActive, onRequestLost, onNewTask, isOverlay,
+}: Props) {
   const navigate = useNavigate();
   const pendingTask = (tasks ?? []).some(t => !t.completed);
   const health = computeDealHealth(deal, contactLastActivityAt);
@@ -46,15 +57,43 @@ export function DealCard({ deal, contactName, contactColor, contactLastActivityA
       style={style}
       {...attributes}
       {...listeners}
-      onClick={() => !isOverlay && onOpen(deal)}
+      onClick={() => {
+        if (isOverlay) return;
+        if (selectionActive && onToggleSelect) onToggleSelect(deal.id);
+        else onOpen(deal);
+      }}
       className={cn(
         "relative cursor-pointer rounded-xl bg-card border border-border p-3 shadow-sm transition-all overflow-hidden group",
         !isOverlay && "hover:shadow-md hover:border-primary/30",
+        selected && "border-primary ring-2 ring-primary/30",
         isOverlay && "shadow-glow rotate-1",
       )}
     >
+      {/* Selection checkbox */}
+      {!isOverlay && onToggleSelect && (
+        <div
+          className={cn(
+            "absolute top-2 left-2 z-10 transition-opacity",
+            selected || selectionActive ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={!!selected}
+            onCheckedChange={() => onToggleSelect(deal.id)}
+            className="bg-card shadow-sm"
+            aria-label="Seleccionar deal"
+          />
+        </div>
+      )}
+
+      {/* Quick actions (hidden during selection mode) */}
+      {!isOverlay && !selectionActive && stages.length > 0 && onRequestLost && onNewTask && (
+        <QuickActions deal={deal} stages={stages} onRequestLost={onRequestLost} onNewTask={onNewTask} />
+      )}
+
       <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="font-semibold text-sm leading-tight line-clamp-2">{deal.name}</div>
+        <div className={cn("font-semibold text-sm leading-tight line-clamp-2", onToggleSelect && "pl-6")}>{deal.name}</div>
         <div className="flex items-center gap-1 shrink-0">
           {pendingTask && <ClipboardList className="h-3.5 w-3.5 text-warning" />}
           {unread > 0 && (
