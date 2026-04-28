@@ -1,4 +1,4 @@
-import { ChevronDown, KanbanSquare, List, Plus, Search, X } from "lucide-react";
+import { ChevronDown, KanbanSquare, List, Plus, Search, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -7,6 +7,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PipelineFilters, type PipelineFiltersValue } from "./PipelineFilters";
 import { ForecastKpis } from "./ForecastKpis";
+import type { Pipeline } from "@/lib/queries/pipeline";
 
 interface Props {
   view: "kanban" | "list";
@@ -16,6 +17,10 @@ interface Props {
   search: string;
   onSearch: (v: string) => void;
   onNew: () => void;
+  pipelines: Pipeline[];
+  activePipeline: Pipeline | null;
+  onSelectPipeline: (id: string) => void;
+  onManagePipelines: () => void;
   totalAmount: number;
   weightedAmount: number;
   closingThisMonth: number;
@@ -25,6 +30,7 @@ interface Props {
 
 export function PipelineHeader({
   view, onView, filters, onFilters, search, onSearch, onNew,
+  pipelines, activePipeline, onSelectPipeline, onManagePipelines,
   totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount,
 }: Props) {
   return (
@@ -34,15 +40,27 @@ export function PipelineHeader({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-9 px-2 -ml-2 gap-1.5">
-                <h1 className="text-2xl font-bold tracking-tight">Pipeline Principal</h1>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {activePipeline?.name ?? "Pipeline"}
+                </h1>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Pipelines</DropdownMenuLabel>
-              <DropdownMenuItem className="font-medium">Pipeline Principal ✓</DropdownMenuItem>
+              {pipelines.map((p) => (
+                <DropdownMenuItem
+                  key={p.id}
+                  className="font-medium cursor-pointer"
+                  onClick={() => onSelectPipeline(p.id)}
+                >
+                  {p.name} {activePipeline?.id === p.id && "✓"}
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>+ Nuevo pipeline (próximamente)</DropdownMenuItem>
+              <DropdownMenuItem onClick={onManagePipelines} className="cursor-pointer">
+                <Settings2 className="h-3.5 w-3.5 mr-2" /> Gestionar pipelines
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

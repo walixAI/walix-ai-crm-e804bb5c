@@ -271,6 +271,42 @@ export type Database = {
           },
         ]
       }
+      deal_stage_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          deal_id: string
+          from_stage_id: string | null
+          from_stage_name: string | null
+          id: string
+          tenant_id: string
+          to_stage_id: string | null
+          to_stage_name: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          deal_id: string
+          from_stage_id?: string | null
+          from_stage_name?: string | null
+          id?: string
+          tenant_id: string
+          to_stage_id?: string | null
+          to_stage_name?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          deal_id?: string
+          from_stage_id?: string | null
+          from_stage_name?: string | null
+          id?: string
+          tenant_id?: string
+          to_stage_id?: string | null
+          to_stage_name?: string | null
+        }
+        Relationships: []
+      }
       deals: {
         Row: {
           amount: number
@@ -409,6 +445,7 @@ export type Database = {
           is_lost: boolean
           is_won: boolean
           name: string
+          pipeline_id: string | null
           position: number
           tenant_id: string
         }
@@ -419,6 +456,7 @@ export type Database = {
           is_lost?: boolean
           is_won?: boolean
           name: string
+          pipeline_id?: string | null
           position?: number
           tenant_id: string
         }
@@ -429,6 +467,7 @@ export type Database = {
           is_lost?: boolean
           is_won?: boolean
           name?: string
+          pipeline_id?: string | null
           position?: number
           tenant_id?: string
         }
@@ -441,6 +480,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pipelines: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          tenant_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
