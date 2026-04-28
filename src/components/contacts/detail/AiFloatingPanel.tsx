@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Sparkles, X, Send, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Contact } from "@/mock/contacts";
+import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 
-interface Props { contact: Contact; onWhatsApp: () => void }
+interface Props { contact: ContactRow; onWhatsApp: () => void }
 
 export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
   const [open, setOpen] = useState(false);

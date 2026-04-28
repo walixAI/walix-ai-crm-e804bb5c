@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2 } from "lucide-react";
-import { Contact } from "@/mock/contacts";
+import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 
-interface Props { contact: Contact }
+interface Props { contact: ContactRow }
 
 interface Section {
   key: string;

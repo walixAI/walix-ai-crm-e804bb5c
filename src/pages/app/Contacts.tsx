@@ -15,7 +15,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { contacts as allContacts, sellers, allTags, statusBadgeClass, relativeTime, type LeadStatus, type Source } from "@/mock/contacts";
+import { sellers, allTags, statusBadgeClass, relativeTime, type LeadStatus, type Source } from "@/mock/contacts";
+import { useContacts } from "@/lib/queries/contacts";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
 import { toast } from "sonner";
@@ -44,6 +45,8 @@ export default function Contacts() {
   const [openImport, setOpenImport] = useState(false);
   const [aiCollapsed, setAiCollapsed] = useState(false);
 
+  const { data: allContacts = [], isLoading } = useContacts();
+
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
     return () => clearTimeout(t);
@@ -70,7 +73,7 @@ export default function Contacts() {
       return va > vb ? dir : va < vb ? -dir : 0;
     });
     return list;
-  }, [debounced, selectedTags, selectedSellers, selectedSources, selectedStatuses, dateRange, sortKey, sortDir]);
+  }, [allContacts, debounced, selectedTags, selectedSellers, selectedSources, selectedStatuses, dateRange, sortKey, sortDir]);
 
   useEffect(() => { setPage(1); }, [debounced, selectedTags, selectedSellers, selectedSources, selectedStatuses, dateRange]);
 
