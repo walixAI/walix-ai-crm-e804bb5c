@@ -4,12 +4,15 @@ import { ClipboardList, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { daysSince, formatMXN, type DealTaskRow, type PipelineDeal } from "@/lib/queries/pipeline";
+import { formatMXN, type DealTaskRow, type PipelineDeal } from "@/lib/queries/pipeline";
+import { computeDealHealth } from "@/lib/dealHealth";
+import { HealthBadges } from "./HealthBadges";
 
 interface Props {
   deal: PipelineDeal;
   contactName?: string;
   contactColor?: string | null;
+  contactLastActivityAt?: string | null;
   tasks?: DealTaskRow[];
   unread?: number;
   onOpen: (deal: PipelineDeal) => void;
@@ -22,10 +25,10 @@ function probabilityColor(p: number): string {
   return "bg-danger";
 }
 
-export function DealCard({ deal, contactName, contactColor, tasks, unread = 0, onOpen, isOverlay }: Props) {
+export function DealCard({ deal, contactName, contactColor, contactLastActivityAt, tasks, unread = 0, onOpen, isOverlay }: Props) {
   const navigate = useNavigate();
-  const days = daysSince(deal.updatedAt);
   const pendingTask = (tasks ?? []).some(t => !t.completed);
+  const health = computeDealHealth(deal, contactLastActivityAt);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
@@ -89,14 +92,7 @@ export function DealCard({ deal, contactName, contactColor, tasks, unread = 0, o
       )}
 
       <div className="flex items-center justify-between gap-2 mt-3">
-        <span
-          className={cn(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-            days > 10 ? "bg-danger/10 text-danger" : days > 5 ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground",
-          )}
-        >
-          {days}d en etapa
-        </span>
+        <HealthBadges health={health} />
         <Avatar className="h-5 w-5">
           <AvatarFallback className="text-[9px] text-white" style={{ backgroundColor: deal.ownerColor }}>
             {deal.ownerInitials}
