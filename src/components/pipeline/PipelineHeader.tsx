@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PipelineFilters, type PipelineFiltersValue } from "./PipelineFilters";
-import { formatMXN } from "@/lib/queries/pipeline";
+import { ForecastKpis } from "./ForecastKpis";
 
 interface Props {
   view: "kanban" | "list";
@@ -14,10 +14,13 @@ interface Props {
   onFilters: (v: PipelineFiltersValue) => void;
   onNew: () => void;
   totalAmount: number;
+  weightedAmount: number;
+  closingThisMonth: number;
+  closingDeltaPct: number | null;
   activeCount: number;
 }
 
-export function PipelineHeader({ view, onView, filters, onFilters, onNew, totalAmount, activeCount }: Props) {
+export function PipelineHeader({ view, onView, filters, onFilters, onNew, totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -56,10 +59,13 @@ export function PipelineHeader({ view, onView, filters, onFilters, onNew, totalA
         </div>
       </div>
 
-      <div className="text-sm text-muted-foreground">
-        <span className="font-semibold text-foreground">Pipeline total: {formatMXN(totalAmount)} MXN</span>
-        <span> · {activeCount} deals activos</span>
-      </div>
+      <ForecastKpis
+        total={totalAmount}
+        weighted={weightedAmount}
+        closingThisMonth={closingThisMonth}
+        closingDeltaPct={closingDeltaPct}
+        activeCount={activeCount}
+      />
     </div>
   );
 }

@@ -10,20 +10,29 @@ interface Props {
   deals: PipelineDeal[];
   contactName: (id: string | null) => string | undefined;
   contactColor: (id: string | null) => string | null | undefined;
+  contactLastActivityAt: (id: string | null) => string | null | undefined;
   tasksByDeal: Map<string, DealTaskRow[]>;
   unreadByContact: Map<string, number>;
   onOpenDeal: (deal: PipelineDeal) => void;
   onAddDeal: (stage: PipelineStage) => void;
+  wipLimit?: number;
 }
 
 export function KanbanColumn({
-  stage, deals, contactName, contactColor, tasksByDeal, unreadByContact, onOpenDeal, onAddDeal,
+  stage, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, onOpenDeal, onAddDeal, wipLimit = 10,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage } });
   const total = deals.reduce((s, d) => s + d.amount, 0);
+  const isActive = !stage.isWon && !stage.isLost;
+  const overWip = isActive && deals.length > wipLimit;
 
   return (
-    <div className="flex flex-col w-[280px] shrink-0 bg-muted/30 rounded-xl border border-border">
+    <div
+      className={cn(
+        "flex flex-col w-[280px] shrink-0 bg-muted/30 rounded-xl border border-border",
+        overWip && "border-t-2 border-t-warning",
+      )}
+    >
       <div className="px-3 pt-3 pb-2 border-b border-border">
         <div className="flex items-center gap-2 mb-1">
           <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
@@ -41,7 +50,14 @@ export function KanbanColumn({
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <div className="text-xs font-medium text-muted-foreground">{formatMXN(total)}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-medium text-muted-foreground">{formatMXN(total)}</div>
+          {overWip && (
+            <span className="text-[10px] font-semibold text-warning bg-warning/10 border border-warning/30 rounded-full px-1.5 py-0.5 leading-none">
+              Cuello de botella
+            </span>
+          )}
+        </div>
       </div>
 
       <div
@@ -57,6 +73,7 @@ export function KanbanColumn({
             deal={d}
             contactName={contactName(d.contactId)}
             contactColor={contactColor(d.contactId)}
+            contactLastActivityAt={contactLastActivityAt(d.contactId)}
             tasks={tasksByDeal.get(d.id)}
             unread={d.contactId ? unreadByContact.get(d.contactId) ?? 0 : 0}
             onOpen={onOpenDeal}
