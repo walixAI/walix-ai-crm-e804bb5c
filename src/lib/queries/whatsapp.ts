@@ -256,3 +256,109 @@ export function useMarkConversationRead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-conversations"] }),
   });
 }
+
+export function useMarkConversationUnread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from("conversations").update({ unread_count: 1 }).eq("id", id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-conversations"] }),
+  });
+}
+
+// ───────────────── templates CRUD ─────────────────
+export function useCreateTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { tenantId: string; name: string; content: string; category?: string | null }) => {
+      const { data, error } = await supabase
+        .from("message_templates")
+        .insert({
+          tenant_id: input.tenantId,
+          name: input.name,
+          content: input.content,
+          category: input.category ?? null,
+        })
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-templates"] }),
+  });
+}
+
+export function useUpdateTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; patch: Partial<{ name: string; content: string; category: string | null }> }) => {
+      const { error } = await supabase.from("message_templates").update(input.patch).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-templates"] }),
+  });
+}
+
+export function useDeleteTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("message_templates").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-templates"] }),
+  });
+}
+
+// ───────────────── search inside messages ─────────────────
+/** Returns the set of conversation_ids whose messages contain `term`. */
+export function useMessageSearch(term: string) {
+  return useQuery({
+    queryKey: ["wa-msg-search", term],
+    enabled: term.trim().length >= 2,
+    queryFn: async (): Promise<Set<string>> => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("conversation_id")
+        .ilike("body", `%${term.trim()}%`)
+        .limit(500);
+      if (error) throw error;
+      return new Set((data ?? []).map((r: any) => r.conversation_id));
+    },
+    staleTime: 10_000,
+  });
+}
+
+// ───────────────── link / create deal ─────────────────
+export function useLinkDealToConversation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { conversationId: string; dealId: string | null }) => {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ deal_id: input.dealId })
+        .eq("id", input.conversationId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-conversations"] }),
+  });
+}
+
+/** Helper: replace template variables with conversation context. */
+export function renderTemplate(
+  content: string,
+  ctx: { nombre?: string; empresa?: string; vendedor?: string; monto?: string | number | null },
+) {
+  const monto =
+    ctx.monto == null
+      ? "—"
+      : typeof ctx.monto === "number"
+        ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(ctx.monto)
+        : String(ctx.monto);
+  return content
+    .replaceAll("{nombre}", ctx.nombre ?? "")
+    .replaceAll("{empresa}", ctx.empresa ?? "")
+    .replaceAll("{vendedor}", ctx.vendedor ?? "")
+    .replaceAll("{monto}", monto);
+}
