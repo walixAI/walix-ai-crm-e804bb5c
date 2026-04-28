@@ -126,7 +126,12 @@ Deno.serve(async (req) => {
           "Si la pregunta no se puede responder con ese contexto, dilo brevemente. " +
           "Formato Markdown: negritas en nombres, listas cortas, montos en MXN. Máx 180 palabras. " +
           "Cuando menciones deals, conversaciones o contactos del catálogo, SIEMPRE usa la herramienta `suggest_actions` " +
-          "para proponer 1-4 botones de acción que abran la entidad correspondiente. Nunca inventes IDs.",
+          "para proponer 1-4 botones de acción que abran la entidad correspondiente. Nunca inventes IDs. " +
+          "ADEMÁS, cuando menciones inline el nombre de un deal, contacto o conversación del catálogo, " +
+          "envuélvelo con esta sintaxis exacta para que sea clicable: " +
+          "`[deal:UUID|Nombre]`, `[contact:UUID|Nombre]`, `[convo:UUID|Nombre del contacto]`. " +
+          "Usa SOLO los UUIDs del catálogo. Ejemplo: 'tienes 3 deals estancados como [deal:abc-123|Cliente Acme]'. " +
+          "No uses esta sintaxis para entidades que no estén en el catálogo.",
       },
       { role: "system", content: ctx },
       {
