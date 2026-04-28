@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating } from "@/services/ai";
 import { QUICK_AI_PROMPTS } from "@/mock/ai";
 import { useNavigate } from "react-router-dom";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 
@@ -96,10 +96,12 @@ export function AiDrawer() {
     closeDrawer();
   };
 
-  // Reset feedback when current answer changes
-  const currentId = current?.id ?? null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  if (currentId && rating === null && submitting) { /* noop */ }
+  // Reset feedback state whenever a new answer arrives
+  useEffect(() => {
+    setRating(null);
+    setShowCommentBox(false);
+    setComment("");
+  }, [current?.id]);
 
   const sendFeedback = async (r: AiRating, withComment = false) => {
     if (!current) return;
@@ -126,13 +128,6 @@ export function AiDrawer() {
       toast({ title: "No se pudo guardar", description: res.error ?? "Intenta de nuevo.", variant: "destructive" });
     }
   };
-
-  // When the user opens a new question, reset feedback state
-  // (current.id changes per query)
-  if (current && rating !== null && submitting === false) {
-    // Detect mismatch: if this current.id has not yet been rated this session,
-    // we keep state simple by resetting on each ask (handled via key prop below).
-  }
 
   const iconFor = (t: AiAction["type"]) =>
     t === "open_deal" ? KanbanSquare
