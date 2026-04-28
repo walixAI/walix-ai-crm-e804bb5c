@@ -357,8 +357,8 @@ export function renderTemplate(
         ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(ctx.monto)
         : String(ctx.monto);
   return content
-    .replaceAll("{nombre}", ctx.nombre ?? "")
-    .replaceAll("{empresa}", ctx.empresa ?? "")
-    .replaceAll("{vendedor}", ctx.vendedor ?? "")
-    .replaceAll("{monto}", monto);
+    .replace(/\{nombre\}/g, ctx.nombre ?? "")
+    .replace(/\{empresa\}/g, ctx.empresa ?? "")
+    .replace(/\{vendedor\}/g, ctx.vendedor ?? "")
+    .replace(/\{monto\}/g, monto);
 }
