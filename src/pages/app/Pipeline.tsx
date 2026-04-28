@@ -10,6 +10,7 @@ import { LostReasonDialog } from "@/components/pipeline/LostReasonDialog";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { BulkActionsBar } from "@/components/pipeline/BulkActionsBar";
 import { PipelineManagerDialog } from "@/components/pipeline/PipelineManagerDialog";
+import { AiInsightsPanel } from "@/components/pipeline/AiInsightsPanel";
 import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
@@ -75,6 +76,7 @@ export default function Pipeline() {
   const [lostDeal, setLostDeal] = useState<PipelineDeal | null>(null);
   const [taskDeal, setTaskDeal] = useState<PipelineDeal | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const lostStage = stages.find((s) => s.isLost) ?? null;
 
@@ -99,6 +101,12 @@ export default function Pipeline() {
   };
   const contactColor = (id: string | null) => (id ? contactById.get(id)?.avatarColor ?? null : null);
   const contactLastActivityAt = (id: string | null) => (id ? contactById.get(id)?.lastActivityAt ?? null : null);
+
+  const contactLastActivityById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of contacts) m.set(c.id, c.lastActivityAt);
+    return m;
+  }, [contacts]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -164,6 +172,7 @@ export default function Pipeline() {
         search={search}
         onSearch={setSearch}
         onNew={() => openNewDeal()}
+        onOpenAi={() => setAiOpen(true)}
         pipelines={pipelines}
         activePipeline={activePipeline}
         onSelectPipeline={(id) => setPrefs({ ...prefs, pipelineId: id })}
@@ -233,6 +242,13 @@ export default function Pipeline() {
         open={managerOpen}
         onClose={() => setManagerOpen(false)}
         onSelect={(id) => setPrefs({ ...prefs, pipelineId: id })}
+      />
+
+      <AiInsightsPanel
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        deals={filtered}
+        contactLastActivityById={contactLastActivityById}
       />
     </div>
   );
