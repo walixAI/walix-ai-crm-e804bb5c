@@ -16,6 +16,8 @@ import { Composer } from "@/components/whatsapp/Composer";
 import { ContactSidePanel } from "@/components/whatsapp/ContactSidePanel";
 import { TemplatesDialog } from "@/components/whatsapp/TemplatesDialog";
 import { LinkDealDialog } from "@/components/whatsapp/LinkDealDialog";
+import { AiSummaryDialog } from "@/components/whatsapp/AiSummaryDialog";
+import { useWhatsappAi } from "@/lib/queries/whatsappAi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { sellers } from "@/mock/contacts";
@@ -58,6 +60,10 @@ export default function Whatsapp() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [linkDealOpen, setLinkDealOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryText, setSummaryText] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const aiMutation = useWhatsappAi();
 
   // load tenant id once
   useEffect(() => {
@@ -120,6 +126,56 @@ export default function Whatsapp() {
       patch: { internal_notes: notesDraft },
     });
     toast({ title: "Nota guardada" });
+  };
+
+  const runAiSuggest = async () => {
+    if (!activeConv) return;
+    try {
+      const text = await aiMutation.mutateAsync({
+        mode: "suggest_reply",
+        conversationId: activeConv.id,
+        contactName: activeConv.contactName,
+        contactCompany: activeConv.contactCompany,
+      });
+      setDraft(text);
+      toast({ title: "Sugerencia lista", description: "Revisa y edita antes de enviar." });
+    } catch (e: any) {
+      toast({ title: "IA no disponible", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
+    }
+  };
+
+  const runAiSummarize = async () => {
+    if (!activeConv) return;
+    setSummaryOpen(true);
+    setSummaryText(null);
+    setSummaryError(null);
+    try {
+      const text = await aiMutation.mutateAsync({
+        mode: "summarize",
+        conversationId: activeConv.id,
+        contactName: activeConv.contactName,
+        contactCompany: activeConv.contactCompany,
+      });
+      setSummaryText(text);
+    } catch (e: any) {
+      setSummaryError(e?.message ?? "Error al generar resumen");
+    }
+  };
+
+  const runAiPrompt = async (prompt: string) => {
+    if (!activeConv) return;
+    try {
+      const text = await aiMutation.mutateAsync({
+        mode: "custom_prompt",
+        conversationId: activeConv.id,
+        prompt,
+        contactName: activeConv.contactName,
+        contactCompany: activeConv.contactCompany,
+      });
+      setDraft(text);
+    } catch (e: any) {
+      toast({ title: "IA no disponible", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
+    }
   };
 
   // Mobile flow: when a conv is selected, hide the list
@@ -188,9 +244,10 @@ export default function Whatsapp() {
                   sending={sendMutation.isPending}
                   onOpenTemplates={() => setTemplatesOpen(true)}
                   onPickTemplate={pickTemplate}
-                  onAiSuggest={() => toast({ title: "IA", description: "Conectaremos esto en la fase 3." })}
-                  onAiSummarize={() => toast({ title: "IA", description: "Conectaremos esto en la fase 3." })}
-                  onAiPrompt={() => toast({ title: "IA", description: "Conectaremos esto en la fase 3." })}
+                  onAiSuggest={runAiSuggest}
+                  onAiSummarize={runAiSummarize}
+                  onAiPrompt={runAiPrompt}
+                  aiLoading={aiMutation.isPending}
                 />
               </>
             )}
@@ -225,6 +282,16 @@ export default function Whatsapp() {
           currentDealId={activeConv.dealId}
         />
       )}
+
+      <AiSummaryDialog
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        loading={aiMutation.isPending && !summaryText && !summaryError}
+        summary={summaryText}
+        error={summaryError}
+        contactId={activeConv?.contactId ?? null}
+        tenantId={tenantId}
+      />
     </div>
   );
 }
