@@ -3,9 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  BarChart3, Zap, Settings, Shield, Store
-} from "lucide-react";
+import { BarChart3, Settings, Shield, Store } from "lucide-react";
 
 import { useInitAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -20,6 +18,7 @@ import ContactDetail from "@/pages/app/ContactDetail";
 import Pipeline from "@/pages/app/Pipeline";
 import Whatsapp from "@/pages/app/Whatsapp";
 import AiInbox from "@/pages/app/AiInbox";
+import Automations from "@/pages/app/Automations";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -41,7 +40,7 @@ const AppRoutes = () => {
         <Route path="/whatsapp" element={<Whatsapp />} />
         <Route path="/ai-inbox" element={<AiInbox />} />
         <Route path="/reports" element={<Stub icon={BarChart3} title="Reportes & Analytics" description="Métricas en tiempo real, embudos y exportables" />} />
-        <Route path="/automations" element={<Stub icon={Zap} title="Automatizaciones" description="Flujos no-code: triggers, condiciones y acciones con IA" />} />
+        <Route path="/automations" element={<Automations />} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "super_admin"]}>
             <Stub icon={Settings} title="Configuración" description="Equipo, instancia, integraciones y facturación" />
