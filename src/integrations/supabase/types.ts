@@ -712,6 +712,54 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          category: Database["public"]["Enums"]["notification_category"]
+          created_at: string
+          data: Json
+          icon: string | null
+          id: string
+          link: string | null
+          read_at: string | null
+          severity: Database["public"]["Enums"]["notification_severity"]
+          tenant_id: string
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          category?: Database["public"]["Enums"]["notification_category"]
+          created_at?: string
+          data?: Json
+          icon?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          severity?: Database["public"]["Enums"]["notification_severity"]
+          tenant_id: string
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          category?: Database["public"]["Enums"]["notification_category"]
+          created_at?: string
+          data?: Json
+          icon?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          severity?: Database["public"]["Enums"]["notification_severity"]
+          tenant_id?: string
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       org_plan_limits: {
         Row: {
           max_tenants: number
@@ -1132,6 +1180,8 @@ export type Database = {
         | "Inactivo"
       message_direction: "inbound" | "outbound"
       message_type: "text" | "image" | "document" | "audio" | "location"
+      notification_category: "operational" | "ai" | "system"
+      notification_severity: "info" | "success" | "warning" | "danger"
       tag_family: "temperature" | "cycle" | "special"
     }
     CompositeTypes: {
@@ -1284,6 +1334,8 @@ export const Constants = {
       ],
       message_direction: ["inbound", "outbound"],
       message_type: ["text", "image", "document", "audio", "location"],
+      notification_category: ["operational", "ai", "system"],
+      notification_severity: ["info", "success", "warning", "danger"],
       tag_family: ["temperature", "cycle", "special"],
     },
   },
