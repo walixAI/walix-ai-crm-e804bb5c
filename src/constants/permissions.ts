@@ -8,27 +8,76 @@ import type { Role } from "@/store/auth";
 export type PermissionToken = string;
 
 export const ROLE_LABEL: Record<Role, string> = {
-  super_admin: "Soporte Walix",
+  platform_owner: "Walix Owner",
+  platform_staff: "Walix Staff",
+  org_owner: "Propietario de cuenta",
+  org_member: "Miembro de cuenta",
+  tenant_owner: "Propietario de empresa",
   tenant_admin: "Administrador",
   sales_manager: "Gerente de Ventas",
   sales_rep: "Vendedor",
+  super_admin: "Soporte Walix (legacy)",
 };
 
 export const ROLE_DESCRIPTION: Record<Role, string> = {
-  super_admin: "Acceso global a todas las instancias. Solo equipo Walix.",
-  tenant_admin: "Configura la empresa, gestiona equipo, pipeline y facturación.",
+  platform_owner: "Dueño de la plataforma. Acceso total irrestricto a todas las instancias.",
+  platform_staff: "Equipo Walix. Gestiona tenants, soporte, ventas. Sin acceso destructivo.",
+  org_owner: "Dueño de la cuenta. Crea y gestiona varias empresas dentro de su organización.",
+  org_member: "Miembro de la organización con acceso limitado a empresas asignadas.",
+  tenant_owner: "Propietario de la empresa. Recibe la factura y puede transferir propiedad.",
+  tenant_admin: "Configura la empresa, gestiona equipo y pipeline. No toca facturación.",
   sales_manager: "Ve y gestiona los datos de su equipo. Reasigna leads.",
   sales_rep: "Trabaja sus propios contactos, deals y conversaciones.",
+  super_admin: "Rol legacy. Migrado a platform_owner.",
 };
 
-/** Roles que un tenant_admin puede asignar al invitar miembros. */
+/** Roles que un tenant_admin/owner puede asignar al invitar miembros. */
 export const INVITABLE_ROLES: Role[] = ["tenant_admin", "sales_manager", "sales_rep"];
 
 /** Capacidades base por rol (tokens sin expandir). */
 export const ROLE_CAPABILITIES: Record<Role, PermissionToken[]> = {
-  super_admin: ["*"],
-  tenant_admin: [
+  platform_owner: ["*"],
+  platform_staff: [
+    "platform.read",
+    "platform.tenants.manage",
+    "platform.tenants.suspend",
+    "platform.tenants.change_plan",
+    "platform.impersonate",
+    "admin.tenant.read",
+    // Sin: platform.tenants.delete, platform.staff.manage
+  ],
+  super_admin: ["*"], // alias legacy
+  org_owner: [
+    "org.read",
+    "org.tenants.create",
+    "org.tenants.delete",
+    "org.members.manage",
+    "org.transfer",
+  ],
+  org_member: ["org.read"],
+  tenant_owner: [
     "settings.*",
+    "billing.*",
+    "tenant.transfer",
+    "tenant.cancel",
+    "team.*",
+    "contacts.*",
+    "deals.*",
+    "pipeline.*",
+    "reports.*",
+    "automations.*",
+    "whatsapp.*",
+    "ai.*",
+    "audit.read",
+    "templates.*",
+    "admin.tenant.read",
+  ],
+  tenant_admin: [
+    "settings.read",
+    "settings.branding",
+    "settings.pipeline",
+    "settings.whatsapp",
+    "settings.modules",
     "admin.tenant.read",
     "contacts.*",
     "deals.*",
@@ -38,9 +87,9 @@ export const ROLE_CAPABILITIES: Record<Role, PermissionToken[]> = {
     "whatsapp.*",
     "ai.*",
     "team.*",
-    "billing.*",
     "audit.read",
     "templates.*",
+    // Sin: billing.*, tenant.transfer, tenant.cancel
   ],
   sales_manager: [
     "contacts.read.team",
@@ -83,5 +132,6 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionToken | null> = {
   "/automations": "automations.read",
   "/settings": "settings.read",
   "/admin": "admin.tenant.read",
+  "/org": "org.read",
   "/marketplace": null,
 };
