@@ -23,6 +23,7 @@ import Reports from "@/pages/app/Reports";
 import Settings from "@/pages/app/Settings";
 import SuperAdmin from "@/pages/app/SuperAdmin";
 import Organization from "@/pages/app/Organization";
+import Platform from "@/pages/app/Platform";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -58,6 +59,11 @@ const AppRoutes = () => {
         <Route path="/admin" element={
           <ProtectedRoute requireRoles={["platform_owner", "platform_staff", "super_admin"]}>
             <SuperAdmin />
+          </ProtectedRoute>
+        } />
+        <Route path="/platform" element={
+          <ProtectedRoute requireRoles={["platform_owner", "platform_staff", "super_admin"]}>
+            <Platform />
           </ProtectedRoute>
         } />
         <Route path="/marketplace" element={<Stub icon={Store} title="Marketplace" description="Módulos add-on: pagos, envíos, integraciones verticales" />} />

@@ -133,5 +133,6 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionToken | null> = {
   "/settings": "settings.read",
   "/admin": "admin.tenant.read",
   "/org": "org.read",
+  "/platform": "platform.read",
   "/marketplace": null,
 };
