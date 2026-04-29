@@ -3,8 +3,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Store } from "lucide-react";
-
 import { useInitAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -25,6 +23,7 @@ import Settings from "@/pages/app/Settings";
 import SuperAdmin from "@/pages/app/SuperAdmin";
 import Organization from "@/pages/app/Organization";
 import Platform from "@/pages/app/Platform";
+import Marketplace from "@/pages/app/Marketplace";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -68,7 +67,7 @@ const AppRoutes = () => {
             <Platform />
           </ProtectedRoute>
         } />
-        <Route path="/marketplace" element={<Stub icon={Store} title="Marketplace" description="Módulos add-on: pagos, envíos, integraciones verticales" />} />
+        <Route path="/marketplace" element={<Marketplace />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
