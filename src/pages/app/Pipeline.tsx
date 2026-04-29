@@ -14,6 +14,8 @@ import { AiInsightsPanel } from "@/components/pipeline/AiInsightsPanel";
 import { useAiSuggestionsByDeal } from "@/lib/queries/pipelineAi";
 import { AiAlertBanner } from "@/components/walix/AiAlertBanner";
 import { Clock } from "lucide-react";
+import { EmptyState } from "@/components/walix/EmptyState";
+import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
@@ -212,7 +214,14 @@ export default function Pipeline() {
         />
       )}
 
-      {view === "kanban" ? (
+      {deals.length === 0 ? (
+        <EmptyState
+          illustration={<EmptyIllustration variant="pipeline" />}
+          title="Crea tu primer deal y empieza a cerrar"
+          description="Organiza tus oportunidades en etapas y arrastra para mover entre columnas."
+          action={{ label: "+ Nuevo Deal", onClick: () => openNewDeal() }}
+        />
+      ) : view === "kanban" ? (
         <KanbanBoard
           stages={stages}
           deals={filtered}
