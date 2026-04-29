@@ -13,7 +13,7 @@ import {
 } from "@/lib/automations/registry";
 import { iconByName, iconForTriggerType } from "@/lib/automations/icons";
 import { describeAutomation } from "@/lib/automations/format";
-import { usePipelineStages } from "@/lib/queries/pipeline";
+import { useStages } from "@/lib/queries/pipeline";
 import { useMessageTemplates } from "@/lib/queries/whatsapp";
 import { useCreateAutomation, useUpdateAutomation, type Automation } from "@/lib/queries/automations";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Sparkles, FlaskConical, Loader2 } from "lucide-react";
@@ -52,7 +52,7 @@ export function AutomationBuilderSheet({ open, onOpenChange, editing, prefill, f
   const { toast } = useToast();
   const create = useCreateAutomation();
   const update = useUpdateAutomation();
-  const { data: stages = [] } = usePipelineStages();
+  const { data: stages = [] } = useStages();
   const { data: templates = [] } = useMessageTemplates();
 
   const [step, setStep] = useState(1);
