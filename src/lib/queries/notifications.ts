@@ -50,8 +50,9 @@ export function useNotifications(limit = 30) {
   // Realtime subscription
   useEffect(() => {
     if (!tenantId) return;
+    const channelName = `notifications:${tenantId}:${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel(`notifications:${tenantId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `tenant_id=eq.${tenantId}` },
