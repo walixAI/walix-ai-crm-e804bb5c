@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Settings, Shield, Store } from "lucide-react";
+import { Store } from "lucide-react";
 
 import { useInitAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -20,6 +20,8 @@ import Whatsapp from "@/pages/app/Whatsapp";
 import AiInbox from "@/pages/app/AiInbox";
 import Automations from "@/pages/app/Automations";
 import Reports from "@/pages/app/Reports";
+import Settings from "@/pages/app/Settings";
+import SuperAdmin from "@/pages/app/SuperAdmin";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -44,12 +46,12 @@ const AppRoutes = () => {
         <Route path="/automations" element={<Automations />} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "super_admin"]}>
-            <Stub icon={Settings} title="Configuración" description="Equipo, instancia, integraciones y facturación" />
+            <Settings />
           </ProtectedRoute>
         } />
         <Route path="/admin" element={
           <ProtectedRoute requireRoles={["super_admin"]}>
-            <Stub icon={Shield} title="SuperAdmin" description="Gestión global de cuentas, planes y observabilidad" />
+            <SuperAdmin />
           </ProtectedRoute>
         } />
         <Route path="/marketplace" element={<Stub icon={Store} title="Marketplace" description="Módulos add-on: pagos, envíos, integraciones verticales" />} />
