@@ -9,10 +9,10 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { tenant } from "@/mock";
 import { useEffect, useRef, useState } from "react";
 import { useAiDrawer } from "@/store/aiDrawer";
 import { QUICK_AI_PROMPTS } from "@/mock/ai";
+import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 
 export function TopBar() {
   // Intentionally untyped prop is ignored; the palette is opened via the
@@ -63,13 +63,7 @@ export function TopBar() {
       </Button>
 
       <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-border">
-        <div className="h-8 w-8 rounded-lg bg-gradient-brand grid place-items-center text-primary-foreground text-xs font-bold">
-          {tenant.name[0]}
-        </div>
-        <div className="leading-tight">
-          <div className="text-sm font-semibold">{tenant.name}</div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Plan {tenant.plan}</div>
-        </div>
+        <TenantSwitcher />
       </div>
 
       <form onSubmit={submitPrompt} className="flex-1 max-w-2xl" ref={wrapRef as any} data-tour="ai-prompt">
