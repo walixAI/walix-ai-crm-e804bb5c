@@ -20,6 +20,8 @@ import { AiSummaryDialog } from "@/components/whatsapp/AiSummaryDialog";
 import { useWhatsappAi } from "@/lib/queries/whatsappAi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/walix/EmptyState";
+import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { sellers } from "@/mock/contacts";
 
 export default function Whatsapp() {
@@ -223,6 +225,17 @@ export default function Whatsapp() {
 
   return (
     <div className="-m-4 md:-mx-6 md:-my-6 h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] flex bg-background overflow-hidden">
+      {!convLoading && conversations.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <EmptyState
+            illustration={<EmptyIllustration variant="whatsapp" />}
+            title="📱 Conecta tu WhatsApp Business"
+            description="Conecta tu cuenta para recibir mensajes y responder desde el CRM."
+            action={{ label: "Conectar WhatsApp", onClick: () => (window.location.href = "/settings") }}
+          />
+        </div>
+      ) : (
+      <>
       {showList && (
         <ConversationList
           conversations={conversations}

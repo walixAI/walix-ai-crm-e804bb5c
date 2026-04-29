@@ -16,6 +16,7 @@ import { AutomationHistoryDrawer } from "@/components/automations/AutomationHist
 import { AutomationDryRunDialog } from "@/components/automations/AutomationDryRunDialog";
 import { PlanLimitBanner, usePlanLimits } from "@/components/automations/PlanLimitBanner";
 import { EmptyState } from "@/components/walix/EmptyState";
+import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import type { AutomationTemplate } from "@/lib/automations/templates";
 import type { AutomationDraft } from "@/services/automations";
 
@@ -129,7 +130,7 @@ export default function Automations() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={Zap}
+          illustration={<EmptyIllustration variant="automations" />}
           title={tab === "active" ? "No tienes automatizaciones activas" : "Nada por aquí"}
           description="Crea tu primera automatización en segundos desde una plantilla lista o describiéndola con IA."
           action={!limits.locked ? { label: "Crear automatización", onClick: () => setGalleryOpen(true) } : undefined}
