@@ -321,6 +321,8 @@ export default function Whatsapp() {
           )}
         </main>
       )}
+      </>
+      )}
 
       <TemplatesDialog
         open={templatesOpen}
