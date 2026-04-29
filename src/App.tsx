@@ -24,7 +24,6 @@ import SuperAdmin from "@/pages/app/SuperAdmin";
 import Organization from "@/pages/app/Organization";
 import Platform from "@/pages/app/Platform";
 import Marketplace from "@/pages/app/Marketplace";
-import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
