@@ -12,6 +12,7 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import Login from "@/pages/Login";
 import Onboarding from "@/pages/Onboarding";
 import Landing from "@/pages/Landing";
+import Pricing from "@/pages/Pricing";
 import Dashboard from "@/pages/app/Dashboard";
 import Contacts from "@/pages/app/Contacts";
 import ContactDetail from "@/pages/app/ContactDetail";
@@ -35,6 +36,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/pricing" element={<Pricing />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

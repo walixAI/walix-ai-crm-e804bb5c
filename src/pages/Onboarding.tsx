@@ -1,297 +1,633 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Logo } from "@/components/walix/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Logo } from "@/components/walix/Logo";
-import { Check, MessageCircle, Users, Zap, Sparkles, Loader2, Workflow, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Building2,
+  Sparkles,
+  MessageCircle,
+  UserPlus,
+  PartyPopper,
+  Loader2,
+  Check,
+  RefreshCw,
+  Plus,
+  Trash2,
+  QrCode,
+  ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
-import { suggestPipeline, type PipelineSuggestion } from "@/services/ai";
+import { cn } from "@/lib/utils";
 
-const steps = [
-  { icon: Users, title: "Cuéntanos de tu negocio", desc: "Personalizaremos Walix.ai para ti" },
-  { icon: MessageCircle, title: "Conecta WhatsApp", desc: "Multi-agente, sin perder tu número" },
-  { icon: Workflow, title: "Configura tu pipeline con IA", desc: "Etapas y campos hechos a tu medida" },
-  { icon: Zap, title: "Activa tu IA", desc: "Responde, califica y vende automáticamente" },
+const INDUSTRIES = [
+  "Inmobiliaria",
+  "Seguros",
+  "Educación",
+  "Salud",
+  "Belleza",
+  "Legal",
+  "Finanzas",
+  "Tecnología",
+  "Otro",
+];
+const TEAM_SIZES = ["1-5", "6-10", "11-20", "20+"];
+const SALES_CHANNELS = ["WhatsApp", "Llamadas", "Presencial", "Online"];
+
+const STEP_TITLES = [
+  { icon: Building2, title: "Tu negocio" },
+  { icon: Sparkles, title: "Configura con IA" },
+  { icon: MessageCircle, title: "WhatsApp" },
+  { icon: UserPlus, title: "Tu equipo" },
+  { icon: PartyPopper, title: "Listo" },
+];
+
+interface AISetupStage {
+  name: string;
+  color: string;
+  is_won?: boolean;
+  is_lost?: boolean;
+}
+interface AISetupResponse {
+  pipeline_name: string;
+  rationale: string;
+  stages: AISetupStage[];
+  fallback?: boolean;
+  error?: string;
+}
+
+const AI_LOADING_MESSAGES = [
+  "Analizando tu industria…",
+  "Creando etapas de pipeline…",
+  "Configurando automatizaciones…",
 ];
 
 export default function Onboarding() {
-  const [step, setStep] = useState(0);
-  const [bizName, setBizName] = useState("");
-  const [bizDescription, setBizDescription] = useState("");
-  const [suggestion, setSuggestion] = useState<PipelineSuggestion | null>(null);
-  const [suggestLoading, setSuggestLoading] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const runSuggestion = async () => {
-    if (!bizDescription.trim()) {
-      toast.error("Cuéntale a la IA a qué se dedica tu negocio");
-      return;
-    }
-    setSuggestLoading(true);
+  const [step, setStep] = useState(0); // 0..4
+  const [tenantId, setTenantId] = useState<string | null>(null);
+
+  // Step 1
+  const [industry, setIndustry] = useState<string>("");
+  const [industryOther, setIndustryOther] = useState("");
+  const [teamSize, setTeamSize] = useState<string>(TEAM_SIZES[0]);
+  const [salesChannel, setSalesChannel] = useState<string>(SALES_CHANNELS[0]);
+
+  // Step 2 IA
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMsgIndex, setAiMsgIndex] = useState(0);
+  const [aiResult, setAiResult] = useState<AISetupResponse | null>(null);
+  const [applying, setApplying] = useState(false);
+
+  // Step 4 invites
+  const [invites, setInvites] = useState<{ email: string; role: "tenant_admin" | "sales_rep" | "org_member" }[]>([
+    { email: "", role: "sales_rep" },
+  ]);
+
+  const [finishing, setFinishing] = useState(false);
+
+  // Cargar tenant del usuario
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("tenant_id, onboarded")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.tenant_id) setTenantId(data.tenant_id);
+        if (data?.onboarded) navigate("/dashboard", { replace: true });
+      });
+  }, [user, navigate]);
+
+  // Animación de mensajes durante loading IA
+  useEffect(() => {
+    if (!aiLoading) return;
+    const id = setInterval(() => {
+      setAiMsgIndex((i) => (i + 1) % AI_LOADING_MESSAGES.length);
+    }, 1100);
+    return () => clearInterval(id);
+  }, [aiLoading]);
+
+  const effectiveIndustry =
+    industry === "Otro" ? industryOther.trim() || "Otro" : industry || "Otro";
+
+  const canContinueStep0 = !!industry && (industry !== "Otro" || industryOther.trim().length > 1);
+
+  // ---- IA ----
+  const runAi = async () => {
+    setAiLoading(true);
+    setAiResult(null);
+    setAiMsgIndex(0);
     try {
-      const r = await suggestPipeline(bizDescription.trim());
-      setSuggestion(r);
-      if (r.source === "fallback") {
-        toast.warning("Usando configuración de demo (la IA no respondió).");
-      }
+      const start = Date.now();
+      const { data, error } = await supabase.functions.invoke("ai-onboarding-setup", {
+        body: {
+          industry: effectiveIndustry,
+          team_size: teamSize,
+          sales_channel: salesChannel,
+        },
+      });
+      // Mínimo 2.5s para que se vea bonita la animación
+      const elapsed = Date.now() - start;
+      if (elapsed < 2500) await new Promise((r) => setTimeout(r, 2500 - elapsed));
+
+      if (error) throw error;
+      const res = data as AISetupResponse;
+      setAiResult(res);
+      if (res.fallback) toast.info("Usamos un pipeline base (la IA tardó en responder).");
+    } catch (e: any) {
+      toast.error(e?.message ?? "No pudimos generar la sugerencia");
     } finally {
-      setSuggestLoading(false);
+      setAiLoading(false);
     }
   };
 
-  const applySuggestion = async () => {
-    if (!suggestion || !user) return;
+  const applyAi = async () => {
+    if (!aiResult || !tenantId) return;
     setApplying(true);
     try {
-      // Find tenant + default pipeline
-      const { data: profile } = await supabase
-        .from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
-      const tenantId = profile?.tenant_id;
-      if (!tenantId) throw new Error("Sin tenant activo");
-
+      // Pipeline default
       const { data: pipelines } = await supabase
-        .from("pipelines").select("id, is_default").order("position", { ascending: true });
-      let pipelineId = pipelines?.find((p: any) => p.is_default)?.id ?? pipelines?.[0]?.id;
+        .from("pipelines")
+        .select("id, is_default")
+        .eq("tenant_id", tenantId)
+        .order("position", { ascending: true });
 
+      let pipelineId = pipelines?.find((p) => p.is_default)?.id ?? pipelines?.[0]?.id;
       if (!pipelineId) {
-        const { data: created, error: pErr } = await supabase
+        const { data: created, error } = await supabase
           .from("pipelines")
-          .insert({ tenant_id: tenantId, name: "Pipeline principal", is_default: true, position: 0 })
-          .select("id").single();
-        if (pErr) throw pErr;
+          .insert({ tenant_id: tenantId, name: aiResult.pipeline_name, is_default: true, position: 0 })
+          .select("id")
+          .single();
+        if (error) throw error;
         pipelineId = created.id;
+      } else {
+        await supabase.from("pipelines").update({ name: aiResult.pipeline_name }).eq("id", pipelineId);
       }
 
-      // Replace stages
       await supabase.from("pipeline_stages").delete().eq("pipeline_id", pipelineId);
-      const rows = suggestion.stages.map((s, i) => ({
+      const rows = aiResult.stages.map((s, i) => ({
         tenant_id: tenantId,
         pipeline_id: pipelineId,
         name: s.name,
+        color: s.color,
         position: i,
-        is_won: /ganad|cerrad.*gan|won/i.test(s.name),
-        is_lost: /perdid|lost/i.test(s.name),
+        is_won: !!s.is_won,
+        is_lost: !!s.is_lost,
       }));
       const { error: sErr } = await supabase.from("pipeline_stages").insert(rows);
       if (sErr) throw sErr;
 
-      toast.success(`${suggestion.stages.length} etapas creadas en tu pipeline`);
-      setStep((s) => s + 1);
+      toast.success(`Pipeline configurado con ${rows.length} etapas`);
+      setStep(2);
     } catch (e: any) {
-      toast.error(e?.message ?? "No se pudo aplicar la configuración");
+      toast.error(e?.message ?? "No se pudo aplicar");
     } finally {
       setApplying(false);
     }
   };
 
-  const finish = async () => {
-    setLoading(true);
+  // ---- Invites ----
+  const addInvite = () =>
+    setInvites((arr) => (arr.length >= 3 ? arr : [...arr, { email: "", role: "sales_rep" }]));
+  const removeInvite = (i: number) =>
+    setInvites((arr) => arr.filter((_, idx) => idx !== i));
+
+  const sendInvitesAndFinish = async () => {
+    if (!user || !tenantId) return;
+    setFinishing(true);
     try {
-      if (user) {
-        await supabase.from("profiles").update({ onboarded: true, full_name: bizName || user.email }).eq("id", user.id);
+      const valid = invites.filter((i) => i.email.includes("@"));
+      if (valid.length > 0) {
+        const rows = valid.map((i) => ({
+          tenant_id: tenantId,
+          email: i.email.toLowerCase().trim(),
+          role: i.role,
+          invited_by: user.id,
+        }));
+        const { error } = await supabase.from("invitations").insert(rows);
+        if (error) throw error;
       }
-      toast.success("¡Listo! Bienvenido a Walix.ai");
-      navigate("/dashboard");
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally { setLoading(false); }
+      await supabase.from("profiles").update({ onboarded: true }).eq("id", user.id);
+      setStep(4);
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudieron enviar las invitaciones");
+    } finally {
+      setFinishing(false);
+    }
   };
 
-  const fieldTypeLabel = (t: string) =>
-    ({ text: "Texto", number: "Número", date: "Fecha", select: "Selección" } as Record<string, string>)[t] ?? t;
+  const skipInvites = async () => {
+    if (!user) return;
+    setFinishing(true);
+    try {
+      await supabase.from("profiles").update({ onboarded: true }).eq("id", user.id);
+      setStep(4);
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  const progress = ((step + 1) / STEP_TITLES.length) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-soft flex flex-col">
-      <header className="h-16 px-6 flex items-center border-b border-border bg-card">
+      <header className="h-16 px-6 flex items-center justify-between border-b border-border bg-card">
         <Logo />
+        <span className="text-xs text-muted-foreground">Paso {step + 1} de {STEP_TITLES.length}</span>
       </header>
-      <main className="flex-1 grid place-items-center p-6">
+
+      {/* Progress bar */}
+      <div className="h-1 bg-muted">
+        <div
+          className="h-full bg-gradient-brand transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <main className="flex-1 grid place-items-center p-4 md:p-6">
         <div className="w-full max-w-2xl">
           {/* Stepper */}
-          <div className="flex items-center justify-center gap-2 mb-8">
-            {steps.map((s, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className={`h-8 w-8 rounded-full grid place-items-center text-xs font-bold transition-all ${
-                  i <= step ? "bg-primary text-primary-foreground shadow-glow" : "bg-muted text-muted-foreground"
-                }`}>
-                  {i < step ? <Check className="h-4 w-4" /> : i + 1}
+          <div className="hidden md:flex items-center justify-center gap-1.5 mb-6">
+            {STEP_TITLES.map((s, i) => {
+              const Icon = s.icon;
+              const active = i === step;
+              const done = i < step;
+              return (
+                <div key={i} className="flex items-center gap-1.5">
+                  <div
+                    className={cn(
+                      "h-8 w-8 rounded-full grid place-items-center text-xs font-bold transition-all",
+                      done && "bg-primary text-primary-foreground",
+                      active && "bg-gradient-brand text-primary-foreground shadow-glow scale-110",
+                      !done && !active && "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                  </div>
+                  {i < STEP_TITLES.length - 1 && (
+                    <div className={cn("h-0.5 w-8 transition-colors", i < step ? "bg-primary" : "bg-border")} />
+                  )}
                 </div>
-                {i < steps.length - 1 && <div className={`h-0.5 w-12 ${i < step ? "bg-primary" : "bg-border"}`} />}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="bg-card rounded-2xl border border-border shadow-card p-8 md:p-10 animate-fade-in">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="h-12 w-12 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
-                {(() => { const Icon = steps[step].icon; return <Icon className="h-6 w-6 text-primary-foreground" />; })()}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">{steps[step].title}</h1>
-                <p className="text-sm text-muted-foreground mt-1">{steps[step].desc}</p>
-              </div>
-            </div>
-
+          <div className="bg-card rounded-2xl border border-border shadow-card p-6 md:p-8 animate-fade-in">
+            {/* STEP 0 — Perfil del negocio */}
             {step === 0 && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="biz">Nombre de tu negocio</Label>
-                  <Input id="biz" value={bizName} onChange={(e) => setBizName(e.target.value)}
-                    placeholder="Ej. Tacos El Güero" className="h-11" />
-                </div>
-              </div>
-            )}
-            {step === 1 && (
-              <div className="rounded-xl border border-dashed border-border p-8 text-center bg-muted/30">
-                <MessageCircle className="h-12 w-12 mx-auto text-success mb-3" />
-                <p className="font-medium">Escanea el QR desde WhatsApp Business</p>
-                <p className="text-xs text-muted-foreground mt-1">(simulación · puedes saltarlo)</p>
-              </div>
-            )}
-            {step === 2 && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="bizDesc">¿A qué se dedica tu negocio?</Label>
-                  <Textarea
-                    id="bizDesc"
-                    value={bizDescription}
-                    onChange={(e) => setBizDescription(e.target.value)}
-                    placeholder="Ej. Vendemos catering corporativo a empresas medianas en CDMX. Ticket promedio $15-50k MXN, ciclo de venta de 2-3 semanas."
-                    rows={3}
-                    className="resize-none"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Mientras más específico, mejor configura la IA tus etapas y campos.
+              <div className="space-y-5">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Cuéntanos de tu negocio</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Lo usaremos para personalizar tu CRM en segundos.
                   </p>
                 </div>
 
-                {!suggestion && (
+                <div className="space-y-1.5">
+                  <Label>¿A qué se dedica tu negocio?</Label>
+                  <Select value={industry} onValueChange={setIndustry}>
+                    <SelectTrigger className="h-11"><SelectValue placeholder="Elige tu industria" /></SelectTrigger>
+                    <SelectContent>
+                      {INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {industry === "Otro" && (
+                    <Input
+                      placeholder="Describe tu giro (ej. catering, fotografía…)"
+                      value={industryOther}
+                      onChange={(e) => setIndustryOther(e.target.value)}
+                      className="h-11 mt-2"
+                      maxLength={80}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>¿Cuántas personas hay en tu equipo de ventas?</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {TEAM_SIZES.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setTeamSize(s)}
+                        className={cn(
+                          "h-11 rounded-lg border text-sm font-medium transition-all",
+                          teamSize === s
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:border-primary/40"
+                        )}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>¿Cómo cierras más ventas hoy?</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {SALES_CHANNELS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSalesChannel(s)}
+                        className={cn(
+                          "h-11 rounded-lg border text-sm font-medium transition-all",
+                          salesChannel === s
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:border-primary/40"
+                        )}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 1 — IA */}
+            {step === 1 && (
+              <div className="space-y-5 text-center">
+                <div className="h-14 w-14 mx-auto rounded-2xl bg-gradient-brand grid place-items-center shadow-glow">
+                  <Sparkles className="h-7 w-7 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">
+                    ✨ Configura tu CRM en 10 segundos con IA
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+                    Basado en tu industria <span className="font-semibold text-foreground">({effectiveIndustry})</span>,
+                    la IA configurará tu pipeline, etapas y bases para automatizaciones.
+                  </p>
+                </div>
+
+                {!aiResult && !aiLoading && (
                   <Button
-                    onClick={runSuggestion}
-                    disabled={suggestLoading || !bizDescription.trim()}
-                    className="w-full bg-gradient-brand text-primary-foreground"
+                    onClick={runAi}
+                    size="lg"
+                    className="bg-gradient-brand text-primary-foreground shadow-glow"
                   >
-                    {suggestLoading ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Configurando con IA…</>
-                    ) : (
-                      <><Sparkles className="h-4 w-4 mr-2" /> Configurar con IA</>
-                    )}
+                    🚀 Configurar con IA
                   </Button>
                 )}
 
-                {suggestion && (
-                  <div className="space-y-3 animate-fade-in">
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                      <div className="text-xs font-semibold text-primary uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                        <Workflow className="h-3.5 w-3.5" /> Etapas sugeridas
+                {aiLoading && (
+                  <div className="py-6 space-y-4">
+                    <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
+                    <div className="text-sm font-medium animate-pulse">
+                      {AI_LOADING_MESSAGES[aiMsgIndex]}
+                    </div>
+                  </div>
+                )}
+
+                {aiResult && (
+                  <div className="text-left space-y-3 animate-fade-in">
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                      <div className="text-xs uppercase tracking-wide font-semibold text-primary mb-2">
+                        {aiResult.pipeline_name}
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {suggestion.stages.map((s, i) => (
-                          <div key={i} className="px-2.5 py-1 rounded-full bg-card border border-border text-xs">
-                            <span className="text-muted-foreground mr-1">{i + 1}.</span>
+                      <p className="text-xs text-muted-foreground mb-3">{aiResult.rationale}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {aiResult.stages.map((s, i) => (
+                          <div
+                            key={i}
+                            className="px-3 py-1.5 rounded-full bg-card border border-border text-xs flex items-center gap-1.5"
+                          >
+                            <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
                             <span className="font-medium">{s.name}</span>
-                            <span className="ml-1.5 text-muted-foreground">{s.probability}%</span>
+                            {s.is_won && <span className="text-success">✓</span>}
+                            {s.is_lost && <span className="text-destructive">✕</span>}
                           </div>
                         ))}
                       </div>
                     </div>
-
-                    <div className="rounded-xl border border-border bg-muted/30 p-3">
-                      <div className="text-xs font-semibold uppercase tracking-wide mb-2 text-muted-foreground">
-                        Campos personalizados
-                      </div>
-                      <ul className="space-y-1.5">
-                        {suggestion.customFields.map((f, i) => (
-                          <li key={i} className="text-xs flex items-start gap-2">
-                            <span className="px-1.5 py-0.5 rounded bg-card border border-border font-mono text-[10px] shrink-0">
-                              {fieldTypeLabel(f.type)}
-                            </span>
-                            <div>
-                              <div className="font-medium">{f.label}</div>
-                              <div className="text-muted-foreground">{f.reason}</div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-muted/30 p-3">
-                      <div className="text-xs font-semibold uppercase tracking-wide mb-2 text-muted-foreground">
-                        Automatizaciones básicas
-                      </div>
-                      <ul className="space-y-1.5">
-                        {suggestion.automations.map((a, i) => (
-                          <li key={i} className="text-xs">
-                            <span className="font-medium">{a.trigger}</span>
-                            <span className="text-muted-foreground"> → {a.action}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={runSuggestion}
-                        disabled={suggestLoading}
-                        className="text-xs"
-                      >
-                        <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${suggestLoading ? "animate-spin" : ""}`} />
-                        Regenerar
+                    <div className="flex items-center justify-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={runAi}>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Regenerar
                       </Button>
-                      <span className="text-[11px] text-muted-foreground flex-1">
-                        Sólo se aplicarán las etapas a tu pipeline. Campos y automatizaciones quedarán como guía.
-                      </span>
                     </div>
                   </div>
                 )}
               </div>
             )}
-            {step === 3 && (
-              <div className="space-y-3">
-                {["Califica leads automáticamente", "Responde fuera de horario", "Detecta intención de compra"].map((f) => (
-                  <label key={f} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/40 cursor-pointer transition-colors">
-                    <input type="checkbox" defaultChecked className="h-4 w-4 accent-primary" />
-                    <span className="text-sm font-medium">{f}</span>
-                  </label>
-                ))}
+
+            {/* STEP 2 — WhatsApp */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Conecta WhatsApp</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Recibe leads y conversaciones directo en Walix.ai.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4 items-center">
+                  <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 grid place-items-center">
+                    <div className="text-center">
+                      <QrCode className="h-24 w-24 mx-auto text-foreground/70" />
+                      <p className="text-[11px] text-muted-foreground mt-2">QR de demostración</p>
+                    </div>
+                  </div>
+                  <ol className="space-y-3 text-sm">
+                    {[
+                      "Instala WhatsApp Business",
+                      "Abre Configuración → Dispositivos vinculados",
+                      "Escanea este QR — ¡Listo!",
+                    ].map((s, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-bold shrink-0">
+                          {i + 1}
+                        </div>
+                        <span className="pt-0.5">{s}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                  💡 Puedes conectar WhatsApp más tarde desde <span className="font-mono text-foreground">Configuración → WhatsApp</span>.
+                </div>
               </div>
             )}
 
-            <div className="mt-8 flex justify-between gap-3">
-              <Button variant="ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
-                Atrás
-              </Button>
-              {step === 2 && suggestion ? (
+            {/* STEP 3 — Invitar equipo */}
+            {step === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Invita a tu equipo</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Hasta 3 personas. Recibirán un correo para unirse.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {invites.map((inv, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="correo@empresa.com"
+                        value={inv.email}
+                        onChange={(e) => {
+                          const arr = [...invites]; arr[i].email = e.target.value; setInvites(arr);
+                        }}
+                        className="h-10 flex-1"
+                      />
+                      <Select
+                        value={inv.role}
+                        onValueChange={(v) => {
+                          const arr = [...invites]; arr[i].role = v as any; setInvites(arr);
+                        }}
+                      >
+                        <SelectTrigger className="h-10 w-36"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tenant_admin">Administrador</SelectItem>
+                          <SelectItem value="sales_rep">Vendedor</SelectItem>
+                          <SelectItem value="org_member">Solo ver</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {invites.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => removeInvite(i)} className="h-10 w-10">
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {invites.length < 3 && (
+                  <Button variant="outline" size="sm" onClick={addInvite}>
+                    <Plus className="h-4 w-4 mr-1.5" /> Agregar otra
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* STEP 4 — Listo */}
+            {step === 4 && (
+              <div className="text-center py-6 space-y-5">
+                <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-brand grid place-items-center shadow-glow animate-pulse">
+                  <PartyPopper className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">🎉 ¡Tu CRM está listo!</h1>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Configuramos tu pipeline para <span className="font-semibold text-foreground">{effectiveIndustry}</span>.
+                    Empieza a cargar contactos o conecta WhatsApp.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-left max-w-md mx-auto">
+                  {[
+                    { label: "Pipeline", value: aiResult?.stages.length ? `${aiResult.stages.length} etapas` : "Listo" },
+                    { label: "Industria", value: effectiveIndustry },
+                    { label: "Equipo", value: teamSize },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-lg border border-border bg-muted/30 p-3">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
+                      <div className="text-sm font-semibold mt-0.5 truncate">{s.value}</div>
+                    </div>
+                  ))}
+                </div>
+
                 <Button
-                  onClick={applySuggestion}
-                  disabled={applying}
-                  className="bg-gradient-brand text-primary-foreground"
+                  size="lg"
+                  className="bg-gradient-brand text-primary-foreground shadow-glow"
+                  onClick={() => navigate("/dashboard")}
                 >
-                  {applying ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Aplicando…</>
-                  ) : (
-                    <><Check className="h-4 w-4 mr-2" /> Aplicar y continuar</>
+                  Ir a mi Dashboard <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
+            {/* Footer botones */}
+            {step < 4 && (
+              <div className="mt-8 flex items-center justify-between gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => setStep((s) => Math.max(0, s - 1))}
+                  disabled={step === 0}
+                >
+                  Atrás
+                </Button>
+
+                <div className="flex gap-2">
+                  {/* Step 0 */}
+                  {step === 0 && (
+                    <Button
+                      onClick={() => setStep(1)}
+                      disabled={!canContinueStep0}
+                      className="bg-gradient-brand text-primary-foreground"
+                    >
+                      Continuar <ArrowRight className="h-4 w-4 ml-1.5" />
+                    </Button>
                   )}
-                </Button>
-              ) : step < steps.length - 1 ? (
-                <Button onClick={() => setStep((s) => s + 1)} className="bg-gradient-brand text-primary-foreground">
-                  Siguiente
-                </Button>
-              ) : (
-                <Button onClick={finish} disabled={loading} className="bg-gradient-brand text-primary-foreground">
-                  {loading ? "Guardando..." : "Entrar a Walix.ai"}
-                </Button>
-              )}
-            </div>
+
+                  {/* Step 1 IA */}
+                  {step === 1 && aiResult && !aiLoading && (
+                    <>
+                      <Button variant="outline" onClick={() => setStep(2)}>Personalizar luego</Button>
+                      <Button
+                        onClick={applyAi}
+                        disabled={applying}
+                        className="bg-gradient-brand text-primary-foreground"
+                      >
+                        {applying ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
+                        Confirmar etapas
+                      </Button>
+                    </>
+                  )}
+                  {step === 1 && !aiResult && !aiLoading && (
+                    <Button variant="ghost" onClick={() => setStep(2)}>Omitir</Button>
+                  )}
+
+                  {/* Step 2 WhatsApp */}
+                  {step === 2 && (
+                    <>
+                      <Button variant="ghost" onClick={() => setStep(3)}>Omitir por ahora</Button>
+                      <Button
+                        onClick={() => setStep(3)}
+                        className="bg-gradient-brand text-primary-foreground"
+                      >
+                        Continuar <ArrowRight className="h-4 w-4 ml-1.5" />
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Step 3 invites */}
+                  {step === 3 && (
+                    <>
+                      <Button variant="ghost" onClick={skipInvites} disabled={finishing}>
+                        Omitir
+                      </Button>
+                      <Button
+                        onClick={sendInvitesAndFinish}
+                        disabled={finishing}
+                        className="bg-gradient-brand text-primary-foreground"
+                      >
+                        {finishing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                        Enviar invitaciones
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>

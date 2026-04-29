@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+
+  useEffect(() => {
+    if (params.get("mode") === "signup") setMode("signup");
+  }, [params]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

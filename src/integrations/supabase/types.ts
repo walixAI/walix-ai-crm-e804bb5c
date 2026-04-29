@@ -1137,6 +1137,7 @@ export type Database = {
     }
     Functions: {
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
+      downgrade_expired_trials: { Args: never; Returns: number }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -1156,6 +1157,7 @@ export type Database = {
       is_platform: { Args: { _user_id: string }; Returns: boolean }
       org_tenant_count: { Args: { _org_id: string }; Returns: number }
       tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
+      trial_days_left: { Args: { _tenant_id: string }; Returns: number }
     }
     Enums: {
       activity_type: "wa_sent" | "wa_received" | "note" | "deal" | "task"
