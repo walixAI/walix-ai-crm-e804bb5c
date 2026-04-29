@@ -251,6 +251,14 @@ export default function Contacts() {
                 ))}
               </div>
             )
+        ) : !isLoading && allContacts.length === 0 ? (
+          <EmptyState
+            illustration={<EmptyIllustration variant="contacts" />}
+            title="¡Empieza agregando tu primer contacto!"
+            description="Importa un CSV o crea un contacto manual para empezar a vender por WhatsApp."
+            action={{ label: "+ Nuevo Contacto", onClick: () => setOpenNew(true) }}
+            secondaryAction={{ label: "Importar CSV", onClick: () => setOpenImport(true) }}
+          />
         ) : view === "list" ? (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
