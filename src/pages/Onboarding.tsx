@@ -92,8 +92,8 @@ export default function Onboarding() {
   const [applying, setApplying] = useState(false);
 
   // Step 4 invites
-  const [invites, setInvites] = useState<{ email: string; role: "tenant_admin" | "seller" | "viewer" }[]>([
-    { email: "", role: "seller" },
+  const [invites, setInvites] = useState<{ email: string; role: "tenant_admin" | "sales_rep" | "org_member" }[]>([
+    { email: "", role: "sales_rep" },
   ]);
 
   const [finishing, setFinishing] = useState(false);
@@ -203,7 +203,7 @@ export default function Onboarding() {
 
   // ---- Invites ----
   const addInvite = () =>
-    setInvites((arr) => (arr.length >= 3 ? arr : [...arr, { email: "", role: "seller" }]));
+    setInvites((arr) => (arr.length >= 3 ? arr : [...arr, { email: "", role: "sales_rep" }]));
   const removeInvite = (i: number) =>
     setInvites((arr) => arr.filter((_, idx) => idx !== i));
 
@@ -497,8 +497,8 @@ export default function Onboarding() {
                         <SelectTrigger className="h-10 w-36"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="tenant_admin">Administrador</SelectItem>
-                          <SelectItem value="seller">Vendedor</SelectItem>
-                          <SelectItem value="viewer">Solo ver</SelectItem>
+                          <SelectItem value="sales_rep">Vendedor</SelectItem>
+                          <SelectItem value="org_member">Solo ver</SelectItem>
                         </SelectContent>
                       </Select>
                       {invites.length > 1 && (
