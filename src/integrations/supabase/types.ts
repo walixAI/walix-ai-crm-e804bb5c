@@ -1037,6 +1037,45 @@ export type Database = {
           },
         ]
       }
+      tenant_modules: {
+        Row: {
+          activated_at: string
+          activated_by: string | null
+          created_at: string
+          id: string
+          module_id: string
+          monthly_price_mxn: number
+          pricing_model: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string
+          activated_by?: string | null
+          created_at?: string
+          id?: string
+          module_id: string
+          monthly_price_mxn?: number
+          pricing_model: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string
+          activated_by?: string | null
+          created_at?: string
+          id?: string
+          module_id?: string
+          monthly_price_mxn?: number
+          pricing_model?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           brand_name: string | null
