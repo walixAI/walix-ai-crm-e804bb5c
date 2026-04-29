@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles, TrendingUp, AlertTriangle, Target, Calendar,
@@ -11,39 +11,13 @@ import {
   type DashboardAiResponse, type PipelineHealthWidget, type RiskWidget,
 } from "@/services/ai";
 import { AiSectionSkeleton } from "@/components/walix/Skeletons";
+import { renderCitations, formatMXN } from "@/lib/ai/citations";
 
 const REPORT_CACHE_KEY = "walix.weeklyReport.v1";
 
 interface CachedReport {
   week: string;
   data: DashboardAiResponse;
-}
-
-function formatMXN(n: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
-}
-
-// Inline citation renderer for executive summary: [deal:UUID|Label]
-// Accept both `convo` and `conversation` for robustness against model variations.
-const CITATION_RE = /\[(deal|contact|conversation|convo):([a-zA-Z0-9-]+)\|([^\]]+)\]/g;
-function renderCitations(text: string, onCite: (k: string, id: string) => void): ReactNode[] {
-  const parts: ReactNode[] = [];
-  let last = 0; let key = 0;
-  text.replace(CITATION_RE, (match, kind, id, label, off: number) => {
-    if (off > last) parts.push(<span key={`t-${key++}`}>{text.slice(last, off)}</span>);
-    parts.push(
-      <button
-        key={`c-${key++}`}
-        type="button"
-        onClick={() => onCite(kind, id)}
-        className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-medium transition-colors"
-      >{label}</button>,
-    );
-    last = off + match.length;
-    return match;
-  });
-  if (last < text.length) parts.push(<span key={`t-${key++}`}>{text.slice(last)}</span>);
-  return parts;
 }
 
 function healthColor(status: PipelineHealthWidget["status"]) {
