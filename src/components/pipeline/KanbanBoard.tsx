@@ -73,10 +73,10 @@ export function KanbanBoard(props: Props) {
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1">
+      <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 snap-x snap-mandatory md:snap-none scroll-smooth">
         {stages.map(stage => (
+          <div key={stage.id} className="snap-center md:snap-align-none shrink-0">
           <KanbanColumn
-            key={stage.id}
             stage={stage}
             allStages={stages}
             deals={deals.filter(d => d.stageId === stage.id)}
@@ -94,6 +94,7 @@ export function KanbanBoard(props: Props) {
             onRequestLost={props.onRequestLost}
             onNewTask={props.onNewTask}
           />
+          </div>
         ))}
       </div>
 
