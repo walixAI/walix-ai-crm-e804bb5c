@@ -22,6 +22,7 @@ import Automations from "@/pages/app/Automations";
 import Reports from "@/pages/app/Reports";
 import Settings from "@/pages/app/Settings";
 import SuperAdmin from "@/pages/app/SuperAdmin";
+import Organization from "@/pages/app/Organization";
 import { Stub } from "@/pages/app/Stub";
 import NotFound from "@/pages/NotFound";
 
@@ -45,12 +46,17 @@ const AppRoutes = () => {
         <Route path="/reports" element={<Reports />} />
         <Route path="/automations" element={<Automations />} />
         <Route path="/settings" element={
-          <ProtectedRoute requireRoles={["tenant_admin", "super_admin"]}>
+          <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "platform_owner", "platform_staff", "super_admin"]}>
             <Settings />
           </ProtectedRoute>
         } />
+        <Route path="/org" element={
+          <ProtectedRoute requireRoles={["org_owner", "platform_owner", "platform_staff", "super_admin"]}>
+            <Organization />
+          </ProtectedRoute>
+        } />
         <Route path="/admin" element={
-          <ProtectedRoute requireRoles={["super_admin"]}>
+          <ProtectedRoute requireRoles={["platform_owner", "platform_staff", "super_admin"]}>
             <SuperAdmin />
           </ProtectedRoute>
         } />

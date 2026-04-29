@@ -1,172 +1,311 @@
-## Roles, Permisos, `/settings` y `/admin` — Plan aprobado para ejecutar
+## Modelo de Roles + Organizaciones Multi-Tenant — Plan de implementación
 
-Decisiones del usuario:
-1. **Drag-and-drop** real para etapas de pipeline (instalar `@dnd-kit/core` + `@dnd-kit/sortable` si no están).
-2. **Color primario**: aplicar solo a `--primary` y derivar accents (sin tocar sidebar/gradientes).
-3. **Tab "Actividad" (audit log)** visible para `tenant_admin` dentro de Settings.
+### Decisiones del usuario
+
+1. **1 cuenta puede estar en N organizaciones** (tabla puente `organization_members`).
+2. **Onboarding:** al registrarse se crea automáticamente `organization` + 1 tenant trial; el usuario queda como `org_owner` + `tenant_owner`.
+3. **Límite de tenants por plan de organización:**
+   - `org_starter`: 1 tenant
+   - `org_pyme`: 2 tenants
+   - `org_growth`: 5 tenants
+   - `org_enterprise`: ilimitado
+4. **Trial:** solo el primer tenant. Tenants adicionales se cobran desde el día 1 según su plan elegido.
+
+---
+
+### Jerarquía final
+
+```text
+platform_owner / platform_staff       (Walix - nivel plataforma)
+        │
+        ▼
+organization (cuenta del cliente, agrupa N tenants, sin datos de negocio)
+  ├── org_owner / org_member
+  └── tenants[]
+        ├── tenant_owner               (recibe factura de ESE tenant)
+        ├── tenant_admin
+        ├── sales_manager
+        └── sales_rep
+```
 
 ---
 
 ### Migración de base de datos
 
+**1. Extender enum `app_role`:**
+
 ```sql
--- Tenants: plan, marca, locale
+ALTER TYPE app_role ADD VALUE 'platform_owner';
+ALTER TYPE app_role ADD VALUE 'platform_staff';
+ALTER TYPE app_role ADD VALUE 'org_owner';
+ALTER TYPE app_role ADD VALUE 'org_member';
+ALTER TYPE app_role ADD VALUE 'tenant_owner';
+-- tenant_admin, sales_manager, sales_rep ya existen
+-- super_admin queda obsoleto: usuarios con ese rol se migran a platform_owner
+```
+
+**2. Tabla `organizations`:**
+
+```sql
+CREATE TABLE organizations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  plan text NOT NULL DEFAULT 'org_starter',
+  created_by uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE organization_members (
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  role app_role NOT NULL CHECK (role IN ('org_owner','org_member')),
+  joined_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, user_id)
+);
+ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
+
+-- Garantizar al menos un org_owner por organización (índice parcial)
+CREATE UNIQUE INDEX one_owner_per_org_min
+  ON organization_members(organization_id, user_id)
+  WHERE role = 'org_owner';
+```
+
+**3. Vincular tenants y profiles a organizations:**
+
+```sql
 ALTER TABLE tenants
-  ADD COLUMN status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
-  ADD COLUMN locale text NOT NULL DEFAULT 'es-MX',
-  ADD COLUMN timezone text NOT NULL DEFAULT 'America/Mexico_City',
-  ADD COLUMN currency text NOT NULL DEFAULT 'MXN',
-  ADD COLUMN logo_url text,
-  ADD COLUMN brand_primary text,
-  ADD COLUMN brand_name text,
-  ADD COLUMN mrr numeric NOT NULL DEFAULT 0,
-  ADD COLUMN nps integer;
+  ADD COLUMN organization_id uuid REFERENCES organizations(id),
+  ADD COLUMN trial_ends_at timestamptz;
 
--- Profiles: estado y email denormalizado
 ALTER TABLE profiles
-  ADD COLUMN is_active boolean NOT NULL DEFAULT true,
-  ADD COLUMN last_seen_at timestamptz,
-  ADD COLUMN email text;
+  ADD COLUMN active_tenant_id uuid;  -- tenant activo en sesión
 
--- UPDATE policy del tenant: permitir tenant_admin actualizar su tenant
-CREATE POLICY "tenant_admin updates own tenant" ON tenants FOR UPDATE TO authenticated
-  USING (id = get_user_tenant(auth.uid()) AND has_role(auth.uid(),'tenant_admin'))
-  WITH CHECK (id = get_user_tenant(auth.uid()) AND has_role(auth.uid(),'tenant_admin'));
-CREATE POLICY "super_admin updates any tenant" ON tenants FOR UPDATE TO authenticated
-  USING (has_role(auth.uid(),'super_admin')) WITH CHECK (has_role(auth.uid(),'super_admin'));
+-- Garantizar 1 tenant_owner por tenant
+CREATE UNIQUE INDEX one_owner_per_tenant
+  ON user_roles(tenant_id)
+  WHERE role = 'tenant_owner';
+```
 
--- Plan limits
-CREATE TABLE plan_limits (
+**4. Tabla `org_plan_limits`:**
+
+```sql
+CREATE TABLE org_plan_limits (
   plan text PRIMARY KEY,
-  max_users integer NOT NULL,
-  max_active_automations integer NOT NULL,
-  max_pipelines integer NOT NULL,
+  max_tenants integer NOT NULL,
   monthly_price numeric NOT NULL DEFAULT 0
 );
-INSERT INTO plan_limits VALUES
-  ('starter',1,0,1,0),('pyme',5,3,3,990),
-  ('growth',15,99,10,2490),('enterprise',999,99,99,5990);
-ALTER TABLE plan_limits ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "read plan_limits" ON plan_limits FOR SELECT TO authenticated USING (true);
+INSERT INTO org_plan_limits VALUES
+  ('org_starter', 1, 0),
+  ('org_pyme', 2, 0),
+  ('org_growth', 5, 0),
+  ('org_enterprise', 999, 0);
+ALTER TABLE org_plan_limits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read org_plan_limits" ON org_plan_limits FOR SELECT TO authenticated USING (true);
+```
 
--- Invitaciones
-CREATE TABLE invitations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
-  email text NOT NULL,
-  role app_role NOT NULL,
-  invited_by uuid NOT NULL,
-  status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','accepted','revoked','expired')),
-  expires_at timestamptz NOT NULL DEFAULT now() + interval '7 days',
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "tenant_admin manages invites" ON invitations FOR ALL TO authenticated
-  USING (tenant_id = get_user_tenant(auth.uid()) AND has_role(auth.uid(),'tenant_admin'))
-  WITH CHECK (tenant_id = get_user_tenant(auth.uid()) AND has_role(auth.uid(),'tenant_admin'));
-CREATE POLICY "super_admin manages all invites" ON invitations FOR ALL TO authenticated
-  USING (has_role(auth.uid(),'super_admin')) WITH CHECK (has_role(auth.uid(),'super_admin'));
+**5. Helpers SECURITY DEFINER:**
 
--- Audit log
-CREATE TABLE audit_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid,
-  actor_id uuid,
-  actor_email text,
-  action text NOT NULL,
-  target_type text,
-  target_id uuid,
-  metadata jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "tenant reads own audit" ON audit_log FOR SELECT TO authenticated
-  USING (tenant_id = get_user_tenant(auth.uid()) OR has_role(auth.uid(),'super_admin'));
-CREATE POLICY "authenticated inserts audit" ON audit_log FOR INSERT TO authenticated
-  WITH CHECK (actor_id = auth.uid());
-
--- Helper para SuperAdmin
-CREATE OR REPLACE FUNCTION public.tenant_active_users(_tenant_id uuid)
-RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT count(*)::int FROM profiles WHERE tenant_id = _tenant_id AND is_active = true
+```sql
+-- ¿Es de la plataforma?
+CREATE OR REPLACE FUNCTION public.is_platform(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT has_role(_user_id, 'platform_owner') OR has_role(_user_id, 'platform_staff')
 $$;
 
--- Storage bucket para logos
-INSERT INTO storage.buckets (id, name, public) VALUES ('tenant-assets','tenant-assets', true);
-CREATE POLICY "tenant_admin uploads logos" ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id='tenant-assets' AND has_role(auth.uid(),'tenant_admin')
-              AND (storage.foldername(name))[1] = get_user_tenant(auth.uid())::text);
-CREATE POLICY "tenant_admin updates logos" ON storage.objects FOR UPDATE TO authenticated
-  USING (bucket_id='tenant-assets' AND has_role(auth.uid(),'tenant_admin')
-         AND (storage.foldername(name))[1] = get_user_tenant(auth.uid())::text);
-CREATE POLICY "public reads logos" ON storage.objects FOR SELECT TO public
-  USING (bucket_id='tenant-assets');
+-- ¿Pertenece a la organización?
+CREATE OR REPLACE FUNCTION public.is_org_member(_user_id uuid, _org_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS(SELECT 1 FROM organization_members WHERE user_id = _user_id AND organization_id = _org_id)
+$$;
+
+-- ¿Es org_owner de esa organización?
+CREATE OR REPLACE FUNCTION public.is_org_owner(_user_id uuid, _org_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS(SELECT 1 FROM organization_members
+                WHERE user_id = _user_id AND organization_id = _org_id AND role = 'org_owner')
+$$;
+
+-- get_user_tenant ajustado: devuelve active_tenant_id si está definido, si no el tenant_id del profile
+CREATE OR REPLACE FUNCTION public.get_user_tenant(_user_id uuid)
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(active_tenant_id, tenant_id) FROM profiles WHERE id = _user_id
+$$;
+
+-- Cuenta tenants de una organización
+CREATE OR REPLACE FUNCTION public.org_tenant_count(_org_id uuid)
+RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT count(*)::int FROM tenants WHERE organization_id = _org_id
+$$;
 ```
+
+**6. RLS para `organizations` y `organization_members`:**
+
+```sql
+CREATE POLICY "members read own org" ON organizations FOR SELECT TO authenticated
+  USING (is_org_member(auth.uid(), id) OR is_platform(auth.uid()));
+CREATE POLICY "owners update own org" ON organizations FOR UPDATE TO authenticated
+  USING (is_org_owner(auth.uid(), id) OR is_platform(auth.uid()));
+CREATE POLICY "platform creates orgs" ON organizations FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "members read own membership" ON organization_members FOR SELECT TO authenticated
+  USING (user_id = auth.uid() OR is_org_owner(auth.uid(), organization_id) OR is_platform(auth.uid()));
+CREATE POLICY "owners manage members" ON organization_members FOR ALL TO authenticated
+  USING (is_org_owner(auth.uid(), organization_id) OR is_platform(auth.uid()))
+  WITH CHECK (is_org_owner(auth.uid(), organization_id) OR is_platform(auth.uid()));
+```
+
+**7. Migrar RLS existentes:** reemplazar `has_role(auth.uid(), 'super_admin')` por `is_platform(auth.uid())` en las ~15 tablas (contacts, deals, conversations, messages, activities, automations, audit_log, etc).
+
+**8. Migración de datos existentes:**
+
+```sql
+-- Para cada tenant existente sin organization, crear una org y asignarla
+DO $$
+DECLARE t RECORD; new_org uuid; first_admin uuid;
+BEGIN
+  FOR t IN SELECT id, name FROM tenants WHERE organization_id IS NULL LOOP
+    INSERT INTO organizations(name, created_by, plan)
+    VALUES (t.name, (SELECT id FROM profiles WHERE tenant_id = t.id LIMIT 1), 'org_starter')
+    RETURNING id INTO new_org;
+    UPDATE tenants SET organization_id = new_org WHERE id = t.id;
+    -- Primer tenant_admin del tenant pasa a ser org_owner + tenant_owner
+    SELECT user_id INTO first_admin FROM user_roles
+      WHERE role = 'tenant_admin' AND user_id IN (SELECT id FROM profiles WHERE tenant_id = t.id) LIMIT 1;
+    IF first_admin IS NOT NULL THEN
+      INSERT INTO organization_members(organization_id, user_id, role) VALUES (new_org, first_admin, 'org_owner');
+      INSERT INTO user_roles(user_id, role, tenant_id) VALUES (first_admin, 'tenant_owner', t.id);
+    END IF;
+  END LOOP;
+END $$;
+
+-- Migrar super_admin → platform_owner
+UPDATE user_roles SET role = 'platform_owner' WHERE role = 'super_admin';
+
+ALTER TABLE tenants ALTER COLUMN organization_id SET NOT NULL;
+```
+
+**9. Trigger de signup ajustado:**
+
+```sql
+-- handle_new_user: crea org, tenant trial, asigna roles
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE new_org uuid; new_tenant uuid;
+BEGIN
+  INSERT INTO organizations(name, created_by, plan)
+  VALUES (COALESCE(NEW.raw_user_meta_data->>'company_name', 'Mi organización'), NEW.id, 'org_starter')
+  RETURNING id INTO new_org;
+
+  INSERT INTO tenants(name, organization_id, plan, trial_ends_at)
+  VALUES ('Mi empresa', new_org, 'starter', now() + interval '14 days')
+  RETURNING id INTO new_tenant;
+
+  INSERT INTO profiles(id, full_name, email, tenant_id, active_tenant_id)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email), NEW.email, new_tenant, new_tenant);
+
+  INSERT INTO organization_members(organization_id, user_id, role) VALUES (new_org, NEW.id, 'org_owner');
+  INSERT INTO user_roles(user_id, role) VALUES (NEW.id, 'org_owner');
+  INSERT INTO user_roles(user_id, role, tenant_id) VALUES (NEW.id, 'tenant_owner', new_tenant);
+  RETURN NEW;
+END;
+$$;
+```
+
+---
 
 ### Edge functions
 
-- **`tenant-invite`** — valida `tenant_admin` + límite de plan; crea fila en `invitations`; llama `auth.admin.inviteUserByEmail`; inserta `audit_log`.
-- **`super-tenant-action`** — solo `super_admin`. Acciones: `suspend | activate | change_plan | delete | impersonate | create_tenant`. Cada una registra en `audit_log`. `impersonate` devuelve token temporal (15min) usado en sesión "shadow" en sessionStorage.
+- **`org-create-tenant`** — valida `org_owner` + límite de plan (`org_tenant_count < max_tenants`). Crea tenant, asigna creador como `tenant_owner`, copia branding default. Sin trial. Registra en `audit_log`.
+- **`tenant-switch`** — valida que el usuario pertenezca al tenant. Actualiza `profiles.active_tenant_id`. Devuelve datos del nuevo contexto.
+- **`platform-tenant-action`** (renombre de `super-tenant-action`) — usa `is_platform()`. Acción `delete` solo `platform_owner`.
+- **`tenant-invite`** (existente, ajustar) — valida invitador `tenant_owner` o `tenant_admin`; restringe roles asignables.
+- **`tenant-transfer-ownership`** (nueva) — solo `tenant_owner` actual o `org_owner` de la org dueña.
 
-### Frontend — archivos a crear
+---
 
-**Permisos**
-- `src/constants/permissions.ts` — capacidades base por rol con tokens `recurso.acción.scope`.
-- `src/lib/permissions.ts` — `can(roles, token)`, `canAccessRoute(roles, path)`, etiquetas/descripciones de rol.
-- `src/hooks/usePermissions.ts` — `{ can, canAccess, isSuperAdmin, isTenantAdmin, isManager, isRep, primaryRole }`.
-- `src/components/auth/RequirePermission.tsx` — wrapper declarativo con `fallback?`.
+### Frontend — archivos a crear/modificar
 
-**Settings (`/settings`)** — 7 tabs: General · Equipo · Pipeline · WhatsApp · Módulos · Facturación · Actividad
-- `src/pages/app/Settings.tsx`
-- `src/components/settings/SettingsTabs.tsx`
-- `src/components/settings/general/GeneralTab.tsx` (logo upload, color primario aplicado a `--primary` con derivación HSL para hover/foreground)
-- `src/components/settings/team/TeamTab.tsx` + `InviteUserDialog.tsx` + `MemberRow.tsx`
-- `src/components/settings/pipeline/PipelineTab.tsx` + `PipelineEditor.tsx` + `SortableStage.tsx` (dnd-kit)
-- `src/components/settings/whatsapp/WhatsappTab.tsx` (estado mock + agentes + plantillas reales sobre `message_templates` + horario)
-- `src/components/settings/modules/ModulesTab.tsx` (toggles mock + nota Prompt 11)
-- `src/components/settings/billing/BillingTab.tsx` (plan + facturas mock + CTA)
-- `src/components/settings/activity/ActivityTab.tsx` (lectura de `audit_log`)
+**Roles y permisos:**
+- `src/store/auth.ts` — extender `Role` type con nuevos roles. Añadir `activeTenantId` y `organizations[]` al store.
+- `src/constants/permissions.ts` — añadir `ROLE_LABEL`, `ROLE_DESCRIPTION` y `ROLE_CAPABILITIES` para los nuevos roles. Reemplazar referencias `super_admin`.
+- `src/lib/permissions.ts` — sin cambios estructurales (la matriz hace el trabajo).
+- `src/hooks/usePermissions.ts` — añadir `isPlatformOwner`, `isPlatformStaff`, `isPlatform`, `isOrgOwner`, `isTenantOwner`.
+- `src/components/auth/RequirePermission.tsx` — sin cambios.
 
-**SuperAdmin (`/admin`)**
-- `src/pages/app/SuperAdmin.tsx`
-- `src/components/admin/GlobalKpis.tsx`
-- `src/components/admin/TenantsTable.tsx`
-- `src/components/admin/TenantDrawer.tsx`
-- `src/components/admin/CreateTenantDialog.tsx`
-- `src/components/admin/ImpersonationBanner.tsx` (sticky en TopBar)
+**Organizaciones y switcher:**
+- `src/lib/queries/organizations.ts` — `useOrganizations()`, `useOrgTenants(orgId)`, `useOrgPlanLimit(orgId)`.
+- `src/services/organizations.ts` — `createTenant(orgId, payload)`, `switchTenant(tenantId)`.
+- `src/components/layout/TenantSwitcher.tsx` — dropdown en TopBar: lista tenants de la org activa + "+ Nueva empresa" (deshabilitado si alcanzó límite, con tooltip explicando).
+- `src/components/layout/TopBar.tsx` — montar `<TenantSwitcher />` a la izquierda.
+- `src/components/organizations/CreateTenantDialog.tsx` — modal con nombre + selector de plan + aviso "Se cobra desde día 1".
+- `src/components/organizations/PlanLimitBanner.tsx` — banner cuando se alcanza el límite, CTA "Mejorar plan de organización".
 
-**Servicios y queries**
-- `src/services/tenant.ts` — get/update tenant, members, invites, plantillas, pipelines.
-- `src/services/admin.ts` — listado tenants, llamadas a `super-tenant-action`.
-- `src/services/audit.ts` — log y consulta.
-- `src/lib/queries/tenant.ts` (extender), `src/lib/queries/admin.ts`, `src/lib/queries/auditLog.ts`, `src/lib/queries/planLimits.ts`.
-- `src/lib/branding.ts` — `applyBrandPrimary(hsl)` + reset.
+**Página `/org` (vista de organización para org_owner):**
+- `src/pages/app/Organization.tsx` — header con nombre/plan, KPIs (tenants activos, total miembros), tabla de tenants con plan/MRR/último acceso, botón "Crear empresa".
+- `src/components/organizations/OrgTenantsTable.tsx`.
+- `src/components/organizations/OrgPlanCard.tsx`.
 
-**Routing y guards**
-- `src/App.tsx` — montar `<Settings />` y `<SuperAdmin />`.
-- `src/components/layout/Sidebar.tsx` — usar `canAccessRoute`.
-- `src/components/layout/AppLayout.tsx` — montar `<ImpersonationBanner />` y aplicar branding cargado.
+**SuperAdmin (renombre conceptual a "Platform"):**
+- `src/pages/app/SuperAdmin.tsx` → renombrar referencias internas pero mantener ruta `/admin`. Mostrar también lista de organizaciones.
+- `src/components/admin/OrganizationsTable.tsx` (nueva).
+- `src/components/admin/PlatformStaffSection.tsx` (nueva, solo para `platform_owner`): invitar/listar `platform_staff`.
 
-### Detalles clave
+**Routing y guards:**
+- `src/App.tsx` — añadir `/org` (requiere `org_owner`), mantener `/admin` (requiere `is_platform`).
+- `src/components/layout/ProtectedRoute.tsx` — sin cambios.
+- `src/components/layout/Sidebar.tsx` — entrada "Mi organización" visible solo para `org_owner`.
+- `src/components/layout/AppLayout.tsx` — al cambiar tenant activo, refetch de tenant + recargar branding.
 
-- **Matriz compacta** (capacidades base, expandidas en runtime):
-  - `super_admin: ["*"]`
-  - `tenant_admin: ["settings.*","contacts.*","deals.*","pipeline.*","reports.*","automations.*","whatsapp.*","ai.*","audit.read"]`
-  - `sales_manager: ["contacts.*.team","deals.*.team","pipeline.read","reports.read.team","automations.read","whatsapp.use","ai.use"]`
-  - `sales_rep: ["contacts.*.own","deals.*.own","pipeline.read","reports.read.own","automations.read","whatsapp.use","ai.use"]`
-- **Drag-and-drop**: `DndContext` + `SortableContext` (vertical) en `PipelineTab` para reordenar etapas; persistir `position` en BD al `dragEnd`.
-- **Color primario**: input HSL (`H S% L%`); al guardar, persiste en `tenants.brand_primary` y se inyecta en `:root` solo en `--primary` y `--primary-foreground` (calculado por luminancia). Reset al logout.
-- **Impersonación segura**: token temporal en sessionStorage; banner amarillo con "Saliendo: Acme · Salir". Nunca tocar sesión real del super_admin.
-- **Audit log**: helper `logAudit(action, target, metadata)` invocado desde mutaciones sensibles del cliente (cambio plan/equipo/etapas) y desde edge functions.
+**Settings ajustes finos:**
+- `src/components/settings/billing/BillingTab.tsx` — solo visible para `tenant_owner`. Mostrar plan del tenant actual (no de la org).
+- `src/components/settings/team/InviteUserDialog.tsx` — restringir roles asignables: `tenant_admin` no puede invitar a otros `tenant_admin`.
 
-### Dependencias
+---
 
-- `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` (si no existen ya por Pipeline kanban).
+### Bootstrap del primer `platform_owner`
+
+Migración con email del usuario hardcoded:
+
+```sql
+DO $$
+DECLARE me uuid;
+BEGIN
+  SELECT id INTO me FROM auth.users WHERE email = 'EMAIL_DEL_USUARIO';
+  IF me IS NOT NULL THEN
+    INSERT INTO user_roles(user_id, role) VALUES (me, 'platform_owner')
+    ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
+```
+
+Si el usuario aún no existe, la migración no hace nada y se reintenta tras el registro mediante una función `bootstrap_platform_owner(email)` que también queda disponible.
+
+**Nota:** necesitamos el email del usuario antes de ejecutar.
+
+---
+
+### Aislamiento de datos verificado
+
+- RLS de tablas de negocio sigue filtrando por `tenant_id = get_user_tenant(auth.uid())`.
+- `get_user_tenant` ahora devuelve `active_tenant_id` (el tenant elegido en el switcher).
+- Datos entre tenants NUNCA se mezclan, ni siquiera para `org_owner`.
+- `org_owner` solo ve metadatos de tenants (nombre, plan, MRR) en `/org`, no datos operativos.
+
+---
 
 ### Fuera de alcance v1
 
-- WhatsApp Business Cloud API real (estado/QR mock).
-- Stripe real (BillingTab mock, cambio de plan vía SuperAdmin).
-- Tabla `teams` con membresías explícitas (manager = todos los reps del tenant).
-- Email templates personalizados de invitación.
+- Facturación real con Stripe/Paddle (BillingTab sigue mock).
+- Cambio de plan de organización vía UI (manual en BD por ahora).
+- Notificación email al alcanzar límite de tenants.
+- Auditoría cross-tenant para org_owner.
+- Migración de tenant entre organizaciones.
+
+---
+
+### Pregunta operativa
+
+Para el bootstrap, necesito tu email para hardcodearlo en la migración.
+**¿Cuál es el email con el que te vas a registrar como `platform_owner`?**

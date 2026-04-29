@@ -7,11 +7,24 @@ export function usePermissions() {
   const { roles } = useAuth();
 
   return useMemo(() => {
+    const isPlatformOwner = roles.includes("platform_owner") || roles.includes("super_admin");
+    const isPlatformStaff = roles.includes("platform_staff");
+    const isPlatform = isPlatformOwner || isPlatformStaff;
+    const isOrgOwner = roles.includes("org_owner");
+    const isTenantOwner = roles.includes("tenant_owner");
+    const isTenantAdmin = roles.includes("tenant_admin") || isTenantOwner;
+
     return {
       roles,
       primaryRole: primaryRole(roles),
-      isSuperAdmin: roles.includes("super_admin"),
-      isTenantAdmin: roles.includes("tenant_admin"),
+      isPlatformOwner,
+      isPlatformStaff,
+      isPlatform,
+      isOrgOwner,
+      isTenantOwner,
+      isTenantAdmin,
+      // Legacy alias
+      isSuperAdmin: isPlatform,
       isManager: roles.includes("sales_manager"),
       isRep: roles.includes("sales_rep"),
       can: (token: PermissionToken) => canFn(roles, token),

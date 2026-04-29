@@ -56,7 +56,17 @@ export function canAccessRoute(roles: Role[], path: string): boolean {
 }
 
 export function primaryRole(roles: Role[]): Role | null {
-  const order: Role[] = ["super_admin", "tenant_admin", "sales_manager", "sales_rep"];
+  const order: Role[] = [
+    "platform_owner",
+    "platform_staff",
+    "super_admin",
+    "org_owner",
+    "tenant_owner",
+    "tenant_admin",
+    "sales_manager",
+    "sales_rep",
+    "org_member",
+  ];
   for (const r of order) if (roles.includes(r)) return r;
   return null;
 }
