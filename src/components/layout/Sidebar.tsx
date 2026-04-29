@@ -1,17 +1,19 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, ChevronLeft, ChevronRight, Sparkles, Building2, Globe2
+  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUiStore } from "@/store/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/walix/Logo";
 import { WBadge } from "@/components/walix/Badge";
 import { useAiInboxCount } from "@/pages/app/AiInbox";
+import { useState } from "react";
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useUiStore();
+  const [hovered, setHovered] = useState(false);
+  const expanded = hovered;
+  const collapsed = !expanded;
   const { roles } = useAuth();
   const isAdmin =
     roles.includes("tenant_admin") ||
@@ -45,41 +47,37 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className={cn(
-      "hidden md:flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300 sticky top-0 h-screen",
-      sidebarCollapsed ? "w-16" : "w-60"
-    )}>
-      <div className={cn("h-16 flex items-center border-b border-sidebar-border", sidebarCollapsed ? "justify-center" : "px-5")}>
-        <Logo collapsed={sidebarCollapsed} />
-      </div>
-
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-        {items.map((item) => (
-          <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />
-        ))}
-
-        {adminItems.length > 0 && (
-          <>
-            <div className={cn("mt-6 mb-2 px-3 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold", sidebarCollapsed && "text-center px-0")}>
-              {sidebarCollapsed ? "•••" : "Admin"}
-            </div>
-            {adminItems.map((item) => (
-              <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />
-            ))}
-          </>
-        )}
-      </nav>
-
-      <button
-        onClick={toggleSidebar}
+    <div className="hidden md:block w-16 shrink-0 sticky top-0 h-screen z-40">
+      <aside
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className={cn(
-          "h-10 mx-2 mb-3 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
-          sidebarCollapsed ? "" : "gap-2 text-sm"
+          "flex flex-col border-r border-sidebar-border bg-sidebar h-screen transition-[width] duration-200 ease-out",
+          expanded ? "w-60 shadow-xl" : "w-16"
         )}
       >
-        {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4" /> Colapsar</>}
-      </button>
-    </aside>
+        <div className={cn("h-16 flex items-center border-b border-sidebar-border", collapsed ? "justify-center" : "px-5")}>
+          <Logo collapsed={collapsed} />
+        </div>
+
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-0.5">
+          {items.map((item) => (
+            <NavItem key={item.to} {...item} collapsed={collapsed} />
+          ))}
+
+          {adminItems.length > 0 && (
+            <>
+              <div className={cn("mt-6 mb-2 px-3 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold", collapsed && "text-center px-0")}>
+                {collapsed ? "•••" : "Admin"}
+              </div>
+              {adminItems.map((item) => (
+                <NavItem key={item.to} {...item} collapsed={collapsed} />
+              ))}
+            </>
+          )}
+        </nav>
+      </aside>
+    </div>
   );
 }
 
