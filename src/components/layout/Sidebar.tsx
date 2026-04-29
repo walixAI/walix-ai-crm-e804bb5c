@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, ChevronLeft, ChevronRight, Sparkles
+  Zap, Settings, Shield, Store, ChevronLeft, ChevronRight, Sparkles, Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui";
@@ -13,8 +13,17 @@ import { useAiInboxCount } from "@/pages/app/AiInbox";
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const { roles } = useAuth();
-  const isAdmin = roles.includes("tenant_admin") || roles.includes("super_admin");
-  const isSuperAdmin = roles.includes("super_admin");
+  const isAdmin =
+    roles.includes("tenant_admin") ||
+    roles.includes("tenant_owner") ||
+    roles.includes("platform_owner") ||
+    roles.includes("platform_staff") ||
+    roles.includes("super_admin");
+  const isPlatform =
+    roles.includes("platform_owner") ||
+    roles.includes("platform_staff") ||
+    roles.includes("super_admin");
+  const isOrgOwner = roles.includes("org_owner");
   const aiCount = useAiInboxCount();
 
   const items = [
@@ -28,8 +37,9 @@ export function Sidebar() {
   ];
 
   const adminItems = [
+    ...(isOrgOwner ? [{ to: "/org", label: "Mi organización", icon: Building2 }] : []),
     ...(isAdmin ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
-    ...(isSuperAdmin ? [{ to: "/admin", label: "SuperAdmin", icon: Shield }] : []),
+    ...(isPlatform ? [{ to: "/admin", label: "SuperAdmin", icon: Shield }] : []),
     { to: "/marketplace", label: "Marketplace", icon: Store },
   ];
 
