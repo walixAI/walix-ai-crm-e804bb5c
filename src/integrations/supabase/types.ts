@@ -712,6 +712,77 @@ export type Database = {
           },
         ]
       }
+      org_plan_limits: {
+        Row: {
+          max_tenants: number
+          monthly_price: number
+          plan: string
+        }
+        Insert: {
+          max_tenants: number
+          monthly_price?: number
+          plan: string
+        }
+        Update: {
+          max_tenants?: number
+          monthly_price?: number
+          plan?: string
+        }
+        Relationships: []
+      }
+      organization_members: {
+        Row: {
+          joined_at: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          joined_at?: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          joined_at?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          plan: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          plan?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          plan?: string
+        }
+        Relationships: []
+      }
       pipeline_stages: {
         Row: {
           color: string
@@ -809,6 +880,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_tenant_id: string | null
           avatar_url: string | null
           created_at: string
           email: string | null
@@ -821,6 +893,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_tenant_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
@@ -833,6 +906,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_tenant_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
@@ -927,9 +1001,11 @@ export type Database = {
           mrr: number
           name: string
           nps: number | null
+          organization_id: string
           plan: string
           status: string
           timezone: string
+          trial_ends_at: string | null
         }
         Insert: {
           brand_name?: string | null
@@ -942,9 +1018,11 @@ export type Database = {
           mrr?: number
           name: string
           nps?: number | null
+          organization_id: string
           plan?: string
           status?: string
           timezone?: string
+          trial_ends_at?: string | null
         }
         Update: {
           brand_name?: string | null
@@ -957,11 +1035,21 @@ export type Database = {
           mrr?: number
           name?: string
           nps?: number | null
+          organization_id?: string
           plan?: string
           status?: string
           timezone?: string
+          trial_ends_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tenants_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -1000,6 +1088,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -1008,6 +1097,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_owner: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_platform: { Args: { _user_id: string }; Returns: boolean }
+      org_tenant_count: { Args: { _org_id: string }; Returns: number }
       tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
     }
     Enums: {
