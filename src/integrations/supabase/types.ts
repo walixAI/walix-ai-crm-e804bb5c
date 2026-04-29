@@ -1012,7 +1012,16 @@ export type Database = {
     }
     Enums: {
       activity_type: "wa_sent" | "wa_received" | "note" | "deal" | "task"
-      app_role: "super_admin" | "tenant_admin" | "sales_manager" | "sales_rep"
+      app_role:
+        | "super_admin"
+        | "tenant_admin"
+        | "sales_manager"
+        | "sales_rep"
+        | "platform_owner"
+        | "platform_staff"
+        | "org_owner"
+        | "org_member"
+        | "tenant_owner"
       conversation_status: "Nuevo" | "En atención" | "Esperando" | "Resuelto"
       lead_source: "WhatsApp" | "Formulario web" | "Referido" | "Manual"
       lead_status:
@@ -1153,7 +1162,17 @@ export const Constants = {
   public: {
     Enums: {
       activity_type: ["wa_sent", "wa_received", "note", "deal", "task"],
-      app_role: ["super_admin", "tenant_admin", "sales_manager", "sales_rep"],
+      app_role: [
+        "super_admin",
+        "tenant_admin",
+        "sales_manager",
+        "sales_rep",
+        "platform_owner",
+        "platform_staff",
+        "org_owner",
+        "org_member",
+        "tenant_owner",
+      ],
       conversation_status: ["Nuevo", "En atención", "Esperando", "Resuelto"],
       lead_source: ["WhatsApp", "Formulario web", "Referido", "Manual"],
       lead_status: [
