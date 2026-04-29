@@ -5,7 +5,7 @@ import { Plus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { tenant } from "@/mock";
 import {
-  useAutomations, useToggleAutomation, useDeleteAutomation, useDuplicateAutomation, useCreateAutomation,
+  useAutomations, useToggleAutomation, useDeleteAutomation, useDuplicateAutomation,
   type Automation,
 } from "@/lib/queries/automations";
 import { AutomationCard } from "@/components/automations/AutomationCard";
@@ -16,7 +16,6 @@ import { AutomationHistoryDrawer } from "@/components/automations/AutomationHist
 import { AutomationDryRunDialog } from "@/components/automations/AutomationDryRunDialog";
 import { PlanLimitBanner, usePlanLimits } from "@/components/automations/PlanLimitBanner";
 import { EmptyState } from "@/components/walix/EmptyState";
-import { iconForTriggerType } from "@/lib/automations/icons";
 import type { AutomationTemplate } from "@/lib/automations/templates";
 import type { AutomationDraft } from "@/services/automations";
 
@@ -28,7 +27,6 @@ export default function Automations() {
   const toggle = useToggleAutomation();
   const del = useDeleteAutomation();
   const dup = useDuplicateAutomation();
-  const create = useCreateAutomation();
 
   const [tab, setTab] = useState<Tab>("active");
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -195,7 +193,3 @@ export default function Automations() {
     </div>
   );
 }
-
-// suprimir warning de import no usado en este archivo (helper compartido)
-void iconForTriggerType;
-void create;
