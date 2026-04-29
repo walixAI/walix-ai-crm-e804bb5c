@@ -52,10 +52,19 @@ export function NotificationsBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label={unread > 0 ? `Notificaciones (${unread} sin leer)` : "Notificaciones"}
+        >
+          <Bell className="h-5 w-5" aria-hidden="true" />
           {unread > 0 && (
-            <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-[10px] font-bold text-danger-foreground flex items-center justify-center animate-pulse-glow">
+            <span
+              role="status"
+              aria-live="polite"
+              className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-[10px] font-bold text-danger-foreground flex items-center justify-center animate-pulse-glow"
+            >
               {unread > 9 ? "9+" : unread}
             </span>
           )}
