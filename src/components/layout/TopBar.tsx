@@ -1,4 +1,4 @@
-import { Bell, Sparkles, Menu, LogOut, User as UserIcon, Inbox, HelpCircle } from "lucide-react";
+import { Sparkles, Menu, LogOut, User as UserIcon, Inbox, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAiDrawer } from "@/store/aiDrawer";
 import { QUICK_AI_PROMPTS } from "@/mock/ai";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 
 export function TopBar() {
   // Intentionally untyped prop is ignored; the palette is opened via the
@@ -109,10 +110,9 @@ export function TopBar() {
         </div>
       </form>
 
-      <Button variant="ghost" size="icon" className="relative" data-tour="notifications">
-        <Bell className="h-5 w-5" />
-        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-danger" />
-      </Button>
+      <div data-tour="notifications">
+        <NotificationsBell />
+      </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
