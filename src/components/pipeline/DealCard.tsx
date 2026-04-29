@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { ClipboardList, MessageCircle, Sparkles } from "lucide-react";
@@ -37,7 +38,7 @@ function probabilityColor(p: number): string {
   return "bg-danger";
 }
 
-export function DealCard({
+function DealCardImpl({
   deal, stages = [], contactName, contactColor, contactLastActivityAt, tasks, unread = 0, aiSuggestion,
   onOpen, selected, onToggleSelect, selectionActive, onRequestLost, onNewTask, isOverlay,
 }: Props) {
@@ -205,3 +206,5 @@ export function DealCard({
     </div>
   );
 }
+
+export const DealCard = memo(DealCardImpl);

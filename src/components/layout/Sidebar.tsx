@@ -86,6 +86,7 @@ function NavItem({ to, label, icon: Icon, badge, collapsed, accent }: any) {
     <NavLink
       to={to}
       title={collapsed ? label : undefined}
+      aria-label={label}
       data-tour={`nav-${to.replace(/^\//, "")}`}
       className={({ isActive }) => cn(
         "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",

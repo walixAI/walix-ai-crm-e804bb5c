@@ -16,6 +16,8 @@ import { AutomationHistoryDrawer } from "@/components/automations/AutomationHist
 import { AutomationDryRunDialog } from "@/components/automations/AutomationDryRunDialog";
 import { PlanLimitBanner, usePlanLimits } from "@/components/automations/PlanLimitBanner";
 import { EmptyState } from "@/components/walix/EmptyState";
+import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
+import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import type { AutomationTemplate } from "@/lib/automations/templates";
 import type { AutomationDraft } from "@/services/automations";
 
@@ -36,6 +38,7 @@ export default function Automations() {
   const [prefill, setPrefill] = useState<Partial<AutomationDraft> | null>(null);
   const [historyFor, setHistoryFor] = useState<Automation | null>(null);
   const [dryFor, setDryFor] = useState<Automation | null>(null);
+  const [deleteFor, setDeleteFor] = useState<Automation | null>(null);
 
   const activeCount = automations.filter((a) => a.enabled && !a.isDraft).length;
   const limits = usePlanLimits(tenant.plan, activeCount);
@@ -129,7 +132,7 @@ export default function Automations() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={Zap}
+          illustration={<EmptyIllustration variant="automations" />}
           title={tab === "active" ? "No tienes automatizaciones activas" : "Nada por aquí"}
           description="Crea tu primera automatización en segundos desde una plantilla lista o describiéndola con IA."
           action={!limits.locked ? { label: "Crear automatización", onClick: () => setGalleryOpen(true) } : undefined}
@@ -147,9 +150,7 @@ export default function Automations() {
                 catch (e: any) { toast({ title: "Error", description: e?.message ?? "", variant: "destructive" }); }
               }}
               onDelete={async () => {
-                if (!confirm(`¿Eliminar "${a.name}"?`)) return;
-                try { await del.mutateAsync(a.id); toast({ title: "Eliminada" }); }
-                catch (e: any) { toast({ title: "Error", description: e?.message ?? "", variant: "destructive" }); }
+                setDeleteFor(a);
               }}
               onHistory={() => setHistoryFor(a)}
               onDryRun={() => setDryFor(a)}
@@ -158,6 +159,26 @@ export default function Automations() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteFor}
+        onOpenChange={(v) => !v && setDeleteFor(null)}
+        title={`¿Eliminar "${deleteFor?.name ?? ""}"?`}
+        description="Esta acción no se puede deshacer. La automatización dejará de ejecutarse inmediatamente."
+        confirmLabel="Eliminar"
+        destructive
+        onConfirm={async () => {
+          if (!deleteFor) return;
+          try {
+            await del.mutateAsync(deleteFor.id);
+            toast({ title: "Automatización eliminada" });
+          } catch (e: any) {
+            toast({ title: "Error", description: e?.message ?? "", variant: "destructive" });
+          } finally {
+            setDeleteFor(null);
+          }
+        }}
+      />
 
       <AutomationTemplateGallery
         open={galleryOpen} onOpenChange={setGalleryOpen}

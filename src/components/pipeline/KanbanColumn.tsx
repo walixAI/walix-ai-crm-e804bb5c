@@ -38,7 +38,7 @@ export function KanbanColumn({
   return (
     <div
       className={cn(
-        "flex flex-col w-[280px] shrink-0 bg-muted/30 rounded-xl border border-border",
+        "flex flex-col w-[85vw] max-w-[320px] md:w-[280px] shrink-0 bg-muted/30 rounded-xl border border-border",
         overWip && "border-t-2 border-t-warning",
       )}
     >

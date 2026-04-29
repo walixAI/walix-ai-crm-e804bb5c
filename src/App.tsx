@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -6,32 +7,47 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useInitAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { ErrorBoundary } from "@/components/walix/ErrorBoundary";
+import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
 
+// Eager: rutas críticas / pequeñas
 import Login from "@/pages/Login";
-import Onboarding from "@/pages/Onboarding";
 import Landing from "@/pages/Landing";
-import Pricing from "@/pages/Pricing";
 import Dashboard from "@/pages/app/Dashboard";
 import Contacts from "@/pages/app/Contacts";
-import ContactDetail from "@/pages/app/ContactDetail";
-import Pipeline from "@/pages/app/Pipeline";
-import Whatsapp from "@/pages/app/Whatsapp";
-import AiInbox from "@/pages/app/AiInbox";
-import Automations from "@/pages/app/Automations";
-import Reports from "@/pages/app/Reports";
-import Settings from "@/pages/app/Settings";
-import SuperAdmin from "@/pages/app/SuperAdmin";
-import Organization from "@/pages/app/Organization";
-import Platform from "@/pages/app/Platform";
-import Marketplace from "@/pages/app/Marketplace";
 import NotFound from "@/pages/NotFound";
 
+// Lazy: rutas pesadas
+const Onboarding = lazy(() => import("@/pages/Onboarding"));
+const Pricing = lazy(() => import("@/pages/Pricing"));
+const ContactDetail = lazy(() => import("@/pages/app/ContactDetail"));
+const Pipeline = lazy(() => import("@/pages/app/Pipeline"));
+const Whatsapp = lazy(() => import("@/pages/app/Whatsapp"));
+const AiInbox = lazy(() => import("@/pages/app/AiInbox"));
+const Automations = lazy(() => import("@/pages/app/Automations"));
+const Reports = lazy(() => import("@/pages/app/Reports"));
+const Settings = lazy(() => import("@/pages/app/Settings"));
+const SuperAdmin = lazy(() => import("@/pages/app/SuperAdmin"));
+const Organization = lazy(() => import("@/pages/app/Organization"));
+const Platform = lazy(() => import("@/pages/app/Platform"));
+const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
+
 const queryClient = new QueryClient();
+
+function RouteFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center" role="status" aria-label="Cargando">
+      <LoadingSpinner />
+    </div>
+  );
+}
 
 const AppRoutes = () => {
   useInitAuth();
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
@@ -70,7 +86,9 @@ const AppRoutes = () => {
       </Route>
 
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 };
 

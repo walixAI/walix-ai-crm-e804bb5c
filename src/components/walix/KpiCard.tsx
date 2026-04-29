@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 
@@ -11,7 +12,7 @@ interface Props {
   accent?: boolean;
 }
 
-export function KpiCard({ label, value, delta, trend = "up", hint, icon: Icon, accent }: Props) {
+function KpiCardImpl({ label, value, delta, trend = "up", hint, icon: Icon, accent }: Props) {
   return (
     <div className={cn(
       "rounded-xl border bg-card p-5 shadow-card hover:shadow-card-hover transition-all duration-200",
@@ -46,3 +47,5 @@ export function KpiCard({ label, value, delta, trend = "up", hint, icon: Icon, a
     </div>
   );
 }
+
+export const KpiCard = memo(KpiCardImpl);

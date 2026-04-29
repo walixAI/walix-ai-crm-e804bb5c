@@ -1,92 +1,106 @@
-## Marketplace de Módulos — /marketplace
 
-### Decisiones tomadas (aplicando sugerencias)
+# Polish final Walix.ai — Análisis y plan
 
-- **Persistencia real**: tabla `tenant_modules` con RLS para activar/desactivar.
-- **Lucide icons** en lugar de emojis, manteniendo paleta por categoría.
-- **Tabs** = estado · **Chips** = categoría (filtros independientes).
-- **Sin "Fase 1"** en cards (ruido); se omite del UI.
-- **Plan gating** real: botón disabled + CTA "Upgrade" a `/pricing` si plan insuficiente.
-- **Sin cobro real**: activación es flag; banner indica "Facturación se habilitará próximamente".
+## Sugerencias de mejora al prompt original
 
----
+Antes de ejecutar, te marco lo que conviene **ajustar, omitir o reordenar** según el estado real del código:
 
-### 1. Base de datos (migración)
+### Lo que ya está hecho (no tocar / reusar)
+- **BottomNav móvil** ya existe (`src/components/layout/BottomNav.tsx`) con 5 tabs. Solo cambiar "Reportes" → "Más" con menú adicional.
+- **EmptyState** ya existe (`src/components/walix/EmptyState.tsx`). No hace falta crear desde cero — solo usarlo donde falte e incrementar la ilustración.
+- **Skeletons** completos (`Skeletons.tsx`: KPI, Kanban, Table, Conversation, Message, etc.). Ya cubre el punto 3.
+- **Toast system** ya con sonner + shadcn toaster montados en `App.tsx`. Solo estandarizar uso.
+- **Animaciones base** (`fade-in`, `scale-in`, `slide-in-right`, `pulse-glow`) ya en `tailwind.config.ts`.
+- **Meta tags OG / Twitter / favicon** ya configurados en `index.html`.
 
-Tabla `tenant_modules`:
-- `module_id` (text, ej: `mod-01`)
-- `tenant_id`, `activated_by`, `activated_at`
-- `monthly_price_mxn` (numeric, snapshot al activar)
-- `pricing_model` (text: `per_instance` | `per_execution` | `per_minute` | `per_volume` | `per_domain` | `per_vertical` | `per_automation`)
-- `status` (text: `active` | `paused`)
-- Unique `(tenant_id, module_id)`
-- RLS: tenant lee/escribe los suyos; platform ve todo.
+### Lo que conviene **omitir o reescribir**
+- **Framer Motion**: añade ~50KB y duplica lo que ya hacen las clases Tailwind (`animate-fade-in`, `animate-scale-in`, stagger con `style={{ animationDelay }}`). **Recomendado: NO instalar**, usar las utilidades existentes.
+- **react-virtual**: el dataset actual es mock con <100 contactos. Posponer hasta tener datos reales (>500 filas). **Omitir del MVP**.
+- **react-hot-toast**: ya hay `sonner` + `toaster`. No agregar una tercera librería.
+- **Next/Image**: el proyecto es Vite, no Next. Usar `loading="lazy"` nativo en `<img>`.
+- **PWA / manifest.json**: según las reglas del entorno, los service workers rompen el preview en iframe. **Posponer** o limitar a manifest mínimo sin SW (solo "Add to Home Screen").
+- **Vercel/Netlify rewrites**: el deploy es en Lovable, que ya hace SPA fallback automático. **No aplica**.
+- **Variables de entorno**: `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` ya están en `.env` autogenerado. **No tocar**.
+- **Dominio app.walix.ai**: configuración manual del usuario en Project Settings → Domains. No es código.
 
-### 2. Catálogo estático
-
-`src/lib/marketplace/catalog.ts` con los 8 módulos + 2 "próximamente" (Pagos, Envíos):
-
-```text
-id | name | category | icon (Lucide) | bg | priceLabel | minPlan | model | status
-```
-
-Categorías: Movilidad · IA Avanzada · Integraciones · Analytics · Voz · Industria · API.
-
-Precios sugeridos arriba (App $199, Agentes $0.50/exec, Voz $1.20/min, Analytics $499, Google $99, Verticales $299, API $999, Zapier $0).
-
-### 3. Páginas/componentes nuevos
-
-```text
-src/pages/app/Marketplace.tsx          ← reemplaza el Stub en App.tsx
-src/lib/marketplace/catalog.ts         ← módulos + tipos + helpers
-src/lib/queries/marketplace.ts         ← useActiveModules, useActivateModule, useDeactivateModule
-src/components/marketplace/
-  ├─ MarketplaceHeader.tsx            ← título + tabs estado
-  ├─ CategoryChips.tsx                ← filtro categoría
-  ├─ ModuleCard.tsx                   ← card 64px icon, badge estado, precio, plan req, CTA
-  ├─ ModuleActivationDialog.tsx       ← modal de activación
-  └─ ActiveModulesList.tsx            ← tab Activos con total mensual
-```
-
-### 4. Lógica clave
-
-- **Estado por módulo**: cruza catálogo con `tenant_modules` → `active` | `available` | `coming_soon` | `plan_locked`.
-- **Plan gating**: lee `tenants.plan` (vía `useTenant`); si `minPlan > currentPlan` → estado visual "Requiere PyME/Growth/Enterprise" + botón "Upgrade" → `/pricing`.
-- **Activación**: insert en `tenant_modules` + toast + invalidate queries + audit_log.
-- **Desactivar/Gestionar**: modal con info + botón "Desactivar módulo" (delete row).
-- **Total mensual**: suma `monthly_price_mxn` de módulos `per_instance`/`per_domain`/`per_vertical` (precios fijos); los `per_use`/`per_execution` muestran "Variable según uso".
-
-### 5. Filtros y layout
-
-- Tabs (top): `Todos` · `Activos` · `Disponibles` · `Próximamente`.
-- Chips (debajo): `Todas` + 7 categorías. Multi-select desactivado, single chip activo.
-- Grid: `grid-cols-1 lg:grid-cols-2` (2 cols desktop ≥1024px).
-- Empty state cuando un filtro no devuelve módulos.
-
-### 6. Modal de activación
-
-- Header: ícono coloreado + nombre + categoría.
-- Sección "Incluye": 4-6 bullets por módulo (los pongo en el catálogo).
-- Sección "Requisitos": plan mínimo (badge), notas técnicas si aplica.
-- Footer: precio destacado + botón `Activar módulo — $X MXN/mes` + nota gris "El cobro se activará cuando conectemos facturación. Por ahora la activación es sin costo durante beta."
-- Botón "Cancelar" secundario.
-
-### 7. Routing
-
-`App.tsx`: reemplazar `<Stub icon={Store} ...>` por `<Marketplace />` en la ruta `/marketplace`.
+### Lo que SÍ falta y aporta valor real
+1. Mobile responsive en Pipeline Kanban, WhatsApp 3-paneles y tablas
+2. Empty states aplicados en cada vista vacía (no existe el patrón unificado)
+3. Confirm dialog antes de eliminar (hoy se elimina directo en varias vistas)
+4. ErrorBoundary global
+5. Lazy-load de rutas pesadas (Reports, Pipeline, Marketplace)
+6. `React.memo` en `DealCard`, `KpiCard`, filas de contactos
+7. `aria-label` en botones-icono (sidebar collapsed, bell, AI drawer toggle)
 
 ---
 
-### Notas técnicas
+## Plan de ejecución (priorizado)
 
-- Sin nuevas dependencias.
-- Iconos: `Smartphone, Bot, Mic, BarChart3, Link2, Building2, Code2, Zap, CreditCard, Truck` de lucide-react.
-- Colores de fondo por categoría usando tokens semánticos extendidos (ej: `bg-success/10`, `bg-info/10`, `bg-primary/10`, etc.) para respetar dark mode.
-- `useActiveModules` con React Query keyed por tenant_id.
-- Audit log en cada activación/desactivación.
+### Fase 1 — Mobile responsive (alto impacto)
+- **Pipeline mobile**: scroll horizontal con `snap-x snap-mandatory`, columnas `w-[85vw]` en `<md`, indicador de columna activa.
+- **WhatsApp mobile**: tabs `Lista | Chat | Perfil` controladas por estado; en `≥md` mantener 3 paneles.
+- **BottomNav**: cambiar "Reportes" por **"Más"** (icon `MoreHorizontal`) que abre Sheet con: Reportes, AI Inbox, Automatizaciones, Marketplace, Configuración.
+- **Modales en mobile**: usar `Sheet side="bottom"` para `NewDealDialog`, `ContactFormDialog`, `QuickTaskDialog` cuando `useIsMobile()`.
+- **Tablas (Reports, Settings/Team)**: wrap con `overflow-x-auto` + min-width.
 
-### Lo que NO se hace en esta iteración
+### Fase 2 — Feedback y empty states
+- Aplicar `EmptyState` en: Contactos, Pipeline, WhatsApp (sin conversaciones), Reportes, Automations.
+- Mejorar componente `EmptyState` con prop `illustration?: ReactNode` para SVGs ligeros (sin librerías).
+- Crear `<ConfirmDialog>` reusable (basado en `AlertDialog`) y aplicar en: eliminar contacto, eliminar deal, deactivate module, eliminar automation.
+- Estandarizar toasts con helpers: `toastSuccess`, `toastError`, `toastWarning` en `src/lib/toast.ts`.
 
-- Cobro real (Stripe) — requiere flujo separado.
-- Configuración interna de cada módulo (cada uno tendrá su propia pantalla "Gestionar" después).
-- Realtime sync entre tabs.
+### Fase 3 — Robustez
+- `ErrorBoundary` componente en `src/components/walix/ErrorBoundary.tsx` envolviendo `<Outlet />` en `AppLayout` y rutas top-level.
+- Pantalla de error: ícono + "Algo salió mal" + botón "Recargar" + "Volver al dashboard".
+
+### Fase 4 — Performance
+- `React.lazy()` en `App.tsx` para: Reports, Pipeline, Marketplace, SuperAdmin, Platform, Automations. Wrap con `<Suspense>` y skeleton.
+- `React.memo` en: `DealCard`, `KpiCard`, fila de contactos en `Contacts.tsx`.
+
+### Fase 5 — Accesibilidad mínima
+- `aria-label` en todos los icon-buttons (sidebar collapsed, NotificationsBell, AI drawer trigger, close buttons).
+- `role="status" aria-live="polite"` en badges de notificación.
+- Verificar focus trap en Dialog (Radix lo trae) — solo confirmar.
+
+### Fase 6 — Pre-deploy housekeeping
+- Verificar que el favicon `public/favicon.ico` existe; si no, mantener el actual.
+- Confirmar `lang="es-MX"` y meta description (✅ ya está).
+- **NO** añadir PWA/SW (rompe preview).
+
+---
+
+## Detalles técnicos
+
+**Archivos a crear:**
+- `src/components/walix/ErrorBoundary.tsx`
+- `src/components/walix/ConfirmDialog.tsx`
+- `src/lib/toast.ts` (helpers)
+- `src/components/pipeline/MobileKanban.tsx` (wrapper con snap)
+- `src/components/whatsapp/MobileTabs.tsx` (tabs Lista/Chat/Perfil)
+- `src/components/walix/empty/` SVGs inline (contacts, pipeline, whatsapp, reports, automations)
+
+**Archivos a editar:**
+- `src/App.tsx` — lazy + Suspense + ErrorBoundary
+- `src/components/layout/BottomNav.tsx` — "Más" con Sheet
+- `src/pages/app/Pipeline.tsx`, `Whatsapp.tsx`, `Contacts.tsx`, `Reports.tsx`, `Automations.tsx`
+- `src/components/walix/EmptyState.tsx` — prop `illustration`
+- `src/components/pipeline/DealCard.tsx`, `walix/KpiCard.tsx` — React.memo
+- Componentes con icon-buttons sin `aria-label`
+
+**Sin nuevas dependencias.** Todo se hace con lo ya instalado (Tailwind anim, Radix, sonner, lucide).
+
+---
+
+## Lo que NO se incluirá (y por qué)
+
+| Item del prompt | Razón |
+|---|---|
+| Framer Motion | Tailwind animations cubren el 100% pedido sin payload extra |
+| react-virtual | Dataset mock pequeño; agregar cuando haya >500 filas reales |
+| react-hot-toast | sonner ya está integrado |
+| Next/Image | Stack es Vite; usar `loading="lazy"` |
+| PWA + service worker | Rompe el preview en iframe (regla del entorno); además requiere config delicada |
+| Vercel/Netlify rewrites | Deploy en Lovable maneja SPA fallback nativo |
+| Configurar `.env` y dominio | Acciones manuales del usuario en UI de Lovable |
+
+¿Apruebas para ejecutar las 6 fases?
