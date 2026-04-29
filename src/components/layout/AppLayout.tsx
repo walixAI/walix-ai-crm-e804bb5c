@@ -7,11 +7,26 @@ import { AiDrawer } from "@/components/walix/AiDrawer";
 import { CommandPalette } from "@/components/walix/CommandPalette";
 import { OnboardingTour, useAutoOnboardingTour, resetTour } from "@/components/walix/OnboardingTour";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { useTenantId } from "@/lib/queries/tenant";
+import { fetchTenant } from "@/services/tenant";
+import { applyBrandPrimary, removeBrandPrimary } from "@/lib/branding";
 
 export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const tour = useAutoOnboardingTour();
   const { user } = useAuth();
+  const { data: tenantId } = useTenantId();
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant", tenantId],
+    enabled: !!tenantId,
+    queryFn: () => fetchTenant(tenantId!),
+  });
+
+  useEffect(() => {
+    if (tenant?.brand_primary) applyBrandPrimary(tenant.brand_primary);
+    return () => removeBrandPrimary();
+  }, [tenant?.brand_primary]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

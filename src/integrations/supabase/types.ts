@@ -159,6 +159,42 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string | null
+          target_type: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       automation_runs: {
         Row: {
           automation_id: string
@@ -550,6 +586,39 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role: Database["public"]["Enums"]["app_role"]
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       message_templates: {
         Row: {
           category: string | null
@@ -714,12 +783,39 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_limits: {
+        Row: {
+          max_active_automations: number
+          max_pipelines: number
+          max_users: number
+          monthly_price: number
+          plan: string
+        }
+        Insert: {
+          max_active_automations: number
+          max_pipelines: number
+          max_users: number
+          monthly_price?: number
+          plan: string
+        }
+        Update: {
+          max_active_automations?: number
+          max_pipelines?: number
+          max_users?: number
+          monthly_price?: number
+          plan?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
+          is_active: boolean
+          last_seen_at: string | null
           onboarded: boolean
           tenant_id: string | null
           updated_at: string
@@ -727,8 +823,11 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
+          is_active?: boolean
+          last_seen_at?: string | null
           onboarded?: boolean
           tenant_id?: string | null
           updated_at?: string
@@ -736,8 +835,11 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
           onboarded?: boolean
           tenant_id?: string | null
           updated_at?: string
@@ -815,22 +917,49 @@ export type Database = {
       }
       tenants: {
         Row: {
+          brand_name: string | null
+          brand_primary: string | null
           created_at: string
+          currency: string
           id: string
+          locale: string
+          logo_url: string | null
+          mrr: number
           name: string
+          nps: number | null
           plan: string
+          status: string
+          timezone: string
         }
         Insert: {
+          brand_name?: string | null
+          brand_primary?: string | null
           created_at?: string
+          currency?: string
           id?: string
+          locale?: string
+          logo_url?: string | null
+          mrr?: number
           name: string
+          nps?: number | null
           plan?: string
+          status?: string
+          timezone?: string
         }
         Update: {
+          brand_name?: string | null
+          brand_primary?: string | null
           created_at?: string
+          currency?: string
           id?: string
+          locale?: string
+          logo_url?: string | null
+          mrr?: number
           name?: string
+          nps?: number | null
           plan?: string
+          status?: string
+          timezone?: string
         }
         Relationships: []
       }
@@ -879,6 +1008,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
     }
     Enums: {
       activity_type: "wa_sent" | "wa_received" | "note" | "deal" | "task"
