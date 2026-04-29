@@ -20,6 +20,8 @@ import { useContacts } from "@/lib/queries/contacts";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
 import { TableSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
+import { EmptyState } from "@/components/walix/EmptyState";
+import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
