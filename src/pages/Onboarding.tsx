@@ -410,7 +410,7 @@ export default function Onboarding() {
 
   // ---- WhatsApp ----
   const saveWhatsappAndContinue = async () => {
-    if (!tenantId) return;
+    if (!tenantId || !user) return;
     setSavingPhone(true);
     try {
       const normalized = whatsappPhone.trim() ? normalizeMxPhone(whatsappPhone) : null;
@@ -418,6 +418,8 @@ export default function Onboarding() {
         .from("tenants")
         .update({ whatsapp_phone: normalized })
         .eq("id", tenantId);
+      // Si no se llenó, marcar como skipped para que al volver no nos detenga aquí
+      writeSkip(user.id, "whatsapp", !normalized);
       setStep(3);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo guardar el teléfono");
@@ -458,6 +460,7 @@ export default function Onboarding() {
           toast.success(`${valid.length} invitación(es) enviada(s)`);
         }
       }
+      writeSkip(user.id, "invites", valid.length === 0);
       await supabase.from("profiles").update({ onboarded: true }).eq("id", user.id);
       setStep(4);
     } catch (e: any) {
@@ -471,6 +474,7 @@ export default function Onboarding() {
     if (!user) return;
     setFinishing(true);
     try {
+      writeSkip(user.id, "invites", true);
       await supabase.from("profiles").update({ onboarded: true }).eq("id", user.id);
       setStep(4);
     } finally {
