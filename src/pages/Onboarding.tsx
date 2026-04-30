@@ -243,9 +243,10 @@ export default function Onboarding() {
     }
   };
 
-  const applyAi = async () => {
-    if (!aiResult || !tenantId) return;
+  const applyPipelineAndSeed = async (suggestion: AISetupResponse) => {
+    if (!tenantId) return;
     setApplying(true);
+    setAiPhase("applying");
     try {
       // Pipeline default
       const { data: pipelines } = await supabase
@@ -260,7 +261,7 @@ export default function Onboarding() {
           .from("pipelines")
           .insert({
             tenant_id: tenantId,
-            name: aiResult.pipeline_name,
+            name: suggestion.pipeline_name,
             is_default: true,
             position: 0,
           })
@@ -271,12 +272,12 @@ export default function Onboarding() {
       } else {
         await supabase
           .from("pipelines")
-          .update({ name: aiResult.pipeline_name })
+          .update({ name: suggestion.pipeline_name })
           .eq("id", pipelineId);
       }
 
       await supabase.from("pipeline_stages").delete().eq("pipeline_id", pipelineId);
-      const rows = aiResult.stages.map((s, i) => ({
+      const rows = suggestion.stages.map((s, i) => ({
         tenant_id: tenantId,
         pipeline_id: pipelineId,
         name: s.name,
@@ -290,9 +291,15 @@ export default function Onboarding() {
 
       // Sembrar tags + plantillas + automatización demo (no bloqueante en error)
       try {
-        await supabase.functions.invoke("onboarding-seed", {
+        const { data: seed } = await supabase.functions.invoke("onboarding-seed", {
           body: { tenant_id: tenantId, industry: effectiveIndustry },
         });
+        if (seed && typeof seed === "object") {
+          setSeedStats({
+            tags: (seed as any).tags ?? 0,
+            templates: (seed as any).templates ?? 0,
+          });
+        }
       } catch (seedErr) {
         console.warn("onboarding-seed falló, continuando", seedErr);
       }
@@ -304,6 +311,30 @@ export default function Onboarding() {
     } finally {
       setApplying(false);
     }
+  };
+
+  const applyAi = async () => {
+    if (!aiResult) return;
+    await applyPipelineAndSeed(aiResult);
+  };
+
+  // Si el usuario omite la IA, sembrar pipeline base + tags/plantillas igualmente
+  const skipAiWithDefaults = async () => {
+    const fallback: AISetupResponse = {
+      pipeline_name: `Pipeline ${effectiveIndustry}`,
+      rationale: `Pipeline base para ${effectiveIndustry}.`,
+      stages: [
+        { name: "Nuevo Lead", color: "hsl(220 13% 65%)" },
+        { name: "Calificado", color: "hsl(38 92% 50%)" },
+        { name: "Propuesta", color: "hsl(217 91% 60%)" },
+        { name: "Negociación", color: "hsl(262 83% 58%)" },
+        { name: "Ganado", color: "hsl(142 76% 36%)", is_won: true },
+        { name: "Perdido", color: "hsl(0 84% 60%)", is_lost: true },
+      ],
+      fallback: true,
+    };
+    setAiResult(fallback);
+    await applyPipelineAndSeed(fallback);
   };
 
   // ---- WhatsApp ----
