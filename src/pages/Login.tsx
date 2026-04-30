@@ -25,11 +25,18 @@ export default function Login() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: `${window.location.origin}/onboarding` },
         });
         if (error) throw error;
+        if (!data.session) {
+          toast.success("¡Cuenta creada!", {
+            description: "Revisa tu correo para confirmar tu cuenta antes de continuar.",
+          });
+          setMode("login");
+          return;
+        }
         toast.success("¡Cuenta creada!", { description: "Vamos a configurar tu CRM" });
         navigate("/onboarding");
       } else {
