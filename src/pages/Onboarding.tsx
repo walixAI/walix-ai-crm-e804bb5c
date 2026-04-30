@@ -567,11 +567,11 @@ export default function Onboarding() {
                   </Button>
                 )}
 
-                {aiLoading && (
+                {(aiLoading || applying) && (
                   <div className="py-6 space-y-4">
                     <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
                     <div className="text-sm font-medium animate-pulse">
-                      {AI_LOADING_MESSAGES[aiMsgIndex]}
+                      {AI_PHASE_MESSAGES[aiPhase][aiMsgIndex]}
                     </div>
                   </div>
                 )}
