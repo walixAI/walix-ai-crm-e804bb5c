@@ -267,6 +267,7 @@ Deno.serve(async (req) => {
       .eq("name", "Auto-saludo a nuevo lead")
       .maybeSingle();
 
+    const firstTemplateName = templates[0]?.name ?? "Saludo inicial";
     if (!existing) {
       await admin.from("automations").insert({
         tenant_id: body.tenant_id,
@@ -278,13 +279,10 @@ Deno.serve(async (req) => {
         trigger_type: "contact_created",
         trigger_config: { source: "WhatsApp" },
         conditions: [],
-        actions: [{ type: "send_whatsapp_template", template: "Saludo inicial" }],
+        actions: [{ type: "send_whatsapp_template", template: firstTemplateName }],
         created_by: user.id,
       });
     }
-
-    // Nombre de la primera plantilla (para que la automatización use una real)
-    const firstTemplateName = templates[0]?.name ?? "Saludo inicial";
 
     return new Response(
       JSON.stringify({
