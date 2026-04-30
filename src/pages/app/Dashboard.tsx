@@ -8,7 +8,7 @@ import {
   useDashboardKpis, useRecentActivity, useDashboardAiSuggestions,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
-import { relativeTime } from "@/mock/contacts";
+import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
   Sparkles, AlertTriangle, X, ArrowRight, Clock,

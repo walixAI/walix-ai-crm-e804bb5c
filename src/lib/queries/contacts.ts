@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { LeadStatus, Source } from "@/mock/contacts";
-import { sellers } from "@/mock/contacts";
+import type { LeadStatus, Source } from "@/lib/contacts/badges";
+import { useTenantUsers, resolveOwner, colorForUser, type TenantUser } from "@/lib/queries/tenantUsers";
 
 const colors = [
   "hsl(239 84% 60%)",
@@ -31,23 +31,14 @@ export interface ContactRow {
   createdAt: string;
 }
 
-function ownerFromId(ownerId: string | null) {
-  if (!ownerId) return { name: "Sin asignar", initials: "—", color: "hsl(var(--muted-foreground))" };
-  // hash → seller fallback (mientras no haya tabla pública de usuarios)
-  let h = 0;
-  for (let i = 0; i < ownerId.length; i++) h = (h * 31 + ownerId.charCodeAt(i)) >>> 0;
-  const s = sellers[h % sellers.length];
-  return { name: s.name, initials: s.initials, color: s.color };
-}
-
 function colorFromId(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return colors[h % colors.length];
 }
 
-function mapContact(r: any): ContactRow {
-  const owner = ownerFromId(r.owner_id);
+function mapContact(r: any, users?: TenantUser[]): ContactRow {
+  const owner = resolveOwner(users, r.owner_id);
   return {
     id: r.id,
     name: r.name,
@@ -69,22 +60,24 @@ function mapContact(r: any): ContactRow {
 }
 
 export function useContacts() {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["contacts"],
+    queryKey: ["contacts", users?.length ?? 0],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
         .select("*")
         .order("last_activity_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
-      return (data ?? []).map(mapContact);
+      return (data ?? []).map((r) => mapContact(r, users));
     },
   });
 }
 
 export function useContact(id: string | undefined) {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["contact", id],
+    queryKey: ["contact", id, users?.length ?? 0],
     enabled: !!id,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -93,7 +86,7 @@ export function useContact(id: string | undefined) {
         .eq("id", id!)
         .maybeSingle();
       if (error) throw error;
-      return data ? mapContact(data) : null;
+      return data ? mapContact(data, users) : null;
     },
   });
 }
@@ -140,8 +133,9 @@ export interface ActivityRow {
 }
 
 export function useContactActivity(contactId: string | undefined) {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["contact-activity", contactId],
+    queryKey: ["contact-activity", contactId, users?.length ?? 0],
     enabled: !!contactId,
     queryFn: async (): Promise<ActivityRow[]> => {
       const { data, error } = await supabase
@@ -152,7 +146,7 @@ export function useContactActivity(contactId: string | undefined) {
         .limit(20);
       if (error) throw error;
       return (data ?? []).map((a: any) => {
-        const owner = ownerFromId(a.agent_id);
+        const owner = resolveOwner(users, a.agent_id);
         return {
           id: a.id, type: a.type, description: a.description,
           timestamp: a.occurred_at,

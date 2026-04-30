@@ -4,7 +4,7 @@ import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, Mess
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating } from "@/services/ai";
-import { QUICK_AI_PROMPTS } from "@/mock/ai";
+import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";

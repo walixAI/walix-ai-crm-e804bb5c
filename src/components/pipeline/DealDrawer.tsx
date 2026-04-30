@@ -20,7 +20,7 @@ import {
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type ProbabilityScore } from "@/lib/queries/pipelineAi";
-import { relativeTime } from "@/mock/contacts";
+import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];

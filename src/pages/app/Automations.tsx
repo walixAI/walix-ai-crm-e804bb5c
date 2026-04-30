@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { tenant } from "@/mock";
+import { useTenant } from "@/lib/queries/tenant";
 import {
   useAutomations, useToggleAutomation, useDeleteAutomation, useDuplicateAutomation,
   type Automation,
@@ -39,9 +39,11 @@ export default function Automations() {
   const [historyFor, setHistoryFor] = useState<Automation | null>(null);
   const [dryFor, setDryFor] = useState<Automation | null>(null);
   const [deleteFor, setDeleteFor] = useState<Automation | null>(null);
+  const { data: tenant } = useTenant();
+  const tenantPlan = tenant?.plan ?? "starter";
 
   const activeCount = automations.filter((a) => a.enabled && !a.isDraft).length;
-  const limits = usePlanLimits(tenant.plan, activeCount);
+  const limits = usePlanLimits(tenantPlan, activeCount);
 
   const counts = useMemo(() => ({
     active: automations.filter((a) => a.enabled && !a.isDraft).length,

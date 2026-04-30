@@ -1,4 +1,4 @@
-import { ContactStats } from "@/mock/contacts";
+import type { ContactStats } from "@/lib/contacts/badges";
 
 interface Props { stats: ContactStats }
 

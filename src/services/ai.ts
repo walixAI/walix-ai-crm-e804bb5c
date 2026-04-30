@@ -14,7 +14,33 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { mockAiResponse, mockDealScore } from "@/mock/ai";
+
+// ────────────────────────────────────────────────────────────────────────
+// Local fallbacks (used only if the edge function is unreachable).
+// These are deterministic helpers, NOT mock data — they produce a stable
+// answer so the UI stays usable while the AI service recovers.
+// ────────────────────────────────────────────────────────────────────────
+
+function fallbackAiResponse(prompt: string): string {
+  return `No pude conectar con el servicio de IA en este momento.\n\nIntenta de nuevo en unos segundos. Tu pregunta:\n\n> ${prompt}`;
+}
+
+function fallbackDealScore(input: {
+  daysInStage: number;
+  daysSinceLastActivity: number;
+  openedProposalCount?: number;
+  responseTimeHours?: number;
+}): { score: number; reason: string } {
+  let score = 60;
+  if (input.responseTimeHours !== undefined && input.responseTimeHours < 2) score += 15;
+  if ((input.openedProposalCount ?? 0) >= 3) score += 12;
+  if (input.daysInStage <= 2) score += 8;
+  else if (input.daysInStage > 10) score -= 20;
+  if (input.daysSinceLastActivity <= 1) score += 5;
+  else if (input.daysSinceLastActivity > 7) score -= 18;
+  score = Math.max(5, Math.min(98, score));
+  return { score, reason: `${score}% (cálculo local de respaldo)` };
+}
 
 export const AI_MODEL_LABEL = "Claude Sonnet";
 
@@ -87,7 +113,7 @@ export async function askAi(opts: {
     throw new Error("Respuesta vacía");
   } catch (err) {
     console.warn("[ai.askAi] fallback to mock:", err);
-    return { text: mockAiResponse(opts.prompt), actions: [], source: "fallback" };
+    return { text: fallbackAiResponse(opts.prompt), actions: [], source: "fallback" };
   }
 }
 
@@ -95,8 +121,8 @@ export async function askAi(opts: {
  * Compute a closing-probability score for a deal.
  * Currently deterministic — kept here so the entire app reads from one place.
  */
-export function scoreDeal(input: Parameters<typeof mockDealScore>[0]) {
-  return mockDealScore(input);
+export function scoreDeal(input: Parameters<typeof fallbackDealScore>[0]) {
+  return fallbackDealScore(input);
 }
 
 /** Convenience helper: format a relative "hace X" timestamp in Spanish. */

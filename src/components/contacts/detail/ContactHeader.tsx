@@ -2,7 +2,8 @@ import { MessageCircle, Edit, MoreHorizontal, Plus } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { statusBadgeClass, getTagMeta } from "@/mock/contacts";
+import { statusBadgeClass } from "@/lib/contacts/badges";
+import { useContactTags, getTagMetaFromList } from "@/lib/queries/contactTags";
 import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ContactHeader({ contact, onWhatsApp }: Props) {
+  const { data: tagList } = useContactTags();
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-border bg-card px-5 py-4 flex items-center gap-4 shadow-card">
@@ -48,7 +50,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
 
       <div className="flex items-center gap-1.5 px-1 flex-wrap">
         {contact.tags.map(t => {
-          const meta = getTagMeta(t);
+          const meta = getTagMetaFromList(tagList, t);
           return (
             <span key={t} className={cn("text-[11px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1", meta.className)}>
               <span>{meta.icon}</span>{t}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
-import { sellers } from "@/mock/contacts";
+import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
 
 export interface Pipeline {
   id: string;
@@ -41,22 +41,8 @@ export interface PipelineDeal {
   updatedAt: string;
 }
 
-function ownerFromId(ownerId: string | null) {
-  if (!ownerId) {
-    // fallback: rotate through sellers using a stable hash of "unassigned"
-    const s = sellers[0];
-    return { name: s.name, initials: s.initials, color: s.color };
-  }
-  let h = 0;
-  for (let i = 0; i < ownerId.length; i++) h = (h * 31 + ownerId.charCodeAt(i)) >>> 0;
-  const s = sellers[h % sellers.length];
-  return { name: s.name, initials: s.initials, color: s.color };
-}
-
-function mapDeal(r: any): PipelineDeal {
-  // Use a stable seller per deal even when owner_id is null, so the UI shows variety
-  const seedId = r.owner_id ?? r.id;
-  const owner = ownerFromId(seedId);
+function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
+  const owner = resolveOwner(users, r.owner_id);
   return {
     id: r.id,
     name: r.name,
@@ -211,22 +197,24 @@ export function useDaysInCurrentStage(dealId: string | undefined, fallbackIso: s
 }
 
 export function useDeals() {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["pipeline-deals"],
+    queryKey: ["pipeline-deals", users?.length ?? 0],
     queryFn: async (): Promise<PipelineDeal[]> => {
       const { data, error } = await supabase
         .from("deals")
         .select("*")
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map(mapDeal);
+      return (data ?? []).map((r) => mapDeal(r, users));
     },
   });
 }
 
 export function useDeal(id: string | undefined) {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["pipeline-deal", id],
+    queryKey: ["pipeline-deal", id, users?.length ?? 0],
     enabled: !!id,
     queryFn: async (): Promise<PipelineDeal | null> => {
       const { data, error } = await supabase
@@ -235,7 +223,7 @@ export function useDeal(id: string | undefined) {
         .eq("id", id!)
         .maybeSingle();
       if (error) throw error;
-      return data ? mapDeal(data) : null;
+      return data ? mapDeal(data, users) : null;
     },
   });
 }

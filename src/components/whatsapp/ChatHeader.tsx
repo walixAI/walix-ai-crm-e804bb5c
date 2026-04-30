@@ -5,7 +5,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { sellers } from "@/mock/contacts";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import type { ConversationItem, ConversationStatus } from "@/lib/queries/whatsapp";
 
 const STATUSES: ConversationStatus[] = ["Nuevo", "En atención", "Esperando", "Resuelto"];
@@ -21,6 +21,7 @@ interface Props {
 }
 
 export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePanel, panelOpen, onLinkDeal, onMarkUnread }: Props) {
+  const { data: sellers = [] } = useTenantUsers();
   return (
     <div className="border-b border-border bg-card px-4 py-3 flex items-center gap-3">
       <Link to={`/contacts/${conv.contactId}`} className="flex items-center gap-3 group min-w-0">

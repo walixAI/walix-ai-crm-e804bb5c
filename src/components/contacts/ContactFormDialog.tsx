@@ -4,13 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { sellers, allTags } from "@/mock/contacts";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { useContactTags } from "@/lib/queries/contactTags";
 import { MessageCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 
 export function ContactFormDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [name, setName] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const { data: sellers = [] } = useTenantUsers();
+  const { data: tagList = [] } = useContactTags();
 
   const handleSave = (openWA: boolean) => {
     if (!name.trim()) { toast.error("El nombre es obligatorio"); return; }
@@ -58,14 +61,17 @@ export function ContactFormDialog({ open, onOpenChange }: { open: boolean; onOpe
             <Select>
               <SelectTrigger><SelectValue placeholder="Selecciona vendedor" /></SelectTrigger>
               <SelectContent>
-                {sellers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                {sellers.length === 0
+                  ? <div className="px-2 py-1.5 text-xs text-muted-foreground italic">Sin miembros activos</div>
+                  : sellers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="col-span-2">
             <Label>Etiquetas</Label>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {allTags.map(t => {
+              {tagList.map(tag => {
+                const t = tag.name;
                 const active = tags.includes(t);
                 return (
                   <button key={t} type="button" onClick={() => setTags(active ? tags.filter(x => x !== t) : [...tags, t])}
@@ -74,6 +80,9 @@ export function ContactFormDialog({ open, onOpenChange }: { open: boolean; onOpe
                   </button>
                 );
               })}
+              {tagList.length === 0 && (
+                <span className="text-xs text-muted-foreground italic">Crea etiquetas en Configuración</span>
+              )}
             </div>
           </div>
         </div>

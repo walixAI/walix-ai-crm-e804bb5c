@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { sellers } from "@/mock/contacts";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { cn } from "@/lib/utils";
 
 export interface PipelineFiltersValue {
@@ -31,6 +31,7 @@ interface Props {
 }
 
 export function PipelineFilters({ value, onChange }: Props) {
+  const { data: sellers = [] } = useTenantUsers();
   const activeCount =
     (value.ownerName !== "all" ? 1 : 0) +
     (value.amountMin ? 1 : 0) +

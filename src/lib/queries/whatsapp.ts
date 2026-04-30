@@ -1,16 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { sellers } from "@/mock/contacts";
-
-// ───────────────────────── helpers ─────────────────────────
-function ownerFromId(ownerId: string | null) {
-  if (!ownerId) return { id: null, name: "Sin asignar", initials: "—", color: "hsl(var(--muted-foreground))" };
-  let h = 0;
-  for (let i = 0; i < ownerId.length; i++) h = (h * 31 + ownerId.charCodeAt(i)) >>> 0;
-  const s = sellers[h % sellers.length];
-  return { id: ownerId, name: s.name, initials: s.initials, color: s.color };
-}
+import { useTenantUsers, resolveOwner } from "@/lib/queries/tenantUsers";
 
 const colors = [
   "hsl(239 84% 60%)", "hsl(189 94% 43%)", "hsl(38 92% 50%)",
@@ -75,6 +66,7 @@ function initialsOf(name: string) {
 // ───────────────────────── queries ─────────────────────────
 export function useConversations() {
   const qc = useQueryClient();
+  const { data: users } = useTenantUsers();
 
   // realtime
   useEffect(() => {
@@ -91,7 +83,7 @@ export function useConversations() {
   }, [qc]);
 
   return useQuery({
-    queryKey: ["wa-conversations"],
+    queryKey: ["wa-conversations", users?.length ?? 0],
     queryFn: async (): Promise<ConversationItem[]> => {
       const { data, error } = await supabase
         .from("conversations")
@@ -105,7 +97,7 @@ export function useConversations() {
       return (data ?? []).map((c: any) => {
         const contact = c.contacts ?? {};
         const fullName = [contact.name, contact.last_name].filter(Boolean).join(" ") || "Contacto";
-        const owner = ownerFromId(c.assignee_id);
+        const owner = resolveOwner(users, c.assignee_id);
         return {
           id: c.id,
           contactId: c.contact_id,
