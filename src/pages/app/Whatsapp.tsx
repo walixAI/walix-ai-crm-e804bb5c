@@ -68,6 +68,7 @@ export default function Whatsapp() {
   const [summaryText, setSummaryText] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const aiMutation = useWhatsappAi();
+  const { data: sellers = [] } = useTenantUsers();
   // Track per-session conversations that already received an auto-draft so we
   // don't re-spend credits when the user toggles back and forth.
   const autoDraftedRef = useRef<Set<string>>(new Set());
