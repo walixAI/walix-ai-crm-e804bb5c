@@ -84,6 +84,27 @@ function normalizeMxPhone(raw: string): string | null {
   return `+${digits}`;
 }
 
+// ---- Skip flags por usuario (pasos opcionales) ----
+type SkipFlags = { whatsapp?: boolean; invites?: boolean };
+const skipKey = (uid: string) => `walix.onboarding.skipped.${uid}`;
+function readSkips(uid: string): SkipFlags {
+  try {
+    const raw = localStorage.getItem(skipKey(uid));
+    return raw ? (JSON.parse(raw) as SkipFlags) : {};
+  } catch {
+    return {};
+  }
+}
+function writeSkip(uid: string, key: keyof SkipFlags, value: boolean) {
+  try {
+    const cur = readSkips(uid);
+    const next = { ...cur, [key]: value };
+    localStorage.setItem(skipKey(uid), JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function Onboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
