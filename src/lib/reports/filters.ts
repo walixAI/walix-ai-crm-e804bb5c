@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import type { SellerId } from "@/mock/reports";
 
 export type PeriodPreset = "today" | "week" | "month" | "quarter" | "custom";
 
@@ -11,7 +10,7 @@ export interface PeriodValue {
 
 export interface ReportFilters {
   period: PeriodValue;
-  sellers: SellerId[]; // empty = all
+  sellers: string[]; // empty = all; UUIDs of profiles.id
 }
 
 const STORAGE_KEY = "walix.reports.filters.v1";
@@ -59,7 +58,7 @@ export function useReportFilters() {
   }, []);
 
   const setPeriod = useCallback((period: PeriodValue) => update({ period }), [update]);
-  const setSellers = useCallback((sellers: SellerId[]) => update({ sellers }), [update]);
+  const setSellers = useCallback((sellers: string[]) => update({ sellers }), [update]);
 
   return { filters, setPeriod, setSellers };
 }
