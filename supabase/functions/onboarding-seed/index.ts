@@ -22,6 +22,74 @@ const DEFAULT_TAGS: { name: string; family: "lifecycle" | "priority" | "special"
   { name: "Referido", family: "special", icon: "users" },
 ];
 
+async function generateTagsWithAI(industry: string) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return DEFAULT_TAGS;
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Generas etiquetas de segmentación de contactos para CRMs de PyMEs latinoamericanas. Devuelve etiquetas cortas (1-2 palabras), específicas a la industria, sin emojis. Mezcla familias: 'lifecycle' (etapa de vida), 'priority' (prioridad/temperatura) y 'special' (segmento o atributo del sector).",
+          },
+          {
+            role: "user",
+            content: `Industria: ${industry}. Devuelve 8 etiquetas útiles para clasificar contactos en este sector.`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "create_tags",
+              parameters: {
+                type: "object",
+                properties: {
+                  tags: {
+                    type: "array",
+                    minItems: 6,
+                    maxItems: 10,
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string" },
+                        family: { type: "string", enum: ["lifecycle", "priority", "special"] },
+                        icon: { type: "string" },
+                      },
+                      required: ["name", "family"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["tags"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "create_tags" } },
+      }),
+    });
+    if (!resp.ok) return DEFAULT_TAGS;
+    const data = await resp.json();
+    const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) return DEFAULT_TAGS;
+    const parsed = JSON.parse(args);
+    return parsed.tags as { name: string; family: "lifecycle" | "priority" | "special"; icon?: string }[];
+  } catch {
+    return DEFAULT_TAGS;
+  }
+}
+
 function fallbackTemplates(industry: string) {
   return [
     {
@@ -59,11 +127,11 @@ async function generateTemplatesWithAI(industry: string) {
           {
             role: "system",
             content:
-              "Generas plantillas cortas de WhatsApp para PyMEs latinoamericanas. Usa {{nombre}} como variable. Tono cálido y profesional, máx. 280 caracteres por plantilla.",
+              "Generas plantillas cortas de WhatsApp específicas a la industria del cliente, para PyMEs latinoamericanas. Usa {{nombre}} como variable. Tono cálido y profesional, máx. 280 caracteres por plantilla. El campo 'name' debe describir el momento del flujo de venta (ej. 'Bienvenida visita inmueble', 'Cotización seguro auto', 'Recordatorio cita'). 'category' debe ser una palabra corta (ej. 'saludo', 'seguimiento', 'cierre', 'recordatorio', 'agradecimiento').",
           },
           {
             role: "user",
-            content: `Industria: ${industry}. Devuelve 3 plantillas: 'Saludo inicial', 'Seguimiento 24h', 'Cierre / propuesta'.`,
+            content: `Industria: ${industry}. Devuelve entre 4 y 6 plantillas representativas del flujo de ventas en este sector.`,
           },
         ],
         tools: [
@@ -76,8 +144,8 @@ async function generateTemplatesWithAI(industry: string) {
                 properties: {
                   templates: {
                     type: "array",
-                    minItems: 3,
-                    maxItems: 3,
+                    minItems: 4,
+                    maxItems: 6,
                     items: {
                       type: "object",
                       properties: {
@@ -164,11 +232,12 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const industry = (body.industry || "Otro").slice(0, 100);
 
-    // 1) Tags
-    const tagRows = DEFAULT_TAGS.map((t) => ({
+    // 1) Tags dinámicas por industria
+    const tags = await generateTagsWithAI(industry);
+    const tagRows = tags.map((t) => ({
       tenant_id: body.tenant_id,
-      name: t.name,
-      family: t.family,
+      name: t.name.slice(0, 60),
+      family: t.family ?? "special",
       icon: t.icon,
     }));
     const { error: tagErr } = await admin
@@ -214,12 +283,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Nombre de la primera plantilla (para que la automatización use una real)
+    const firstTemplateName = templates[0]?.name ?? "Saludo inicial";
+
     return new Response(
       JSON.stringify({
         ok: true,
         tags: tagRows.length,
+        tag_names: tagRows.map((t) => t.name),
         templates: tplRows.length,
+        template_names: tplRows.map((t) => t.name),
         automations: existing ? 0 : 1,
+        first_template: firstTemplateName,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
