@@ -929,7 +929,16 @@ export default function Onboarding() {
               <div className="mt-8 flex items-center justify-between gap-3">
                 <Button
                   variant="ghost"
-                  onClick={() => setStep((s) => Math.max(0, s - 1))}
+                  onClick={() => {
+                    setStep((s) => {
+                      const next = Math.max(0, s - 1);
+                      if (user) {
+                        if (next === 2) writeSkip(user.id, "whatsapp", false);
+                        if (next === 3) writeSkip(user.id, "invites", false);
+                      }
+                      return next;
+                    });
+                  }}
                   disabled={step === 0}
                 >
                   Atrás
