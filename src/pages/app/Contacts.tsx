@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Plus, Upload, Download, LayoutGrid, List, Search, Filter, X,
   MessageCircle, Edit, MoreHorizontal, ChevronUp, ChevronDown, Save,
@@ -22,6 +22,7 @@ import { useContactTags } from "@/lib/queries/contactTags";
 import { useContacts } from "@/lib/queries/contacts";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
+import { FirstContactAIBanner } from "@/components/contacts/FirstContactAIBanner";
 import { TableSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
@@ -34,6 +35,9 @@ const SOURCES: Source[] = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 const PAGE_SIZE = 25;
 
 export default function Contacts() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const firstRunParam = searchParams.get("firstRun") === "1";
+  const [showFirstRun, setShowFirstRun] = useState(firstRunParam);
   const [view, setView] = useState<"list" | "canvas">("list");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -114,6 +118,14 @@ export default function Contacts() {
 
   const activeFiltersCount = selectedTags.length + selectedSellers.length + selectedSources.length + selectedStatuses.length + (dateRange.from ? 1 : 0);
 
+  const dismissFirstRun = () => {
+    setShowFirstRun(false);
+    if (searchParams.has("firstRun")) {
+      searchParams.delete("firstRun");
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
+
   const openWA = (phone: string) => {
     const clean = phone.replace(/[^0-9]/g, "");
     window.open(`https://wa.me/${clean}`, "_blank");
@@ -122,6 +134,9 @@ export default function Contacts() {
   return (
     <div className="flex gap-6 max-w-[1600px]">
       <div className="flex-1 min-w-0 space-y-4">
+        {showFirstRun && allContacts.length === 0 && !isLoading && (
+          <FirstContactAIBanner onDismiss={dismissFirstRun} />
+        )}
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
