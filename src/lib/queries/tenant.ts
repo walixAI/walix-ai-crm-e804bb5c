@@ -19,3 +19,42 @@ export function useTenantId() {
     },
   });
 }
+
+export interface TenantInfo {
+  id: string;
+  name: string;
+  plan: string;
+  brandName: string | null;
+  logoUrl: string | null;
+  currency: string;
+  locale: string;
+  trialEndsAt: string | null;
+}
+
+export function useTenant() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["tenant", tenantId],
+    enabled: !!tenantId,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<TenantInfo | null> => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("id, name, plan, brand_name, logo_url, currency, locale, trial_ends_at")
+        .eq("id", tenantId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.id,
+        name: data.name,
+        plan: data.plan,
+        brandName: data.brand_name,
+        logoUrl: data.logo_url,
+        currency: data.currency,
+        locale: data.locale,
+        trialEndsAt: data.trial_ends_at,
+      };
+    },
+  });
+}
