@@ -29,20 +29,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const INDUSTRIES = [
-  "Inmobiliaria",
-  "Seguros",
-  "Educación",
-  "Salud",
-  "Belleza",
-  "Legal",
-  "Finanzas",
-  "Tecnología",
-  "Otro",
-];
-const TEAM_SIZES = ["1-5", "6-10", "11-20", "20+"];
-const SALES_CHANNELS = ["WhatsApp", "Llamadas", "Presencial", "Online"];
+import {
+  INDUSTRIES,
+  TEAM_SIZES,
+  SALES_CHANNELS,
+  COUNTRIES,
+  DEFAULT_COUNTRY_CODE,
+  getCountryByCode,
+  getCountryByCurrency,
+} from "@/lib/constants/onboarding";
 
 const STEP_TITLES = [
   { icon: Building2, title: "Tu negocio" },
@@ -66,11 +61,19 @@ interface AISetupResponse {
   error?: string;
 }
 
-const AI_LOADING_MESSAGES = [
-  "Analizando tu industria…",
-  "Creando etapas de pipeline…",
-  "Sembrando etiquetas y plantillas…",
-];
+const AI_PHASE_MESSAGES: Record<"thinking" | "applying", string[]> = {
+  thinking: [
+    "Analizando tu industria…",
+    "Diseñando tu pipeline ideal…",
+    "Eligiendo etapas y colores…",
+  ],
+  applying: [
+    "Creando etapas en tu pipeline…",
+    "Sembrando etiquetas personalizadas…",
+    "Generando plantillas de WhatsApp…",
+    "Casi listo…",
+  ],
+};
 
 function normalizeMxPhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
@@ -92,6 +95,7 @@ export default function Onboarding() {
   // Step 0
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [countryCode, setCountryCode] = useState<string>(DEFAULT_COUNTRY_CODE);
   const [industry, setIndustry] = useState<string>("");
   const [industryOther, setIndustryOther] = useState("");
   const [teamSize, setTeamSize] = useState<string>(TEAM_SIZES[0]);
@@ -101,8 +105,12 @@ export default function Onboarding() {
   // Step 1 IA
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMsgIndex, setAiMsgIndex] = useState(0);
+  const [aiPhase, setAiPhase] = useState<"thinking" | "applying">("thinking");
   const [aiResult, setAiResult] = useState<AISetupResponse | null>(null);
   const [applying, setApplying] = useState(false);
+  const [seedStats, setSeedStats] = useState<{ tags: number; templates: number } | null>(
+    null
+  );
 
   // Step 2 WhatsApp
   const [whatsappPhone, setWhatsappPhone] = useState("");
@@ -134,7 +142,7 @@ export default function Onboarding() {
           // Cargar tenant para pre-llenar
           supabase
             .from("tenants")
-            .select("name, industry, team_size, sales_channel, whatsapp_phone")
+            .select("name, industry, team_size, sales_channel, whatsapp_phone, currency")
             .eq("id", data.tenant_id)
             .maybeSingle()
             .then(({ data: t }) => {
@@ -144,6 +152,7 @@ export default function Onboarding() {
                 if (t.team_size) setTeamSize(t.team_size);
                 if (t.sales_channel) setSalesChannel(t.sales_channel);
                 if (t.whatsapp_phone) setWhatsappPhone(t.whatsapp_phone);
+                if (t.currency) setCountryCode(getCountryByCurrency(t.currency).code);
               }
             });
         }
@@ -152,14 +161,15 @@ export default function Onboarding() {
       });
   }, [user, navigate]);
 
-  // Animación de mensajes durante loading IA
+  // Animación de mensajes durante loading IA / aplicando
   useEffect(() => {
-    if (!aiLoading) return;
+    if (!aiLoading && !applying) return;
+    setAiMsgIndex(0);
     const id = setInterval(() => {
-      setAiMsgIndex((i) => (i + 1) % AI_LOADING_MESSAGES.length);
+      setAiMsgIndex((i) => (i + 1) % AI_PHASE_MESSAGES[aiPhase].length);
     }, 1100);
     return () => clearInterval(id);
-  }, [aiLoading]);
+  }, [aiLoading, applying, aiPhase]);
 
   const effectiveIndustry =
     industry === "Otro" ? industryOther.trim() || "Otro" : industry || "Otro";
@@ -181,6 +191,7 @@ export default function Onboarding() {
         .eq("id", user.id);
       if (pErr) throw pErr;
 
+      const country = getCountryByCode(countryCode);
       const { error: tErr } = await supabase
         .from("tenants")
         .update({
@@ -188,6 +199,9 @@ export default function Onboarding() {
           industry: effectiveIndustry,
           team_size: teamSize,
           sales_channel: salesChannel,
+          currency: country.currency,
+          timezone: country.timezone,
+          locale: country.locale,
         })
         .eq("id", tenantId);
       if (tErr) throw tErr;
@@ -203,6 +217,7 @@ export default function Onboarding() {
   // ---- IA ----
   const runAi = async () => {
     setAiLoading(true);
+    setAiPhase("thinking");
     setAiResult(null);
     setAiMsgIndex(0);
     try {
@@ -212,6 +227,7 @@ export default function Onboarding() {
           industry: effectiveIndustry,
           team_size: teamSize,
           sales_channel: salesChannel,
+          company_name: companyName.trim(),
         },
       });
       const elapsed = Date.now() - start;
@@ -227,9 +243,10 @@ export default function Onboarding() {
     }
   };
 
-  const applyAi = async () => {
-    if (!aiResult || !tenantId) return;
+  const applyPipelineAndSeed = async (suggestion: AISetupResponse) => {
+    if (!tenantId) return;
     setApplying(true);
+    setAiPhase("applying");
     try {
       // Pipeline default
       const { data: pipelines } = await supabase
@@ -244,7 +261,7 @@ export default function Onboarding() {
           .from("pipelines")
           .insert({
             tenant_id: tenantId,
-            name: aiResult.pipeline_name,
+            name: suggestion.pipeline_name,
             is_default: true,
             position: 0,
           })
@@ -255,12 +272,12 @@ export default function Onboarding() {
       } else {
         await supabase
           .from("pipelines")
-          .update({ name: aiResult.pipeline_name })
+          .update({ name: suggestion.pipeline_name })
           .eq("id", pipelineId);
       }
 
       await supabase.from("pipeline_stages").delete().eq("pipeline_id", pipelineId);
-      const rows = aiResult.stages.map((s, i) => ({
+      const rows = suggestion.stages.map((s, i) => ({
         tenant_id: tenantId,
         pipeline_id: pipelineId,
         name: s.name,
@@ -274,9 +291,15 @@ export default function Onboarding() {
 
       // Sembrar tags + plantillas + automatización demo (no bloqueante en error)
       try {
-        await supabase.functions.invoke("onboarding-seed", {
+        const { data: seed } = await supabase.functions.invoke("onboarding-seed", {
           body: { tenant_id: tenantId, industry: effectiveIndustry },
         });
+        if (seed && typeof seed === "object") {
+          setSeedStats({
+            tags: (seed as any).tags ?? 0,
+            templates: (seed as any).templates ?? 0,
+          });
+        }
       } catch (seedErr) {
         console.warn("onboarding-seed falló, continuando", seedErr);
       }
@@ -288,6 +311,30 @@ export default function Onboarding() {
     } finally {
       setApplying(false);
     }
+  };
+
+  const applyAi = async () => {
+    if (!aiResult) return;
+    await applyPipelineAndSeed(aiResult);
+  };
+
+  // Si el usuario omite la IA, sembrar pipeline base + tags/plantillas igualmente
+  const skipAiWithDefaults = async () => {
+    const fallback: AISetupResponse = {
+      pipeline_name: `Pipeline ${effectiveIndustry}`,
+      rationale: `Pipeline base para ${effectiveIndustry}.`,
+      stages: [
+        { name: "Nuevo Lead", color: "hsl(220 13% 65%)" },
+        { name: "Calificado", color: "hsl(38 92% 50%)" },
+        { name: "Propuesta", color: "hsl(217 91% 60%)" },
+        { name: "Negociación", color: "hsl(262 83% 58%)" },
+        { name: "Ganado", color: "hsl(142 76% 36%)", is_won: true },
+        { name: "Perdido", color: "hsl(0 84% 60%)", is_lost: true },
+      ],
+      fallback: true,
+    };
+    setAiResult(fallback);
+    await applyPipelineAndSeed(fallback);
   };
 
   // ---- WhatsApp ----
@@ -481,6 +528,25 @@ export default function Onboarding() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.label} · {c.currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Define moneda, zona horaria y formato. Podrás cambiarlo en Configuración.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
                   <Label>¿Cuántas personas hay en tu equipo de ventas?</Label>
                   <div className="grid grid-cols-4 gap-2">
                     {TEAM_SIZES.map((s) => (
@@ -557,11 +623,11 @@ export default function Onboarding() {
                   </Button>
                 )}
 
-                {aiLoading && (
+                {(aiLoading || applying) && (
                   <div className="py-6 space-y-4">
                     <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
                     <div className="text-sm font-medium animate-pulse">
-                      {AI_LOADING_MESSAGES[aiMsgIndex]}
+                      {AI_PHASE_MESSAGES[aiPhase][aiMsgIndex]}
                     </div>
                   </div>
                 )}
@@ -738,8 +804,16 @@ export default function Onboarding() {
                         ? `${aiResult.stages.length} etapas`
                         : "Listo",
                     },
-                    { label: "Industria", value: effectiveIndustry },
-                    { label: "Equipo", value: teamSize },
+                    {
+                      label: "Etiquetas",
+                      value: seedStats?.tags ? `${seedStats.tags} listas` : "Listas",
+                    },
+                    {
+                      label: "Plantillas",
+                      value: seedStats?.templates
+                        ? `${seedStats.templates} listas`
+                        : "Listas",
+                    },
                   ].map((s) => (
                     <div
                       key={s.label}
@@ -804,9 +878,6 @@ export default function Onboarding() {
                   {/* Step 1 IA */}
                   {step === 1 && aiResult && !aiLoading && (
                     <>
-                      <Button variant="outline" onClick={() => setStep(2)}>
-                        Personalizar luego
-                      </Button>
                       <Button
                         onClick={applyAi}
                         disabled={applying}
@@ -822,7 +893,7 @@ export default function Onboarding() {
                     </>
                   )}
                   {step === 1 && !aiResult && !aiLoading && (
-                    <Button variant="ghost" onClick={() => setStep(2)}>
+                    <Button variant="ghost" onClick={skipAiWithDefaults} disabled={applying}>
                       Omitir
                     </Button>
                   )}

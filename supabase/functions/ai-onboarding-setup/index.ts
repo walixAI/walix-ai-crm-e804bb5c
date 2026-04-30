@@ -8,6 +8,7 @@ interface SetupRequest {
   industry: string;
   team_size?: string;
   sales_channel?: string;
+  company_name?: string;
 }
 
 interface StageSuggestion {
@@ -23,18 +24,21 @@ interface Suggestion {
   rationale: string;
 }
 
-const FALLBACK: Suggestion = {
-  pipeline_name: "Pipeline de Ventas",
-  rationale: "Pipeline B2B genérico",
-  stages: [
-    { name: "Nuevo Lead", color: "hsl(220 13% 65%)" },
-    { name: "Calificado", color: "hsl(38 92% 50%)" },
-    { name: "Propuesta", color: "hsl(217 91% 60%)" },
-    { name: "Negociación", color: "hsl(262 83% 58%)" },
-    { name: "Ganado", color: "hsl(142 76% 36%)", is_won: true },
-    { name: "Perdido", color: "hsl(0 84% 60%)", is_lost: true },
-  ],
-};
+function buildFallback(industry: string, companyName?: string): Suggestion {
+  const who = companyName?.trim() ? companyName.trim() : "tu negocio";
+  return {
+    pipeline_name: `Pipeline ${industry}`,
+    rationale: `Pipeline base para ${who} (${industry}). Podrás personalizarlo después.`,
+    stages: [
+      { name: "Nuevo Lead", color: "hsl(220 13% 65%)" },
+      { name: "Calificado", color: "hsl(38 92% 50%)" },
+      { name: "Propuesta", color: "hsl(217 91% 60%)" },
+      { name: "Negociación", color: "hsl(262 83% 58%)" },
+      { name: "Ganado", color: "hsl(142 76% 36%)", is_won: true },
+      { name: "Perdido", color: "hsl(0 84% 60%)", is_lost: true },
+    ],
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -44,6 +48,8 @@ Deno.serve(async (req) => {
     const industry = (body.industry || "Otro").slice(0, 100);
     const teamSize = (body.team_size || "1-5").slice(0, 20);
     const salesChannel = (body.sales_channel || "WhatsApp").slice(0, 50);
+    const companyName = (body.company_name || "").slice(0, 100);
+    const FALLBACK = buildFallback(industry, companyName);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -53,15 +59,18 @@ Deno.serve(async (req) => {
     }
 
     const systemPrompt = `Eres un experto en CRM para PyMEs latinoamericanas que venden por WhatsApp.
-Diseña pipelines de ventas concretos según la industria del cliente.
-Devuelve SIEMPRE 5 a 7 etapas. Las dos últimas DEBEN ser "Ganado" (is_won) y "Perdido" (is_lost).
-Usa colores HSL del design system: gris "hsl(220 13% 65%)", ámbar "hsl(38 92% 50%)", azul "hsl(217 91% 60%)", violeta "hsl(262 83% 58%)", verde "hsl(142 76% 36%)", rojo "hsl(0 84% 60%)".`;
+Diseña pipelines de ventas concretos y MUY específicos a la industria del cliente. Evita nombres genéricos cuando exista vocabulario propio del sector (ej. "Visita agendada", "Cotización enviada", "Póliza emitida", "Inscripción confirmada", etc.).
+Devuelve SIEMPRE entre 5 y 7 etapas. Las dos últimas DEBEN ser "Ganado" (is_won=true) y "Perdido" (is_lost=true).
+Para 'pipeline_name' usa algo distintivo a la industria (ej. "Pipeline Inmobiliario", "Pipeline de Pólizas").
+Para 'rationale' explica en 1–2 frases por qué ese flujo le sirve a ${companyName || "esta empresa"}, mencionando la industria.
+Para 'color' usa HSL preferentemente del design system, pero puedes variar el matiz si lo necesitas. Ejemplos guía: gris "hsl(220 13% 65%)", ámbar "hsl(38 92% 50%)", azul "hsl(217 91% 60%)", violeta "hsl(262 83% 58%)", cian "hsl(189 94% 43%)", rosa "hsl(330 81% 60%)", verde "hsl(142 76% 36%)" (para Ganado), rojo "hsl(0 84% 60%)" (para Perdido).`;
 
-    const userPrompt = `Industria: ${industry}
+    const userPrompt = `Empresa: ${companyName || "(no especificada)"}
+Industria: ${industry}
 Tamaño del equipo de ventas: ${teamSize}
 Canal principal: ${salesChannel}
 
-Sugiere el pipeline ideal para esta PyME.`;
+Sugiere el pipeline ideal y específico para esta empresa.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
