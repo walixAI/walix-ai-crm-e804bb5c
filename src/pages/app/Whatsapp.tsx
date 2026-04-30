@@ -22,7 +22,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
-import { sellers } from "@/mock/contacts";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
 
 export default function Whatsapp() {
   const user = useAuthStore((s) => s.user);
