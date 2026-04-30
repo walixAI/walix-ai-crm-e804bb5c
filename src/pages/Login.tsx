@@ -30,7 +30,7 @@ export default function Login() {
           options: { emailRedirectTo: `${window.location.origin}/onboarding` },
         });
         if (error) throw error;
-        toast.success("¡Cuenta creada!", { description: "Bienvenido a Walix.ai" });
+        toast.success("¡Cuenta creada!", { description: "Vamos a configurar tu CRM" });
         navigate("/onboarding");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });

@@ -24,8 +24,8 @@ import {
   RefreshCw,
   Plus,
   Trash2,
-  QrCode,
   ArrowRight,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -69,8 +69,17 @@ interface AISetupResponse {
 const AI_LOADING_MESSAGES = [
   "Analizando tu industria…",
   "Creando etapas de pipeline…",
-  "Configurando automatizaciones…",
+  "Sembrando etiquetas y plantillas…",
 ];
+
+function normalizeMxPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("52") && digits.length >= 12) return `+${digits}`;
+  if (digits.length === 10) return `+52${digits}`;
+  if (digits.startsWith("1") && digits.length === 11) return `+${digits}`;
+  return `+${digits}`;
+}
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -78,37 +87,68 @@ export default function Onboarding() {
 
   const [step, setStep] = useState(0); // 0..4
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantLoading, setTenantLoading] = useState(true);
 
-  // Step 1
+  // Step 0
+  const [fullName, setFullName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [industry, setIndustry] = useState<string>("");
   const [industryOther, setIndustryOther] = useState("");
   const [teamSize, setTeamSize] = useState<string>(TEAM_SIZES[0]);
   const [salesChannel, setSalesChannel] = useState<string>(SALES_CHANNELS[0]);
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  // Step 2 IA
+  // Step 1 IA
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMsgIndex, setAiMsgIndex] = useState(0);
   const [aiResult, setAiResult] = useState<AISetupResponse | null>(null);
   const [applying, setApplying] = useState(false);
 
-  // Step 4 invites
-  const [invites, setInvites] = useState<{ email: string; role: "tenant_admin" | "sales_rep" | "org_member" }[]>([
-    { email: "", role: "sales_rep" },
-  ]);
+  // Step 2 WhatsApp
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+
+  // Step 3 invites
+  const [invites, setInvites] = useState<
+    { email: string; role: "tenant_admin" | "sales_rep" | "org_member" }[]
+  >([{ email: "", role: "sales_rep" }]);
 
   const [finishing, setFinishing] = useState(false);
 
-  // Cargar tenant del usuario
+  // Cargar tenant + datos previos
   useEffect(() => {
     if (!user) return;
+    setTenantLoading(true);
     supabase
       .from("profiles")
-      .select("tenant_id, onboarded")
+      .select("tenant_id, onboarded, full_name")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.tenant_id) setTenantId(data.tenant_id);
+        if (data?.tenant_id) {
+          setTenantId(data.tenant_id);
+          // Pre-cargar full_name si ya estaba
+          if (data.full_name && data.full_name !== user.email) {
+            setFullName(data.full_name);
+          }
+          // Cargar tenant para pre-llenar
+          supabase
+            .from("tenants")
+            .select("name, industry, team_size, sales_channel, whatsapp_phone")
+            .eq("id", data.tenant_id)
+            .maybeSingle()
+            .then(({ data: t }) => {
+              if (t) {
+                if (t.name && t.name !== "Mi empresa") setCompanyName(t.name);
+                if (t.industry) setIndustry(t.industry);
+                if (t.team_size) setTeamSize(t.team_size);
+                if (t.sales_channel) setSalesChannel(t.sales_channel);
+                if (t.whatsapp_phone) setWhatsappPhone(t.whatsapp_phone);
+              }
+            });
+        }
         if (data?.onboarded) navigate("/dashboard", { replace: true });
+        setTenantLoading(false);
       });
   }, [user, navigate]);
 
@@ -124,7 +164,41 @@ export default function Onboarding() {
   const effectiveIndustry =
     industry === "Otro" ? industryOther.trim() || "Otro" : industry || "Otro";
 
-  const canContinueStep0 = !!industry && (industry !== "Otro" || industryOther.trim().length > 1);
+  const canContinueStep0 =
+    fullName.trim().length > 1 &&
+    companyName.trim().length > 1 &&
+    !!industry &&
+    (industry !== "Otro" || industryOther.trim().length > 1);
+
+  // ---- Persistir perfil + tenant al salir del paso 0 ----
+  const saveStep0AndContinue = async () => {
+    if (!user || !tenantId) return;
+    setSavingProfile(true);
+    try {
+      const { error: pErr } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName.trim() })
+        .eq("id", user.id);
+      if (pErr) throw pErr;
+
+      const { error: tErr } = await supabase
+        .from("tenants")
+        .update({
+          name: companyName.trim(),
+          industry: effectiveIndustry,
+          team_size: teamSize,
+          sales_channel: salesChannel,
+        })
+        .eq("id", tenantId);
+      if (tErr) throw tErr;
+
+      setStep(1);
+    } catch (e: any) {
+      toast.error(e?.message ?? "No pudimos guardar tus datos");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   // ---- IA ----
   const runAi = async () => {
@@ -140,10 +214,8 @@ export default function Onboarding() {
           sales_channel: salesChannel,
         },
       });
-      // Mínimo 2.5s para que se vea bonita la animación
       const elapsed = Date.now() - start;
       if (elapsed < 2500) await new Promise((r) => setTimeout(r, 2500 - elapsed));
-
       if (error) throw error;
       const res = data as AISetupResponse;
       setAiResult(res);
@@ -170,13 +242,21 @@ export default function Onboarding() {
       if (!pipelineId) {
         const { data: created, error } = await supabase
           .from("pipelines")
-          .insert({ tenant_id: tenantId, name: aiResult.pipeline_name, is_default: true, position: 0 })
+          .insert({
+            tenant_id: tenantId,
+            name: aiResult.pipeline_name,
+            is_default: true,
+            position: 0,
+          })
           .select("id")
           .single();
         if (error) throw error;
         pipelineId = created.id;
       } else {
-        await supabase.from("pipelines").update({ name: aiResult.pipeline_name }).eq("id", pipelineId);
+        await supabase
+          .from("pipelines")
+          .update({ name: aiResult.pipeline_name })
+          .eq("id", pipelineId);
       }
 
       await supabase.from("pipeline_stages").delete().eq("pipeline_id", pipelineId);
@@ -192,12 +272,39 @@ export default function Onboarding() {
       const { error: sErr } = await supabase.from("pipeline_stages").insert(rows);
       if (sErr) throw sErr;
 
+      // Sembrar tags + plantillas + automatización demo (no bloqueante en error)
+      try {
+        await supabase.functions.invoke("onboarding-seed", {
+          body: { tenant_id: tenantId, industry: effectiveIndustry },
+        });
+      } catch (seedErr) {
+        console.warn("onboarding-seed falló, continuando", seedErr);
+      }
+
       toast.success(`Pipeline configurado con ${rows.length} etapas`);
       setStep(2);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo aplicar");
     } finally {
       setApplying(false);
+    }
+  };
+
+  // ---- WhatsApp ----
+  const saveWhatsappAndContinue = async () => {
+    if (!tenantId) return;
+    setSavingPhone(true);
+    try {
+      const normalized = whatsappPhone.trim() ? normalizeMxPhone(whatsappPhone) : null;
+      await supabase
+        .from("tenants")
+        .update({ whatsapp_phone: normalized })
+        .eq("id", tenantId);
+      setStep(3);
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo guardar el teléfono");
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -213,14 +320,25 @@ export default function Onboarding() {
     try {
       const valid = invites.filter((i) => i.email.includes("@"));
       if (valid.length > 0) {
-        const rows = valid.map((i) => ({
-          tenant_id: tenantId,
-          email: i.email.toLowerCase().trim(),
-          role: i.role,
-          invited_by: user.id,
-        }));
-        const { error } = await supabase.from("invitations").insert(rows);
-        if (error) throw error;
+        const results = await Promise.allSettled(
+          valid.map((i) =>
+            supabase.functions.invoke("send-invitation", {
+              body: {
+                tenant_id: tenantId,
+                email: i.email.toLowerCase().trim(),
+                role: i.role,
+              },
+            })
+          )
+        );
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+          toast.warning(
+            `${valid.length - failed} de ${valid.length} invitaciones enviadas`
+          );
+        } else {
+          toast.success(`${valid.length} invitación(es) enviada(s)`);
+        }
       }
       await supabase.from("profiles").update({ onboarded: true }).eq("id", user.id);
       setStep(4);
@@ -248,10 +366,11 @@ export default function Onboarding() {
     <div className="min-h-screen bg-gradient-soft flex flex-col">
       <header className="h-16 px-6 flex items-center justify-between border-b border-border bg-card">
         <Logo />
-        <span className="text-xs text-muted-foreground">Paso {step + 1} de {STEP_TITLES.length}</span>
+        <span className="text-xs text-muted-foreground">
+          Paso {step + 1} de {STEP_TITLES.length}
+        </span>
       </header>
 
-      {/* Progress bar */}
       <div className="h-1 bg-muted">
         <div
           className="h-full bg-gradient-brand transition-all duration-500"
@@ -280,7 +399,12 @@ export default function Onboarding() {
                     {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                   </div>
                   {i < STEP_TITLES.length - 1 && (
-                    <div className={cn("h-0.5 w-8 transition-colors", i < step ? "bg-primary" : "bg-border")} />
+                    <div
+                      className={cn(
+                        "h-0.5 w-8 transition-colors",
+                        i < step ? "bg-primary" : "bg-border"
+                      )}
+                    />
                   )}
                 </div>
               );
@@ -288,22 +412,61 @@ export default function Onboarding() {
           </div>
 
           <div className="bg-card rounded-2xl border border-border shadow-card p-6 md:p-8 animate-fade-in">
-            {/* STEP 0 — Perfil del negocio */}
+            {/* STEP 0 — Identidad + Negocio */}
             {step === 0 && (
               <div className="space-y-5">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Cuéntanos de tu negocio</h1>
+                  <h1 className="text-2xl font-bold tracking-tight">
+                    Cuéntanos de ti y tu negocio
+                  </h1>
                   <p className="text-sm text-muted-foreground mt-1">
                     Lo usaremos para personalizar tu CRM en segundos.
                   </p>
                 </div>
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fullName">Tu nombre completo</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="fullName"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Ej. Juan Pérez"
+                        className="h-11 pl-9"
+                        maxLength={80}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="companyName">Nombre de tu empresa</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="companyName"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="Ej. Acme S.A."
+                        className="h-11 pl-9"
+                        maxLength={80}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>¿A qué se dedica tu negocio?</Label>
                   <Select value={industry} onValueChange={setIndustry}>
-                    <SelectTrigger className="h-11"><SelectValue placeholder="Elige tu industria" /></SelectTrigger>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Elige tu industria" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                      {INDUSTRIES.map((i) => (
+                        <SelectItem key={i} value={i}>
+                          {i}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {industry === "Otro" && (
@@ -372,8 +535,11 @@ export default function Onboarding() {
                     ✨ Configura tu CRM en 10 segundos con IA
                   </h1>
                   <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-                    Basado en tu industria <span className="font-semibold text-foreground">({effectiveIndustry})</span>,
-                    la IA configurará tu pipeline, etapas y bases para automatizaciones.
+                    Basado en tu industria{" "}
+                    <span className="font-semibold text-foreground">
+                      ({effectiveIndustry})
+                    </span>
+                    , la IA configurará tu pipeline, etiquetas y plantillas.
                   </p>
                 </div>
 
@@ -381,8 +547,12 @@ export default function Onboarding() {
                   <Button
                     onClick={runAi}
                     size="lg"
+                    disabled={tenantLoading || !tenantId}
                     className="bg-gradient-brand text-primary-foreground shadow-glow"
                   >
+                    {tenantLoading && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
                     🚀 Configurar con IA
                   </Button>
                 )}
@@ -402,14 +572,19 @@ export default function Onboarding() {
                       <div className="text-xs uppercase tracking-wide font-semibold text-primary mb-2">
                         {aiResult.pipeline_name}
                       </div>
-                      <p className="text-xs text-muted-foreground mb-3">{aiResult.rationale}</p>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {aiResult.rationale}
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {aiResult.stages.map((s, i) => (
                           <div
                             key={i}
                             className="px-3 py-1.5 rounded-full bg-card border border-border text-xs flex items-center gap-1.5"
                           >
-                            <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ background: s.color }}
+                            />
                             <span className="font-medium">{s.name}</span>
                             {s.is_won && <span className="text-success">✓</span>}
                             {s.is_lost && <span className="text-destructive">✕</span>}
@@ -431,37 +606,40 @@ export default function Onboarding() {
             {step === 2 && (
               <div className="space-y-5">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Conecta WhatsApp</h1>
+                  <h1 className="text-2xl font-bold tracking-tight">Tu WhatsApp comercial</h1>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Recibe leads y conversaciones directo en Walix.ai.
+                    Guarda el número que usas para vender. Más adelante podrás conectarlo
+                    para recibir mensajes en Walix.ai.
                   </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4 items-center">
-                  <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 grid place-items-center">
-                    <div className="text-center">
-                      <QrCode className="h-24 w-24 mx-auto text-foreground/70" />
-                      <p className="text-[11px] text-muted-foreground mt-2">QR de demostración</p>
-                    </div>
-                  </div>
-                  <ol className="space-y-3 text-sm">
-                    {[
-                      "Instala WhatsApp Business",
-                      "Abre Configuración → Dispositivos vinculados",
-                      "Escanea este QR — ¡Listo!",
-                    ].map((s, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-bold shrink-0">
-                          {i + 1}
-                        </div>
-                        <span className="pt-0.5">{s}</span>
-                      </li>
-                    ))}
-                  </ol>
+                <div className="space-y-1.5">
+                  <Label htmlFor="wa">Número de WhatsApp</Label>
+                  <Input
+                    id="wa"
+                    type="tel"
+                    placeholder="55 1234 5678"
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value)}
+                    className="h-11"
+                    maxLength={20}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    10 dígitos para México. Se guardará como{" "}
+                    {whatsappPhone ? (
+                      <span className="font-mono text-foreground">
+                        {normalizeMxPhone(whatsappPhone) ?? whatsappPhone}
+                      </span>
+                    ) : (
+                      <span className="font-mono">+52…</span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-                  💡 Puedes conectar WhatsApp más tarde desde <span className="font-mono text-foreground">Configuración → WhatsApp</span>.
+                  💡 La conexión real del chat (escanear QR o API oficial) la haces desde{" "}
+                  <span className="font-mono text-foreground">Configuración → WhatsApp</span>{" "}
+                  cuando estés listo.
                 </div>
               </div>
             )}
@@ -472,7 +650,11 @@ export default function Onboarding() {
                 <div>
                   <h1 className="text-2xl font-bold tracking-tight">Invita a tu equipo</h1>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Hasta 3 personas. Recibirán un correo para unirse.
+                    Hasta 3 personas. Recibirán un correo para unirse a{" "}
+                    <span className="font-semibold text-foreground">
+                      {companyName || "tu empresa"}
+                    </span>
+                    .
                   </p>
                 </div>
 
@@ -484,17 +666,23 @@ export default function Onboarding() {
                         placeholder="correo@empresa.com"
                         value={inv.email}
                         onChange={(e) => {
-                          const arr = [...invites]; arr[i].email = e.target.value; setInvites(arr);
+                          const arr = [...invites];
+                          arr[i].email = e.target.value;
+                          setInvites(arr);
                         }}
                         className="h-10 flex-1"
                       />
                       <Select
                         value={inv.role}
                         onValueChange={(v) => {
-                          const arr = [...invites]; arr[i].role = v as any; setInvites(arr);
+                          const arr = [...invites];
+                          arr[i].role = v as any;
+                          setInvites(arr);
                         }}
                       >
-                        <SelectTrigger className="h-10 w-36"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-10 w-36">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="tenant_admin">Administrador</SelectItem>
                           <SelectItem value="sales_rep">Vendedor</SelectItem>
@@ -502,7 +690,12 @@ export default function Onboarding() {
                         </SelectContent>
                       </Select>
                       {invites.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => removeInvite(i)} className="h-10 w-10">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeInvite(i)}
+                          className="h-10 w-10"
+                        >
                           <Trash2 className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       )}
@@ -525,33 +718,60 @@ export default function Onboarding() {
                   <PartyPopper className="h-8 w-8 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight">🎉 ¡Tu CRM está listo!</h1>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Configuramos tu pipeline para <span className="font-semibold text-foreground">{effectiveIndustry}</span>.
-                    Empieza a cargar contactos o conecta WhatsApp.
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    🎉 ¡Tu CRM está listo!
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+                    Configuramos tu pipeline para{" "}
+                    <span className="font-semibold text-foreground">
+                      {effectiveIndustry}
+                    </span>
+                    . El siguiente paso: crear tu primer contacto usando IA.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 text-left max-w-md mx-auto">
                   {[
-                    { label: "Pipeline", value: aiResult?.stages.length ? `${aiResult.stages.length} etapas` : "Listo" },
+                    {
+                      label: "Pipeline",
+                      value: aiResult?.stages.length
+                        ? `${aiResult.stages.length} etapas`
+                        : "Listo",
+                    },
                     { label: "Industria", value: effectiveIndustry },
                     { label: "Equipo", value: teamSize },
                   ].map((s) => (
-                    <div key={s.label} className="rounded-lg border border-border bg-muted/30 p-3">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
-                      <div className="text-sm font-semibold mt-0.5 truncate">{s.value}</div>
+                    <div
+                      key={s.label}
+                      className="rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {s.label}
+                      </div>
+                      <div className="text-sm font-semibold mt-0.5 truncate">
+                        {s.value}
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                <Button
-                  size="lg"
-                  className="bg-gradient-brand text-primary-foreground shadow-glow"
-                  onClick={() => navigate("/dashboard")}
-                >
-                  Ir a mi Dashboard <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-brand text-primary-foreground shadow-glow"
+                    onClick={() => navigate("/contacts?firstRun=1")}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Crear mi primer contacto
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => navigate("/dashboard")}
+                  >
+                    Ir al Dashboard <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -570,10 +790,13 @@ export default function Onboarding() {
                   {/* Step 0 */}
                   {step === 0 && (
                     <Button
-                      onClick={() => setStep(1)}
-                      disabled={!canContinueStep0}
+                      onClick={saveStep0AndContinue}
+                      disabled={!canContinueStep0 || savingProfile || tenantLoading}
                       className="bg-gradient-brand text-primary-foreground"
                     >
+                      {savingProfile && (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      )}
                       Continuar <ArrowRight className="h-4 w-4 ml-1.5" />
                     </Button>
                   )}
@@ -581,32 +804,41 @@ export default function Onboarding() {
                   {/* Step 1 IA */}
                   {step === 1 && aiResult && !aiLoading && (
                     <>
-                      <Button variant="outline" onClick={() => setStep(2)}>Personalizar luego</Button>
+                      <Button variant="outline" onClick={() => setStep(2)}>
+                        Personalizar luego
+                      </Button>
                       <Button
                         onClick={applyAi}
                         disabled={applying}
                         className="bg-gradient-brand text-primary-foreground"
                       >
-                        {applying ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
+                        {applying ? (
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4 mr-1.5" />
+                        )}
                         Confirmar etapas
                       </Button>
                     </>
                   )}
                   {step === 1 && !aiResult && !aiLoading && (
-                    <Button variant="ghost" onClick={() => setStep(2)}>Omitir</Button>
+                    <Button variant="ghost" onClick={() => setStep(2)}>
+                      Omitir
+                    </Button>
                   )}
 
                   {/* Step 2 WhatsApp */}
                   {step === 2 && (
-                    <>
-                      <Button variant="ghost" onClick={() => setStep(3)}>Omitir por ahora</Button>
-                      <Button
-                        onClick={() => setStep(3)}
-                        className="bg-gradient-brand text-primary-foreground"
-                      >
-                        Continuar <ArrowRight className="h-4 w-4 ml-1.5" />
-                      </Button>
-                    </>
+                    <Button
+                      onClick={saveWhatsappAndContinue}
+                      disabled={savingPhone}
+                      className="bg-gradient-brand text-primary-foreground"
+                    >
+                      {savingPhone && (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      )}
+                      Continuar <ArrowRight className="h-4 w-4 ml-1.5" />
+                    </Button>
                   )}
 
                   {/* Step 3 invites */}
@@ -620,7 +852,9 @@ export default function Onboarding() {
                         disabled={finishing}
                         className="bg-gradient-brand text-primary-foreground"
                       >
-                        {finishing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                        {finishing && (
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        )}
                         Enviar invitaciones
                       </Button>
                     </>
