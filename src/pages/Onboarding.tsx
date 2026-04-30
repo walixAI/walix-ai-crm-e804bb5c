@@ -501,6 +501,12 @@ export default function Onboarding() {
       </div>
 
       <main className="flex-1 grid place-items-center p-4 md:p-6">
+        {tenantLoading ? (
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="text-sm">Cargando tu progreso…</span>
+          </div>
+        ) : (
         <div className="w-full max-w-2xl">
           {/* Stepper */}
           <div className="hidden md:flex items-center justify-center gap-1.5 mb-6">
