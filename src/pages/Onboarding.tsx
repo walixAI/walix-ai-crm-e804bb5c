@@ -870,9 +870,6 @@ export default function Onboarding() {
                   {/* Step 1 IA */}
                   {step === 1 && aiResult && !aiLoading && (
                     <>
-                      <Button variant="outline" onClick={() => setStep(2)}>
-                        Personalizar luego
-                      </Button>
                       <Button
                         onClick={applyAi}
                         disabled={applying}
@@ -888,7 +885,7 @@ export default function Onboarding() {
                     </>
                   )}
                   {step === 1 && !aiResult && !aiLoading && (
-                    <Button variant="ghost" onClick={() => setStep(2)}>
+                    <Button variant="ghost" onClick={skipAiWithDefaults} disabled={applying}>
                       Omitir
                     </Button>
                   )}
