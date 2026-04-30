@@ -1,52 +1,65 @@
-## Problema
+## Plan aprobado — Onboarding personalizado + selector de país
 
-Cuando borramos una cuenta directamente en la base de datos (como pasó con `joseantoniotorres.ciudadmaderas@gmail.com`), el JWT que el navegador del usuario tiene en `localStorage` sigue siendo válido criptográficamente hasta que expire (1 hora por defecto). Mientras tanto:
+### A. Personalización real por industria (eliminar lo fijo)
 
-- `ProtectedRoute` solo verifica `user` (existe el token) → lo deja pasar.
-- `loadUserContext` consulta `profiles`, `user_roles`, `organization_members` → todas devuelven vacío, pero no se cierra sesión.
-- El usuario ve la app rota (sin tenant, sin datos) en lugar de ser expulsado al login.
+1. **Tags dinámicas por industria** (`onboarding-seed`)
+   - Llamar a Lovable AI Gateway pidiendo 6–10 tags específicas de la industria via `tool_choice`.
+   - Fallback: 6 tags universales si la IA falla.
 
-Hoy no hay ninguna verificación de "¿este usuario sigue existiendo / sigue teniendo perfil válido?".
+2. **Plantillas WhatsApp con nombres dinámicos** (`onboarding-seed`)
+   - Quitar los 3 nombres fijos del prompt.
+   - La IA decide nombre, categoría y contenido (4–6 plantillas por industria).
 
-## Solución
+3. **Pipeline IA — prompt liberado** (`ai-onboarding-setup`)
+   - Recibir `company_name` y usarlo en la `rationale`.
+   - Soltar la restricción de paleta cerrada (mantener guía HSL pero permitir variaciones).
+   - Mejorar fallback para que use el nombre de la industria.
 
-Detectar la sesión huérfana en el cliente y forzar `signOut()` + redirección a `/login` con un mensaje claro.
+### B. Selector de país en Paso 0
 
-### 1. Detección en `useInitAuth` (src/hooks/useAuth.ts)
+4. **Nuevo campo "País" en Paso 0** (`Onboarding.tsx`)
+   - Select con: México (default), Colombia, Argentina, Chile, Perú, España, Estados Unidos, Otro.
+   - Al guardar Paso 0, se actualiza `tenants` con `currency`, `timezone` y `locale` derivados del país:
 
-Modificar `loadUserContext` para que devuelva una bandera `accountValid`:
+   ```text
+   México        → MXN, America/Mexico_City,  es-MX
+   Colombia      → COP, America/Bogota,        es-CO
+   Argentina     → ARS, America/Argentina/Buenos_Aires, es-AR
+   Chile         → CLP, America/Santiago,      es-CL
+   Perú          → PEN, America/Lima,          es-PE
+   España        → EUR, Europe/Madrid,         es-ES
+   Estados Unidos→ USD, America/Mexico_City,   es-US
+   Otro          → USD, America/Mexico_City,   es-419
+   ```
 
-- Considerar la cuenta **inválida** si:
-  - `profiles` no devuelve fila para el `user.id`, **o**
-  - `profiles.tenant_id` y `active_tenant_id` son ambos `null`, **o**
-  - `user_roles` está vacío.
+   - Mapeo en `src/lib/constants/onboarding.ts` (nuevo).
+   - Pre-cargar el país si el tenant ya tiene currency definida (al volver al wizard).
+   - El usuario podrá cambiarlo luego en **Configuración → General**.
 
-Cuando `accountValid === false`:
-- Llamar `await supabase.auth.signOut()`.
-- Mostrar toast: "Tu cuenta ya no está disponible. Contacta al administrador."
-- Resetear el store (`reset()`).
-- El listener de `onAuthStateChange` recibirá `SIGNED_OUT` y `ProtectedRoute` redirigirá a `/login` automáticamente.
+### C. Arreglos de UX
 
-### 2. Manejo de errores de auth global
+5. **Sincronizar mensajes de loading con fases reales**
+   - `runAi` → "Analizando tu industria…", "Diseñando tu pipeline…"
+   - `applyAi` → "Creando etapas…", "Sembrando etiquetas y plantillas…"
 
-En el mismo hook, capturar el evento `TOKEN_REFRESHED` y, si Supabase devuelve un error tipo `user_not_found` / `refresh_token_not_found` durante la rehidratación de sesión inicial (`getSession`), también forzar `signOut()`.
+6. **Garantizar pipeline default siempre**
+   - Si el usuario hace "Omitir" / "Personalizar luego" en Paso 1, crear pipeline a partir del FALLBACK antes de avanzar. Nunca dejar al usuario sin pipeline.
 
-### 3. Endurecer `ProtectedRoute` (src/components/layout/ProtectedRoute.tsx)
+7. **Paso 4 con stats reales**
+   - Leer respuesta de `onboarding-seed` (ya devuelve `tags`, `templates`, `automations`) y mostrar conteos reales en las tarjetas finales.
 
-Añadir una segunda condición: si `user` existe pero después de cargar (`!loading`) `roles.length === 0` **y** `activeTenantId === null`, redirigir a `/login`. Esto cubre el caso en que el usuario navegue antes de que el `signOut` automático complete.
+8. **Listas exportadas**
+   - Mover `INDUSTRIES`, `TEAM_SIZES`, `SALES_CHANNELS`, `COUNTRIES` y el mapeo país→locale a `src/lib/constants/onboarding.ts` para reutilizar en Configuración.
 
-### 4. (Opcional, recomendado) Trigger de auditoría
+---
 
-Crear un trigger en `auth.users` `BEFORE DELETE` que escriba en `audit_log` para que quede traza cuando se borren cuentas en el futuro. — **No bloqueante**, lo dejo como punto separado por si quieres incluirlo.
+### Archivos a tocar
 
-## Archivos afectados
+- **Nuevo**: `src/lib/constants/onboarding.ts` — listas y mapeo país → currency/timezone/locale.
+- `src/pages/Onboarding.tsx` — selector de país, persistir currency/timezone/locale, pipeline-default-on-skip, stats reales en Paso 4, mensajes de loading sincronizados, pasar `company_name` a la IA.
+- `supabase/functions/ai-onboarding-setup/index.ts` — recibir `company_name`, prompt más libre, fallback con nombre de industria.
+- `supabase/functions/onboarding-seed/index.ts` — `generateTagsWithAI(industry)`, plantillas con nombres dinámicos, devolver listado real para mostrar en Paso 4.
 
-- `src/hooks/useAuth.ts` — detección de cuenta inválida + signOut automático.
-- `src/components/layout/ProtectedRoute.tsx` — guardia adicional por roles/tenant vacíos.
-- `src/lib/toast.ts` (uso existente) — para el mensaje de expulsión.
+**Sin cambios de DB** — `tenants` ya tiene columnas `currency`, `timezone`, `locale`.
 
-## Resultado
-
-- Usuarios borrados son expulsados al login en cuanto recargan o cambian de ruta (máximo: el tiempo entre dos consultas al backend, normalmente < 1s).
-- Mensaje claro en pantalla en lugar de una app vacía y rota.
-- Base lista para futuros casos: suspensión de tenant, revocación de acceso, etc.
+¿Procedo a implementar?
