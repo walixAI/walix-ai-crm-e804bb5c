@@ -29,20 +29,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const INDUSTRIES = [
-  "Inmobiliaria",
-  "Seguros",
-  "Educación",
-  "Salud",
-  "Belleza",
-  "Legal",
-  "Finanzas",
-  "Tecnología",
-  "Otro",
-];
-const TEAM_SIZES = ["1-5", "6-10", "11-20", "20+"];
-const SALES_CHANNELS = ["WhatsApp", "Llamadas", "Presencial", "Online"];
+import {
+  INDUSTRIES,
+  TEAM_SIZES,
+  SALES_CHANNELS,
+  COUNTRIES,
+  DEFAULT_COUNTRY_CODE,
+  getCountryByCode,
+  getCountryByCurrency,
+} from "@/lib/constants/onboarding";
 
 const STEP_TITLES = [
   { icon: Building2, title: "Tu negocio" },
@@ -66,11 +61,19 @@ interface AISetupResponse {
   error?: string;
 }
 
-const AI_LOADING_MESSAGES = [
-  "Analizando tu industria…",
-  "Creando etapas de pipeline…",
-  "Sembrando etiquetas y plantillas…",
-];
+const AI_PHASE_MESSAGES: Record<"thinking" | "applying", string[]> = {
+  thinking: [
+    "Analizando tu industria…",
+    "Diseñando tu pipeline ideal…",
+    "Eligiendo etapas y colores…",
+  ],
+  applying: [
+    "Creando etapas en tu pipeline…",
+    "Sembrando etiquetas personalizadas…",
+    "Generando plantillas de WhatsApp…",
+    "Casi listo…",
+  ],
+};
 
 function normalizeMxPhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
