@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { tenant } from "@/mock";
+import { useTenant } from "@/lib/queries/tenant";
 import {
   useAutomations, useToggleAutomation, useDeleteAutomation, useDuplicateAutomation,
   type Automation,
