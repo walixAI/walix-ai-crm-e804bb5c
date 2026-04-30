@@ -3,7 +3,7 @@ import { ArrowLeft, MessageCircle, FileText, PanelLeft, KanbanSquare } from "luc
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { relativeTime } from "@/mock/contacts";
+import { relativeTime } from "@/lib/format/relativeTime";
 import {
   useContact, useContactDeals, useContactActivity,
   useContactConversations, useContactStats,

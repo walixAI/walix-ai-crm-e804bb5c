@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { QUICK_AI_PROMPTS } from "@/mock/ai";
+import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 

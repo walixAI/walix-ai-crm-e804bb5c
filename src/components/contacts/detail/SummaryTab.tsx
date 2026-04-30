@@ -1,7 +1,7 @@
 import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { relativeTime } from "@/mock/contacts";
+import { relativeTime } from "@/lib/format/relativeTime";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
 import { useContactAiSuggestions } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
