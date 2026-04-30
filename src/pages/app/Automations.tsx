@@ -39,9 +39,11 @@ export default function Automations() {
   const [historyFor, setHistoryFor] = useState<Automation | null>(null);
   const [dryFor, setDryFor] = useState<Automation | null>(null);
   const [deleteFor, setDeleteFor] = useState<Automation | null>(null);
+  const { data: tenant } = useTenant();
+  const tenantPlan = tenant?.plan ?? "starter";
 
   const activeCount = automations.filter((a) => a.enabled && !a.isDraft).length;
-  const limits = usePlanLimits(tenant.plan, activeCount);
+  const limits = usePlanLimits(tenantPlan, activeCount);
 
   const counts = useMemo(() => ({
     active: automations.filter((a) => a.enabled && !a.isDraft).length,
