@@ -588,6 +588,8 @@ export type Database = {
       }
       invitations: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
           created_at: string
           email: string
           expires_at: string
@@ -596,8 +598,11 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           status: string
           tenant_id: string
+          token: string
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           created_at?: string
           email: string
           expires_at?: string
@@ -606,8 +611,11 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           status?: string
           tenant_id: string
+          token?: string
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           created_at?: string
           email?: string
           expires_at?: string
@@ -616,6 +624,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           status?: string
           tenant_id?: string
+          token?: string
         }
         Relationships: []
       }
@@ -1083,6 +1092,7 @@ export type Database = {
           created_at: string
           currency: string
           id: string
+          industry: string | null
           locale: string
           logo_url: string | null
           mrr: number
@@ -1090,9 +1100,12 @@ export type Database = {
           nps: number | null
           organization_id: string
           plan: string
+          sales_channel: string | null
           status: string
+          team_size: string | null
           timezone: string
           trial_ends_at: string | null
+          whatsapp_phone: string | null
         }
         Insert: {
           brand_name?: string | null
@@ -1100,6 +1113,7 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          industry?: string | null
           locale?: string
           logo_url?: string | null
           mrr?: number
@@ -1107,9 +1121,12 @@ export type Database = {
           nps?: number | null
           organization_id: string
           plan?: string
+          sales_channel?: string | null
           status?: string
+          team_size?: string | null
           timezone?: string
           trial_ends_at?: string | null
+          whatsapp_phone?: string | null
         }
         Update: {
           brand_name?: string | null
@@ -1117,6 +1134,7 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          industry?: string | null
           locale?: string
           logo_url?: string | null
           mrr?: number
@@ -1124,9 +1142,12 @@ export type Database = {
           nps?: number | null
           organization_id?: string
           plan?: string
+          sales_channel?: string | null
           status?: string
+          team_size?: string | null
           timezone?: string
           trial_ends_at?: string | null
+          whatsapp_phone?: string | null
         }
         Relationships: [
           {
@@ -1175,6 +1196,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation: { Args: { _token: string }; Returns: Json }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
       downgrade_expired_trials: { Args: never; Returns: number }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
