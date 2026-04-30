@@ -15,7 +15,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { sellers, allTags, statusBadgeClass, relativeTime, type LeadStatus, type Source } from "@/mock/contacts";
+import { statusBadgeClass, type LeadStatus, type Source } from "@/lib/contacts/badges";
+import { relativeTime } from "@/lib/format/relativeTime";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { useContactTags } from "@/lib/queries/contactTags";
 import { useContacts } from "@/lib/queries/contacts";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
@@ -49,6 +52,8 @@ export default function Contacts() {
   const [aiCollapsed, setAiCollapsed] = useState(false);
 
   const { data: allContacts = [], isLoading } = useContacts();
+  const { data: sellers = [] } = useTenantUsers();
+  const { data: tagList = [] } = useContactTags();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -154,7 +159,8 @@ export default function Contacts() {
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-2 block">Etiquetas</label>
                   <div className="flex flex-wrap gap-1.5">
-                    {allTags.map(t => {
+                    {tagList.map(tag => {
+                      const t = tag.name;
                       const active = selectedTags.includes(t);
                       return (
                         <button key={t} onClick={() => setSelectedTags(active ? selectedTags.filter(x => x !== t) : [...selectedTags, t])}
@@ -164,6 +170,9 @@ export default function Contacts() {
                         </button>
                       );
                     })}
+                    {tagList.length === 0 && (
+                      <span className="text-xs text-muted-foreground italic">Sin etiquetas configuradas</span>
+                    )}
                   </div>
                 </div>
                 {/* Sellers */}
