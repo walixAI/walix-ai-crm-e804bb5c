@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore, type Role, type OrgMembership } from "@/store/auth";
+import { toastError } from "@/lib/toast";
 
 async function loadUserContext(userId: string) {
   const [rolesRes, profileRes, membershipsRes] = await Promise.all([
@@ -21,11 +22,28 @@ async function loadUserContext(userId: string) {
     role: m.role,
   }));
 
-  return { roles, activeTenantId, organizations };
+  // Cuenta huérfana: sin perfil, sin tenant y sin roles → la cuenta fue
+  // borrada o revocada en backend mientras el JWT seguía vigente en el cliente.
+  const accountValid = !!profileRes.data && (roles.length > 0 || !!activeTenantId);
+
+  return { roles, activeTenantId, organizations, accountValid };
+}
+
+async function forceSignOut(reset: () => void) {
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // ignore
+  }
+  reset();
+  toastError(
+    "Tu cuenta ya no está disponible",
+    "La sesión fue cerrada. Si crees que es un error, contacta a tu administrador."
+  );
 }
 
 export function useInitAuth() {
-  const { setSession, setRoles, setOrganizations, setActiveTenantId, setLoading } = useAuthStore();
+  const { setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, reset } = useAuthStore();
 
   useEffect(() => {
     // 1. Listener FIRST
@@ -34,6 +52,10 @@ export function useInitAuth() {
       if (session?.user) {
         setTimeout(async () => {
           const ctx = await loadUserContext(session.user.id);
+          if (!ctx.accountValid) {
+            await forceSignOut(reset);
+            return;
+          }
           setRoles(ctx.roles);
           setOrganizations(ctx.organizations);
           setActiveTenantId(ctx.activeTenantId);
@@ -50,7 +72,11 @@ export function useInitAuth() {
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        loadUserContext(session.user.id).then((ctx) => {
+        loadUserContext(session.user.id).then(async (ctx) => {
+          if (!ctx.accountValid) {
+            await forceSignOut(reset);
+            return;
+          }
           setRoles(ctx.roles);
           setOrganizations(ctx.organizations);
           setActiveTenantId(ctx.activeTenantId);
@@ -59,7 +85,7 @@ export function useInitAuth() {
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [setSession, setRoles, setOrganizations, setActiveTenantId, setLoading]);
+  }, [setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, reset]);
 }
 
 export function useAuth() {

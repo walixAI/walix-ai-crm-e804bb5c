@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, requireRoles }: Props) {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, loading, activeTenantId } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -21,6 +21,12 @@ export function ProtectedRoute({ children, requireRoles }: Props) {
   }
 
   if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Sesión huérfana: token válido pero sin perfil/roles/tenant en BD.
+  // El hook useInitAuth ya disparó signOut(); mientras tanto, no permitir entrar.
+  if (roles.length === 0 && !activeTenantId) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
