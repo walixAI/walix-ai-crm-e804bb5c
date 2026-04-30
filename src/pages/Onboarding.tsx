@@ -123,42 +123,92 @@ export default function Onboarding() {
 
   const [finishing, setFinishing] = useState(false);
 
-  // Cargar tenant + datos previos
+  // Cargar tenant + datos previos y RETOMAR desde el primer paso pendiente
   useEffect(() => {
     if (!user) return;
-    setTenantLoading(true);
-    supabase
-      .from("profiles")
-      .select("tenant_id, onboarded, full_name")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.tenant_id) {
-          setTenantId(data.tenant_id);
-          // Pre-cargar full_name si ya estaba
-          if (data.full_name && data.full_name !== user.email) {
-            setFullName(data.full_name);
-          }
-          // Cargar tenant para pre-llenar
-          supabase
-            .from("tenants")
-            .select("name, industry, team_size, sales_channel, whatsapp_phone, currency")
-            .eq("id", data.tenant_id)
-            .maybeSingle()
-            .then(({ data: t }) => {
-              if (t) {
-                if (t.name && t.name !== "Mi empresa") setCompanyName(t.name);
-                if (t.industry) setIndustry(t.industry);
-                if (t.team_size) setTeamSize(t.team_size);
-                if (t.sales_channel) setSalesChannel(t.sales_channel);
-                if (t.whatsapp_phone) setWhatsappPhone(t.whatsapp_phone);
-                if (t.currency) setCountryCode(getCountryByCurrency(t.currency).code);
-              }
-            });
-        }
-        if (data?.onboarded) navigate("/dashboard", { replace: true });
+    let cancelled = false;
+    (async () => {
+      setTenantLoading(true);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("tenant_id, onboarded, full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (profile?.onboarded) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      if (!profile?.tenant_id) {
         setTenantLoading(false);
-      });
+        return;
+      }
+
+      setTenantId(profile.tenant_id);
+      const hasFullName =
+        !!profile.full_name && profile.full_name !== user.email;
+      if (hasFullName) setFullName(profile.full_name as string);
+
+      const [{ data: t }, stagesRes, invitesRes] = await Promise.all([
+        supabase
+          .from("tenants")
+          .select("name, industry, team_size, sales_channel, whatsapp_phone, currency")
+          .eq("id", profile.tenant_id)
+          .maybeSingle(),
+        supabase
+          .from("pipeline_stages")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", profile.tenant_id),
+        supabase
+          .from("invitations")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", profile.tenant_id)
+          .eq("invited_by", user.id),
+      ]);
+
+      if (cancelled) return;
+
+      const hasName = !!t?.name && t.name !== "Mi empresa";
+      const hasIndustry = !!t?.industry;
+      if (t) {
+        if (hasName) setCompanyName(t.name as string);
+        if (t.industry) setIndustry(t.industry);
+        if (t.team_size) setTeamSize(t.team_size);
+        if (t.sales_channel) setSalesChannel(t.sales_channel);
+        if (t.whatsapp_phone) setWhatsappPhone(t.whatsapp_phone);
+        if (t.currency) setCountryCode(getCountryByCurrency(t.currency).code);
+      }
+
+      const stagesCount = stagesRes.count ?? 0;
+      const invitesCount = invitesRes.count ?? 0;
+      const skips = readSkips(user.id);
+
+      const step0Done = hasFullName && hasIndustry && hasName;
+      const step1Done = stagesCount > 0;
+      const step2Done = !!t?.whatsapp_phone || skips.whatsapp;
+      const step3Done = invitesCount > 0 || skips.invites;
+
+      let resume = 0;
+      if (!step0Done) resume = 0;
+      else if (!step1Done) resume = 1;
+      else if (!step2Done) resume = 2;
+      else if (!step3Done) resume = 3;
+      else resume = 4;
+
+      setStep(resume);
+      if (resume > 0) {
+        toast.info("Continuamos donde te quedaste 👋");
+      }
+      setTenantLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, navigate]);
 
   // Animación de mensajes durante loading IA / aplicando
