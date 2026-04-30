@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore, type Role, type OrgMembership } from "@/store/auth";
 import { toastError } from "@/lib/toast";
 
-async function loadUserContext(userId: string) {
+async function loadUserContextOnce(userId: string) {
   const [rolesRes, profileRes, membershipsRes] = await Promise.all([
     supabase.from("user_roles").select("role").eq("user_id", userId),
     supabase.from("profiles").select("active_tenant_id, tenant_id").eq("id", userId).maybeSingle(),
@@ -22,11 +22,24 @@ async function loadUserContext(userId: string) {
     role: m.role,
   }));
 
-  // Cuenta huérfana: sin perfil, sin tenant y sin roles → la cuenta fue
-  // borrada o revocada en backend mientras el JWT seguía vigente en el cliente.
-  const accountValid = !!profileRes.data && (roles.length > 0 || !!activeTenantId);
+  const hasProfile = !!profileRes.data;
+  return { roles, activeTenantId, organizations, hasProfile };
+}
 
-  return { roles, activeTenantId, organizations, accountValid };
+// Reintenta para tolerar la latencia del trigger handle_new_user al hacer signup.
+// Solo marcamos la cuenta como huérfana si después del grace period seguimos sin
+// perfil ni roles.
+async function loadUserContext(userId: string) {
+  const maxAttempts = 5;
+  const delayMs = 400;
+  let last = await loadUserContextOnce(userId);
+  for (let i = 1; i < maxAttempts; i++) {
+    if (last.hasProfile && (last.roles.length > 0 || !!last.activeTenantId)) break;
+    await new Promise((r) => setTimeout(r, delayMs));
+    last = await loadUserContextOnce(userId);
+  }
+  const accountValid = last.hasProfile && (last.roles.length > 0 || !!last.activeTenantId);
+  return { ...last, accountValid };
 }
 
 async function forceSignOut(reset: () => void) {
