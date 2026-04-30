@@ -804,8 +804,16 @@ export default function Onboarding() {
                         ? `${aiResult.stages.length} etapas`
                         : "Listo",
                     },
-                    { label: "Industria", value: effectiveIndustry },
-                    { label: "Equipo", value: teamSize },
+                    {
+                      label: "Etiquetas",
+                      value: seedStats?.tags ? `${seedStats.tags} listas` : "Listas",
+                    },
+                    {
+                      label: "Plantillas",
+                      value: seedStats?.templates
+                        ? `${seedStats.templates} listas`
+                        : "Listas",
+                    },
                   ].map((s) => (
                     <div
                       key={s.label}
