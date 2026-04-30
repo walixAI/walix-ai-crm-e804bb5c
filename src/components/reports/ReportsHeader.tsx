@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PeriodPicker } from "@/components/reports/PeriodPicker";
 import { SellerMultiSelect } from "@/components/reports/SellerMultiSelect";
 import { type ReportFilters, periodLabel } from "@/lib/reports/filters";
-import { sellers, type SellerId } from "@/mock/reports";
+import { useReportsContext } from "@/lib/reports/context";
 import { downloadCSV, buildReportsCSV } from "@/lib/reports/exportCsv";
 import { exportReportsPdf } from "@/lib/reports/exportPdf";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Props {
   filters: ReportFilters;
   onPeriod: (p: ReportFilters["period"]) => void;
-  onSellers: (s: SellerId[]) => void;
+  onSellers: (s: string[]) => void;
   chartRefs: { funnel: HTMLDivElement | null; pie: HTMLDivElement | null; heatmap: HTMLDivElement | null };
   executiveSummary?: string;
   generatedBy: string;
@@ -20,16 +20,21 @@ interface Props {
 
 export function ReportsHeader({ filters, onPeriod, onSellers, chartRefs, executiveSummary, generatedBy }: Props) {
   const { toast } = useToast();
+  const { data, users } = useReportsContext();
   const [exporting, setExporting] = useState<"pdf" | "csv" | null>(null);
 
   const sellersLabel = filters.sellers.length === 0
     ? "Todos los vendedores"
-    : filters.sellers.map(id => sellers.find(s => s.id === id)?.name ?? id).join(", ");
+    : filters.sellers.map(id => users.find(s => s.id === id)?.name ?? id).join(", ");
 
   const handleCsv = () => {
+    if (!data) {
+      toast({ title: "Aún cargando", description: "Espera a que terminen de cargar los datos.", variant: "destructive" });
+      return;
+    }
     setExporting("csv");
     try {
-      const csv = buildReportsCSV(periodLabel(filters.period));
+      const csv = buildReportsCSV(periodLabel(filters.period), data, users);
       const stamp = new Date().toISOString().slice(0, 10);
       downloadCSV(`walix-reporte-${stamp}.csv`, csv);
       toast({ title: "CSV exportado", description: "El reporte se descargó correctamente." });
@@ -41,6 +46,10 @@ export function ReportsHeader({ filters, onPeriod, onSellers, chartRefs, executi
   };
 
   const handlePdf = async () => {
+    if (!data) {
+      toast({ title: "Aún cargando", description: "Espera a que terminen de cargar los datos.", variant: "destructive" });
+      return;
+    }
     setExporting("pdf");
     try {
       await exportReportsPdf({
@@ -48,6 +57,8 @@ export function ReportsHeader({ filters, onPeriod, onSellers, chartRefs, executi
         sellersLabel,
         generatedBy,
         executiveSummary,
+        data,
+        users,
         charts: [
           { title: "funnel",  node: chartRefs.funnel },
           { title: "pie",     node: chartRefs.pie },

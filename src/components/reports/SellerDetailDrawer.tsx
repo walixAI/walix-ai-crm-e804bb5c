@@ -1,17 +1,18 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { sellerDeals, sellers, type SellerId } from "@/mock/reports";
+import { useReportsContext } from "@/lib/reports/context";
 import { formatMXN } from "@/lib/reports/format";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  sellerId: SellerId | null;
+  sellerId: string | null;
   open: boolean;
   onClose: () => void;
 }
 
 export function SellerDetailDrawer({ sellerId, open, onClose }: Props) {
-  const seller = sellerId ? sellers.find(s => s.id === sellerId) : null;
-  const deals = sellerId ? sellerDeals[sellerId] : [];
+  const { data, users } = useReportsContext();
+  const seller = sellerId ? users.find(s => s.id === sellerId) : null;
+  const deals = sellerId && data ? (data.sellerDeals[sellerId] ?? []) : [];
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>

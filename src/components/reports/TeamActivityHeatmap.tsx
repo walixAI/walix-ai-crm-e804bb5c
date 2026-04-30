@@ -1,14 +1,14 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { heatmap, heatmapDays, sellers, type SellerId } from "@/mock/reports";
+import { useReportsContext } from "@/lib/reports/context";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/** Static class map so Tailwind keeps these classes after purge. */
 const INTENSITY_BG = [
-  "bg-muted",                  // 0
-  "bg-success/10",             // 1
-  "bg-success/30",             // 2
-  "bg-success/60 text-white",  // 3
-  "bg-success text-white",     // 4
+  "bg-muted",
+  "bg-success/10",
+  "bg-success/30",
+  "bg-success/60 text-white",
+  "bg-success text-white",
 ] as const;
 
 function totalForCell(c: { whatsapp: number; notes: number; dealsMoved: number }) {
@@ -25,19 +25,40 @@ function intensity(total: number, max: number): number {
 }
 
 export function TeamActivityHeatmap() {
-  // global max for color scale
+  const { data, isLoading, users } = useReportsContext();
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
+  const days = data.heatmapDays;
+  const usersWithData = users.filter(u => data.heatmap[u.id]);
+
+  if (usersWithData.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <h2 className="font-semibold text-base mb-1">Actividad del equipo</h2>
+        <p className="text-sm text-muted-foreground italic text-center py-8">Sin actividad registrada esta semana.</p>
+      </div>
+    );
+  }
+
   const max = Math.max(
-    ...sellers.flatMap(s => heatmap[s.id].map(totalForCell)),
+    1,
+    ...usersWithData.flatMap(s => data.heatmap[s.id].map(totalForCell)),
   );
 
-  // totals per row and per column
-  const rowTotals: Record<SellerId, number> = sellers.reduce((acc, s) => {
-    acc[s.id] = heatmap[s.id].reduce((sum, c) => sum + totalForCell(c), 0);
+  const rowTotals: Record<string, number> = usersWithData.reduce((acc, s) => {
+    acc[s.id] = data.heatmap[s.id].reduce((sum, c) => sum + totalForCell(c), 0);
     return acc;
-  }, {} as Record<SellerId, number>);
+  }, {} as Record<string, number>);
 
-  const colTotals = heatmapDays.map((_, di) =>
-    sellers.reduce((sum, s) => sum + totalForCell(heatmap[s.id][di]), 0),
+  const colTotals = days.map((_, di) =>
+    usersWithData.reduce((sum, s) => sum + totalForCell(data.heatmap[s.id][di]), 0),
   );
 
   return (
@@ -53,14 +74,14 @@ export function TeamActivityHeatmap() {
             <thead>
               <tr>
                 <th className="text-left font-semibold text-muted-foreground px-1"></th>
-                {heatmapDays.map(d => (
+                {days.map(d => (
                   <th key={d} className="text-center font-semibold text-muted-foreground px-1">{d}</th>
                 ))}
                 <th className="text-right font-semibold text-muted-foreground pl-2">Total</th>
               </tr>
             </thead>
             <tbody>
-              {sellers.map(s => (
+              {usersWithData.map(s => (
                 <tr key={s.id}>
                   <td className="font-medium pr-2 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5">
@@ -70,7 +91,7 @@ export function TeamActivityHeatmap() {
                       {s.name}
                     </span>
                   </td>
-                  {heatmap[s.id].map((cell, di) => {
+                  {data.heatmap[s.id].map((cell, di) => {
                     const total = totalForCell(cell);
                     const lvl = intensity(total, max);
                     return (
@@ -86,7 +107,7 @@ export function TeamActivityHeatmap() {
                           </TooltipTrigger>
                           <TooltipContent>
                             <div className="text-xs space-y-0.5">
-                              <div className="font-semibold">{s.name} · {heatmapDays[di]}</div>
+                              <div className="font-semibold">{s.name} · {days[di]}</div>
                               <div>WhatsApp: {cell.whatsapp}</div>
                               <div>Notas: {cell.notes}</div>
                               <div>Deals movidos: {cell.dealsMoved}</div>
