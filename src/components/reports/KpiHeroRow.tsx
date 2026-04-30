@@ -1,7 +1,8 @@
 import { TrendingUp, TrendingDown, Wallet, Target, Percent, Clock } from "lucide-react";
-import { kpiCards } from "@/mock/reports";
+import { useReportsContext } from "@/lib/reports/context";
 import { formatDelta, formatTimeDelta } from "@/lib/reports/format";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ICONS = {
   revenue: Wallet,
@@ -11,9 +12,21 @@ const ICONS = {
 } as const;
 
 export function KpiHeroRow() {
+  const { data, isLoading } = useReportsContext();
+
+  if (isLoading || !data) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-[110px] rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {kpiCards.map(k => {
+      {data.kpis.map(k => {
         const Icon = ICONS[k.id];
         const delta = k.id === "cycle" ? formatTimeDelta(k.delta) : formatDelta(k.delta);
         const TrendIcon = delta.tone === "positive" ? TrendingUp : TrendingDown;

@@ -2,12 +2,37 @@ import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { funnelStages } from "@/mock/reports";
+import { useReportsContext } from "@/lib/reports/context";
 import { formatMXN, formatPct } from "@/lib/reports/format";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function SalesFunnelChart() {
   const navigate = useNavigate();
-  const max = Math.max(...funnelStages.map(s => s.count));
+  const { data, isLoading } = useReportsContext();
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-11" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const stages = data.funnel;
+
+  if (stages.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card text-center text-sm text-muted-foreground">
+        Sin etapas configuradas en el pipeline.
+      </div>
+    );
+  }
+
+  const max = Math.max(1, ...stages.map(s => s.count));
   const stageWidthPct = (count: number) => Math.max((count / max) * 100, 8);
 
   return (
@@ -19,9 +44,9 @@ export function SalesFunnelChart() {
         </div>
       </div>
       <div className="space-y-2">
-        {funnelStages.map((s, i) => {
+        {stages.map((s, i) => {
           const width = stageWidthPct(s.count);
-          const intensity = 0.25 + (i / (funnelStages.length - 1)) * 0.6;
+          const intensity = 0.25 + (i / Math.max(1, stages.length - 1)) * 0.6;
           return (
             <Popover key={s.id}>
               <PopoverTrigger asChild>

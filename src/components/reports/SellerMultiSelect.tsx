@@ -3,18 +3,19 @@ import { Users, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { sellers, type SellerId } from "@/mock/reports";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
 
 interface Props {
-  value: SellerId[];
-  onChange: (next: SellerId[]) => void;
+  value: string[];
+  onChange: (next: string[]) => void;
 }
 
 export function SellerMultiSelect({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const { data: users = [] } = useTenantUsers();
   const allSelected = value.length === 0;
 
-  const toggle = (id: SellerId) => {
+  const toggle = (id: string) => {
     if (value.includes(id)) onChange(value.filter(x => x !== id));
     else onChange([...value, id]);
   };
@@ -22,7 +23,7 @@ export function SellerMultiSelect({ value, onChange }: Props) {
   const label = allSelected
     ? "Todos los vendedores"
     : value.length === 1
-      ? sellers.find(s => s.id === value[0])?.name ?? "1 vendedor"
+      ? users.find(s => s.id === value[0])?.name ?? "1 vendedor"
       : `${value.length} vendedores`;
 
   return (
@@ -55,7 +56,11 @@ export function SellerMultiSelect({ value, onChange }: Props) {
           {allSelected && <Check className="h-4 w-4" />}
         </button>
         <div className="border-t border-border my-1" />
-        {sellers.map(s => {
+        {users.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">
+            No hay miembros aún en este tenant.
+          </p>
+        ) : users.map(s => {
           const checked = value.includes(s.id);
           return (
             <button
