@@ -1,53 +1,28 @@
-## Plan — Retomar onboarding desde donde se quedó
+## Bug — Signup queda atorado por falso "cuenta huérfana"
 
-### Problema
-Hoy, si el usuario abandona el wizard a mitad (cierra el browser, hace logout, etc.), al volver siempre aparece en **Paso 0** aunque ya tenga datos guardados (nombre, industria, pipeline, WhatsApp…). Hay que detectar el avance real y posicionarlo en el primer paso pendiente.
+### Causa raíz
+Al hacer signup, Supabase crea la fila en `auth.users` y el trigger `handle_new_user` crea profile + tenant + roles. El cliente, al recibir la nueva sesión vía `onAuthStateChange`, llama inmediatamente a `loadUserContext()`. Si esa primera consulta llega **antes** de que el trigger termine (carrera de milisegundos), `profiles` viene vacío y `roles` vienen vacíos → marcamos la cuenta como huérfana → `forceSignOut()` cierra la sesión y muestra "Tu cuenta ya no está disponible".
 
-### Estrategia: persistencia ligera por estado del tenant
-No agregamos columnas nuevas. Inferimos el último paso completado a partir de datos ya persistentes:
+Esto se ve en los logs: el signup termina con éxito (`immediate_login_after_signup: true`) pero el usuario nunca llega a `/onboarding`.
 
-```text
-Paso 0 (negocio)   completado si  profiles.full_name está set Y tenants.industry no es null
-Paso 1 (IA pipe)   completado si  existe ≥1 pipeline_stages para el tenant
-Paso 2 (WhatsApp)  completado si  tenants.whatsapp_phone IS NOT NULL  (o el usuario marcó "omitir" — ver abajo)
-Paso 3 (invites)   completado si  existe ≥1 invitación enviada por este user en este tenant
-Paso 4 (final)     se muestra solo si profiles.onboarded = true (en cuyo caso ya redirigimos)
-```
+### Arreglo
+Agregar **reintentos con backoff** a la verificación de cuenta huérfana antes de considerar realmente que la cuenta no existe.
 
-El "primer paso pendiente" es el primer paso de la lista que NO esté completado. Si todos están completados pero `onboarded=false` (caso raro), aterriza en Paso 4 para que confirme.
+### Cambios en `src/hooks/useAuth.ts`
 
-### Manejo de pasos opcionales (WhatsApp e invitaciones)
-Estos dos pasos son opcionales — no queremos forzar al usuario a llenarlos para "desbloquear" el siguiente. Solución: usar `localStorage` por usuario como marca de "skipped":
+1. Convertir `loadUserContext` para que reintente cuando `profileRes.data` viene `null`:
+   - Hasta **5 intentos** espaciados ~400 ms (≈2 s total).
+   - Si después del último intento `profile` sigue `null` Y no hay roles → entonces sí marcar `accountValid = false`.
+2. Mantener la lógica de `forceSignOut` igual — solo se dispara cuando ya pasó el grace period.
+3. Esto cubre tanto el caso del signup recién hecho como el caso real de cuenta borrada (espera ~2 s y luego cierra).
 
-- Key: `walix.onboarding.skipped.<user_id>` → `{ whatsapp: true, invites: true }`
-- Se setea cuando el usuario presiona "Omitir" / continúa sin llenar.
-- En la detección, paso 2 cuenta como completado si `whatsapp_phone` está set **o** está marcado como skipped.
-- Lo mismo para paso 3.
-- Al pulsar "Atrás", el skip de ese paso se limpia para que pueda volver a intentar.
-
-Esto evita una migración solo para flags de UI.
-
-### Cambios en `src/pages/Onboarding.tsx`
-
-1. Nueva función `computeResumeStep()` que recibe el estado leído del tenant + skips de localStorage y devuelve `0..4`.
-2. Renombrar el `useEffect` de carga inicial:
-   - Cargar `profiles` (full_name, onboarded).
-   - Cargar `tenants` (todos los campos actuales).
-   - Cargar `pipeline_stages` count (`select('id', { count: 'exact', head: true })` filtrando por tenant_id).
-   - Cargar `invitations` count (filtrado por `tenant_id` + `invited_by = user.id`).
-   - Leer skips de localStorage.
-   - Llamar `setStep(computeResumeStep(...))` antes de quitar el loading.
-3. Mostrar un toast informativo "Continuamos donde te quedaste" solo si `resumeStep > 0`.
-4. En `saveWhatsappAndContinue` cuando `whatsapp_phone` quedó vacío → marcar skip en localStorage. Mismo en `skipInvites`.
-5. En el botón **Atrás** (`setStep((s) => Math.max(0, s - 1))`), si volvemos a 2 o 3 limpiamos su skip correspondiente.
-6. Mientras `tenantLoading` es true, ya hay un loader implícito (botón disabled); aseguramos que el card no muestre Paso 0 vacío durante ese instante mostrando un `<Loader2>` central.
-
-### Caso límite: `onboarded=true`
-Ya hoy redirige a `/dashboard`. Lo dejamos. Si el usuario quiere ver el wizard de nuevo, puede haber un botón en Configuración más adelante (fuera de scope).
+### Cambio menor en `src/pages/Login.tsx`
+- En modo `signup`, si `data.session` viene `null` (caso edge si se desactiva auto-confirm en el futuro), mostrar mensaje "Revisa tu correo para confirmar la cuenta" en lugar de redirigir a `/onboarding` (que terminaría en login). Hoy el proyecto auto-confirma así que no aplica, pero es defensivo y barato.
 
 ### Archivos a tocar
-- `src/pages/Onboarding.tsx` — lógica de resume + skips en localStorage + loader inicial.
+- `src/hooks/useAuth.ts` — reintentos en `loadUserContext`.
+- `src/pages/Login.tsx` — manejo defensivo de signup sin sesión.
 
-**Sin cambios de DB.** Sin nuevas dependencias.
+Sin cambios de DB.
 
 ¿Procedo?
