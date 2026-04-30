@@ -1025,6 +1025,7 @@ export default function Onboarding() {
             )}
           </div>
         </div>
+        )}
       </main>
     </div>
   );
