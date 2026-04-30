@@ -191,6 +191,7 @@ export default function Onboarding() {
         .eq("id", user.id);
       if (pErr) throw pErr;
 
+      const country = getCountryByCode(countryCode);
       const { error: tErr } = await supabase
         .from("tenants")
         .update({
@@ -198,6 +199,9 @@ export default function Onboarding() {
           industry: effectiveIndustry,
           team_size: teamSize,
           sales_channel: salesChannel,
+          currency: country.currency,
+          timezone: country.timezone,
+          locale: country.locale,
         })
         .eq("id", tenantId);
       if (tErr) throw tErr;
@@ -213,6 +217,7 @@ export default function Onboarding() {
   // ---- IA ----
   const runAi = async () => {
     setAiLoading(true);
+    setAiPhase("thinking");
     setAiResult(null);
     setAiMsgIndex(0);
     try {
@@ -222,6 +227,7 @@ export default function Onboarding() {
           industry: effectiveIndustry,
           team_size: teamSize,
           sales_channel: salesChannel,
+          company_name: companyName.trim(),
         },
       });
       const elapsed = Date.now() - start;
