@@ -95,6 +95,7 @@ export default function Onboarding() {
   // Step 0
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [countryCode, setCountryCode] = useState<string>(DEFAULT_COUNTRY_CODE);
   const [industry, setIndustry] = useState<string>("");
   const [industryOther, setIndustryOther] = useState("");
   const [teamSize, setTeamSize] = useState<string>(TEAM_SIZES[0]);
@@ -104,8 +105,12 @@ export default function Onboarding() {
   // Step 1 IA
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMsgIndex, setAiMsgIndex] = useState(0);
+  const [aiPhase, setAiPhase] = useState<"thinking" | "applying">("thinking");
   const [aiResult, setAiResult] = useState<AISetupResponse | null>(null);
   const [applying, setApplying] = useState(false);
+  const [seedStats, setSeedStats] = useState<{ tags: number; templates: number } | null>(
+    null
+  );
 
   // Step 2 WhatsApp
   const [whatsappPhone, setWhatsappPhone] = useState("");
@@ -137,7 +142,7 @@ export default function Onboarding() {
           // Cargar tenant para pre-llenar
           supabase
             .from("tenants")
-            .select("name, industry, team_size, sales_channel, whatsapp_phone")
+            .select("name, industry, team_size, sales_channel, whatsapp_phone, currency")
             .eq("id", data.tenant_id)
             .maybeSingle()
             .then(({ data: t }) => {
@@ -147,6 +152,7 @@ export default function Onboarding() {
                 if (t.team_size) setTeamSize(t.team_size);
                 if (t.sales_channel) setSalesChannel(t.sales_channel);
                 if (t.whatsapp_phone) setWhatsappPhone(t.whatsapp_phone);
+                if (t.currency) setCountryCode(getCountryByCurrency(t.currency).code);
               }
             });
         }
@@ -155,14 +161,15 @@ export default function Onboarding() {
       });
   }, [user, navigate]);
 
-  // Animación de mensajes durante loading IA
+  // Animación de mensajes durante loading IA / aplicando
   useEffect(() => {
-    if (!aiLoading) return;
+    if (!aiLoading && !applying) return;
+    setAiMsgIndex(0);
     const id = setInterval(() => {
-      setAiMsgIndex((i) => (i + 1) % AI_LOADING_MESSAGES.length);
+      setAiMsgIndex((i) => (i + 1) % AI_PHASE_MESSAGES[aiPhase].length);
     }, 1100);
     return () => clearInterval(id);
-  }, [aiLoading]);
+  }, [aiLoading, applying, aiPhase]);
 
   const effectiveIndustry =
     industry === "Otro" ? industryOther.trim() || "Otro" : industry || "Otro";
