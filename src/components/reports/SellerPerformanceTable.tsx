@@ -2,38 +2,43 @@ import { useMemo, useState } from "react";
 import { ArrowUpDown, Trophy, ArrowRight } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { Button } from "@/components/ui/button";
-import { sellerPerformance, sellers, type SellerId, type SellerPerformance } from "@/mock/reports";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useReportsContext } from "@/lib/reports/context";
 import { formatMXN, formatPct } from "@/lib/reports/format";
 import { cn } from "@/lib/utils";
 import { SellerDetailDrawer } from "./SellerDetailDrawer";
+import type { SellerPerformanceRow } from "@/lib/queries/reports";
 
-type SortKey = keyof SellerPerformance;
+type SortKey = keyof SellerPerformanceRow;
 
 const COLUMNS: { key: SortKey; label: string; align?: "right" }[] = [
-  { key: "leadsAssigned",    label: "Leads",         align: "right" },
-  { key: "activeDeals",      label: "Activos",       align: "right" },
-  { key: "closedDeals",      label: "Cerrados",      align: "right" },
-  { key: "revenueGenerated", label: "Revenue",       align: "right" },
-  { key: "avgCloseDays",     label: "Días cierre",   align: "right" },
-  { key: "closeRate",        label: "Tasa %",        align: "right" },
+  { key: "leadsAssigned",    label: "Leads",       align: "right" },
+  { key: "activeDeals",      label: "Activos",     align: "right" },
+  { key: "closedDeals",      label: "Cerrados",    align: "right" },
+  { key: "revenueGenerated", label: "Revenue",     align: "right" },
+  { key: "avgCloseDays",     label: "Días cierre", align: "right" },
+  { key: "closeRate",        label: "Tasa %",      align: "right" },
 ];
 
 export function SellerPerformanceTable() {
+  const { data, isLoading, users } = useReportsContext();
   const [sortKey, setSortKey] = useState<SortKey>("revenueGenerated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [openSeller, setOpenSeller] = useState<SellerId | null>(null);
+  const [openSeller, setOpenSeller] = useState<string | null>(null);
+
+  const rows = data?.sellerPerformance ?? [];
 
   const sorted = useMemo(() => {
-    return [...sellerPerformance].sort((a, b) => {
+    return [...rows].sort((a, b) => {
       const va = a[sortKey] as number;
       const vb = b[sortKey] as number;
       return sortDir === "desc" ? vb - va : va - vb;
     });
-  }, [sortKey, sortDir]);
+  }, [rows, sortKey, sortDir]);
 
   const topId = useMemo(
-    () => [...sellerPerformance].sort((a, b) => b.revenueGenerated - a.revenueGenerated)[0]?.sellerId,
-    [],
+    () => [...rows].sort((a, b) => b.revenueGenerated - a.revenueGenerated)[0]?.sellerId,
+    [rows],
   );
 
   const toggleSort = (k: SortKey) => {
@@ -41,10 +46,27 @@ export function SellerPerformanceTable() {
     else { setSortKey(k); setSortDir("desc"); }
   };
 
-  const sellerName = (id: SellerId) => sellers.find(s => s.id === id)!;
+  const sellerName = (id: string) => users.find(s => s.id === id);
 
-  const chartData = sellerPerformance.map(p => ({
-    name: sellerName(p.sellerId).name.split(" ")[0],
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <Skeleton className="h-6 w-48 mb-3" />
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card text-center text-sm text-muted-foreground">
+        Aún no hay vendedores con actividad en este período.
+      </div>
+    );
+  }
+
+  const chartData = rows.map(p => ({
+    name: (sellerName(p.sellerId)?.name ?? "—").split(" ")[0],
     revenue: p.revenueGenerated,
   }));
 
@@ -52,7 +74,7 @@ export function SellerPerformanceTable() {
     <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
       <div className="p-5 pb-3">
         <h2 className="font-semibold text-base">Rendimiento por vendedor</h2>
-        <p className="text-xs text-muted-foreground">Ordena por cualquier columna · click "Ver detalle" para sus deals</p>
+        <p className="text-xs text-muted-foreground">Ordena por cualquier columna · click "Detalle" para sus deals</p>
       </div>
 
       <div className="overflow-x-auto">
@@ -79,11 +101,11 @@ export function SellerPerformanceTable() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="h-7 w-7 rounded-full bg-primary/10 text-primary grid place-items-center text-[11px] font-bold">
-                        {s.initials}
+                        {s?.initials ?? "—"}
                       </span>
-                      <span className="font-medium">{s.name}</span>
+                      <span className="font-medium">{s?.name ?? "Sin nombre"}</span>
                       {isTop && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/30">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">
                           <Trophy className="h-3 w-3" /> Top
                         </span>
                       )}

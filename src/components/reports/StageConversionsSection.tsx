@@ -1,13 +1,39 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, AlertTriangle } from "lucide-react";
-import { stageConversions, conversionInsight } from "@/mock/reports";
+import { useReportsContext } from "@/lib/reports/context";
 import { formatPct } from "@/lib/reports/format";
 import { cn } from "@/lib/utils";
 import { InsightCard } from "./InsightCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function StageConversionsSection() {
   const navigate = useNavigate();
-  const max = Math.max(...stageConversions.map(c => c.advanced));
+  const { data, isLoading } = useReportsContext();
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
+  const conversions = data.stageConversions;
+
+  if (conversions.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <h2 className="font-semibold text-base mb-1">Conversiones por etapa</h2>
+        <p className="text-sm text-muted-foreground italic text-center py-8">Sin movimientos entre etapas en el período.</p>
+      </div>
+    );
+  }
+
+  const max = Math.max(1, ...conversions.map(c => c.advanced));
+  const weakest = [...conversions].sort((a, b) => a.rate - b.rate)[0];
+  const insight = weakest
+    ? `Solo el ${weakest.rate}% pasa de ${weakest.from} a ${weakest.to} — esta es tu mayor oportunidad.`
+    : "";
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-card">
@@ -15,7 +41,7 @@ export function StageConversionsSection() {
       <p className="text-xs text-muted-foreground mb-4">Identifica los puntos donde se cae más gente del embudo</p>
 
       <div className="space-y-2 mb-4">
-        {stageConversions.map((c, i) => {
+        {conversions.map((c, i) => {
           const lowConversion = c.rate < 30;
           const widthPct = (c.advanced / max) * 100;
           return (
@@ -54,10 +80,12 @@ export function StageConversionsSection() {
         })}
       </div>
 
-      <InsightCard
-        text={conversionInsight}
-        cta={{ label: "Ver deals atorados en Propuesta", onClick: () => navigate("/pipeline?stage=proposal") }}
-      />
+      {insight && (
+        <InsightCard
+          text={insight}
+          cta={{ label: "Ver pipeline", onClick: () => navigate("/pipeline") }}
+        />
+      )}
     </div>
   );
 }
