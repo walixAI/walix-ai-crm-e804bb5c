@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
-import { sellers } from "@/mock/contacts";
+import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
 
 export interface Pipeline {
   id: string;
@@ -41,22 +41,8 @@ export interface PipelineDeal {
   updatedAt: string;
 }
 
-function ownerFromId(ownerId: string | null) {
-  if (!ownerId) {
-    // fallback: rotate through sellers using a stable hash of "unassigned"
-    const s = sellers[0];
-    return { name: s.name, initials: s.initials, color: s.color };
-  }
-  let h = 0;
-  for (let i = 0; i < ownerId.length; i++) h = (h * 31 + ownerId.charCodeAt(i)) >>> 0;
-  const s = sellers[h % sellers.length];
-  return { name: s.name, initials: s.initials, color: s.color };
-}
-
-function mapDeal(r: any): PipelineDeal {
-  // Use a stable seller per deal even when owner_id is null, so the UI shows variety
-  const seedId = r.owner_id ?? r.id;
-  const owner = ownerFromId(seedId);
+function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
+  const owner = resolveOwner(users, r.owner_id);
   return {
     id: r.id,
     name: r.name,

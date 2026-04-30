@@ -133,8 +133,9 @@ export interface ActivityRow {
 }
 
 export function useContactActivity(contactId: string | undefined) {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["contact-activity", contactId],
+    queryKey: ["contact-activity", contactId, users?.length ?? 0],
     enabled: !!contactId,
     queryFn: async (): Promise<ActivityRow[]> => {
       const { data, error } = await supabase
@@ -145,7 +146,7 @@ export function useContactActivity(contactId: string | undefined) {
         .limit(20);
       if (error) throw error;
       return (data ?? []).map((a: any) => {
-        const owner = ownerFromId(a.agent_id);
+        const owner = resolveOwner(users, a.agent_id);
         return {
           id: a.id, type: a.type, description: a.description,
           timestamp: a.occurred_at,
