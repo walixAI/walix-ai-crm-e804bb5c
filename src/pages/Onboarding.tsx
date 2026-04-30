@@ -528,6 +528,25 @@ export default function Onboarding() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <Label>País</Label>
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.label} · {c.currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Define moneda, zona horaria y formato. Podrás cambiarlo en Configuración.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
                   <Label>¿Cuántas personas hay en tu equipo de ventas?</Label>
                   <div className="grid grid-cols-4 gap-2">
                     {TEAM_SIZES.map((s) => (
