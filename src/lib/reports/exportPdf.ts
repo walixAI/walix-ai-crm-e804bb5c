@@ -1,15 +1,15 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
-import {
-  funnelStages, sellerPerformance, sellers, leadSources,
-  lostReasons, stageConversions, lostTotalAmount,
-} from "@/mock/reports";
+import type { ReportsData } from "@/lib/queries/reports";
+import type { TenantUser } from "@/lib/queries/tenantUsers";
 
 export interface PdfExportOptions {
   periodLabel: string;
   sellersLabel: string;
   generatedBy: string;
+  data: ReportsData;
+  users: TenantUser[];
   /** DOM nodes (refs.current) to capture as images. Order matters. */
   charts: { title: string; node: HTMLElement | null }[];
   /** Optional executive summary plain-text (citations stripped). */
@@ -151,7 +151,7 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   autoTable(doc, {
     startY: y,
     head: [["Etapa", "Deals", "Valor", "Conv. desde anterior"]],
-    body: funnelStages.map(s => [
+    body: opts.data.funnel.map(s => [
       s.name,
       String(s.count),
       fmtMXN(s.value),
@@ -165,11 +165,11 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   // ── Seller performance
   doc.addPage();
   y = sectionTitle(doc, "2. Rendimiento por vendedor", 20);
-  const sellerName = (id: string) => sellers.find(s => s.id === id)?.name ?? id;
+  const sellerName = (id: string) => opts.users.find(s => s.id === id)?.name ?? id;
   autoTable(doc, {
     startY: y,
     head: [["Vendedor", "Leads", "Activos", "Cerrados", "Revenue", "Días cierre", "Tasa %"]],
-    body: sellerPerformance.map(p => [
+    body: opts.data.sellerPerformance.map(p => [
       sellerName(p.sellerId),
       String(p.leadsAssigned),
       String(p.activeDeals),
@@ -198,7 +198,7 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   autoTable(doc, {
     startY: y + 90,
     head: [["Fuente", "Leads", "Revenue"]],
-    body: leadSources.map(l => [l.name, String(l.count), fmtMXN(l.revenue)]),
+    body: opts.data.leadSources.map(l => [l.name, String(l.count), fmtMXN(l.revenue)]),
     headStyles: { fillColor: PRIMARY, textColor: "#FFFFFF" },
     styles: { fontSize: 9 },
     margin: { left: 14, right: 14 },
@@ -210,12 +210,12 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(MUTED);
-  doc.text(`Total perdido: ${fmtMXN(lostTotalAmount)}`, 14, y);
+  doc.text(`Total perdido: ${fmtMXN(opts.data.lostTotal)}`, 14, y);
   y += 8;
   autoTable(doc, {
     startY: y,
     head: [["Razón", "Deals", "Monto"]],
-    body: lostReasons.map(r => [r.reason, String(r.count), fmtMXN(r.amount)]),
+    body: opts.data.lostReasons.map(r => [r.reason, String(r.count), fmtMXN(r.amount)]),
     headStyles: { fillColor: PRIMARY, textColor: "#FFFFFF" },
     styles: { fontSize: 9 },
     margin: { left: 14, right: 14 },
@@ -240,12 +240,12 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   autoTable(doc, {
     startY: y,
     head: [["Origen", "Destino", "Avanzaron", "% Conversión"]],
-    body: stageConversions.map(c => [c.from, c.to, String(c.advanced), `${c.rate}%`]),
+    body: opts.data.stageConversions.map(c => [c.from, c.to, String(c.advanced), `${c.rate}%`]),
     headStyles: { fillColor: PRIMARY, textColor: "#FFFFFF" },
     styles: { fontSize: 9 },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 3) {
-        const rate = stageConversions[data.row.index].rate;
+        const rate = opts.data.stageConversions[data.row.index]?.rate ?? 0;
         if (rate < 30) {
           data.cell.styles.textColor = "#DC2626";
           data.cell.styles.fontStyle = "bold";
