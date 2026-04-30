@@ -1,7 +1,5 @@
-import {
-  funnelStages, sellerPerformance, sellers, leadSources,
-  lostReasons, stageConversions,
-} from "@/mock/reports";
+import type { ReportsData } from "@/lib/queries/reports";
+import type { TenantUser } from "@/lib/queries/tenantUsers";
 
 function csvEscape(v: string | number): string {
   const s = String(v);
@@ -24,45 +22,48 @@ function section(title: string, header: string[], rows: (string | number)[][]): 
   ].join("\n");
 }
 
-export function buildReportsCSV(periodLabel: string): string {
+export function buildReportsCSV(
+  periodLabel: string,
+  data: ReportsData,
+  users: TenantUser[],
+): string {
   const header = [
     `# Walix · Reporte ${periodLabel}`,
     `# Generado: ${new Date().toLocaleString("es-MX")}`,
     "",
   ].join("\n");
 
-  const sellerName = (id: string) =>
-    sellers.find(s => s.id === id)?.name ?? id;
+  const userName = (id: string) => users.find(u => u.id === id)?.name ?? id;
 
   return [
     header,
     section(
       "Embudo de ventas",
       ["Etapa", "Deals", "Valor MXN", "Conversión %"],
-      funnelStages.map(s => [s.name, s.count, s.value, s.conversionFromPrev ?? ""]),
+      data.funnel.map(s => [s.name, s.count, s.value, s.conversionFromPrev ?? ""]),
     ),
     section(
       "Rendimiento por vendedor",
       ["Vendedor", "Leads", "Activos", "Cerrados", "Revenue MXN", "Días promedio cierre", "Tasa cierre %"],
-      sellerPerformance.map(p => [
-        sellerName(p.sellerId), p.leadsAssigned, p.activeDeals,
+      data.sellerPerformance.map(p => [
+        userName(p.sellerId), p.leadsAssigned, p.activeDeals,
         p.closedDeals, p.revenueGenerated, p.avgCloseDays, p.closeRate,
       ]),
     ),
     section(
       "Fuentes de leads",
       ["Fuente", "Leads", "Revenue MXN"],
-      leadSources.map(l => [l.name, l.count, l.revenue]),
+      data.leadSources.map(l => [l.name, l.count, l.revenue]),
     ),
     section(
       "Razones de pérdida",
       ["Razón", "Deals", "Monto MXN"],
-      lostReasons.map(r => [r.reason, r.count, r.amount]),
+      data.lostReasons.map(r => [r.reason, r.count, r.amount]),
     ),
     section(
       "Conversiones por etapa",
       ["Origen", "Destino", "Avanzaron", "% Conversión"],
-      stageConversions.map(c => [c.from, c.to, c.advanced, c.rate]),
+      data.stageConversions.map(c => [c.from, c.to, c.advanced, c.rate]),
     ),
   ].join("\n");
 }
