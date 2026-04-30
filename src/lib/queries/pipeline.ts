@@ -197,22 +197,24 @@ export function useDaysInCurrentStage(dealId: string | undefined, fallbackIso: s
 }
 
 export function useDeals() {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["pipeline-deals"],
+    queryKey: ["pipeline-deals", users?.length ?? 0],
     queryFn: async (): Promise<PipelineDeal[]> => {
       const { data, error } = await supabase
         .from("deals")
         .select("*")
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map(mapDeal);
+      return (data ?? []).map((r) => mapDeal(r, users));
     },
   });
 }
 
 export function useDeal(id: string | undefined) {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["pipeline-deal", id],
+    queryKey: ["pipeline-deal", id, users?.length ?? 0],
     enabled: !!id,
     queryFn: async (): Promise<PipelineDeal | null> => {
       const { data, error } = await supabase
@@ -221,7 +223,7 @@ export function useDeal(id: string | undefined) {
         .eq("id", id!)
         .maybeSingle();
       if (error) throw error;
-      return data ? mapDeal(data) : null;
+      return data ? mapDeal(data, users) : null;
     },
   });
 }
