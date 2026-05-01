@@ -557,3 +557,137 @@ export function AiDrawer() {
     </Sheet>
   );
 }
+
+// ─── Auxiliary components ──────────────────────────────────────────────
+
+function DiffTable({ before, after }: { before?: any; after?: any }) {
+  const isCreate = !before || Object.keys(before ?? {}).length === 0;
+  const fields = Object.keys(after ?? {});
+  if (!fields.length) return null;
+  if (isCreate) {
+    return (
+      <div className="rounded-md border border-border/60 bg-background/60 p-2 mt-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+          Nuevo registro
+        </div>
+        <div className="space-y-0.5">
+          {fields.map((k) => (
+            <div key={k} className="flex justify-between gap-2 text-[11px]">
+              <span className="text-muted-foreground">{k}</span>
+              <span className="text-foreground font-medium truncate max-w-[60%] text-right">{String(after[k] ?? "—")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  // Diff view
+  const changed = fields.filter((k) => String(before?.[k] ?? "") !== String(after?.[k] ?? ""));
+  if (!changed.length) {
+    return <div className="text-[10px] text-muted-foreground italic mt-1">Sin cambios efectivos.</div>;
+  }
+  return (
+    <div className="rounded-md border border-border/60 bg-background/60 p-2 mt-1 space-y-1">
+      {changed.map((k) => (
+        <div key={k} className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-1.5 text-[11px]">
+          <span className="text-muted-foreground">{k}</span>
+          <span className="text-muted-foreground line-through truncate text-right">{String(before?.[k] ?? "—")}</span>
+          <ArrowRight className="h-3 w-3 text-accent" />
+          <span className="text-foreground font-medium truncate">{String(after?.[k] ?? "—")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProposalEditForm({
+  kind,
+  payload,
+  onChange,
+}: {
+  kind: ProposalKind;
+  payload: Record<string, any>;
+  stages?: { id: string; name: string }[];
+  onChange: (next: Record<string, any>) => void;
+}) {
+  const set = (k: string, v: any) => onChange({ ...payload, [k]: v });
+
+  const Field = ({ label, k, type = "text", placeholder }: { label: string; k: string; type?: string; placeholder?: string }) => (
+    <div className="space-y-1">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Input
+        type={type}
+        value={payload[k] ?? ""}
+        placeholder={placeholder}
+        onChange={(e) => set(k, type === "number" ? Number(e.target.value) : e.target.value)}
+        className="h-8 text-xs"
+      />
+    </div>
+  );
+
+  switch (kind) {
+    case "update_deal_amount":
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Monto" k="amount" type="number" />
+          <Field label="Probabilidad %" k="probability" type="number" />
+        </div>
+      );
+    case "update_deal_stage":
+      return <Field label="Stage ID" k="stage_id" placeholder="UUID de la etapa" />;
+    case "create_task":
+      return (
+        <div className="space-y-2">
+          <Field label="Título" k="title" />
+          <Field label="Vence (ISO)" k="due_at" placeholder="2025-05-15T10:00:00Z" />
+        </div>
+      );
+    case "create_activity":
+      return (
+        <div className="space-y-2">
+          <Field label="Tipo" k="type" placeholder="note | deal | task | wa_sent | wa_received" />
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Descripción</Label>
+            <Textarea
+              value={payload.description ?? ""}
+              onChange={(e) => set("description", e.target.value)}
+              className="text-xs min-h-[60px]"
+            />
+          </div>
+        </div>
+      );
+    case "update_contact":
+    case "create_contact":
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Nombre" k="name" />
+          <Field label="Apellido" k="last_name" />
+          <Field label="Teléfono" k="phone" />
+          <Field label="Email" k="email" />
+          <Field label="Empresa" k="company" />
+          <Field label="Puesto" k="position" />
+          <div className="col-span-2">
+            <Field label="Estado" k="status" placeholder="Nuevo | Contactado | Calificado | Propuesta | Cerrado | Perdido" />
+          </div>
+        </div>
+      );
+    case "mark_deal_lost":
+      return (
+        <div className="space-y-2">
+          <Field label="Motivo" k="lost_reason" />
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario</Label>
+            <Textarea
+              value={payload.lost_comment ?? ""}
+              onChange={(e) => set("lost_comment", e.target.value)}
+              className="text-xs min-h-[50px]"
+            />
+          </div>
+        </div>
+      );
+    case "mark_deal_won":
+      return <div className="text-[11px] text-muted-foreground">No hay parámetros editables.</div>;
+    default:
+      return null;
+  }
+}
