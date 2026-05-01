@@ -1,86 +1,80 @@
+# Mejoras de prioridad media — Walix.ai
 
-# Walix.ai — Mejoras de alta prioridad
-
-Cuatro arreglos enfocados que cierran los huecos más visibles del flujo conversacional + agente ejecutor.
-
----
-
-## 1. Composer siempre disponible (incluido estado de error)
-
-**Problema:** Cuando el último intento falla, no se appendea ningún turno → `turns.length === 0` → el footer muestra "Cerrar" en lugar del textarea. El usuario queda atrapado sin poder reformular dentro del drawer.
-
-**Cambios:**
-- En `aiDrawer.ts`: agregar bandera `hasStarted` que se prende en cuanto se llama `ask()` por primera vez en la conversación (independiente de éxito/error). `clearConversation()` la apaga.
-- En `AiDrawer.tsx`: el footer renderiza el composer siempre que `hasStarted || turns.length > 0`. El textarea ya queda disponible para reintentar/reformular sin pasar por el TopBar.
-- Cuando hay error y `turns.length === 0`, mostrar también el banner de error sobre el composer (ya existe la lógica, solo asegurar que se renderice antes del `<div ref={scrollEndRef} />` aunque no haya turnos).
-
-## 2. `create_deal` usa la probabilidad real de la primera etapa
-
-**Problema:** El handler en `ai-execute` selecciona la primera etapa pero asigna siempre `probability = 10` hardcodeado. La tabla `pipeline_stages` no tiene columna `probability` (verificado en el schema), pero los stages especiales sí afectan: `is_won → 100`, `is_lost → 0`.
-
-**Cambios en `supabase/functions/ai-execute/index.ts` (case `create_deal`):**
-- Al hacer fallback a la primera etapa, también leer `is_won, is_lost` y derivar la probabilidad: `is_won ? 100 : is_lost ? 0 : 10`.
-- Cuando viene `stage_id` explícito, leer también `is_won, is_lost` y aplicar la misma lógica si el usuario no pasó `probability`.
-- Mantener el override del usuario si pasa `probability` numérica válida.
-
-## 3. Nueva tool `propose_link_contact_to_deal`
-
-**Problema:** Si la IA crea un deal sin contacto (porque no encontró match) y luego el usuario dice "vincúlalo a Juan Pérez", no hay tool para ese caso. Hoy cae en limbo o termina como `update_deal_amount` mal usada.
-
-**Backend (`global-ai/index.ts`):**
-- Nueva tool `propose_link_contact_to_deal` con parámetros: `deal_id` (req), `contact_id` (req), `summary`, `reasoning`.
-- Mapear en `KIND_MAP` → `link_contact_to_deal`.
-- Ajuste de prompt: "Si el usuario menciona un deal existente y un contacto a vincular, usa `propose_link_contact_to_deal` (no `update_deal_amount`)."
-
-**Backend (`ai-execute/index.ts`):**
-- Agregar `link_contact_to_deal` al type union `Kind`.
-- **Preview:** leer el `contact_id` actual del deal y el nuevo nombre del contacto. Devolver before/after con el campo "Contacto".
-- **Execute:** validar UUIDs, hacer `update` sobre `deals` con `contact_id`. Devolver `target_type=deal`.
-
-**Frontend (`src/services/ai.ts`):**
-- Agregar `"link_contact_to_deal"` a `ProposalKind`.
-
-**Frontend (`AiDrawer.tsx`):**
-- Icon: `Link2` (lucide-react).
-- En `ProposalEditForm`: caso `link_contact_to_deal` con un input readonly del `deal_id` y un select/input del `contact_id` (el usuario podrá pegarlo si quiere cambiarlo manualmente — la mayoría de casos vendrá del agente).
-- `invalidateForKind`: invalidar `["deals"]` y `["pipeline"]`.
-
-## 4. UI para múltiples candidatos de `search_entity`
-
-**Problema:** Cuando hay 2+ "Juan" en la base, la IA pregunta en texto plano: "¿Te refieres a Juan Pérez (5512...) o Juan García (3322...)?". El usuario tiene que escribir el apellido completo en el composer. Sin chips clickeables, el flujo se siente lento.
-
-**Backend (`global-ai/index.ts`):**
-- Cuando la IA llame a `search_entity` y haya 2-5 candidatos, en vez de meterlos como texto en la respuesta, **adjuntar a la respuesta** un nuevo array `candidates: { kind, id, name, subtitle }[]` (campo paralelo a `proposals`/`actions` en el JSON que devuelve la edge function).
-- Ajustar el system prompt: "Si `search_entity` devuelve >1 resultado, NO propongas nada todavía. En tu texto di brevemente '¿A cuál te refieres?' y emite los candidatos via la tool `present_candidates` (nueva)".
-- Nueva tool `present_candidates` con `{ kind, intent, candidates: [{id, name, subtitle?}] }` donde `intent` describe qué hará el usuario al elegir (ej: "vincular al deal X", "crear deal para este contacto").
-
-**Frontend (`src/services/ai.ts`):**
-- Extender `AskAiResult` con `candidates?: CandidateChoice[]` y exportar el tipo.
-
-**Frontend (`store/aiDrawer.ts`):**
-- Persistir `candidates` en cada turno (`AiQuery`).
-
-**Frontend (`AiDrawer.tsx`):**
-- Renderizar bloque "Selecciona uno:" con los candidatos como botones clickeables (similar al estilo de las acciones sugeridas).
-- Al hacer click, se construye un follow-up automático tipo `"Sí, ese: <name>"` o `"Usa <name>"` y se manda como nuevo turno via `ask()` con el `intent` original como pista. Esto deja que la IA continúe el flujo (vincular, crear, etc.) sin que el usuario teclee.
+Tres mejoras independientes en el agente conversacional. Sin cambios de DB.
 
 ---
 
-## Verificación
+## 1. Retomar conversaciones del historial (#7)
 
-1. **Composer en error:** desconectar el gateway (forzar 500), preguntar algo → sale banner de error y el textarea sigue activo. Reintentar desde el composer.
-2. **Probabilidad real:** crear deal nuevo cuando la primera etapa es la default ("Nuevo lead") → probabilidad = 10. Cambiar la primera etapa a una marcada `is_won` → probabilidad = 100.
-3. **Link contacto:** "crea deal de 50000" (sin contacto) → confirmar → "vincúlalo a Juan Pérez" → propuesta `link_contact_to_deal` con preview del cambio de contacto.
-4. **Multi-candidato:** crear dos contactos llamados "Juan" → "crea deal de 30000 para Juan" → la IA pregunta y muestra chips clickeables con cada Juan + empresa/teléfono. Click → continúa con la creación.
+**Problema actual:** El sidebar de "Historial reciente" solo guarda el primer turn de cada conversación. Al hacer click se dispara `ask(q.prompt)` que envía solo el prompt sin restaurar el hilo previo.
 
-## Archivos a tocar
+**Solución:** Persistir conversaciones completas (todos los turns) y permitir restaurarlas.
 
-| Archivo | Cambios |
-|---|---|
-| `src/store/aiDrawer.ts` | Bandera `hasStarted`, persistir `candidates` por turno |
-| `src/components/walix/AiDrawer.tsx` | Composer condicional, render de `candidates`, caso `link_contact_to_deal` en form, icon |
-| `src/services/ai.ts` | `ProposalKind` += `link_contact_to_deal`, tipo `CandidateChoice`, extensión de `AskAiResult` |
-| `supabase/functions/global-ai/index.ts` | Tools `propose_link_contact_to_deal` + `present_candidates`, ajuste prompt, mapeo `KIND_MAP`, propagar `candidates` en respuesta |
-| `supabase/functions/ai-execute/index.ts` | Handler `link_contact_to_deal` (preview + execute), fix probabilidad en `create_deal` |
+### Cambios
 
-Sin migraciones de DB. Sin nuevas dependencias.
+**`src/store/aiDrawer.ts`**
+- Cambiar el shape persistido: en lugar de `AiQuery[]` (turns sueltos) guardar `Conversation[]` donde `Conversation = { id, title, turns: AiQuery[], updatedAt }`. Title = primer prompt truncado a 60 chars.
+- Nueva acción `resumeConversation(id)`: carga `turns` completos al estado activo y deja `current` en el último turn.
+- En `ask()`: cuando es el primer turn de una conversación nueva, crear la `Conversation` y persistirla. En turns subsecuentes, hacer upsert (actualizar `turns` y `updatedAt` de la misma conversación). Mantener máx 5 conversaciones.
+- Migración suave: al cargar, si encuentra el shape antiguo (`AiQuery[]`) lo convierte a `Conversation[]` con un solo turn cada uno (key `walix.aiDrawer.history.v2`).
+
+**`src/components/walix/AiDrawer.tsx`**
+- Cambiar la lista del empty state: cada item del historial muestra título + cantidad de turns + timestamp relativo. Click llama a `resumeConversation(id)` en vez de `ask(prompt)`.
+- "Nueva" sigue funcionando (`clearConversation`) y al enviar el siguiente prompt arranca una nueva entrada.
+
+---
+
+## 2. Botón "Copiar respuesta" (#9)
+
+**Cambio:** En `AiDrawer.tsx`, junto a los botones de feedback (👍/👎) del último turn, agregar un botón ícono `Copy` (lucide-react) que copie `turn.answer` al clipboard usando `navigator.clipboard.writeText()`. Estado visual: ícono cambia a `Check` por 1.5s tras copiar. Toast opcional: "Copiado al portapapeles".
+
+Ubicación: dentro del bloque de feedback (línea ~470 aprox), antes o después de los thumbs.
+
+---
+
+## 3. Tool `propose_send_whatsapp_message` (#12)
+
+**Alcance:** Esta es una **propuesta interna** (no envío real a Meta WhatsApp Cloud API). Cuando se confirma:
+1. Inserta una row en `messages` con `direction='outbound'`, `type='text'`, `body=<texto>`, `is_internal_note=false`.
+2. Actualiza `conversations.last_message_at = now()` y `conversations.preview = body.slice(0,80)`.
+3. Inserta una `activities` row tipo `wa_sent` con descripción.
+4. Marcador en `metadata` de la row de `messages`: `{ source: "ai_drawer_proposal" }`.
+
+Esto deja todo trazado y visible en la UI de WhatsApp existente, sin pretender que se entregó por la red. (Cuando exista integración real de WA Cloud API, se reemplaza solo el handler de execute.)
+
+### Cambios
+
+**`supabase/functions/global-ai/index.ts`**
+- Agregar tool `propose_send_whatsapp_message` con params: `conversation_id` (uuid, requerido), `contact_id` (uuid, opcional para fallback de búsqueda), `body` (string 1–1000 chars, requerido), `summary`, `reasoning`.
+- Mapear en `KIND_MAP`: `propose_send_whatsapp_message → send_whatsapp_message`.
+- Catálogo extendido de conversaciones (ya está) + regla en system prompt: "Cuando el usuario pida enviar/responder WhatsApp a alguien, busca la conversación abierta con ese contacto. Si no existe, llama a `search_entity` kind='convo'. NO inventes texto: si el usuario no da el mensaje exacto, propón un borrador breve y menciona en `reasoning` que es un draft editable."
+
+**`src/services/ai.ts`**
+- Agregar `"send_whatsapp_message"` al union `ProposalKind`.
+
+**`supabase/functions/ai-execute/index.ts`**
+- **Preview** handler: valida `conversation_id` (uuid) y `body` (1–1000 chars). Devuelve `before: { Último mensaje: <preview actual> }`, `after: { Mensaje saliente: body, Para: <contact name> }`.
+- **Execute** handler: tx en 3 pasos (insert message, update conversation, insert activity). Requiere que la conversation pertenezca al tenant (RLS lo valida).
+- Validación: rechazar si la conversation está `Cerrado`.
+
+**`src/components/walix/AiDrawer.tsx`**
+- Agregar caso al `proposalIcon`: `send_whatsapp_message → MessageCircle`.
+- Agregar invalidación: `["whatsapp"]`, `["conversations"]`, `["messages"]` en `invalidateForKind`.
+- En el editor inline de payload (la sección "Pencil"), permitir editar el `body` del mensaje como textarea.
+
+---
+
+## Sin tocar
+
+- DB schema (todo usa tablas existentes: `messages`, `conversations`, `activities`).
+- RLS (las políticas tenant-scoped ya cubren los inserts/updates).
+- Auth flow.
+- Plan/limits.
+
+## Orden de implementación
+
+1. WhatsApp tool (backend + frontend) — el más mecánico.
+2. Botón Copiar — 1 archivo, 5 min.
+3. Retomar conversaciones — el más invasivo (cambio de shape persistido + UI del historial).
+
+¿Procedo?
