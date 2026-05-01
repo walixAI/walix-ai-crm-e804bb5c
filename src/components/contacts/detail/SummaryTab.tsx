@@ -1,9 +1,11 @@
-import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send } from "lucide-react";
+import { useState } from "react";
+import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send, Phone, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/format/relativeTime";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
-import { useContactAiSuggestions } from "@/lib/queries/contacts";
+import { useContactSuggestions } from "@/lib/queries/contacts";
+import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -17,9 +19,24 @@ const iconMap = {
 interface Props { contact: ContactRow; onWhatsApp: () => void; activity: ActivityRow[] }
 
 export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
-  const { data: suggestions = [] } = useContactAiSuggestions(contact.id);
-  const top = suggestions[0];
+  const { data: suggestions } = useContactSuggestions(contact.id);
+  const [index, setIndex] = useState(0);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState<string | undefined>(undefined);
+  const top = suggestions[index % Math.max(suggestions.length, 1)];
   const recent = activity.slice(0, 5);
+
+  const handlePrimary = () => {
+    if (!top) return onWhatsApp();
+    if (top.action === "whatsapp") return onWhatsApp();
+    setTaskTitle(top.taskTitle ?? `Llamar a ${contact.name}`);
+    setTaskOpen(true);
+  };
+
+  const handleScheduleCall = () => {
+    setTaskTitle(`Llamar a ${contact.name}`);
+    setTaskOpen(true);
+  };
 
   return (
     <div className="space-y-4">
@@ -32,14 +49,28 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
           <span className="text-xs font-semibold text-primary uppercase tracking-wide">Próximo paso sugerido</span>
         </div>
         <p className="text-sm leading-relaxed">
-          {top ? top.text : `Sin sugerencias activas para ${contact.name} por ahora.`}
+          {top?.text ?? `Sin sugerencias activas para ${contact.name} por ahora.`}
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
-          <Button onClick={onWhatsApp} size="sm" className="bg-success hover:bg-success/90 text-success-foreground h-8">
-            <Send className="h-3.5 w-3.5" /> {top?.cta ?? "Enviar por WhatsApp"}
+          <Button onClick={handlePrimary} size="sm" className="bg-success hover:bg-success/90 text-success-foreground h-8">
+            {top?.action === "task"
+              ? <Phone className="h-3.5 w-3.5" />
+              : <Send className="h-3.5 w-3.5" />}
+            {top?.cta ?? "Enviar por WhatsApp"}
           </Button>
-          <Button variant="outline" size="sm" className="h-8">Agendar llamada</Button>
-          <Button variant="ghost" size="sm" className="h-8">Otra sugerencia</Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={handleScheduleCall}>
+            <Phone className="h-3.5 w-3.5" /> Agendar llamada
+          </Button>
+          {suggestions.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={() => setIndex((i) => (i + 1) % suggestions.length)}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Otra sugerencia
+            </Button>
+          )}
         </div>
       </div>
 
@@ -70,6 +101,13 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
           )}
         </div>
       </div>
+
+      <QuickTaskDialog
+        open={taskOpen}
+        contactId={contact.id}
+        defaultTitle={taskTitle}
+        onClose={() => setTaskOpen(false)}
+      />
     </div>
   );
 }
