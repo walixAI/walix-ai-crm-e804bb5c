@@ -343,16 +343,27 @@ export function AiDrawer() {
                       <Clock className="h-3 w-3" /> Historial reciente
                     </div>
                     <div className="space-y-1.5">
-                      {history.map((q) => (
-                        <button
-                          key={q.id}
-                          onClick={() => ask(q.prompt)}
-                          className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
-                        >
-                          <span className="truncate flex-1 text-foreground">{q.prompt}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">{q.at}</span>
-                        </button>
-                      ))}
+                      {history.map((c) => {
+                        const turnsCount = c.turns.length;
+                        const ts = new Date(c.updatedAt);
+                        const tsLabel = ts.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => resumeConversation(c.id)}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
+                            title="Retomar conversación"
+                          >
+                            <span className="flex-1 min-w-0">
+                              <span className="block truncate text-foreground">{c.title}</span>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {turnsCount} {turnsCount === 1 ? "turno" : "turnos"}
+                              </span>
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{tsLabel}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
