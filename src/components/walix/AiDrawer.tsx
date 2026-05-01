@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus, Link2, HelpCircle } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus, Link2, HelpCircle, Copy } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
@@ -76,7 +76,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation, hasStarted } = useAiDrawer();
+  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation, hasStarted, resumeConversation } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stages = [] } = useStages();
@@ -95,7 +95,18 @@ export function AiDrawer() {
   const [livePayloads, setLivePayloads] = useState<Record<string, Record<string, any>>>({});
   // Conversational composer for follow-ups
   const [composer, setComposer] = useState("");
+  const [copied, setCopied] = useState<Record<string, boolean>>({});
   const scrollEndRef = useRef<HTMLDivElement>(null);
+  const copyAnswer = async (turnId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text.replace(/\[(deal|contact|convo):[^\]]+\|([^\]]+)\]/g, "$2").replace(/\*\*(.+?)\*\*/g, "$1"));
+      setCopied((s) => ({ ...s, [turnId]: true }));
+      toast({ title: "Copiado al portapapeles" });
+      setTimeout(() => setCopied((s) => ({ ...s, [turnId]: false })), 1500);
+    } catch {
+      toast({ title: "No se pudo copiar", variant: "destructive" });
+    }
+  };
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -214,6 +225,7 @@ export function AiDrawer() {
       case "create_contact": return UserPlus;
       case "create_deal": return KanbanSquare;
       case "link_contact_to_deal": return Link2;
+      case "send_whatsapp_message": return MessageCircle;
       default: return Wand2;
     }
   };
@@ -235,6 +247,12 @@ export function AiDrawer() {
     if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
     if (kind === "create_activity") queryClient.invalidateQueries({ queryKey: ["activities"] });
     if (kind === "update_contact" || kind === "create_contact") queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    if (kind === "send_whatsapp_message") {
+      queryClient.invalidateQueries({ queryKey: ["whatsapp"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+    }
     queryClient.invalidateQueries({ queryKey: ["audit-log"] });
   };
 
@@ -325,16 +343,27 @@ export function AiDrawer() {
                       <Clock className="h-3 w-3" /> Historial reciente
                     </div>
                     <div className="space-y-1.5">
-                      {history.map((q) => (
-                        <button
-                          key={q.id}
-                          onClick={() => ask(q.prompt)}
-                          className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
-                        >
-                          <span className="truncate flex-1 text-foreground">{q.prompt}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">{q.at}</span>
-                        </button>
-                      ))}
+                      {history.map((c) => {
+                        const turnsCount = c.turns.length;
+                        const ts = new Date(c.updatedAt);
+                        const tsLabel = ts.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => resumeConversation(c.id)}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
+                            title="Retomar conversación"
+                          >
+                            <span className="flex-1 min-w-0">
+                              <span className="block truncate text-foreground">{c.title}</span>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {turnsCount} {turnsCount === 1 ? "turno" : "turnos"}
+                              </span>
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{tsLabel}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -564,13 +593,23 @@ export function AiDrawer() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     ¿Te fue útil?
                   </span>
-                  {rating !== null ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-success">
-                      <Check className="h-3 w-3" /> Feedback enviado
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <button
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => copyAnswer(turn.id, turn.answer)}
+                      className="h-7 w-7 grid place-items-center rounded-md border border-border hover:bg-muted hover:border-primary/40 hover:text-primary transition-colors"
+                      aria-label="Copiar respuesta"
+                      title="Copiar respuesta"
+                    >
+                      {copied[turn.id] ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                    {rating !== null ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-success ml-1">
+                        <Check className="h-3 w-3" /> Feedback enviado
+                      </span>
+                    ) : (
+                      <>
+                        <button
                         type="button"
                         disabled={submitting}
                         onClick={() => sendFeedback(1)}
@@ -588,8 +627,9 @@ export function AiDrawer() {
                       >
                         <ThumbsDown className="h-3.5 w-3.5" />
                       </button>
-                    </div>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
                 )}
 
@@ -881,6 +921,23 @@ function ProposalEditForm({
           <Field label="Contacto ID" k="contact_id" />
           <div className="text-[10px] text-muted-foreground">
             Los IDs vienen del agente. Modifícalos solo si sabes lo que haces.
+          </div>
+        </div>
+      );
+    case "send_whatsapp_message":
+      return (
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Mensaje</Label>
+            <Textarea
+              value={payload.body ?? ""}
+              onChange={(e) => set("body", e.target.value)}
+              maxLength={1000}
+              className="text-xs min-h-[80px]"
+            />
+            <div className="text-[10px] text-muted-foreground text-right">
+              {(payload.body ?? "").length}/1000
+            </div>
           </div>
         </div>
       );

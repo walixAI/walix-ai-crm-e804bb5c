@@ -16,7 +16,8 @@ type Kind =
   | "update_contact"
   | "create_contact"
   | "create_deal"
-  | "link_contact_to_deal";
+  | "link_contact_to_deal"
+  | "send_whatsapp_message";
 
 interface Body {
   mode?: "preview" | "execute";
@@ -223,6 +224,25 @@ Deno.serve(async (req) => {
           const afterLabel = `${newContact.name}${newContact.last_name ? " " + newContact.last_name : ""}${newContact.company ? ` (${newContact.company})` : ""}`;
           return okPreview({ Contacto: beforeLabel }, { Contacto: afterLabel });
         }
+        case "send_whatsapp_message": {
+          if (!isUuid(p.conversation_id)) return bad(400, "conversation_id inválido");
+          const body = typeof p.body === "string" ? p.body.trim() : "";
+          if (!body) return bad(400, "body vacío");
+          if (body.length > 1000) return bad(400, "body demasiado largo (máx 1000)");
+          const { data: cv } = await supabase.from("conversations")
+            .select("id, status, preview, contact_id").eq("id", p.conversation_id).maybeSingle();
+          if (!cv) return bad(404, "Conversación no encontrada");
+          let toLabel = "—";
+          if (isUuid(cv.contact_id)) {
+            const { data: c } = await supabase.from("contacts")
+              .select("name, last_name").eq("id", cv.contact_id).maybeSingle();
+            if (c) toLabel = `${c.name}${c.last_name ? " " + c.last_name : ""}`;
+          }
+          return okPreview(
+            { "Último mensaje": (cv.preview ?? "—").slice(0, 80) || "—" },
+            { "Para": toLabel, "Mensaje saliente": body },
+          );
+        }
         default:
           return bad(400, `kind no soportado: ${body.kind}`);
       }
@@ -373,6 +393,42 @@ Deno.serve(async (req) => {
           .eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
         target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        break;
+      }
+      case "send_whatsapp_message": {
+        if (!isUuid(p.conversation_id)) return bad(400, "conversation_id inválido");
+        const text = typeof p.body === "string" ? p.body.trim() : "";
+        if (!text) return bad(400, "body vacío");
+        if (text.length > 1000) return bad(400, "body demasiado largo (máx 1000)");
+        const { data: cv } = await supabase.from("conversations")
+          .select("id, status, contact_id").eq("id", p.conversation_id).maybeSingle();
+        if (!cv) return bad(404, "Conversación no encontrada");
+        if (cv.status === "Cerrado") return bad(400, "La conversación está cerrada");
+        const nowIso = new Date().toISOString();
+        const preview = text.slice(0, 80);
+        const { data: msg, error: msgErr } = await supabase.from("messages").insert({
+          tenant_id: tenantId,
+          conversation_id: p.conversation_id,
+          direction: "outbound",
+          type: "text",
+          body: text,
+          is_internal_note: false,
+          metadata: { source: "ai_drawer_proposal", proposal_id: body.proposal_id },
+          sent_at: nowIso,
+        }).select("id").maybeSingle();
+        if (msgErr) return bad(400, msgErr.message);
+        await supabase.from("conversations").update({
+          last_message_at: nowIso,
+          preview,
+        }).eq("id", p.conversation_id);
+        await supabase.from("activities").insert({
+          tenant_id: tenantId,
+          type: "wa_sent",
+          description: preview,
+          contact_id: isUuid(cv.contact_id) ? cv.contact_id : null,
+          occurred_at: nowIso,
+        });
+        target_type = "message"; target_id = msg?.id ?? null;
         break;
       }
       default:
