@@ -17,6 +17,7 @@ type Kind =
   | "create_contact";
 
 interface Body {
+  mode?: "preview" | "execute";
   proposal_id: string;
   kind: Kind;
   payload: Record<string, unknown>;
@@ -36,6 +37,12 @@ function bad(status: number, error: string) {
 
 function ok(target_type: string, target_id: string | null, extra: Record<string, unknown> = {}) {
   return new Response(JSON.stringify({ ok: true, target_type, target_id, ...extra }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function okPreview(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
+  return new Response(JSON.stringify({ ok: true, before, after }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
@@ -72,6 +79,109 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Body;
     if (!body?.kind || !body?.payload) return bad(400, "Cuerpo inválido");
     const p = body.payload as any;
+    const mode = body.mode ?? "execute";
+
+    // ─── PREVIEW MODE: read current state, compute diff, do NOT write ───
+    if (mode === "preview") {
+      switch (body.kind) {
+        case "update_deal_stage": {
+          if (!isUuid(p.deal_id) || !isUuid(p.stage_id)) return bad(400, "deal_id/stage_id inválido");
+          const [{ data: deal }, { data: stage }] = await Promise.all([
+            supabase.from("deals").select("id, name, stage_name, probability").eq("id", p.deal_id).maybeSingle(),
+            supabase.from("pipeline_stages").select("id, name, is_won, is_lost").eq("id", p.stage_id).maybeSingle(),
+          ]);
+          if (!deal) return bad(404, "Deal no encontrado");
+          if (!stage) return bad(404, "Etapa no encontrada");
+          const after: Record<string, unknown> = { Etapa: stage.name };
+          if (stage.is_won) after["Probabilidad"] = 100;
+          if (stage.is_lost) after["Probabilidad"] = 0;
+          const before: Record<string, unknown> = { Etapa: deal.stage_name ?? "—" };
+          if ("Probabilidad" in after) before["Probabilidad"] = `${deal.probability ?? 0}%`;
+          if ("Probabilidad" in after) after["Probabilidad"] = `${after["Probabilidad"]}%`;
+          return okPreview(before, after);
+        }
+        case "update_deal_amount": {
+          if (!isUuid(p.deal_id)) return bad(400, "deal_id inválido");
+          const { data: deal } = await supabase.from("deals").select("amount, probability").eq("id", p.deal_id).maybeSingle();
+          if (!deal) return bad(404, "Deal no encontrado");
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          if (typeof p.amount === "number") {
+            before["Monto"] = `$${Number(deal.amount ?? 0).toLocaleString("es-MX")}`;
+            after["Monto"] = `$${p.amount.toLocaleString("es-MX")}`;
+          }
+          if (typeof p.probability === "number") {
+            before["Probabilidad"] = `${deal.probability ?? 0}%`;
+            after["Probabilidad"] = `${Math.round(p.probability)}%`;
+          }
+          return okPreview(before, after);
+        }
+        case "mark_deal_won": {
+          if (!isUuid(p.deal_id)) return bad(400, "deal_id inválido");
+          const { data: deal } = await supabase.from("deals").select("stage_name, probability, is_won, is_lost").eq("id", p.deal_id).maybeSingle();
+          if (!deal) return bad(404, "Deal no encontrado");
+          return okPreview(
+            { Estado: deal.is_won ? "Ganado" : deal.is_lost ? "Perdido" : "Abierto", Probabilidad: `${deal.probability ?? 0}%` },
+            { Estado: "Ganado", Probabilidad: "100%" },
+          );
+        }
+        case "mark_deal_lost": {
+          if (!isUuid(p.deal_id)) return bad(400, "deal_id inválido");
+          const { data: deal } = await supabase.from("deals").select("stage_name, is_won, is_lost").eq("id", p.deal_id).maybeSingle();
+          if (!deal) return bad(404, "Deal no encontrado");
+          const after: Record<string, unknown> = { Estado: "Perdido", Probabilidad: "0%" };
+          if (typeof p.lost_reason === "string") after["Motivo"] = p.lost_reason;
+          if (typeof p.lost_comment === "string" && p.lost_comment.trim()) after["Comentario"] = p.lost_comment;
+          return okPreview(
+            { Estado: deal.is_won ? "Ganado" : deal.is_lost ? "Perdido" : "Abierto" },
+            after,
+          );
+        }
+        case "create_task": {
+          const after: Record<string, unknown> = { Título: p.title ?? "—" };
+          if (typeof p.due_at === "string") after["Vence"] = p.due_at;
+          return okPreview(null, after);
+        }
+        case "create_activity": {
+          return okPreview(null, { Tipo: p.type ?? "note", Descripción: p.description ?? "—" });
+        }
+        case "update_contact": {
+          if (!isUuid(p.contact_id)) return bad(400, "contact_id inválido");
+          const { data: contact } = await supabase.from("contacts")
+            .select("name, last_name, email, phone, company, position, status, tags")
+            .eq("id", p.contact_id).maybeSingle();
+          if (!contact) return bad(404, "Contacto no encontrado");
+          const fields = ["name", "last_name", "email", "phone", "company", "position", "status"] as const;
+          const labels: Record<string, string> = {
+            name: "Nombre", last_name: "Apellido", email: "Email", phone: "Teléfono",
+            company: "Empresa", position: "Puesto", status: "Estado",
+          };
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          for (const f of fields) {
+            if (typeof p[f] === "string" && p[f] !== (contact as any)[f]) {
+              before[labels[f]] = (contact as any)[f] ?? "—";
+              after[labels[f]] = p[f];
+            }
+          }
+          if (Array.isArray(p.tags)) {
+            const cur = (contact.tags ?? []).join(", ") || "—";
+            const next = p.tags.join(", ") || "—";
+            if (cur !== next) { before["Tags"] = cur; after["Tags"] = next; }
+          }
+          return okPreview(before, after);
+        }
+        case "create_contact": {
+          const after: Record<string, unknown> = {};
+          for (const f of ["name", "last_name", "phone", "email", "company", "position", "status"]) {
+            if (typeof p[f] === "string" && p[f]) after[f === "name" ? "Nombre" : f === "last_name" ? "Apellido" : f === "phone" ? "Teléfono" : f === "email" ? "Email" : f === "company" ? "Empresa" : f === "position" ? "Puesto" : "Estado"] = p[f];
+          }
+          return okPreview(null, after);
+        }
+        default:
+          return bad(400, `kind no soportado: ${body.kind}`);
+      }
+    }
 
     let target_type = "";
     let target_id: string | null = null;
