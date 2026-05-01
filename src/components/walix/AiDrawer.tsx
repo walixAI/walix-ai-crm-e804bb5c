@@ -653,7 +653,7 @@ export function AiDrawer() {
         </ScrollArea>
 
         {/* Composer — always visible when there's at least one turn, lets the user reply */}
-        {turns.length > 0 ? (
+        {(hasStarted || turns.length > 0) ? (
           <div className="p-3 border-t border-border bg-background/80 space-y-2">
             <div className="relative">
               <Textarea
