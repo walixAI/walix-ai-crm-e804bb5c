@@ -256,7 +256,7 @@ export function AiDrawer() {
               </div>
             )}
 
-            {current && !loading && (
+            {current && !loading && source !== "error" && (
               <div className="space-y-3">
                 <div className="rounded-xl bg-muted px-3 py-2 text-sm">
                   <span className="text-muted-foreground">Tú: </span>
@@ -346,7 +346,7 @@ export function AiDrawer() {
                               <ProposalEditForm
                                 kind={p.kind}
                                 payload={draft}
-                                stages={(current?.proposals ?? []).length ? undefined : undefined}
+                                stages={stages.map((s) => ({ id: s.id, name: s.name }))}
                                 onChange={(next) => setEditPayload((s) => ({ ...s, [p.id]: next }))}
                               />
                               <div className="flex gap-1.5 justify-end">
@@ -356,7 +356,7 @@ export function AiDrawer() {
                                 </Button>
                                 <Button size="sm" className="h-7 text-xs"
                                   onClick={() => {
-                                    const merged = { ...p.payload, ...draft };
+                                    const merged = { ...(livePayloads[p.id] ?? p.payload), ...draft };
                                     setLivePayloads((s) => ({ ...s, [p.id]: merged }));
                                     setEditing((s) => ({ ...s, [p.id]: false }));
                                     refreshPreview(p, merged);
@@ -512,11 +512,19 @@ export function AiDrawer() {
             )}
 
             {current && !loading && source === "error" && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
+              <div className="space-y-3">
+                <div className="rounded-xl bg-muted px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Tú: </span>
+                  {current.prompt}
+                </div>
+                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
                 <div className="flex items-start gap-2 text-[12px] text-destructive">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="font-semibold">No pude conectar con el servicio de IA</div>
+                    <div className="text-[11px] text-destructive/80 mt-0.5">
+                      Intenta de nuevo en unos segundos.
+                    </div>
                     {errorMessage && (
                       <div className="text-[10px] text-destructive/80 mt-0.5 break-words">{errorMessage}</div>
                     )}
@@ -527,6 +535,7 @@ export function AiDrawer() {
                   <Button size="sm" className="h-7 text-xs" onClick={() => retry()}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
                   </Button>
+                </div>
                 </div>
               </div>
             )}
