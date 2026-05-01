@@ -11,6 +11,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useStages } from "@/lib/queries/pipeline";
 import { toast } from "@/hooks/use-toast";
 
 // ── Citation rendering ──────────────────────────────────────────────────
@@ -77,6 +79,7 @@ export function AiDrawer() {
   const { open, closeDrawer, current, loading, history, ask, source, errorMessage, retry } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: stages = [] } = useStages();
   const [rating, setRating] = useState<AiRating | null>(null);
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [comment, setComment] = useState("");
@@ -253,7 +256,7 @@ export function AiDrawer() {
               </div>
             )}
 
-            {current && !loading && (
+            {current && !loading && source !== "error" && (
               <div className="space-y-3">
                 <div className="rounded-xl bg-muted px-3 py-2 text-sm">
                   <span className="text-muted-foreground">Tú: </span>
@@ -343,7 +346,7 @@ export function AiDrawer() {
                               <ProposalEditForm
                                 kind={p.kind}
                                 payload={draft}
-                                stages={(current?.proposals ?? []).length ? undefined : undefined}
+                                stages={stages.map((s) => ({ id: s.id, name: s.name }))}
                                 onChange={(next) => setEditPayload((s) => ({ ...s, [p.id]: next }))}
                               />
                               <div className="flex gap-1.5 justify-end">
@@ -353,7 +356,7 @@ export function AiDrawer() {
                                 </Button>
                                 <Button size="sm" className="h-7 text-xs"
                                   onClick={() => {
-                                    const merged = { ...p.payload, ...draft };
+                                    const merged = { ...(livePayloads[p.id] ?? p.payload), ...draft };
                                     setLivePayloads((s) => ({ ...s, [p.id]: merged }));
                                     setEditing((s) => ({ ...s, [p.id]: false }));
                                     refreshPreview(p, merged);
@@ -509,11 +512,19 @@ export function AiDrawer() {
             )}
 
             {current && !loading && source === "error" && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
+              <div className="space-y-3">
+                <div className="rounded-xl bg-muted px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Tú: </span>
+                  {current.prompt}
+                </div>
+                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
                 <div className="flex items-start gap-2 text-[12px] text-destructive">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="font-semibold">No pude conectar con el servicio de IA</div>
+                    <div className="text-[11px] text-destructive/80 mt-0.5">
+                      Intenta de nuevo en unos segundos.
+                    </div>
                     {errorMessage && (
                       <div className="text-[10px] text-destructive/80 mt-0.5 break-words">{errorMessage}</div>
                     )}
@@ -524,6 +535,7 @@ export function AiDrawer() {
                   <Button size="sm" className="h-7 text-xs" onClick={() => retry()}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
                   </Button>
+                </div>
                 </div>
               </div>
             )}
@@ -603,6 +615,7 @@ function DiffTable({ before, after }: { before?: any; after?: any }) {
 function ProposalEditForm({
   kind,
   payload,
+  stages,
   onChange,
 }: {
   kind: ProposalKind;
@@ -625,6 +638,23 @@ function ProposalEditForm({
     </div>
   );
 
+  const EnumField = ({ label, k, options }: { label: string; k: string; options: string[] }) => (
+    <div className="space-y-1">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Select value={payload[k] ?? ""} onValueChange={(v) => set(k, v)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const STATUS_OPTS = ["Nuevo", "Contactado", "Calificado", "Propuesta", "Cerrado", "Perdido"];
+  const ACTIVITY_OPTS = ["note", "deal", "task", "wa_sent", "wa_received"];
+
   switch (kind) {
     case "update_deal_amount":
       return (
@@ -634,7 +664,22 @@ function ProposalEditForm({
         </div>
       );
     case "update_deal_stage":
-      return <Field label="Stage ID" k="stage_id" placeholder="UUID de la etapa" />;
+      return (
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Etapa destino</Label>
+          <Select value={payload.stage_id ?? ""} onValueChange={(v) => set("stage_id", v)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecciona etapa…" /></SelectTrigger>
+            <SelectContent>
+              {(stages ?? []).map((s) => (
+                <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+              ))}
+              {(!stages || stages.length === 0) && (
+                <div className="px-2 py-1 text-[11px] text-muted-foreground">Sin etapas disponibles</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      );
     case "create_task":
       return (
         <div className="space-y-2">
@@ -645,7 +690,7 @@ function ProposalEditForm({
     case "create_activity":
       return (
         <div className="space-y-2">
-          <Field label="Tipo" k="type" placeholder="note | deal | task | wa_sent | wa_received" />
+          <EnumField label="Tipo" k="type" options={ACTIVITY_OPTS} />
           <div className="space-y-1">
             <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Descripción</Label>
             <Textarea
@@ -667,7 +712,7 @@ function ProposalEditForm({
           <Field label="Empresa" k="company" />
           <Field label="Puesto" k="position" />
           <div className="col-span-2">
-            <Field label="Estado" k="status" placeholder="Nuevo | Contactado | Calificado | Propuesta | Cerrado | Perdido" />
+            <EnumField label="Estado" k="status" options={STATUS_OPTS} />
           </div>
         </div>
       );

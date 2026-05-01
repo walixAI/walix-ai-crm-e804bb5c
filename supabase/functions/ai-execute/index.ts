@@ -127,6 +127,9 @@ Deno.serve(async (req) => {
         }
         case "mark_deal_lost": {
           if (!isUuid(p.deal_id)) return bad(400, "deal_id inválido");
+          if (typeof p.lost_reason !== "string" || !p.lost_reason.trim()) {
+            return bad(400, "Falta motivo de pérdida — edita la propuesta");
+          }
           const { data: deal } = await supabase.from("deals").select("stage_name, is_won, is_lost").eq("id", p.deal_id).maybeSingle();
           if (!deal) return bad(404, "Deal no encontrado");
           const after: Record<string, unknown> = { Estado: "Perdido", Probabilidad: "0%" };

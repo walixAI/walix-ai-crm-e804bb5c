@@ -215,21 +215,28 @@ export async function askAi(opts: {
   try {
     return await attempt();
   } catch (err1) {
-    console.warn("[ai.askAi] retry after:", err1);
-    await new Promise((r) => setTimeout(r, 800));
-    try {
-      return await attempt();
-    } catch (err2) {
-      console.warn("[ai.askAi] failed:", err2);
-      const msg = err2 instanceof Error ? err2.message : "Error desconocido";
-      return {
-        text: fallbackAiResponse(opts.prompt),
-        actions: [],
-        proposals: [],
-        source: "error",
-        errorMessage: msg,
-      };
+    const msg1 = err1 instanceof Error ? err1.message : String(err1);
+    const isRate = /429|rate|demasiad/i.test(msg1);
+    const delays = isRate ? [1500, 3000] : [800];
+    console.warn(`[ai.askAi] retry (${isRate ? "rate-limit" : "generic"}) after:`, msg1);
+    let lastErr: unknown = err1;
+    for (const d of delays) {
+      await new Promise((r) => setTimeout(r, d));
+      try {
+        return await attempt();
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[ai.askAi] retry failed (waited ${d}ms):`, e);
+      }
     }
+    const msg = lastErr instanceof Error ? lastErr.message : "Error desconocido";
+    return {
+      text: fallbackAiResponse(opts.prompt),
+      actions: [],
+      proposals: [],
+      source: "error",
+      errorMessage: msg,
+    };
   }
 }
 
