@@ -10,6 +10,12 @@ interface Body {
   mode: "ask";
   prompt: string;
   history?: { role: "user" | "assistant"; content: string }[];
+  context?: {
+    route?: string;
+    entityType?: "deal" | "contact" | "convo";
+    entityId?: string;
+    entityLabel?: string;
+  } | null;
 }
 
 function fmtMXN(n: number) {
@@ -88,6 +94,38 @@ Deno.serve(async (req) => {
     const contacts = contactsRes.data ?? [];
     const stages = stagesRes.data ?? [];
 
+    // ---- Page context: enrich prompt if user is viewing a specific entity ----
+    let pageContextBlock = "";
+    const ctxIn = body.context;
+    if (ctxIn?.entityType && ctxIn?.entityId) {
+      try {
+        if (ctxIn.entityType === "deal") {
+          const { data: d } = await supabase.from("deals")
+            .select("id, name, amount, probability, stage_name, last_activity_at, is_won, is_lost")
+            .eq("id", ctxIn.entityId).maybeSingle();
+          if (d) {
+            pageContextBlock = `## Contexto de la página actual\nEl usuario está viendo el deal **${d.name}** (id: ${d.id}).\n  · Etapa: ${d.stage_name ?? "—"} · Monto: ${fmtMXN(Number(d.amount ?? 0))} · Prob: ${d.probability ?? 0}%\n  · Estado: ${d.is_won ? "Ganado" : d.is_lost ? "Perdido" : "Abierto"} · Última actividad: ${d.last_activity_at ?? "—"}\nSi el usuario usa pronombres ("súbele", "muévelo", "ciérralo"), asume que se refiere a este deal.`;
+            if (!deals.find((x: any) => x.id === d.id)) deals.unshift(d as any);
+          }
+        } else if (ctxIn.entityType === "contact") {
+          const { data: c } = await supabase.from("contacts")
+            .select("id, name, last_name, company, phone, email, status")
+            .eq("id", ctxIn.entityId).maybeSingle();
+          if (c) {
+            pageContextBlock = `## Contexto de la página actual\nEl usuario está viendo el contacto **${c.name} ${c.last_name ?? ""}** (id: ${c.id}).\n  · Empresa: ${c.company ?? "—"} · Tel: ${c.phone ?? "—"} · Estado: ${c.status ?? "—"}\nSi el usuario usa pronombres ("actualízalo", "agrégale tag"), asume que se refiere a este contacto.`;
+            if (!contacts.find((x: any) => x.id === c.id)) contacts.unshift(c as any);
+          }
+        } else if (ctxIn.entityType === "convo") {
+          const { data: cv } = await supabase.from("conversations")
+            .select("id, status, unread_count, preview, contact_id").eq("id", ctxIn.entityId).maybeSingle();
+          if (cv) {
+            const cn = contacts.find((k: any) => k.id === cv.contact_id);
+            pageContextBlock = `## Contexto de la página actual\nEl usuario está viendo la conversación con **${cn?.name ?? "—"}** (id: ${cv.id}).\n  · Estado: ${cv.status ?? "—"} · Sin leer: ${cv.unread_count ?? 0} · Último: "${(cv.preview ?? "").slice(0, 80)}"`;
+          }
+        }
+      } catch (e) { console.warn("page context fetch failed", e); }
+    }
+
     // ---- Compact summary fed to the model ----
     const totalPipeline = deals.reduce((s, d: any) => s + Number(d.amount ?? 0), 0);
     const now = Date.now();
@@ -139,9 +177,17 @@ Deno.serve(async (req) => {
           "actualizar contacto, registrar nota), NO afirmes que ya lo hiciste. En su lugar llama a la herramienta " +
           "`propose_*` correspondiente con los datos exactos. La acción se ejecuta SOLO cuando el usuario la confirme en la UI. " +
           "En el texto, anuncia brevemente: 'Preparé este cambio para que lo confirmes.' " +
-          "Puedes proponer hasta 3 cambios por turno. Usa SOLO IDs presentes en los catálogos.",
+          "Puedes proponer hasta 3 cambios por turno. Usa SOLO IDs presentes en los catálogos.\n\n" +
+          "BÚSQUEDA: si el usuario menciona un deal o contacto que NO aparece en los catálogos, NO inventes el ID. " +
+          "Llama primero a `search_entity` con el nombre/teléfono/email parcial. Si hay múltiples resultados, " +
+          "pide al usuario que aclare cuál antes de proponer.\n\n" +
+          "EXPLICACIÓN: cada `propose_*` incluye un campo `reasoning` (máx 200 chars) con 1-2 frases sobre qué " +
+          "datos del contexto motivaron la propuesta (etapa, días sin actividad, monto, conversación, etc.). " +
+          "El usuario podrá editar la propuesta antes de confirmar; si no estás 100% seguro de un valor, " +
+          "propón el más razonable y mencionalo en el reasoning.",
       },
       { role: "system", content: ctx },
+      ...(pageContextBlock ? [{ role: "system", content: pageContextBlock }] : []),
       {
         role: "system",
         content:
@@ -185,6 +231,21 @@ Deno.serve(async (req) => {
       {
         type: "function",
         function: {
+          name: "search_entity",
+          description: "Busca un deal, contacto o conversación por nombre/teléfono/email parcial cuando NO está en los catálogos. Devuelve hasta 5 candidatos con sus IDs.",
+          parameters: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["deal", "contact", "convo"] },
+              query: { type: "string", description: "Texto parcial: nombre, teléfono o email" },
+            },
+            required: ["kind", "query"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
           name: "propose_update_deal_stage",
           description: "Propone mover un deal a otra etapa del pipeline. Requiere confirmación humana.",
           parameters: {
@@ -193,6 +254,7 @@ Deno.serve(async (req) => {
               deal_id: { type: "string", description: "UUID del deal (catálogo Deals)" },
               stage_id: { type: "string", description: "UUID de la etapa destino (catálogo Etapas)" },
               summary: { type: "string", description: "Resumen humano: 'Mover **Acme** a Negociación'" },
+              reasoning: { type: "string", description: "1-2 frases sobre qué datos motivan esta propuesta (máx 200 chars)" },
             },
             required: ["deal_id", "stage_id", "summary"],
           },
@@ -210,6 +272,7 @@ Deno.serve(async (req) => {
               amount: { type: "number", minimum: 0 },
               probability: { type: "number", minimum: 0, maximum: 100 },
               summary: { type: "string" },
+              reasoning: { type: "string" },
             },
             required: ["deal_id", "summary"],
           },
@@ -228,6 +291,7 @@ Deno.serve(async (req) => {
               lost_reason: { type: "string" },
               lost_comment: { type: "string" },
               summary: { type: "string" },
+              reasoning: { type: "string" },
             },
             required: ["deal_id", "outcome", "summary"],
           },
@@ -246,6 +310,7 @@ Deno.serve(async (req) => {
               deal_id: { type: "string" },
               contact_id: { type: "string" },
               summary: { type: "string" },
+              reasoning: { type: "string" },
             },
             required: ["title", "summary"],
           },
@@ -264,6 +329,7 @@ Deno.serve(async (req) => {
               deal_id: { type: "string" },
               contact_id: { type: "string" },
               summary: { type: "string" },
+              reasoning: { type: "string" },
             },
             required: ["type", "description", "summary"],
           },
@@ -287,6 +353,7 @@ Deno.serve(async (req) => {
               status: { type: "string", enum: ["Nuevo", "Contactado", "Calificado", "Propuesta", "Cerrado", "Perdido"] },
               tags: { type: "array", items: { type: "string" } },
               summary: { type: "string" },
+              reasoning: { type: "string" },
             },
             required: ["contact_id", "summary"],
           },
@@ -307,6 +374,7 @@ Deno.serve(async (req) => {
               company: { type: "string" },
               position: { type: "string" },
               summary: { type: "string" },
+              reasoning: { type: "string" },
             },
             required: ["name", "phone", "summary"],
           },
@@ -314,16 +382,81 @@ Deno.serve(async (req) => {
       },
     ];
 
-    const out = await callGateway({ model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" });
-    if ("error" in out) {
-      return new Response(JSON.stringify({ error: out.error }), {
-        status: out.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const choice = out.json?.choices?.[0]?.message;
-    const text = choice?.content ?? "";
+    // ─── Multi-turn loop to support search_entity ───
+    const convoMessages: any[] = [...messages];
+    let choice: any = null;
     let actions: any[] = [];
     const proposals: any[] = [];
+    const MAX_TURNS = 3;
+
+    for (let turn = 0; turn < MAX_TURNS; turn++) {
+      const out = await callGateway({ model: "google/gemini-2.5-flash", messages: convoMessages, tools, tool_choice: "auto" });
+      if ("error" in out) {
+        return new Response(JSON.stringify({ error: out.error }), {
+          status: out.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      choice = out.json?.choices?.[0]?.message;
+      const toolCalls = choice?.tool_calls ?? [];
+
+      // Check if model invoked search_entity → resolve and loop
+      const searches = toolCalls.filter((tc: any) => tc?.function?.name === "search_entity");
+      if (searches.length > 0) {
+        convoMessages.push({
+          role: "assistant",
+          content: choice.content ?? "",
+          tool_calls: toolCalls,
+        });
+        for (const tc of toolCalls) {
+          if (tc?.function?.name !== "search_entity") {
+            // ignore other calls in this turn — re-emit will happen naturally
+            convoMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ ignored: true }) });
+            continue;
+          }
+          let args: any = {};
+          try { args = JSON.parse(tc.function.arguments ?? "{}"); } catch {}
+          const q = String(args.query ?? "").trim();
+          let results: any[] = [];
+          if (q.length >= 2) {
+            const like = `%${q}%`;
+            if (args.kind === "deal") {
+              const { data } = await supabase.from("deals")
+                .select("id, name, stage_name, amount").ilike("name", like).limit(5);
+              results = data ?? [];
+            } else if (args.kind === "contact") {
+              const { data } = await supabase.from("contacts")
+                .select("id, name, last_name, company, phone, email")
+                .or(`name.ilike.${like},last_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
+                .limit(5);
+              results = data ?? [];
+            } else if (args.kind === "convo") {
+              const { data: cMatches } = await supabase.from("contacts")
+                .select("id, name").ilike("name", like).limit(10);
+              const ids = (cMatches ?? []).map((c: any) => c.id);
+              if (ids.length) {
+                const { data: cv } = await supabase.from("conversations")
+                  .select("id, contact_id, status, preview").in("contact_id", ids).limit(5);
+                results = (cv ?? []).map((c: any) => ({
+                  ...c,
+                  contact_name: cMatches?.find((m: any) => m.id === c.contact_id)?.name,
+                }));
+              }
+            }
+          }
+          convoMessages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ kind: args.kind, query: q, results }),
+          });
+        }
+        continue; // next turn
+      }
+
+      // No search → process final proposals/actions and break
+      break;
+    }
+
+    const text = choice?.content ?? "";
     const KIND_MAP: Record<string, string> = {
       propose_update_deal_stage: "update_deal_stage",
       propose_update_deal_amount: "update_deal_amount",
@@ -341,16 +474,29 @@ Deno.serve(async (req) => {
         if (Array.isArray(args.actions)) actions = args.actions.slice(0, 4);
         continue;
       }
+      if (name === "search_entity") continue; // handled in loop
       if (name === "propose_close_deal") {
         const kind = args.outcome === "won" ? "mark_deal_won" : "mark_deal_lost";
-        const { summary, outcome: _o, ...payload } = args;
-        proposals.push({ id: crypto.randomUUID(), kind, summary: summary ?? "Cerrar deal", payload });
+        const { summary, reasoning, outcome: _o, ...payload } = args;
+        proposals.push({
+          id: crypto.randomUUID(),
+          kind,
+          summary: summary ?? "Cerrar deal",
+          reasoning: typeof reasoning === "string" ? reasoning.slice(0, 300) : undefined,
+          payload,
+        });
         continue;
       }
       const kind = KIND_MAP[name];
       if (!kind) continue;
-      const { summary, ...payload } = args;
-      proposals.push({ id: crypto.randomUUID(), kind, summary: summary ?? kind, payload });
+      const { summary, reasoning, ...payload } = args;
+      proposals.push({
+        id: crypto.randomUUID(),
+        kind,
+        summary: summary ?? kind,
+        reasoning: typeof reasoning === "string" ? reasoning.slice(0, 300) : undefined,
+        payload,
+      });
     }
     let finalText = text;
     if (!finalText && proposals.length > 0) {
