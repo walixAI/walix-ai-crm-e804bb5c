@@ -1,11 +1,12 @@
 import { create } from "zustand";
-import { askAi, type AiAction } from "@/services/ai";
+import { askAi, type AiAction, type ProposedChange } from "@/services/ai";
 
 export interface AiQuery {
   id: string;
   prompt: string;
   answer: string;
   actions: AiAction[];
+  proposals: ProposedChange[];
   at: string;
 }
 
@@ -57,6 +58,7 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
       prompt,
       answer: result.text,
       actions: result.actions ?? [],
+      proposals: result.proposals ?? [],
       at: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
     };
     const history = [q, ...get().history].slice(0, 5);
