@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus, Link2, HelpCircle } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus, Link2, HelpCircle, Copy } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
@@ -76,7 +76,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation, hasStarted } = useAiDrawer();
+  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation, hasStarted, resumeConversation } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stages = [] } = useStages();
@@ -95,7 +95,18 @@ export function AiDrawer() {
   const [livePayloads, setLivePayloads] = useState<Record<string, Record<string, any>>>({});
   // Conversational composer for follow-ups
   const [composer, setComposer] = useState("");
+  const [copied, setCopied] = useState<Record<string, boolean>>({});
   const scrollEndRef = useRef<HTMLDivElement>(null);
+  const copyAnswer = async (turnId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text.replace(/\[(deal|contact|convo):[^\]]+\|([^\]]+)\]/g, "$2").replace(/\*\*(.+?)\*\*/g, "$1"));
+      setCopied((s) => ({ ...s, [turnId]: true }));
+      toast({ title: "Copiado al portapapeles" });
+      setTimeout(() => setCopied((s) => ({ ...s, [turnId]: false })), 1500);
+    } catch {
+      toast({ title: "No se pudo copiar", variant: "destructive" });
+    }
+  };
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -214,6 +225,7 @@ export function AiDrawer() {
       case "create_contact": return UserPlus;
       case "create_deal": return KanbanSquare;
       case "link_contact_to_deal": return Link2;
+      case "send_whatsapp_message": return MessageCircle;
       default: return Wand2;
     }
   };
@@ -235,6 +247,12 @@ export function AiDrawer() {
     if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
     if (kind === "create_activity") queryClient.invalidateQueries({ queryKey: ["activities"] });
     if (kind === "update_contact" || kind === "create_contact") queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    if (kind === "send_whatsapp_message") {
+      queryClient.invalidateQueries({ queryKey: ["whatsapp"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+    }
     queryClient.invalidateQueries({ queryKey: ["audit-log"] });
   };
 
