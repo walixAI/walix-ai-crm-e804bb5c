@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus, Link2, HelpCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
@@ -76,7 +76,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation } = useAiDrawer();
+  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation, hasStarted } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stages = [] } = useStages();
@@ -213,6 +213,7 @@ export function AiDrawer() {
       case "update_contact": return UserIcon;
       case "create_contact": return UserPlus;
       case "create_deal": return KanbanSquare;
+      case "link_contact_to_deal": return Link2;
       default: return Wand2;
     }
   };
@@ -225,6 +226,11 @@ export function AiDrawer() {
     if (kind === "create_deal") {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+    }
+    if (kind === "link_contact_to_deal") {
+      queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     }
     if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
     if (kind === "create_activity") queryClient.invalidateQueries({ queryKey: ["activities"] });
