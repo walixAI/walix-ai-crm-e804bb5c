@@ -26,11 +26,13 @@ interface AuthState {
   organizations: OrgMembership[];
   activeTenantId: string | null;
   loading: boolean;
+  contextLoading: boolean;
   setSession: (session: Session | null) => void;
   setRoles: (roles: Role[]) => void;
   setOrganizations: (orgs: OrgMembership[]) => void;
   setActiveTenantId: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
+  setContextLoading: (loading: boolean) => void;
   reset: () => void;
 }
 
@@ -41,10 +43,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   organizations: [],
   activeTenantId: null,
   loading: true,
+  contextLoading: true,
   setSession: (session) => set({ session, user: session?.user ?? null }),
   setRoles: (roles) => set({ roles }),
   setOrganizations: (organizations) => set({ organizations }),
   setActiveTenantId: (activeTenantId) => set({ activeTenantId }),
   setLoading: (loading) => set({ loading }),
-  reset: () => set({ user: null, session: null, roles: [], organizations: [], activeTenantId: null }),
+  setContextLoading: (contextLoading) => set({ contextLoading }),
+  reset: () => set({ user: null, session: null, roles: [], organizations: [], activeTenantId: null, contextLoading: false }),
 }));
