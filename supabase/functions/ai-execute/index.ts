@@ -26,6 +26,8 @@ interface Body {
   payload: Record<string, unknown>;
   summary?: string;
   prompt?: string;
+  /** Last few conversational turns (user + assistant) that led to this proposal. */
+  history?: { role: "user" | "assistant"; content: string }[];
 }
 
 const ACTIVITY_TYPES = ["wa_sent", "wa_received", "note", "deal", "task"];
@@ -326,8 +328,10 @@ Deno.serve(async (req) => {
       case "update_contact": {
         if (!isUuid(p.contact_id)) return bad(400, "contact_id inválido");
         const upd: any = {};
+        // Only persist non-empty string fields — empty strings would erase
+        // existing values when the user blanks an input by mistake.
         for (const k of ["name", "last_name", "email", "phone", "company", "position"]) {
-          if (typeof p[k] === "string") upd[k] = p[k];
+          if (typeof p[k] === "string" && p[k].trim() !== "") upd[k] = p[k];
         }
         if (typeof p.status === "string" && LEAD_STATUSES.includes(p.status)) upd.status = p.status;
         if (Array.isArray(p.tags) && p.tags.every((x: unknown) => typeof x === "string")) upd.tags = p.tags;
@@ -342,7 +346,7 @@ Deno.serve(async (req) => {
         if (typeof p.phone !== "string" || !p.phone.trim()) return bad(400, "phone requerido");
         const ins: any = { tenant_id: tenantId, name: p.name.trim(), phone: p.phone.trim() };
         for (const k of ["last_name", "email", "company", "position"]) {
-          if (typeof p[k] === "string") ins[k] = p[k];
+          if (typeof p[k] === "string" && p[k].trim() !== "") ins[k] = p[k];
         }
         if (typeof p.status === "string" && LEAD_STATUSES.includes(p.status)) ins.status = p.status;
         const { data, error } = await supabase.from("contacts").insert(ins).select("id").maybeSingle();
@@ -447,6 +451,12 @@ Deno.serve(async (req) => {
         proposal_id: body.proposal_id,
         summary: body.summary ?? null,
         prompt: body.prompt ?? null,
+        conversation_history: Array.isArray(body.history) && body.history.length
+          ? body.history.slice(-6).map((h) => ({
+              role: h.role,
+              content: typeof h.content === "string" ? h.content.slice(0, 500) : "",
+            }))
+          : null,
         payload: body.payload,
         ai_model: "google/gemini-2.5-flash",
       },

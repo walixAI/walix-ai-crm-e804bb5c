@@ -1,80 +1,147 @@
-# Mejoras de prioridad media — Walix.ai
+# Mejoras de prioridad baja — AI Drawer (Walix.ai)
 
-Tres mejoras independientes en el agente conversacional. Sin cambios de DB.
-
----
-
-## 1. Retomar conversaciones del historial (#7)
-
-**Problema actual:** El sidebar de "Historial reciente" solo guarda el primer turn de cada conversación. Al hacer click se dispara `ask(q.prompt)` que envía solo el prompt sin restaurar el hilo previo.
-
-**Solución:** Persistir conversaciones completas (todos los turns) y permitir restaurarlas.
-
-### Cambios
-
-**`src/store/aiDrawer.ts`**
-- Cambiar el shape persistido: en lugar de `AiQuery[]` (turns sueltos) guardar `Conversation[]` donde `Conversation = { id, title, turns: AiQuery[], updatedAt }`. Title = primer prompt truncado a 60 chars.
-- Nueva acción `resumeConversation(id)`: carga `turns` completos al estado activo y deja `current` en el último turn.
-- En `ask()`: cuando es el primer turn de una conversación nueva, crear la `Conversation` y persistirla. En turns subsecuentes, hacer upsert (actualizar `turns` y `updatedAt` de la misma conversación). Mantener máx 5 conversaciones.
-- Migración suave: al cargar, si encuentra el shape antiguo (`AiQuery[]`) lo convierte a `Conversation[]` con un solo turn cada uno (key `walix.aiDrawer.history.v2`).
-
-**`src/components/walix/AiDrawer.tsx`**
-- Cambiar la lista del empty state: cada item del historial muestra título + cantidad de turns + timestamp relativo. Click llama a `resumeConversation(id)` en vez de `ask(prompt)`.
-- "Nueva" sigue funcionando (`clearConversation`) y al enviar el siguiente prompt arranca una nueva entrada.
+Cuatro mejoras de pulido y observabilidad. **Ningún cambio de DB ni de RLS.**
 
 ---
 
-## 2. Botón "Copiar respuesta" (#9)
+## #2 — Auto-preview estable cuando llegan propuestas nuevas
 
-**Cambio:** En `AiDrawer.tsx`, junto a los botones de feedback (👍/👎) del último turn, agregar un botón ícono `Copy` (lucide-react) que copie `turn.answer` al clipboard usando `navigator.clipboard.writeText()`. Estado visual: ícono cambia a `Check` por 1.5s tras copiar. Toast opcional: "Copiado al portapapeles".
+**Problema:** El `useEffect` que dispara `previewProposal` para cada propuesta nueva depende solo de `turns.length` (`AiDrawer.tsx:171`). Si en el mismo turno llegan propuestas adicionales (caso raro tras un reintento de la IA), el efecto no se vuelve a ejecutar y esas propuestas se quedan sin preview hasta que el usuario haga refresh manual.
 
-Ubicación: dentro del bloque de feedback (línea ~470 aprox), antes o después de los thumbs.
+**Cambio:** Hacer la dependencia un hash estable del **set de IDs de propuestas vistas**, no del conteo de turnos.
 
----
+```ts
+// AiDrawer.tsx — reemplazar el useEffect de auto-preview
+const proposalIdsKey = useMemo(
+  () => turns.flatMap(t => t.proposals ?? []).map(p => p.id).sort().join("|"),
+  [turns]
+);
+useEffect(() => {
+  const all = turns.flatMap(t => t.proposals ?? []);
+  all.forEach(p => {
+    if (previews[p.id]) return;
+    setPreviews(s => ({ ...s, [p.id]: { loading: true } }));
+    previewProposal({ ...p, payload: livePayloads[p.id] ?? p.payload }).then(res => {
+      setPreviews(s => ({
+        ...s,
+        [p.id]: res.ok ? { before: res.before, after: res.after } : { error: res.error },
+      }));
+    });
+  });
+}, [proposalIdsKey]);
+```
 
-## 3. Tool `propose_send_whatsapp_message` (#12)
-
-**Alcance:** Esta es una **propuesta interna** (no envío real a Meta WhatsApp Cloud API). Cuando se confirma:
-1. Inserta una row en `messages` con `direction='outbound'`, `type='text'`, `body=<texto>`, `is_internal_note=false`.
-2. Actualiza `conversations.last_message_at = now()` y `conversations.preview = body.slice(0,80)`.
-3. Inserta una `activities` row tipo `wa_sent` con descripción.
-4. Marcador en `metadata` de la row de `messages`: `{ source: "ai_drawer_proposal" }`.
-
-Esto deja todo trazado y visible en la UI de WhatsApp existente, sin pretender que se entregó por la red. (Cuando exista integración real de WA Cloud API, se reemplaza solo el handler de execute.)
-
-### Cambios
-
-**`supabase/functions/global-ai/index.ts`**
-- Agregar tool `propose_send_whatsapp_message` con params: `conversation_id` (uuid, requerido), `contact_id` (uuid, opcional para fallback de búsqueda), `body` (string 1–1000 chars, requerido), `summary`, `reasoning`.
-- Mapear en `KIND_MAP`: `propose_send_whatsapp_message → send_whatsapp_message`.
-- Catálogo extendido de conversaciones (ya está) + regla en system prompt: "Cuando el usuario pida enviar/responder WhatsApp a alguien, busca la conversación abierta con ese contacto. Si no existe, llama a `search_entity` kind='convo'. NO inventes texto: si el usuario no da el mensaje exacto, propón un borrador breve y menciona en `reasoning` que es un draft editable."
-
-**`src/services/ai.ts`**
-- Agregar `"send_whatsapp_message"` al union `ProposalKind`.
-
-**`supabase/functions/ai-execute/index.ts`**
-- **Preview** handler: valida `conversation_id` (uuid) y `body` (1–1000 chars). Devuelve `before: { Último mensaje: <preview actual> }`, `after: { Mensaje saliente: body, Para: <contact name> }`.
-- **Execute** handler: tx en 3 pasos (insert message, update conversation, insert activity). Requiere que la conversation pertenezca al tenant (RLS lo valida).
-- Validación: rechazar si la conversation está `Cerrado`.
-
-**`src/components/walix/AiDrawer.tsx`**
-- Agregar caso al `proposalIcon`: `send_whatsapp_message → MessageCircle`.
-- Agregar invalidación: `["whatsapp"]`, `["conversations"]`, `["messages"]` en `invalidateForKind`.
-- En el editor inline de payload (la sección "Pencil"), permitir editar el `body` del mensaje como textarea.
+Beneficio: idempotente, cubre cualquier nueva propuesta en cualquier turno, sin re-fetch innecesarios.
 
 ---
 
-## Sin tocar
+## #3 — Edición segura de propuestas (no sobreescribir con strings vacíos)
 
-- DB schema (todo usa tablas existentes: `messages`, `conversations`, `activities`).
-- RLS (las políticas tenant-scoped ya cubren los inserts/updates).
-- Auth flow.
-- Plan/limits.
+**Problema:** El componente `ProposalEditForm.Field` (línea 783) hace `value={payload[k] ?? ""}` y al guardar persiste **todos** los keys, incluso vacíos. Si la propuesta original traía `email: "juan@x.com"` y el usuario solo edita `phone`, el `payload` final puede llevar `email: ""` si el campo se renderizó pero no fue tocado, sobrescribiendo el valor original al ejecutar `update_contact`.
+
+**Cambios:**
+
+1. **Frontend (`ProposalEditForm`)**: Al construir el payload final en `applyEdit` (donde se hace `setLivePayloads`), filtrar keys cuyo valor sea string vacío para que el backend reciba solo los campos modificados realmente:
+
+```ts
+const cleanPayload = Object.fromEntries(
+  Object.entries(editPayload[p.id] ?? p.payload).filter(([_, v]) => v !== "" && v != null)
+);
+setLivePayloads(s => ({ ...s, [p.id]: cleanPayload }));
+refreshPreview(p, cleanPayload);
+```
+
+2. **Backend (`ai-execute` para `update_contact` y `update_deal_*`)**: Defensa en profundidad — antes de hacer `.update(p)`, eliminar keys vacías:
+
+```ts
+const sanitized = Object.fromEntries(
+  Object.entries(p).filter(([_, v]) => v !== "" && v != null)
+);
+await supabase.from("contacts").update(sanitized).eq("id", p.contact_id);
+```
+
+Beneficio: cero regresiones de datos por edición parcial.
+
+---
+
+## #15 — Tests Deno para flujos críticos del agente
+
+**Problema:** No hay tests para los handlers de `ai-execute`. Riesgo de romper `create_deal` o `send_whatsapp_message` sin darse cuenta.
+
+**Cambio:** Crear `supabase/functions/ai-execute/index_test.ts` con cobertura mínima:
+
+- `create_deal` con stage_id que tiene `is_won=true` → verifica `probability=100`.
+- `create_deal` con stage_id `is_lost=true` → `probability=0`.
+- `create_deal` con stage normal → `probability=10`.
+- `send_whatsapp_message` con `body=""` → 400.
+- `send_whatsapp_message` con `body` >1000 chars → 400.
+- `send_whatsapp_message` en conversación `Cerrado` → 400.
+- `update_contact` con `email=""` → no sobreescribe el email previo (cubre #3).
+
+Los tests usan el patrón existente de Deno + `dotenv/load.ts`, llamando al edge function deployado con `fetch`. Se aprovecha la sesión actual para tener un `Authorization` válido. Si no hay sesión, los tests se saltan con `Deno.test.ignore`.
+
+Archivo nuevo: `supabase/functions/ai-execute/index_test.ts` (~150 líneas).
+
+---
+
+## #16 — Audit log enriquecido con historial conversacional
+
+**Problema:** `audit_log.metadata` guarda `prompt` (el último), `summary` y `payload`, pero no el **hilo conversacional** que llevó a esa propuesta. Imposible debuggear "¿por qué la IA propuso bajar el monto del deal X?" cuando el contexto venía de turnos previos.
+
+**Cambios:**
+
+1. **`src/services/ai.ts`** → al ejecutar una propuesta, incluir los últimos 3 turnos (user+assistant) como `conversation_history`:
+
+```ts
+export async function executeProposal(p: ProposedChange, ctx: { prompt?: string; history?: Array<{role:string; content:string}> }) {
+  // body ya envía prompt; agregar history
+}
+```
+
+2. **`AiDrawer.tsx`** → al llamar `executeProposal`, pasar el slice de turnos:
+
+```ts
+const histSlice = turns.slice(-3).flatMap(t => [
+  { role: "user", content: t.prompt },
+  { role: "assistant", content: t.answer.slice(0, 500) },
+]);
+const res = await executeProposal({ ...p, payload: finalPayload }, { prompt: current?.prompt, history: histSlice });
+```
+
+3. **`supabase/functions/ai-execute/index.ts`** → recibir y persistir en metadata:
+
+```ts
+metadata: {
+  proposal_id: body.proposal_id,
+  summary: body.summary ?? null,
+  prompt: body.prompt ?? null,
+  conversation_history: body.history ?? null, // NUEVO
+  payload: body.payload,
+  ai_model: "google/gemini-2.5-flash",
+},
+```
+
+Sin cambios de DB: `audit_log.metadata` ya es `jsonb`. Truncamos cada `assistant` a 500 chars para mantener el JSON manejable.
+
+---
 
 ## Orden de implementación
 
-1. WhatsApp tool (backend + frontend) — el más mecánico.
-2. Botón Copiar — 1 archivo, 5 min.
-3. Retomar conversaciones — el más invasivo (cambio de shape persistido + UI del historial).
+1. **#2** (5 min, 1 archivo) — refactor menor del useEffect.
+2. **#3** (15 min, 2 archivos) — frontend + backend para sanitizar.
+3. **#16** (15 min, 3 archivos) — propagar history al audit log.
+4. **#15** (30 min, 1 archivo nuevo) — tests Deno + ejecutarlos para confirmar verde.
+
+## Sin tocar
+
+- DB schema, RLS, auth, plan/limits, Supabase config.
+- Edge functions distintos a `ai-execute`.
+- UI fuera del AI Drawer.
+
+## Verificación post-implementación
+
+- Correr los tests Deno con `test_edge_functions` y validar que pasen.
+- Probar en preview: editar un contacto dejando un campo vacío y confirmar que NO se borra.
+- Aprobar una propuesta y consultar `audit_log` con `read_query` para ver `conversation_history` poblado.
 
 ¿Procedo?
