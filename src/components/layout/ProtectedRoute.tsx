@@ -9,10 +9,10 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, requireRoles }: Props) {
-  const { user, roles, loading, activeTenantId } = useAuth();
+  const { user, roles, loading, contextLoading, activeTenantId } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || (user && contextLoading)) {
     return (
       <div className="min-h-screen grid place-items-center">
         <LoadingSpinner label="Cargando..." />
