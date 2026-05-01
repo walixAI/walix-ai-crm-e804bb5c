@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { askAi, type AiAction, type ProposedChange, type AskAiContext } from "@/services/ai";
+import { askAi, type AiAction, type ProposedChange, type AskAiContext, type CandidateGroup } from "@/services/ai";
 
 export interface AiQuery {
   id: string;
@@ -7,6 +7,7 @@ export interface AiQuery {
   answer: string;
   actions: AiAction[];
   proposals: ProposedChange[];
+  candidates?: CandidateGroup | null;
   at: string;
   context?: AskAiContext;
 }
@@ -17,6 +18,8 @@ interface AiDrawerState {
   history: AiQuery[];
   /** Active conversation turns (oldest → newest). `current` = last turn for backwards-compat. */
   turns: AiQuery[];
+  /** True once the user has sent at least one prompt in the current conversation, regardless of success. */
+  hasStarted: boolean;
   current: AiQuery | null;
   source: "live" | "error" | null;
   errorMessage: string | null;
@@ -47,6 +50,7 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
   loading: false,
   history: loadHistory(),
   turns: [],
+  hasStarted: false,
   current: null,
   source: null,
   errorMessage: null,
@@ -61,7 +65,7 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
       { role: "user" as const, content: h.prompt },
       { role: "assistant" as const, content: h.answer },
     ]).slice(-6);
-    set({ open: true, loading: true, source: null, errorMessage: null });
+    set({ open: true, loading: true, hasStarted: true, source: null, errorMessage: null });
     const result = await askAi({ prompt, history: apiHistory, context });
     const q: AiQuery = {
       id: crypto.randomUUID(),
@@ -69,6 +73,7 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
       answer: result.text,
       actions: result.actions ?? [],
       proposals: result.proposals ?? [],
+      candidates: result.candidates ?? null,
       at: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
       context,
     };
@@ -97,5 +102,5 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
     // Pop the failed turn (only present on success); on error we never appended it.
     void get().ask(c.prompt, c.context);
   },
-  clearConversation: () => set({ turns: [], current: null, source: null, errorMessage: null }),
+  clearConversation: () => set({ turns: [], hasStarted: false, current: null, source: null, errorMessage: null }),
 }));

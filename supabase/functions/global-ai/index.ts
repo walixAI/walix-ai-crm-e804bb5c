@@ -187,6 +187,13 @@ Deno.serve(async (req) => {
           "`reasoning` que conviene crear/vincular un contacto después. NUNCA pidas datos como teléfono/email para crear " +
           "el deal: el deal puede existir sin contacto. El nombre del deal puede inferirse: 'Deal <persona>' si no lo dice. " +
           "La etapa se asigna automáticamente a la primera del pipeline si no la especificas.\n\n" +
+          "REGLA DE VINCULAR CONTACTO: si el usuario pide 'vincula/asocia el deal X al contacto Y' o se refiere a un deal " +
+          "ya existente para asociarle un contacto, usa `propose_link_contact_to_deal` (NO `propose_update_deal_amount`).\n\n" +
+          "REGLA DE MÚLTIPLES CANDIDATOS: cuando `search_entity` devuelva 2 o más resultados ambiguos, NO inventes ni " +
+          "elijas uno al azar. En su lugar: 1) Llama a `present_candidates` con la lista (kind, intent que describa qué " +
+          "vas a hacer cuando el usuario elija — ej: 'crear_deal', 'vincular_contacto'), y los candidatos. 2) En el texto, " +
+          "di brevemente '¿A cuál te refieres?'. NO emitas propuestas (`propose_*`) en ese turno. El usuario seleccionará " +
+          "y en el siguiente turno podrás continuar con la propuesta correcta.\n\n" +
           "EXPLICACIÓN: cada `propose_*` incluye un campo `reasoning` (máx 200 chars) con 1-2 frases sobre qué " +
           "datos del contexto motivaron la propuesta (etapa, días sin actividad, monto, conversación, etc.). " +
           "El usuario podrá editar la propuesta antes de confirmar; si no estás 100% seguro de un valor, " +
@@ -408,6 +415,52 @@ Deno.serve(async (req) => {
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "propose_link_contact_to_deal",
+          description: "Propone vincular un contacto existente a un deal existente. Usar cuando el deal ya existe y solo falta asociarle el contacto.",
+          parameters: {
+            type: "object",
+            properties: {
+              deal_id: { type: "string", description: "UUID del deal (catálogo Deals)" },
+              contact_id: { type: "string", description: "UUID del contacto (catálogo Contactos o resultado de search_entity)" },
+              summary: { type: "string", description: "Resumen humano: 'Vincular **Juan Pérez** al deal **Acme Corp**'" },
+              reasoning: { type: "string" },
+            },
+            required: ["deal_id", "contact_id", "summary"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "present_candidates",
+          description: "Cuando search_entity devuelve múltiples resultados ambiguos, presenta los candidatos al usuario para que elija. NO emitas propose_* en el mismo turno.",
+          parameters: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["deal", "contact", "convo"] },
+              intent: { type: "string", description: "Qué se hará cuando el usuario elija. Ej: 'crear_deal_de_50000', 'vincular_al_deal_acme', 'abrir'" },
+              candidates: {
+                type: "array",
+                minItems: 2,
+                maxItems: 5,
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", description: "UUID del candidato" },
+                    name: { type: "string", description: "Nombre principal" },
+                    subtitle: { type: "string", description: "Detalle (empresa, teléfono, etapa, etc.)" },
+                  },
+                  required: ["id", "name"],
+                },
+              },
+            },
+            required: ["kind", "intent", "candidates"],
+          },
+        },
+      },
     ];
 
     // ─── Multi-turn loop to support search_entity ───
@@ -493,7 +546,9 @@ Deno.serve(async (req) => {
       propose_update_contact: "update_contact",
       propose_create_contact: "create_contact",
       propose_create_deal: "create_deal",
+      propose_link_contact_to_deal: "link_contact_to_deal",
     };
+    let candidates: any = null;
     for (const tc of choice?.tool_calls ?? []) {
       const name = tc?.function?.name;
       if (!name) continue;
@@ -504,6 +559,20 @@ Deno.serve(async (req) => {
         continue;
       }
       if (name === "search_entity") continue; // handled in loop
+      if (name === "present_candidates") {
+        if (Array.isArray(args.candidates) && args.candidates.length >= 2) {
+          candidates = {
+            kind: args.kind,
+            intent: typeof args.intent === "string" ? args.intent.slice(0, 200) : "",
+            items: args.candidates.slice(0, 5).map((c: any) => ({
+              id: String(c.id ?? ""),
+              name: String(c.name ?? ""),
+              subtitle: typeof c.subtitle === "string" ? c.subtitle.slice(0, 120) : undefined,
+            })).filter((c: any) => c.id && c.name),
+          };
+        }
+        continue;
+      }
       if (name === "propose_close_deal") {
         const kind = args.outcome === "won" ? "mark_deal_won" : "mark_deal_lost";
         const { summary, reasoning, outcome: _o, ...payload } = args;
@@ -528,6 +597,9 @@ Deno.serve(async (req) => {
       });
     }
     let finalText = text;
+    if (!finalText && candidates && candidates.items?.length) {
+      finalText = "¿A cuál te refieres?";
+    }
     if (!finalText && proposals.length > 0) {
       finalText = proposals.length === 1
         ? "Preparé este cambio para que lo confirmes:"
@@ -539,7 +611,7 @@ Deno.serve(async (req) => {
     if (!finalText) {
       finalText = "No tengo información suficiente para responder con los datos actuales del CRM.";
     }
-    return new Response(JSON.stringify({ text: finalText, actions, proposals: proposals.slice(0, 3) }), {
+    return new Response(JSON.stringify({ text: finalText, actions, proposals: proposals.slice(0, 3), candidates }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus, Link2, HelpCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
@@ -76,7 +76,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation } = useAiDrawer();
+  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation, hasStarted } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stages = [] } = useStages();
@@ -213,6 +213,7 @@ export function AiDrawer() {
       case "update_contact": return UserIcon;
       case "create_contact": return UserPlus;
       case "create_deal": return KanbanSquare;
+      case "link_contact_to_deal": return Link2;
       default: return Wand2;
     }
   };
@@ -225,6 +226,11 @@ export function AiDrawer() {
     if (kind === "create_deal") {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+    }
+    if (kind === "link_contact_to_deal") {
+      queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     }
     if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
     if (kind === "create_activity") queryClient.invalidateQueries({ queryKey: ["activities"] });
@@ -350,6 +356,36 @@ export function AiDrawer() {
                   <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                     {renderMarkdown(turn.answer, handleCitation)}
                   </div>
+
+                  {/* Candidate picker — for ambiguous search_entity results */}
+                  {turn.candidates && turn.candidates.items.length >= 2 && isLast && (
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <HelpCircle className="h-3 w-3 text-accent" />
+                        Selecciona una opción
+                      </div>
+                      {turn.candidates.items.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            // Build a follow-up that names the choice + intent so the AI continues the flow.
+                            const intentHint = turn.candidates?.intent ? ` (${turn.candidates.intent})` : "";
+                            ask(`Usa este: ${c.name} [id:${c.id}]${intentHint}`, turn.context);
+                          }}
+                          disabled={loading}
+                          className="w-full text-left flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-background hover:bg-accent/10 hover:border-accent/50 transition-colors px-3 py-2 text-sm disabled:opacity-50"
+                        >
+                          <span className="flex-1 min-w-0">
+                            <span className="block truncate text-foreground font-medium">{c.name}</span>
+                            {c.subtitle && (
+                              <span className="block truncate text-[11px] text-muted-foreground">{c.subtitle}</span>
+                            )}
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {turn.actions && turn.actions.length > 0 && (
                   <div className="space-y-1.5">
@@ -617,7 +653,7 @@ export function AiDrawer() {
         </ScrollArea>
 
         {/* Composer — always visible when there's at least one turn, lets the user reply */}
-        {turns.length > 0 ? (
+        {(hasStarted || turns.length > 0) ? (
           <div className="p-3 border-t border-border bg-background/80 space-y-2">
             <div className="relative">
               <Textarea
@@ -836,6 +872,16 @@ function ProposalEditForm({
               Contacto vinculado: <span className="text-foreground">{payload.contact_name}</span>
             </div>
           )}
+        </div>
+      );
+    case "link_contact_to_deal":
+      return (
+        <div className="space-y-2">
+          <Field label="Deal ID" k="deal_id" />
+          <Field label="Contacto ID" k="contact_id" />
+          <div className="text-[10px] text-muted-foreground">
+            Los IDs vienen del agente. Modifícalos solo si sabes lo que haces.
+          </div>
         </div>
       );
     default:
