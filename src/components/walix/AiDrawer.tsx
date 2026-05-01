@@ -874,6 +874,16 @@ function ProposalEditForm({
           )}
         </div>
       );
+    case "link_contact_to_deal":
+      return (
+        <div className="space-y-2">
+          <Field label="Deal ID" k="deal_id" />
+          <Field label="Contacto ID" k="contact_id" />
+          <div className="text-[10px] text-muted-foreground">
+            Los IDs vienen del agente. Modifícalos solo si sabes lo que haces.
+          </div>
+        </div>
+      );
     default:
       return null;
   }
