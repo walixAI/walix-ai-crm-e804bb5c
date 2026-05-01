@@ -521,7 +521,8 @@ export function AiDrawer() {
                   </div>
                 )}
 
-                {/* Feedback row */}
+                {/* Feedback row — only on the latest turn */}
+                {isLast && source !== "error" && (
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     ¿Te fue útil?
@@ -553,8 +554,9 @@ export function AiDrawer() {
                     </div>
                   )}
                 </div>
+                )}
 
-                {showCommentBox && rating === null && (
+                {isLast && showCommentBox && rating === null && (
                   <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
                     <div className="text-xs font-medium text-foreground">¿Qué falló?</div>
                     <Textarea
@@ -573,36 +575,21 @@ export function AiDrawer() {
                     </div>
                   </div>
                 )}
+                </div>
+              );
+            })}
+
+            {/* Loading indicator at the bottom of the conversation */}
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pl-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Pensando…
               </div>
             )}
 
-            {!current && !loading && (
-              <div className="space-y-3">
-                <div className="text-sm text-muted-foreground">
-                  Pregúntame lo que sea sobre tu pipeline, leads o equipo.
-                </div>
-                <div className="space-y-1.5">
-                  {QUICK_AI_PROMPTS.slice(0, 4).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => ask(p)}
-                      className="w-full text-left text-xs px-3 py-2 rounded-lg border border-border hover:bg-muted hover:border-primary/30 transition-colors flex items-center gap-2"
-                    >
-                      <Sparkles className="h-3 w-3 text-accent shrink-0" />
-                      <span className="truncate">{p}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {current && !loading && source === "error" && (
-              <div className="space-y-3">
-                <div className="rounded-xl bg-muted px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Tú: </span>
-                  {current.prompt}
-                </div>
-                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
+            {/* Connection error banner — shown after the latest failed turn */}
+            {!loading && source === "error" && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
                 <div className="flex items-start gap-2 text-[12px] text-destructive">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                   <div className="flex-1">
@@ -616,40 +603,46 @@ export function AiDrawer() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 justify-end">
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={closeDrawer}>Cerrar</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => useAiDrawer.setState({ source: null, errorMessage: null })}>Descartar</Button>
                   <Button size="sm" className="h-7 text-xs" onClick={() => retry()}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
                   </Button>
                 </div>
-                </div>
               </div>
             )}
 
-            {history.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  <Clock className="h-3 w-3" /> Historial reciente
-                </div>
-                <div className="space-y-1.5">
-                  {history.map((q) => (
-                    <button
-                      key={q.id}
-                      onClick={() => ask(q.prompt)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
-                    >
-                      <span className="truncate flex-1 text-foreground">{q.prompt}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{q.at}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div ref={scrollEndRef} />
           </div>
         </ScrollArea>
 
-        <div className="p-4 border-t border-border">
-          <Button variant="outline" className="w-full" onClick={closeDrawer}>Cerrar</Button>
-        </div>
+        {/* Composer — always visible when there's at least one turn, lets the user reply */}
+        {turns.length > 0 ? (
+          <div className="p-3 border-t border-border bg-background/80 space-y-2">
+            <div className="relative">
+              <Textarea
+                value={composer}
+                onChange={(e) => setComposer(e.target.value)}
+                onKeyDown={composerKeyDown}
+                placeholder="Responde o pregunta algo más… (Enter para enviar)"
+                className="text-sm min-h-[60px] pr-10 resize-none"
+                disabled={loading}
+              />
+              <Button
+                size="icon"
+                className="absolute right-1.5 bottom-1.5 h-7 w-7"
+                onClick={sendComposer}
+                disabled={loading || !composer.trim()}
+                aria-label="Enviar"
+              >
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 border-t border-border">
+            <Button variant="outline" className="w-full" onClick={closeDrawer}>Cerrar</Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );
