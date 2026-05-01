@@ -593,13 +593,23 @@ export function AiDrawer() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     ¿Te fue útil?
                   </span>
-                  {rating !== null ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-success">
-                      <Check className="h-3 w-3" /> Feedback enviado
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <button
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => copyAnswer(turn.id, turn.answer)}
+                      className="h-7 w-7 grid place-items-center rounded-md border border-border hover:bg-muted hover:border-primary/40 hover:text-primary transition-colors"
+                      aria-label="Copiar respuesta"
+                      title="Copiar respuesta"
+                    >
+                      {copied[turn.id] ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                    {rating !== null ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-success ml-1">
+                        <Check className="h-3 w-3" /> Feedback enviado
+                      </span>
+                    ) : (
+                      <>
+                        <button
                         type="button"
                         disabled={submitting}
                         onClick={() => sendFeedback(1)}
@@ -617,8 +627,9 @@ export function AiDrawer() {
                       >
                         <ThumbsDown className="h-3.5 w-3.5" />
                       </button>
-                    </div>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
                 )}
 
