@@ -352,7 +352,19 @@ Deno.serve(async (req) => {
       const { summary, ...payload } = args;
       proposals.push({ id: crypto.randomUUID(), kind, summary: summary ?? kind, payload });
     }
-    return new Response(JSON.stringify({ text, actions, proposals: proposals.slice(0, 3) }), {
+    let finalText = text;
+    if (!finalText && proposals.length > 0) {
+      finalText = proposals.length === 1
+        ? "Preparé este cambio para que lo confirmes:"
+        : `Preparé ${proposals.length} cambios para que los confirmes:`;
+    }
+    if (!finalText && actions.length > 0) {
+      finalText = "Aquí tienes accesos directos relacionados:";
+    }
+    if (!finalText) {
+      finalText = "No tengo información suficiente para responder con los datos actuales del CRM.";
+    }
+    return new Response(JSON.stringify({ text: finalText, actions, proposals: proposals.slice(0, 3) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
