@@ -76,7 +76,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, current, loading, history, ask, source, errorMessage, retry } = useAiDrawer();
+  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stages = [] } = useStages();
@@ -93,6 +93,9 @@ export function AiDrawer() {
   const [editing, setEditing] = useState<Record<string, boolean>>({});
   const [editPayload, setEditPayload] = useState<Record<string, Record<string, any>>>({});
   const [livePayloads, setLivePayloads] = useState<Record<string, Record<string, any>>>({});
+  // Conversational composer for follow-ups
+  const [composer, setComposer] = useState("");
+  const scrollEndRef = useRef<HTMLDivElement>(null);
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -112,25 +115,36 @@ export function AiDrawer() {
     closeDrawer();
   };
 
-  // Reset feedback state whenever a new answer arrives
+  // Reset feedback (per-answer) when the latest turn changes
   useEffect(() => {
     setRating(null);
     setShowCommentBox(false);
     setComment("");
-    setProposalState({});
-    setProposalError({});
-    setDismissed({});
-    setPreviews({});
-    setShowWhy({});
-    setEditing({});
-    setEditPayload({});
-    setLivePayloads({});
   }, [current?.id]);
 
-  // Auto-fetch preview for each new proposal.
+  // Clear all per-proposal UI state when the entire conversation resets
   useEffect(() => {
-    const list = current?.proposals ?? [];
-    list.forEach((p) => {
+    if (turns.length === 0) {
+      setProposalState({});
+      setProposalError({});
+      setDismissed({});
+      setPreviews({});
+      setShowWhy({});
+      setEditing({});
+      setEditPayload({});
+      setLivePayloads({});
+    }
+  }, [turns.length]);
+
+  // Auto-scroll to the bottom on new turns or when loading state changes
+  useEffect(() => {
+    scrollEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [turns.length, loading]);
+
+  // Auto-fetch preview for each new proposal across ALL turns
+  useEffect(() => {
+    const all = turns.flatMap((t) => t.proposals ?? []);
+    all.forEach((p) => {
       if (previews[p.id]) return;
       setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
       previewProposal({ ...p, payload: livePayloads[p.id] ?? p.payload }).then((res) => {
@@ -143,7 +157,7 @@ export function AiDrawer() {
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id]);
+  }, [turns.length]);
 
   const refreshPreview = (p: ProposedChange, payload: Record<string, any>) => {
     setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
@@ -207,6 +221,10 @@ export function AiDrawer() {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
     }
+    if (kind === "create_deal") {
+      queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+    }
     if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
     if (kind === "create_activity") queryClient.invalidateQueries({ queryKey: ["activities"] });
     if (kind === "update_contact" || kind === "create_contact") queryClient.invalidateQueries({ queryKey: ["contacts"] });
@@ -228,7 +246,21 @@ export function AiDrawer() {
     }
   };
 
-  const visibleProposals = (current?.proposals ?? []).filter((p) => !dismissed[p.id]);
+  const sendComposer = () => {
+    const text = composer.trim();
+    if (!text || loading) return;
+    setComposer("");
+    ask(text, current?.context);
+  };
+  const composerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      sendComposer();
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendComposer();
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && closeDrawer()}>
