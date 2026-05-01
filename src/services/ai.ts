@@ -57,10 +57,24 @@ export interface AiAction {
   id?: string;
 }
 
+export interface CandidateChoice {
+  id: string;
+  name: string;
+  subtitle?: string;
+}
+
+export interface CandidateGroup {
+  kind: "deal" | "contact" | "convo";
+  /** Free-form hint for what happens when user picks one (used to build the follow-up prompt). */
+  intent: string;
+  items: CandidateChoice[];
+}
+
 export interface AskAiResult {
   text: string;
   actions: AiAction[];
   proposals: ProposedChange[];
+  candidates?: CandidateGroup | null;
   source: "live" | "error";
   errorMessage?: string;
 }
@@ -78,7 +92,8 @@ export type ProposalKind =
   | "create_activity"
   | "update_contact"
   | "create_contact"
-  | "create_deal";
+  | "create_deal"
+  | "link_contact_to_deal";
 
 export interface ProposedChange {
   id: string;
@@ -208,8 +223,11 @@ export async function askAi(opts: {
     }
     const actions = Array.isArray(data?.actions) ? data.actions : [];
     const proposals = Array.isArray(data?.proposals) ? data.proposals : [];
-    if (data?.text || actions.length || proposals.length) {
-      return { text: data?.text ?? "", actions, proposals, source: "live" as const };
+    const candidates = data?.candidates && Array.isArray(data.candidates.items) && data.candidates.items.length >= 2
+      ? (data.candidates as CandidateGroup)
+      : null;
+    if (data?.text || actions.length || proposals.length || candidates) {
+      return { text: data?.text ?? "", actions, proposals, candidates, source: "live" as const };
     }
     throw new Error("Respuesta vacía");
   };
@@ -235,6 +253,7 @@ export async function askAi(opts: {
       text: fallbackAiResponse(opts.prompt),
       actions: [],
       proposals: [],
+      candidates: null,
       source: "error",
       errorMessage: msg,
     };
