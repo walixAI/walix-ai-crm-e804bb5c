@@ -295,6 +295,9 @@ export function AiDrawer() {
                     {visibleProposals.map((p) => {
                       const Icon = proposalIcon(p.kind);
                       const state = proposalState[p.id] ?? "idle";
+                      const preview = previews[p.id];
+                      const isEditing = !!editing[p.id];
+                      const draft = editPayload[p.id] ?? {};
                       return (
                         <div
                           key={p.id}
@@ -308,6 +311,59 @@ export function AiDrawer() {
                               {renderInline(p.summary, handleCitation)}
                             </div>
                           </div>
+
+                          {/* Diff before → after */}
+                          {!isEditing && (
+                            <div className="pl-9">
+                              {preview?.loading && (
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Calculando vista previa…
+                                </div>
+                              )}
+                              {preview?.error && (
+                                <div className="text-[10px] text-destructive">{preview.error}</div>
+                              )}
+                              {preview && !preview.loading && !preview.error && (
+                                <DiffTable before={preview.before} after={preview.after} />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Reasoning collapsible */}
+                          {p.reasoning && !isEditing && showWhy[p.id] && (
+                            <div className="pl-9 text-[11px] text-muted-foreground bg-background/60 rounded-md border border-border/60 px-2 py-1.5 flex gap-1.5">
+                              <Lightbulb className="h-3 w-3 text-accent shrink-0 mt-0.5" />
+                              <span>{p.reasoning}</span>
+                            </div>
+                          )}
+
+                          {/* Inline edit form */}
+                          {isEditing && (
+                            <div className="pl-9 space-y-2 rounded-md bg-background/80 border border-border/60 p-2">
+                              <ProposalEditForm
+                                kind={p.kind}
+                                payload={draft}
+                                stages={(current?.proposals ?? []).length ? undefined : undefined}
+                                onChange={(next) => setEditPayload((s) => ({ ...s, [p.id]: next }))}
+                              />
+                              <div className="flex gap-1.5 justify-end">
+                                <Button size="sm" variant="ghost" className="h-7 text-xs"
+                                  onClick={() => { setEditing((s) => ({ ...s, [p.id]: false })); }}>
+                                  Cancelar
+                                </Button>
+                                <Button size="sm" className="h-7 text-xs"
+                                  onClick={() => {
+                                    const merged = { ...p.payload, ...draft };
+                                    setLivePayloads((s) => ({ ...s, [p.id]: merged }));
+                                    setEditing((s) => ({ ...s, [p.id]: false }));
+                                    refreshPreview(p, merged);
+                                  }}>
+                                  Aplicar cambios
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
                           {state === "done" ? (
                             <div className="flex items-center gap-1.5 text-[11px] text-success pl-9">
                               <Check className="h-3 w-3" /> Ejecutado · queda en auditoría
@@ -324,8 +380,8 @@ export function AiDrawer() {
                                 </Button>
                               </div>
                             </div>
-                          ) : (
-                            <div className="flex gap-1.5 pl-9">
+                          ) : !isEditing ? (
+                            <div className="flex gap-1 pl-9 flex-wrap">
                               <Button
                                 size="sm"
                                 className="h-7 text-xs"
@@ -340,6 +396,28 @@ export function AiDrawer() {
                               </Button>
                               <Button
                                 size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={state === "running"}
+                                onClick={() => {
+                                  setEditPayload((s) => ({ ...s, [p.id]: { ...(livePayloads[p.id] ?? p.payload) } }));
+                                  setEditing((s) => ({ ...s, [p.id]: true }));
+                                }}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" /> Editar
+                              </Button>
+                              {p.reasoning && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => setShowWhy((s) => ({ ...s, [p.id]: !s[p.id] }))}
+                                >
+                                  <Lightbulb className="h-3 w-3 mr-1" /> {showWhy[p.id] ? "Ocultar" : "¿Por qué?"}
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
                                 variant="ghost"
                                 className="h-7 text-xs"
                                 disabled={state === "running"}
@@ -348,7 +426,7 @@ export function AiDrawer() {
                                 <X className="h-3 w-3 mr-1" /> Descartar
                               </Button>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
