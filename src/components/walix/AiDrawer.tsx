@@ -924,6 +924,23 @@ function ProposalEditForm({
           </div>
         </div>
       );
+    case "send_whatsapp_message":
+      return (
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Mensaje</Label>
+            <Textarea
+              value={payload.body ?? ""}
+              onChange={(e) => set("body", e.target.value)}
+              maxLength={1000}
+              className="text-xs min-h-[80px]"
+            />
+            <div className="text-[10px] text-muted-foreground text-right">
+              {(payload.body ?? "").length}/1000
+            </div>
+          </div>
+        </div>
+      );
     default:
       return null;
   }
