@@ -15,6 +15,8 @@ interface AiDrawerState {
   open: boolean;
   loading: boolean;
   history: AiQuery[];
+  /** Active conversation turns (oldest → newest). `current` = last turn for backwards-compat. */
+  turns: AiQuery[];
   current: AiQuery | null;
   source: "live" | "error" | null;
   errorMessage: string | null;
@@ -22,6 +24,7 @@ interface AiDrawerState {
   closeDrawer: () => void;
   ask: (prompt: string, context?: AskAiContext) => void;
   retry: () => void;
+  clearConversation: () => void;
 }
 
 const STORAGE_KEY = "walix.aiDrawer.history.v1";
@@ -43,6 +46,7 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
   open: false,
   loading: false,
   history: loadHistory(),
+  turns: [],
   current: null,
   source: null,
   errorMessage: null,
@@ -50,12 +54,14 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
   closeDrawer: () => set({ open: false }),
   ask: async (prompt: string, context?: AskAiContext) => {
     if (!prompt.trim()) return;
-    set({ open: true, loading: true, current: null, source: null, errorMessage: null });
-    const recent = get().history.slice(0, 2).reverse();
-    const apiHistory = recent.flatMap((h) => [
+    // Build conversational history from current active turns (oldest→newest).
+    // Send up to last 6 messages (3 user + 3 assistant) for context.
+    const turnsNow = get().turns;
+    const apiHistory = turnsNow.flatMap((h) => [
       { role: "user" as const, content: h.prompt },
       { role: "assistant" as const, content: h.answer },
-    ]);
+    ]).slice(-6);
+    set({ open: true, loading: true, source: null, errorMessage: null });
     const result = await askAi({ prompt, history: apiHistory, context });
     const q: AiQuery = {
       id: crypto.randomUUID(),
@@ -66,11 +72,19 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
       at: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
       context,
     };
-    // Only persist successful answers in history.
-    const history = result.source === "live" ? [q, ...get().history].slice(0, 5) : get().history;
-    if (result.source === "live") persistHistory(history);
+    // Append to active conversation. Persist only the FIRST successful turn of a
+    // new conversation in the recent-history sidebar (so the list stays useful).
+    const newTurns = result.source === "live"
+      ? [...turnsNow, q]
+      : turnsNow; // don't pollute the thread with failed turns
+    let history = get().history;
+    if (result.source === "live" && turnsNow.length === 0) {
+      history = [q, ...history].slice(0, 5);
+      persistHistory(history);
+    }
     set({
       loading: false,
+      turns: newTurns,
       current: q,
       history,
       source: result.source,
@@ -80,6 +94,8 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
   retry: () => {
     const c = get().current;
     if (!c) return;
+    // Pop the failed turn (only present on success); on error we never appended it.
     void get().ask(c.prompt, c.context);
   },
+  clearConversation: () => set({ turns: [], current: null, source: null, errorMessage: null }),
 }));

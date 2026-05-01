@@ -14,7 +14,8 @@ type Kind =
   | "create_task"
   | "create_activity"
   | "update_contact"
-  | "create_contact";
+  | "create_contact"
+  | "create_deal";
 
 interface Body {
   mode?: "preview" | "execute";
@@ -181,6 +182,28 @@ Deno.serve(async (req) => {
           }
           return okPreview(null, after);
         }
+        case "create_deal": {
+          const after: Record<string, unknown> = {
+            Nombre: p.name ?? "—",
+            Monto: typeof p.amount === "number" ? `$${p.amount.toLocaleString("es-MX")}` : "—",
+          };
+          if (typeof p.contact_name === "string" && p.contact_name) after["Contacto"] = p.contact_name;
+          else if (isUuid(p.contact_id)) {
+            const { data: c } = await supabase.from("contacts").select("name, last_name").eq("id", p.contact_id).maybeSingle();
+            if (c) after["Contacto"] = `${c.name}${c.last_name ? " " + c.last_name : ""}`;
+          }
+          if (isUuid(p.stage_id)) {
+            const { data: st } = await supabase.from("pipeline_stages").select("name").eq("id", p.stage_id).maybeSingle();
+            if (st) after["Etapa"] = st.name;
+          } else {
+            const { data: firstStage } = await supabase.from("pipeline_stages")
+              .select("name").order("position", { ascending: true }).limit(1).maybeSingle();
+            if (firstStage) after["Etapa"] = `${firstStage.name} (default)`;
+          }
+          if (typeof p.probability === "number") after["Probabilidad"] = `${Math.round(p.probability)}%`;
+          if (typeof p.expected_close_date === "string") after["Cierre esperado"] = p.expected_close_date;
+          return okPreview(null, after);
+        }
         default:
           return bad(400, `kind no soportado: ${body.kind}`);
       }
@@ -286,6 +309,36 @@ Deno.serve(async (req) => {
         const { data, error } = await supabase.from("contacts").insert(ins).select("id").maybeSingle();
         if (error) return bad(400, error.message);
         target_type = "contact"; target_id = data?.id ?? null;
+        break;
+      }
+      case "create_deal": {
+        if (typeof p.name !== "string" || !p.name.trim()) return bad(400, "name requerido");
+        if (typeof p.amount !== "number" || p.amount <= 0) return bad(400, "amount debe ser > 0");
+        let stageId: string | null = isUuid(p.stage_id) ? p.stage_id : null;
+        let stageName: string | null = null;
+        let stageProb = 10;
+        if (!stageId) {
+          const { data: firstStage } = await supabase.from("pipeline_stages")
+            .select("id, name").eq("tenant_id", tenantId)
+            .order("position", { ascending: true }).limit(1).maybeSingle();
+          if (firstStage) { stageId = firstStage.id; stageName = firstStage.name; }
+        } else {
+          const { data: st } = await supabase.from("pipeline_stages").select("name").eq("id", stageId).maybeSingle();
+          stageName = st?.name ?? null;
+        }
+        const ins: any = {
+          tenant_id: tenantId,
+          name: p.name.trim(),
+          amount: p.amount,
+          probability: typeof p.probability === "number" ? Math.max(0, Math.min(100, Math.round(p.probability))) : stageProb,
+        };
+        if (stageId) ins.stage_id = stageId;
+        if (stageName) ins.stage_name = stageName;
+        if (isUuid(p.contact_id)) ins.contact_id = p.contact_id;
+        if (typeof p.expected_close_date === "string" && p.expected_close_date) ins.expected_close_date = p.expected_close_date;
+        const { data, error } = await supabase.from("deals").insert(ins).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "deal"; target_id = data?.id ?? null;
         break;
       }
       default:

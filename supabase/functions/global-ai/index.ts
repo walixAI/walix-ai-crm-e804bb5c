@@ -181,6 +181,12 @@ Deno.serve(async (req) => {
           "BÚSQUEDA: si el usuario menciona un deal o contacto que NO aparece en los catálogos, NO inventes el ID. " +
           "Llama primero a `search_entity` con el nombre/teléfono/email parcial. Si hay múltiples resultados, " +
           "pide al usuario que aclare cuál antes de proponer.\n\n" +
+          "REGLA DE CREAR DEALS: cuando el usuario pida 'crea/agrega/registra deal de $X (asociado a) <persona>': " +
+          "1) Si <persona> aparece en el catálogo de contactos o en el resultado de search_entity con un único match claro, " +
+          "usa ese contact_id. 2) Si NO hay match, propón el deal SIN contact_id (deja el campo vacío) y menciona en " +
+          "`reasoning` que conviene crear/vincular un contacto después. NUNCA pidas datos como teléfono/email para crear " +
+          "el deal: el deal puede existir sin contacto. El nombre del deal puede inferirse: 'Deal <persona>' si no lo dice. " +
+          "La etapa se asigna automáticamente a la primera del pipeline si no la especificas.\n\n" +
           "EXPLICACIÓN: cada `propose_*` incluye un campo `reasoning` (máx 200 chars) con 1-2 frases sobre qué " +
           "datos del contexto motivaron la propuesta (etapa, días sin actividad, monto, conversación, etc.). " +
           "El usuario podrá editar la propuesta antes de confirmar; si no estás 100% seguro de un valor, " +
@@ -197,7 +203,7 @@ Deno.serve(async (req) => {
           `Contactos: ${JSON.stringify(contactCatalog)}\n` +
           `Etapas de pipeline: ${JSON.stringify(stageCatalog)}`,
       },
-      ...(body.history ?? []).slice(-4),
+      ...(body.history ?? []).slice(-6),
       { role: "user", content: body.prompt },
     ];
 
@@ -380,6 +386,28 @@ Deno.serve(async (req) => {
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "propose_create_deal",
+          description: "Propone crear un nuevo deal/oportunidad. Puede vincularse a un contacto existente (contact_id) o quedar sin contacto.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nombre del deal. Si el usuario no lo da, usa 'Deal <persona>' o 'Oportunidad <empresa>'." },
+              amount: { type: "number", minimum: 1, description: "Monto en MXN." },
+              contact_id: { type: "string", description: "UUID del contacto (catálogo Contactos o resultado de search_entity). Omitir si no hay match." },
+              contact_name: { type: "string", description: "Nombre del contacto para mostrar en el resumen, aunque contact_id esté vacío." },
+              stage_id: { type: "string", description: "UUID de etapa (catálogo Etapas). Omitir para usar la primera por defecto." },
+              probability: { type: "number", minimum: 0, maximum: 100 },
+              expected_close_date: { type: "string", description: "ISO date (YYYY-MM-DD). Opcional." },
+              summary: { type: "string", description: "Resumen humano: 'Crear deal **Acme** por $50,000'." },
+              reasoning: { type: "string" },
+            },
+            required: ["name", "amount", "summary"],
+          },
+        },
+      },
     ];
 
     // ─── Multi-turn loop to support search_entity ───
@@ -464,6 +492,7 @@ Deno.serve(async (req) => {
       propose_create_activity: "create_activity",
       propose_update_contact: "update_contact",
       propose_create_contact: "create_contact",
+      propose_create_deal: "create_deal",
     };
     for (const tc of choice?.tool_calls ?? []) {
       const name = tc?.function?.name;

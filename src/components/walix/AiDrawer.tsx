@@ -1,13 +1,13 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw, Send, Plus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,7 +76,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, current, loading, history, ask, source, errorMessage, retry } = useAiDrawer();
+  const { open, closeDrawer, turns, current, loading, history, ask, source, errorMessage, retry, clearConversation } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stages = [] } = useStages();
@@ -93,6 +93,9 @@ export function AiDrawer() {
   const [editing, setEditing] = useState<Record<string, boolean>>({});
   const [editPayload, setEditPayload] = useState<Record<string, Record<string, any>>>({});
   const [livePayloads, setLivePayloads] = useState<Record<string, Record<string, any>>>({});
+  // Conversational composer for follow-ups
+  const [composer, setComposer] = useState("");
+  const scrollEndRef = useRef<HTMLDivElement>(null);
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -112,25 +115,36 @@ export function AiDrawer() {
     closeDrawer();
   };
 
-  // Reset feedback state whenever a new answer arrives
+  // Reset feedback (per-answer) when the latest turn changes
   useEffect(() => {
     setRating(null);
     setShowCommentBox(false);
     setComment("");
-    setProposalState({});
-    setProposalError({});
-    setDismissed({});
-    setPreviews({});
-    setShowWhy({});
-    setEditing({});
-    setEditPayload({});
-    setLivePayloads({});
   }, [current?.id]);
 
-  // Auto-fetch preview for each new proposal.
+  // Clear all per-proposal UI state when the entire conversation resets
   useEffect(() => {
-    const list = current?.proposals ?? [];
-    list.forEach((p) => {
+    if (turns.length === 0) {
+      setProposalState({});
+      setProposalError({});
+      setDismissed({});
+      setPreviews({});
+      setShowWhy({});
+      setEditing({});
+      setEditPayload({});
+      setLivePayloads({});
+    }
+  }, [turns.length]);
+
+  // Auto-scroll to the bottom on new turns or when loading state changes
+  useEffect(() => {
+    scrollEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [turns.length, loading]);
+
+  // Auto-fetch preview for each new proposal across ALL turns
+  useEffect(() => {
+    const all = turns.flatMap((t) => t.proposals ?? []);
+    all.forEach((p) => {
       if (previews[p.id]) return;
       setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
       previewProposal({ ...p, payload: livePayloads[p.id] ?? p.payload }).then((res) => {
@@ -143,7 +157,7 @@ export function AiDrawer() {
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id]);
+  }, [turns.length]);
 
   const refreshPreview = (p: ProposedChange, payload: Record<string, any>) => {
     setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
@@ -198,12 +212,17 @@ export function AiDrawer() {
       case "create_activity": return StickyNote;
       case "update_contact": return UserIcon;
       case "create_contact": return UserPlus;
+      case "create_deal": return KanbanSquare;
       default: return Wand2;
     }
   };
 
   const invalidateForKind = (kind: ProposalKind) => {
     if (kind.startsWith("update_deal") || kind.startsWith("mark_deal")) {
+      queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+    }
+    if (kind === "create_deal") {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
     }
@@ -228,7 +247,21 @@ export function AiDrawer() {
     }
   };
 
-  const visibleProposals = (current?.proposals ?? []).filter((p) => !dismissed[p.id]);
+  const sendComposer = () => {
+    const text = composer.trim();
+    if (!text || loading) return;
+    setComposer("");
+    ask(text, current?.context);
+  };
+  const composerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      sendComposer();
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendComposer();
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && closeDrawer()}>
@@ -241,36 +274,89 @@ export function AiDrawer() {
               </div>
               <span>Walix IA</span>
             </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">
-              {AI_MODEL_LABEL}
-            </span>
+            <div className="flex items-center gap-1.5">
+              {turns.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-[10px] gap-1"
+                  onClick={clearConversation}
+                  title="Empezar nueva conversación"
+                >
+                  <Plus className="h-3 w-3" /> Nueva
+                </Button>
+              )}
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">
+                {AI_MODEL_LABEL}
+              </span>
+            </div>
           </SheetTitle>
         </SheetHeader>
 
         <ScrollArea className="flex-1">
-          <div className="p-5 space-y-6" key={current?.id ?? "empty"}>
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                Analizando tus datos…
+          <div className="p-5 space-y-5">
+            {/* Empty state — only when there are no turns at all */}
+            {turns.length === 0 && !loading && (
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  Pregúntame lo que sea sobre tu pipeline, leads o equipo. Puedo crear, mover y actualizar — siempre te pido confirmar.
+                </div>
+                <div className="space-y-1.5">
+                  {QUICK_AI_PROMPTS.slice(0, 4).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => ask(p)}
+                      className="w-full text-left text-xs px-3 py-2 rounded-lg border border-border hover:bg-muted hover:border-primary/30 transition-colors flex items-center gap-2"
+                    >
+                      <Sparkles className="h-3 w-3 text-accent shrink-0" />
+                      <span className="truncate">{p}</span>
+                    </button>
+                  ))}
+                </div>
+                {history.length > 0 && (
+                  <div className="pt-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      <Clock className="h-3 w-3" /> Historial reciente
+                    </div>
+                    <div className="space-y-1.5">
+                      {history.map((q) => (
+                        <button
+                          key={q.id}
+                          onClick={() => ask(q.prompt)}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
+                        >
+                          <span className="truncate flex-1 text-foreground">{q.prompt}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{q.at}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {current && !loading && source !== "error" && (
-              <div className="space-y-3">
-                <div className="rounded-xl bg-muted px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Tú: </span>
-                  {current.prompt}
-                </div>
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  {renderMarkdown(current.answer, handleCitation)}
-                </div>
-                {current.actions && current.actions.length > 0 && (
+            {/* Conversation turns (oldest → newest) */}
+            {turns.map((turn, turnIdx) => {
+              const isLast = turnIdx === turns.length - 1;
+              const visibleProposals = (turn.proposals ?? []).filter((p) => !dismissed[p.id]);
+              return (
+                <div key={turn.id} className="space-y-3">
+                  {/* User bubble */}
+                  <div className="rounded-xl bg-muted px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Tú: </span>
+                    {turn.prompt}
+                  </div>
+                  {/* Assistant bubble */}
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    {renderMarkdown(turn.answer, handleCitation)}
+                  </div>
+
+                  {turn.actions && turn.actions.length > 0 && (
                   <div className="space-y-1.5">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Acciones sugeridas
                     </div>
-                    {current.actions.map((a, i) => {
+                    {turn.actions.map((a, i) => {
                       const Icon = iconFor(a.type);
                       return (
                         <button
@@ -436,7 +522,8 @@ export function AiDrawer() {
                   </div>
                 )}
 
-                {/* Feedback row */}
+                {/* Feedback row — only on the latest turn */}
+                {isLast && source !== "error" && (
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     ¿Te fue útil?
@@ -468,8 +555,9 @@ export function AiDrawer() {
                     </div>
                   )}
                 </div>
+                )}
 
-                {showCommentBox && rating === null && (
+                {isLast && showCommentBox && rating === null && (
                   <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
                     <div className="text-xs font-medium text-foreground">¿Qué falló?</div>
                     <Textarea
@@ -488,36 +576,21 @@ export function AiDrawer() {
                     </div>
                   </div>
                 )}
+                </div>
+              );
+            })}
+
+            {/* Loading indicator at the bottom of the conversation */}
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pl-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Pensando…
               </div>
             )}
 
-            {!current && !loading && (
-              <div className="space-y-3">
-                <div className="text-sm text-muted-foreground">
-                  Pregúntame lo que sea sobre tu pipeline, leads o equipo.
-                </div>
-                <div className="space-y-1.5">
-                  {QUICK_AI_PROMPTS.slice(0, 4).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => ask(p)}
-                      className="w-full text-left text-xs px-3 py-2 rounded-lg border border-border hover:bg-muted hover:border-primary/30 transition-colors flex items-center gap-2"
-                    >
-                      <Sparkles className="h-3 w-3 text-accent shrink-0" />
-                      <span className="truncate">{p}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {current && !loading && source === "error" && (
-              <div className="space-y-3">
-                <div className="rounded-xl bg-muted px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Tú: </span>
-                  {current.prompt}
-                </div>
-                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
+            {/* Connection error banner — shown after the latest failed turn */}
+            {!loading && source === "error" && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
                 <div className="flex items-start gap-2 text-[12px] text-destructive">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                   <div className="flex-1">
@@ -531,40 +604,46 @@ export function AiDrawer() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 justify-end">
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={closeDrawer}>Cerrar</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => useAiDrawer.setState({ source: null, errorMessage: null })}>Descartar</Button>
                   <Button size="sm" className="h-7 text-xs" onClick={() => retry()}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
                   </Button>
                 </div>
-                </div>
               </div>
             )}
 
-            {history.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  <Clock className="h-3 w-3" /> Historial reciente
-                </div>
-                <div className="space-y-1.5">
-                  {history.map((q) => (
-                    <button
-                      key={q.id}
-                      onClick={() => ask(q.prompt)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
-                    >
-                      <span className="truncate flex-1 text-foreground">{q.prompt}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{q.at}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div ref={scrollEndRef} />
           </div>
         </ScrollArea>
 
-        <div className="p-4 border-t border-border">
-          <Button variant="outline" className="w-full" onClick={closeDrawer}>Cerrar</Button>
-        </div>
+        {/* Composer — always visible when there's at least one turn, lets the user reply */}
+        {turns.length > 0 ? (
+          <div className="p-3 border-t border-border bg-background/80 space-y-2">
+            <div className="relative">
+              <Textarea
+                value={composer}
+                onChange={(e) => setComposer(e.target.value)}
+                onKeyDown={composerKeyDown}
+                placeholder="Responde o pregunta algo más… (Enter para enviar)"
+                className="text-sm min-h-[60px] pr-10 resize-none"
+                disabled={loading}
+              />
+              <Button
+                size="icon"
+                className="absolute right-1.5 bottom-1.5 h-7 w-7"
+                onClick={sendComposer}
+                disabled={loading || !composer.trim()}
+                aria-label="Enviar"
+              >
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 border-t border-border">
+            <Button variant="outline" className="w-full" onClick={closeDrawer}>Cerrar</Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -732,6 +811,33 @@ function ProposalEditForm({
       );
     case "mark_deal_won":
       return <div className="text-[11px] text-muted-foreground">No hay parámetros editables.</div>;
+    case "create_deal":
+      return (
+        <div className="space-y-2">
+          <Field label="Nombre del deal" k="name" />
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Monto" k="amount" type="number" />
+            <Field label="Probabilidad %" k="probability" type="number" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Etapa</Label>
+            <Select value={payload.stage_id ?? ""} onValueChange={(v) => set("stage_id", v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Primera etapa por defecto" /></SelectTrigger>
+              <SelectContent>
+                {(stages ?? []).map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Field label="Cierre esperado (YYYY-MM-DD)" k="expected_close_date" placeholder="2025-06-30" />
+          {payload.contact_name && (
+            <div className="text-[10px] text-muted-foreground">
+              Contacto vinculado: <span className="text-foreground">{payload.contact_name}</span>
+            </div>
+          )}
+        </div>
+      );
     default:
       return null;
   }

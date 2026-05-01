@@ -1,58 +1,47 @@
 
-# Sprint 2A — Hotfix: completar funcionalidad de propuestas IA
+# Walix.ai — Crear deals + drawer conversacional
 
-Tras validar la implementación se detectaron 7 bugs/incompletos que impiden que el flujo "preview → editar → confirmar" funcione 100%. Los arreglos son acotados, sin cambios de arquitectura.
+Dos arreglos que se complementan: agregar la capacidad faltante de crear deals, y convertir el drawer en un chat real para que el usuario pueda responder a las preguntas de la IA sin perder el hilo.
 
 ---
 
-## 1. Selector de etapa en `ProposalEditForm` (alta prioridad)
+## 1. Nueva herramienta `propose_create_deal`
 
-**Problema:** Al editar una propuesta `update_deal_stage`, el form muestra un input de texto pidiendo un UUID — imposible de usar.
+**Problema:** La IA no tiene cómo proponer la creación de un deal, así que ante "crea deal de 50000…" termina pidiendo datos en un bucle.
 
-**Fix:** 
-- En `AiDrawer.tsx`, cargar `pipeline_stages` (vía hook existente o query nuevo) y pasarlo como prop `stages` al `ProposalEditForm`.
-- Reemplazar el `<Field>` por un `<Select>` de shadcn que lista las etapas con su nombre.
+**Backend (`global-ai/index.ts`):**
+- Agregar tool `propose_create_deal` con parámetros: `name` (req), `amount` (req), `contact_id` (opcional), `contact_name` (opcional, para mostrar en el summary), `stage_id` (opcional, default = primera etapa), `probability` (opcional), `expected_close_date` (opcional ISO), `summary`, `reasoning`.
+- Mapear en `KIND_MAP` → `create_deal`.
+- Ajustar el system prompt: si el usuario pide crear un deal y menciona un nombre que aparece en el catálogo de contactos, usar ese `contact_id` directamente; si no aparece, llamar primero a `search_entity` (kind=contact); si no hay match claro, **proponer el deal sin contact_id** y mencionar en `reasoning` que conviene vincular un contacto después. NO pedir aclaraciones a menos que haya >1 candidato exacto.
 
-## 2. Selectores con enum para `status` y `type`
+**Backend (`ai-execute/index.ts`):**
+- Agregar `kind: "create_deal"` al type union.
+- **Modo `preview`:** devolver `before=null`, `after={ Nombre, Monto, Contacto, Etapa, Probabilidad, "Cierre esperado" }`.
+- **Modo `execute`:** validar `name` y `amount>0`. Si no viene `stage_id`, hacer fallback a la primera etapa del tenant (`pipeline_stages` ordenado por `position`). Insertar en `deals` con `tenant_id`, `name`, `amount`, `contact_id?`, `stage_id`, `stage_name`, `probability` (default según stage o 10), `expected_close_date?`. Devolver `target_type=deal`, `target_id=<uuid>`.
 
-**Problema:** Los campos `status` (lead) y `type` (activity) son inputs libres; si el usuario escribe un valor fuera del enum, el backend devuelve 400 sin diff visible.
+**Frontend (`AiDrawer.tsx`):**
+- Añadir `"create_deal"` al `ProposalKind` type (en `services/ai.ts`), con icono `KanbanSquare` y un caso en `ProposalEditForm` con campos editables: nombre, monto, probabilidad, fecha de cierre y un Select de etapas (reusando `useStages()`). El `contact_id` se muestra como texto readonly con el nombre del contacto enlazado.
+- Invalidar `["deals"]` y `["pipeline"]` tras ejecutar.
 
-**Fix:** En `ProposalEditForm`, sustituir esos `<Field>` por `<Select>` con las opciones válidas:
-- `status`: `Nuevo | Contactado | Calificado | Propuesta | Cerrado | Perdido`
-- `type`: `note | deal | task | wa_sent | wa_received`
+## 2. Drawer conversacional
 
-## 3. Preservar ediciones acumuladas
+**Problema:** Cuando la IA pregunta algo, no hay caja de texto para responder. El usuario tiene que cerrar el drawer y escribir desde el TopBar, lo que rompe el hilo de la conversación.
 
-**Problema:** Al "Aplicar cambios" se hace `{ ...p.payload, ...draft }`, perdiendo cualquier edición previa guardada en `livePayloads`.
+**Estado (`store/aiDrawer.ts`):**
+- Reemplazar `current: AiQuery | null` por `turns: AiQuery[]` (array creciente para la conversación activa).
+- `ask(prompt, ctx)` agrega un nuevo turno; ya envía el `history` con los últimos turnos al edge function (manda los últimos 6 mensajes alternando user/assistant).
+- Añadir `clearConversation()` que vacía `turns` para empezar un chat nuevo. El `history` (la lista del lado derecho con preguntas pasadas) sigue funcionando: cada vez que se inicia una nueva conversación, el primer prompt se guarda ahí.
+- Mantener el comportamiento de cerrar/abrir drawer sin perder los turnos hasta que el usuario haga "Nueva conversación".
 
-**Fix:** Cambiar a `{ ...(livePayloads[p.id] ?? p.payload), ...draft }` (línea ~356).
+**UI (`AiDrawer.tsx`):**
+- Renderizar `turns` en lista vertical: cada turno = burbuja de usuario (gris a la derecha) + burbuja de IA (con `prose`, acciones y propuestas).
+- En el footer del drawer, **siempre visible** cuando hay al menos un turno: un `<Textarea>` + botón enviar (Cmd/Ctrl+Enter) para responder. Al enviar, llama a `ask()` con el contexto actual y se agrega el nuevo turno al final.
+- Auto-scroll al fondo cuando se agrega un turno o llega respuesta.
+- Botón "Nueva conversación" en el header para limpiar `turns`.
+- Las propuestas siguen apareciendo solo en su turno; al confirmar/descartar/editar funcionan como hoy.
 
-## 4. Auto-refresh de preview cuando cambia el payload editado
-
-**Problema:** El `useEffect` que dispara `previewProposal` solo depende de `current?.id`. Cuando `livePayloads` cambia, no re-fetcha automáticamente (depende de la llamada manual de `refreshPreview` que ya existe — ok, pero falta el caso de cancel/re-abrir editor).
-
-**Fix:** Asegurar que al cancelar el editor, si `livePayloads[p.id]` existía, se invoque `refreshPreview` para mantener consistencia. Caso menor; con la línea actual basta si `refreshPreview` se llama siempre que haya cambios — verificarlo.
-
-## 5. Validar `lost_reason` en modo preview
-
-**Problema:** `mark_deal_lost` en preview no valida que `lost_reason` esté presente. El usuario ve diff "Estado → Perdido" y al confirmar recibe error 400 "lost_reason requerido".
-
-**Fix en `ai-execute/index.ts`:** En el `case "mark_deal_lost"` del bloque `preview`, si `!p.lost_reason`, devolver `bad(400, "Falta motivo de pérdida — edita la propuesta")` para que el card muestre el error temprano.
-
-## 6. UI de error duplicada
-
-**Problema:** Cuando `source === "error"`, el drawer muestra simultáneamente: (a) la burbuja del prompt con el texto de fallback "No pude conectar…", y (b) el banner rojo grande con "No pude conectar con el servicio de IA". Es ruido visual.
-
-**Fix en `AiDrawer.tsx`:** Cuando `source === "error"`, ocultar la sección normal de answer/proposals/feedback y mostrar SOLO el banner de error con el prompt original arriba. Reorganizar el JSX: el bloque `{current && !loading && source === "error"}` debe **reemplazar** al bloque `{current && !loading}`, no añadirse.
-
-## 7. Backoff más agresivo para 429
-
-**Problema:** `askAi` reintenta una sola vez con 800ms; en rate limits reales suele ser insuficiente.
-
-**Fix en `services/ai.ts`:**
-- Aumentar a 2 retries con backoff exponencial: 1500ms, 3000ms.
-- Solo aplicar retries cuando el error contiene "429" o "rate" o el `data.error` empieza con "Demasiadas".
-- Para otros errores (4xx no-429, 5xx), 1 solo retry como ahora.
+**Edge function:**
+- Ya recibe `history` — solo aumentar `slice(-4)` a `slice(-6)` para dar más contexto cuando hay seguimientos.
 
 ---
 
@@ -60,15 +49,16 @@ Tras validar la implementación se detectaron 7 bugs/incompletos que impiden que
 
 | Archivo | Cambios |
 |---|---|
-| `src/components/walix/AiDrawer.tsx` | Fix #2, #3, #4, #6 + cargar stages para #1 |
-| `supabase/functions/ai-execute/index.ts` | Fix #5 (validación preview) — redeploy automático |
-| `src/services/ai.ts` | Fix #7 (retry policy) |
+| `supabase/functions/global-ai/index.ts` | Tool `propose_create_deal`, ajuste de prompt para no pedir aclaraciones innecesarias, history `slice(-6)` |
+| `supabase/functions/ai-execute/index.ts` | Handler `create_deal` (preview + execute) |
+| `src/services/ai.ts` | `ProposalKind` += `"create_deal"` |
+| `src/store/aiDrawer.ts` | `turns[]` + `clearConversation()` + envío de followups |
+| `src/components/walix/AiDrawer.tsx` | Render multi-turno, footer con textarea siempre visible, botón "Nueva conversación", caso `create_deal` en ProposalEditForm + icon |
 
-## Cómo se verifica
+## Verificación
 
-1. Ir a un deal abierto → preguntar "muévelo a Negociación" → editar la propuesta → verificar que aparezca un dropdown de etapas, no un campo UUID.
-2. Pedir "marca el deal de Acme como perdido" sin dar motivo → debe aparecer el error en el preview, no después de confirmar.
-3. Provocar un error de red (offline) → debe verse solo el banner rojo, sin la burbuja gris duplicando el mensaje.
-4. Editar una propuesta dos veces seguidas → la segunda edición debe conservar lo aplicado en la primera.
+1. "crea deal de 50000 asociado a Juan gonzalez" → propone un deal con monto 50000, vinculado al Juan más probable (o sin contacto si no hay match), con tarjeta editable y botón Confirmar.
+2. Si la IA pregunta algo, escribir la respuesta en el textarea del drawer → continúa el hilo en el mismo panel.
+3. Botón "Nueva conversación" limpia el chat sin cerrar el drawer.
 
-Sin migraciones de DB. Sin nuevas dependencias. Estimado: ~150 líneas modificadas.
+Sin migraciones de DB. Sin nuevas dependencias.
