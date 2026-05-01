@@ -18,6 +18,8 @@ import {
   Zap,
   ShieldCheck,
   ArrowRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -146,6 +148,9 @@ function RequirementRow({ ok, label }: { ok: boolean; label: string }) {
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [showPasswordHints, setShowPasswordHints] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -160,10 +165,13 @@ export default function Login() {
   const pwChecks = useMemo(() => evaluatePassword(password), [password]);
   const pwOk = passwordValid(pwChecks);
 
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const showMismatch = confirmPassword.length > 0 && !passwordsMatch;
+
   const canSubmit =
     mode === "login"
       ? email.trim().length > 0 && password.length > 0
-      : !emailError && email.trim().length > 0 && pwOk;
+      : !emailError && email.trim().length > 0 && pwOk && passwordsMatch;
 
   const handleEmailBlur = () => {
     if (!email) return;
@@ -175,6 +183,9 @@ export default function Login() {
     setMode(next);
     setEmailError(null);
     setShowPasswordHints(false);
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -191,6 +202,12 @@ export default function Login() {
         setShowPasswordHints(true);
         toast.error("Contraseña insegura", {
           description: "Cumple los 4 requisitos antes de continuar.",
+        });
+        return;
+      }
+      if (!passwordsMatch) {
+        toast.error("Las contraseñas no coinciden", {
+          description: "Revisa el campo de confirmación.",
         });
         return;
       }
