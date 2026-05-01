@@ -283,26 +283,58 @@ export function useContactLastInbound(contactId: string | undefined) {
 }
 
 /**
- * Local heuristic-based suggestions for a contact. Combines contact data,
- * deals, activity and last inbound message to surface the next best action.
+ * Suggestions for a contact. Tries the AI-powered edge function first
+ * (`contact-ai-suggest`) and falls back to local heuristics on failure or
+ * while loading. The contract is always `ContactSuggestion[]`.
  */
 export function useContactSuggestions(contactId: string | undefined): {
   data: ContactSuggestion[];
   isLoading: boolean;
+  source: "ai" | "local" | "none";
 } {
   const { data: contact, isLoading: l1 } = useContact(contactId);
   const { data: deals = [], isLoading: l2 } = useContactDeals(contactId);
   const { data: activity = [], isLoading: l3 } = useContactActivity(contactId);
   const { data: lastInbound = null, isLoading: l4 } = useContactLastInbound(contactId);
 
-  const isLoading = l1 || l2 || l3 || l4;
-  if (!contact) return { data: [], isLoading };
+  // AI call — cached 5 min, retried once. Errors are swallowed so we always fall back.
+  const ai = useQuery({
+    queryKey: ["contact-ai-suggest", contactId],
+    enabled: !!contactId && !!contact,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    queryFn: async (): Promise<ContactSuggestion[] | null> => {
+      try {
+        const { data, error } = await supabase.functions.invoke("contact-ai-suggest", {
+          body: { contactId },
+        });
+        if (error) return null;
+        const list = (data as any)?.suggestions;
+        if (!Array.isArray(list) || list.length === 0) return null;
+        return list as ContactSuggestion[];
+      } catch {
+        return null;
+      }
+    },
+  });
 
-  const suggestions = buildContactSuggestions({
+  const baseLoading = l1 || l2 || l3 || l4;
+  if (!contact) return { data: [], isLoading: baseLoading, source: "none" };
+
+  // Always compute a local fallback so the UI is never empty.
+  const local = buildContactSuggestions({
     contact,
     activity,
     deals,
     lastInbound: lastInbound ?? null,
   });
-  return { data: suggestions, isLoading };
+
+  if (ai.data && ai.data.length > 0) {
+    return { data: ai.data, isLoading: false, source: "ai" };
+  }
+  return {
+    data: local,
+    isLoading: baseLoading || ai.isLoading,
+    source: "local",
+  };
 }

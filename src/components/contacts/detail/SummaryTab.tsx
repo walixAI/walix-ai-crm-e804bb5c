@@ -19,7 +19,7 @@ const iconMap = {
 interface Props { contact: ContactRow; onWhatsApp: () => void; activity: ActivityRow[] }
 
 export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
-  const { data: suggestions } = useContactSuggestions(contact.id);
+  const { data: suggestions, source } = useContactSuggestions(contact.id);
   const [index, setIndex] = useState(0);
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState<string | undefined>(undefined);
@@ -47,6 +47,11 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
             <Sparkles className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-xs font-semibold text-primary uppercase tracking-wide">Próximo paso sugerido</span>
+          {source === "ai" && (
+            <span className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+              IA
+            </span>
+          )}
         </div>
         <p className="text-sm leading-relaxed">
           {top?.text ?? `Sin sugerencias activas para ${contact.name} por ahora.`}
