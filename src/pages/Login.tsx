@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/walix/Logo";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+async function waitForAuthContext(timeoutMs = 3000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { user, contextLoading } = useAuthStore.getState();
+    if (user && !contextLoading) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -38,10 +48,15 @@ export default function Login() {
           return;
         }
         toast.success("¡Cuenta creada!", { description: "Vamos a configurar tu CRM" });
+        // Esperar a que useInitAuth termine de cargar el contexto (roles/tenant
+        // creados por el trigger handle_new_user) antes de navegar, para evitar
+        // que ProtectedRoute nos expulse a /login por sesión "huérfana".
+        await waitForAuthContext(3000);
         navigate("/onboarding");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await waitForAuthContext(3000);
         navigate("/dashboard");
       }
     } catch (err: any) {

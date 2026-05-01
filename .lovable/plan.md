@@ -1,28 +1,70 @@
-## Bug — Signup queda atorado por falso "cuenta huérfana"
+## Problema detectado
 
-### Causa raíz
-Al hacer signup, Supabase crea la fila en `auth.users` y el trigger `handle_new_user` crea profile + tenant + roles. El cliente, al recibir la nueva sesión vía `onAuthStateChange`, llama inmediatamente a `loadUserContext()`. Si esa primera consulta llega **antes** de que el trigger termine (carrera de milisegundos), `profiles` viene vacío y `roles` vienen vacíos → marcamos la cuenta como huérfana → `forceSignOut()` cierra la sesión y muestra "Tu cuenta ya no está disponible".
+El flujo actual de **registro → onboarding** falla por una **condición de carrera** entre tres procesos asíncronos:
 
-Esto se ve en los logs: el signup termina con éxito (`immediate_login_after_signup: true`) pero el usuario nunca llega a `/onboarding`.
+1. `signUp()` resuelve y devuelve sesión → `navigate("/onboarding")`.
+2. En paralelo, `onAuthStateChange` dispara `loadUserContext()` que consulta `profiles`/`user_roles` (con reintentos de hasta 2s).
+3. `ProtectedRoute` se monta inmediatamente y evalúa `roles.length === 0 && !activeTenantId` → como el trigger `handle_new_user` aún no ha terminado de poblar las tablas, **redirige al usuario a `/login`** antes de que termine la carga.
 
-### Arreglo
-Agregar **reintentos con backoff** a la verificación de cuenta huérfana antes de considerar realmente que la cuenta no existe.
+Resultado: el usuario nuevo es expulsado a /login justo después de registrarse, aunque la cuenta sí se creó correctamente.
 
-### Cambios en `src/hooks/useAuth.ts`
+### Causa raíz exacta
 
-1. Convertir `loadUserContext` para que reintente cuando `profileRes.data` viene `null`:
-   - Hasta **5 intentos** espaciados ~400 ms (≈2 s total).
-   - Si después del último intento `profile` sigue `null` Y no hay roles → entonces sí marcar `accountValid = false`.
-2. Mantener la lógica de `forceSignOut` igual — solo se dispara cuando ya pasó el grace period.
-3. Esto cubre tanto el caso del signup recién hecho como el caso real de cuenta borrada (espera ~2 s y luego cierra).
+En `src/components/layout/ProtectedRoute.tsx` (líneas 27–31):
 
-### Cambio menor en `src/pages/Login.tsx`
-- En modo `signup`, si `data.session` viene `null` (caso edge si se desactiva auto-confirm en el futuro), mostrar mensaje "Revisa tu correo para confirmar la cuenta" en lugar de redirigir a `/onboarding` (que terminaría en login). Hoy el proyecto auto-confirma así que no aplica, pero es defensivo y barato.
+```tsx
+if (roles.length === 0 && !activeTenantId) {
+  return <Navigate to="/login" ... />;
+}
+```
 
-### Archivos a tocar
-- `src/hooks/useAuth.ts` — reintentos en `loadUserContext`.
-- `src/pages/Login.tsx` — manejo defensivo de signup sin sesión.
+Este chequeo se ejecuta **inmediatamente** después de que `loading` pasa a `false`, pero `loading` solo refleja `getSession()`, no la carga del contexto (roles/tenant). El store arranca con `roles: []` y `activeTenantId: null`, así que durante la ventana en la que el contexto aún se está cargando (los ~2s del retry loop), el guard expulsa al usuario.
 
-Sin cambios de DB.
+## Solución
 
-¿Procedo?
+### 1. Añadir un flag `contextLoading` al auth store
+
+En `src/store/auth.ts`: agregar `contextLoading: boolean` (default `true`) y su setter `setContextLoading`.
+
+### 2. Marcar contextLoading en `useInitAuth`
+
+En `src/hooks/useAuth.ts`:
+- Al detectar sesión (`onAuthStateChange` y `getSession`), poner `contextLoading = true` antes de llamar a `loadUserContext`.
+- Al terminar (éxito o fallo), poner `contextLoading = false`.
+- Cuando no hay sesión, también `contextLoading = false`.
+
+### 3. Esperar el contexto en `ProtectedRoute`
+
+En `src/components/layout/ProtectedRoute.tsx`: mostrar el spinner mientras `loading || (user && contextLoading)`. Solo después evaluar el guard de cuenta huérfana.
+
+### 4. Mejorar el flujo de signup en `Login.tsx`
+
+En `src/pages/Login.tsx` (líneas 27–41):
+- Tras `signUp` exitoso con sesión, **no** llamar `navigate` inmediatamente. En su lugar, esperar a que el listener `onAuthStateChange` haya cargado el contexto antes de navegar (polling corto del store hasta que `contextLoading === false`, máx 3s).
+- Esto garantiza que cuando `/onboarding` se monte, el guard ya tenga roles/tenant.
+- Mantener el manejo de "sin sesión devuelta" (cuando se requiere confirmación de email).
+
+### 5. Verificación
+
+Tras los cambios, el flujo será:
+
+```text
+signUp() ──► sesión creada
+   │
+   ├─► onAuthStateChange dispara loadUserContext (con retries)
+   │       │
+   │       └─► profiles + user_roles listos → contextLoading=false
+   │
+   └─► Login espera contextLoading=false → navigate("/onboarding")
+                                                   │
+                                                   └─► ProtectedRoute ve roles/tenant ✓ → renderiza Onboarding
+```
+
+## Archivos a modificar
+
+- `src/store/auth.ts` — añadir `contextLoading` + setter.
+- `src/hooks/useAuth.ts` — gestionar `contextLoading` durante la carga del contexto.
+- `src/components/layout/ProtectedRoute.tsx` — esperar `contextLoading` antes de evaluar guard.
+- `src/pages/Login.tsx` — esperar contexto cargado antes de `navigate("/onboarding")`.
+
+No se requieren cambios en BD ni en edge functions.

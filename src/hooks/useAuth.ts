@@ -56,27 +56,31 @@ async function forceSignOut(reset: () => void) {
 }
 
 export function useInitAuth() {
-  const { setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, reset } = useAuthStore();
+  const { setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, setContextLoading, reset } = useAuthStore();
 
   useEffect(() => {
     // 1. Listener FIRST
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
+        setContextLoading(true);
         setTimeout(async () => {
           const ctx = await loadUserContext(session.user.id);
           if (!ctx.accountValid) {
             await forceSignOut(reset);
+            setContextLoading(false);
             return;
           }
           setRoles(ctx.roles);
           setOrganizations(ctx.organizations);
           setActiveTenantId(ctx.activeTenantId);
+          setContextLoading(false);
         }, 0);
       } else {
         setRoles([]);
         setOrganizations([]);
         setActiveTenantId(null);
+        setContextLoading(false);
       }
     });
 
@@ -85,20 +89,25 @@ export function useInitAuth() {
       setSession(session);
       setLoading(false);
       if (session?.user) {
+        setContextLoading(true);
         loadUserContext(session.user.id).then(async (ctx) => {
           if (!ctx.accountValid) {
             await forceSignOut(reset);
+            setContextLoading(false);
             return;
           }
           setRoles(ctx.roles);
           setOrganizations(ctx.organizations);
           setActiveTenantId(ctx.activeTenantId);
+          setContextLoading(false);
         });
+      } else {
+        setContextLoading(false);
       }
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, reset]);
+  }, [setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, setContextLoading, reset]);
 }
 
 export function useAuth() {
