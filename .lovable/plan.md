@@ -1,123 +1,244 @@
-# Fase 1 — Walix.ai como Agente Ejecutor
+# Sprint Walix.ai Fase 2A — Agente más útil, transparente y editable
 
-Convierte el chat de "Pregúntale a tu IA" de un asistente de solo lectura en un **agente que ejecuta acciones reales** en el CRM, siempre con un paso intermedio de **vista previa + confirmación humana** y registro completo en `audit_log`.
+Este sprint mejora 7 aspectos del módulo IA sin tocar la arquitectura base (agente + human-in-the-loop + auditoría). Foco: **percepción de "agente real"** y **menos fricción** al confirmar acciones.
 
-## Alcance de Fase 1
-
-### Acciones que el agente podrá proponer y ejecutar
-
-1. **`update_deal_stage`** — mover un deal a otra etapa del pipeline
-2. **`update_deal_amount`** — cambiar monto y/o probabilidad de un deal
-3. **`mark_deal_won`** / **`mark_deal_lost`** — cerrar deal (lost requiere razón)
-4. **`create_task`** — crear tarea (título, due_at, asignado opcional, vinculada a deal/contact)
-5. **`create_activity`** — registrar nota/llamada/email manual
-6. **`update_contact`** — editar campos básicos (nombre, email, empresa, posición, status, tags)
-7. **`create_contact`** — alta rápida de contacto
-
-Las acciones existentes de solo navegación (`open_deal`, `open_contact`, etc.) se mantienen como antes.
-
-### Flujo end-to-end
+## Alcance
 
 ```text
-Usuario escribe en AiDrawer
-        │
-        ▼
-global-ai (edge function) ── modelo decide tool calls ──┐
-        │                                                │
-        │ devuelve: text + actions (open_*) + proposals  │
-        ▼                                                │
-AiDrawer renderiza respuesta + tarjetas "Vista previa"  │
-        │                                                │
-        │ usuario revisa cambios línea por línea         │
-        ▼                                                │
-[Confirmar]   [Editar]   [Descartar]                     │
-        │                                                │
-        ▼                                                │
-ai-execute (edge function) ─ valida RLS, ejecuta ────────┘
-        │
-        ▼
-Inserta en audit_log + refetch React Query + toast
+Quick wins
+  #1   Placeholders dinámicos + chip beta en TopBar
+  #14  Contexto de página actual (route + entidad seleccionada)
+  #15  Mejor UX de fallback (separar error vs demo, retry)
+  #25  Modo "explicar por qué"
+
+Mejoras core del flujo de propuestas
+  #3   Diff visual antes → después en cada propuesta
+  #4   Editar propuesta inline antes de confirmar
+  #13  Tool search_entity para encontrar deals/contactos fuera del top-N
 ```
 
-Nada se ejecuta sin un click humano explícito en **Confirmar**.
+Sin cambios de schema. Sin nuevas tablas. Cambios concentrados en `global-ai`, `ai-execute`, `AiDrawer`, `TopBar`, `services/ai.ts` y `store/aiDrawer.ts`.
 
-## Cambios técnicos
+---
 
-### 1. Edge function `global-ai` (modificar)
+## #1 — Placeholders dinámicos + chip "Beta agente" (TopBar)
 
-Añadir herramientas nuevas al array `tools` (function calling de Gemini):
+**Qué cambia (`src/components/layout/TopBar.tsx`):**
+- Reemplazar el placeholder estático por un array rotando cada 4s con ejemplos mezclados:
+  - Consultas: *"¿Qué deals están en riesgo?"*
+  - Acciones: *"Mueve Acme a Negociación"*, *"Crea tarea: llamar a Pedro mañana 10am"*
+  - Contacto: *"Agrega a María Pérez, tel 5551234567"*
+  - WhatsApp futuro: *"Resume la conversación con Carlos"*
+- Añadir chip pequeño a la izquierda del input: `✨ Agente · Beta` con tooltip "Puedo ejecutar acciones con tu confirmación".
+- Microcopy debajo del dropdown de sugerencias: *"También puedo crear, mover y actualizar — siempre te pido confirmar."*
+- Pausar la rotación cuando el input está enfocado o tiene texto.
 
-- `propose_deal_update` — params: `deal_id`, `stage_name?`, `amount?`, `probability?`, `reason`
-- `propose_close_deal` — params: `deal_id`, `outcome: 'won'|'lost'`, `lost_reason?`, `lost_comment?`
-- `propose_create_task` — params: `title`, `due_at?`, `deal_id?`, `contact_id?`, `assignee_id?`
-- `propose_create_activity` — params: `type`, `description`, `deal_id?`, `contact_id?`
-- `propose_update_contact` — params: `contact_id`, campos opcionales
-- `propose_create_contact` — params: `name`, `phone`, opcionales
+**Por qué:** hoy el placeholder sugiere solo lectura; los usuarios no descubren la capacidad ejecutora.
 
-El prompt de sistema instruye:
-> "Cuando el usuario pida ejecutar una acción, NO afirmes que ya la hiciste. Llama a la herramienta `propose_*` correspondiente con los datos exactos. La acción solo se ejecuta cuando el usuario confirme en la UI."
+---
 
-La respuesta JSON ahora incluye:
-```ts
-{ text, actions: AiAction[], proposals: ProposedChange[] }
+## #14 — Contexto de página actual
+
+**Qué cambia:**
+- `src/store/aiDrawer.ts`: `ask()` acepta y envía un `context` opcional con `{ route, entityType?, entityId?, entityLabel? }`.
+- Capturar contexto desde `window.location.pathname` + parsing simple de query/path:
+  - `/pipeline?dealId=X` → `{ entityType: "deal", entityId: X }`
+  - `/contacts/X` → `{ entityType: "contact", entityId: X }`
+  - `/whatsapp?conversationId=X` → `{ entityType: "convo", entityId: X }`
+- `supabase/functions/global-ai/index.ts`: leer `context` del body y, si hay entidad, hacer un `select` extra para inyectar al prompt:
+
+```text
+## Contexto de la página actual del usuario
+El usuario está viendo: deal "Acme Corp" (id: <uuid>)
+  · Etapa: Negociación · Monto: $50,000 · Probabilidad: 70%
+  · Última actividad: hace 3 días
+Si el usuario usa pronombres ("súbele", "muévelo", "ciérralo"), asume que se refiere a esta entidad.
 ```
 
-donde cada `ProposedChange` lleva `id` (uuid), `kind`, `summary` legible (ej: "Mover **Cliente Acme** de Negociación → Cerrado ganado"), `payload` validado con catálogo de IDs, y `entity_label`.
+- También añadir el ID al catálogo aunque no esté en el top-N.
 
-### 2. Edge function nueva `ai-execute`
+**Por qué:** transforma "súbele a 80k" de un fallo silencioso a una acción precisa.
 
-- Recibe `{ proposal_id, kind, payload }` ya firmado por la sesión.
-- Valida con Zod cada `kind`.
-- Ejecuta vía supabase-js scoped al JWT del usuario (RLS aplica → seguridad multi-tenant gratis).
-- Inserta fila en `audit_log` con `action='ai_execute_<kind>'`, `target_type`, `target_id`, `metadata={ prompt, summary, payload, ai_model }`, `actor_id`.
-- Devuelve `{ ok, target_id, error? }`.
+---
 
-### 3. Frontend — `AiDrawer.tsx`
+## #15 — Mejor UX de fallback + retry automático
 
-- Nueva sección **"Cambios propuestos"** debajo de la respuesta y antes de "Acciones sugeridas".
-- Cada proposal renderiza un card con:
-  - Ícono según tipo (KanbanSquare, CheckCircle, ListTodo, UserPlus…)
-  - Resumen markdown (`Mover **Acme** → Cerrado ganado`)
-  - Diff compacto (campos cambiados)
-  - Botones: **Confirmar** (primary), **Descartar** (ghost)
-- Al confirmar: llama `executeProposal()`, muestra spinner, al éxito reemplaza el card por un check verde "Ejecutado · ver en auditoría", invalida queries de React Query relevantes (deals, tasks, contacts).
-- Estado local: `Map<proposalId, 'idle'|'running'|'done'|'error'>`.
+**Qué cambia:**
 
-### 4. `src/services/ai.ts`
+`src/services/ai.ts`:
+- Añadir 1 reintento con backoff 800ms si `error.status === 429` o sin respuesta (red).
+- Diferenciar dos estados de retorno: `source: "live" | "error" | "fallback"`.
+  - `error`: el servicio falló → mostrar UI de error con botón Reintentar.
+  - `fallback`: usado solo cuando intencionalmente devolvemos contenido demo (no en `askAi`).
+- En `askAi` actual, eliminar el "fallback de demo" y devolver `source: "error"` con `errorMessage`.
 
-- Tipo `ProposedChange` exportado.
-- `askAi()` ahora retorna `{ text, actions, proposals, source }`.
-- Nueva función `executeProposal(p: ProposedChange)` → invoca `ai-execute`.
+`src/components/walix/AiDrawer.tsx`:
+- Cuando `source === "error"`: reemplazar el banner amarillo "demo" por un card rojo claro:
+  ```text
+  ⚠️  No pude conectar con el servicio de IA
+  [Reintentar]   [Cerrar]
+  ```
+- El card del prompt del usuario sigue visible para que reintente sin reescribir.
 
-### 5. `src/store/aiDrawer.ts`
+**Por qué:** hoy el banner "Respuesta de demostración" engaña — la IA no respondió, no es una demo.
 
-- `AiQuery` añade `proposals: ProposedChange[]`.
-- Persistencia local sigue igual (Fase 2 migra a DB).
+---
 
-### 6. UI de auditoría existente
+## #25 — Modo "explicar por qué"
 
-`audit_log` ya está creado con RLS y la página existe (`src/services/audit.ts`, `src/lib/queries/auditLog.ts`). El nuevo flujo simplemente inserta con `action LIKE 'ai_execute_%'`. No requiere cambios de schema.
+**Qué cambia:**
 
-## Seguridad
+`global-ai`: cada `propose_*` recibe un nuevo campo opcional `reasoning` (string corto, máx 200 chars) que el modelo llena explicando qué señales del CRM motivaron la propuesta. El system prompt instruye:
+> "Para cada `propose_*`, incluye `reasoning` con 1-2 frases sobre qué datos del contexto motivaron la propuesta (etapa, días sin actividad, monto, etc.)."
 
-- **Sin SQL crudo**, sin `service_role` en `ai-execute` — usamos el JWT del usuario, RLS hace cumplir tenant + permisos.
-- **Catálogo cerrado de IDs**: el modelo solo puede referenciar UUIDs presentes en el contexto (deals/contacts/convos top-N). Validamos en backend que el ID exista y pertenezca al tenant antes de ejecutar.
-- **Validación Zod estricta** por cada `kind` en `ai-execute`.
-- **Sin auto-ejecución**: el endpoint `ai-execute` requiere click humano; `global-ai` nunca toca la DB de escritura.
-- **Auditoría inmutable**: `audit_log` no permite UPDATE/DELETE por RLS.
+`AiDrawer.tsx`: cada card de propuesta añade un botón secundario `¿Por qué?` (icono `Lightbulb`) que toggle muestra:
+```text
+💡 Acme lleva 12 días sin actividad y la conversación pidió cierre.
+```
 
-## Fuera de alcance (Fases siguientes)
+**Por qué:** aumenta confianza para confirmar sin revisar todo el CRM manualmente.
 
-- Persistencia server-side de threads (Fase 2)
-- Bridge a WhatsApp Operator (Fase 3)
-- Tools de masa (bulk update N deals) — primero validamos UX 1-a-1
-- Deshacer una acción ejecutada (revert)
+---
 
-## Entregables
+## #3 — Diff visual antes → después
 
-1. `supabase/functions/global-ai/index.ts` — añade tools `propose_*` y devuelve `proposals`
-2. `supabase/functions/ai-execute/index.ts` — nueva función con validación Zod + audit
-3. `src/services/ai.ts` — tipos + `executeProposal()`
-4. `src/store/aiDrawer.ts` — soporta `proposals` en `AiQuery`
-5. `src/components/walix/AiDrawer.tsx` — UI de vista previa, confirmación y estado de ejecución
-6. Sin migración SQL — `audit_log` ya existe
+**Qué cambia:**
+
+`supabase/functions/ai-execute/index.ts` (y la lógica de previsualización):
+- Nueva acción/endpoint mínimo `preview` dentro de `ai-execute` (param `mode: "preview" | "execute"`, default `execute`):
+  - `preview` lee el estado actual del registro afectado y devuelve `{ before: {...}, after: {...} }` sin escribir.
+- Llamado automáticamente al renderizar la propuesta por primera vez.
+
+`AiDrawer.tsx`: tras recibir el preview, debajo del summary se renderiza una mini-tabla:
+```text
+Monto         $50,000  →  $75,000
+Probabilidad     70%   →    85%
+Etapa     Negociación  →  Cerrado ganado
+```
+- Solo campos que cambian. Valores idénticos se omiten.
+- Para `create_*`: mostrar tabla simple "Nuevo registro" con los campos rellenados.
+- Para `mark_deal_lost`: mostrar `lost_reason` y `lost_comment` destacados.
+
+**Por qué:** Confirmar a ciegas es riesgoso; el diff convierte la propuesta en una decisión informada.
+
+---
+
+## #4 — Editar propuesta inline antes de confirmar
+
+**Qué cambia:**
+
+`AiDrawer.tsx`:
+- Tercer botón en cada card: `Editar` (icono `Pencil`).
+- Al hacer click, el card se expande con un mini-form generado por `kind`:
+  - `update_deal_amount`: inputs numéricos `amount`, `probability`.
+  - `update_deal_stage`: `Select` con etapas del catálogo.
+  - `create_task`: `title`, `due_at` (date+time picker), opcional `assignee`.
+  - `create_contact` / `update_contact`: `name`, `last_name`, `phone`, `email`, `company`, `position`, `status`, `tags`.
+  - `create_activity`: `type` select, `description` textarea.
+  - `mark_deal_lost`: `lost_reason` (select con razones del tenant si existen) + `lost_comment` textarea.
+- Al guardar la edición, se actualiza `payload` localmente y se re-llama `preview` para refrescar el diff.
+- Botones del modo edición: `Aplicar cambios` / `Cancelar`.
+
+`global-ai` system prompt: indicar que el usuario puede editar antes de confirmar, así que las propuestas pueden ser aproximadas si falta info (ej. monto sugerido pero el usuario lo ajustará).
+
+**Por qué:** elimina el ciclo "descartar → reescribir prompt completo" cuando solo cambia un valor.
+
+---
+
+## #13 — Tool `search_entity`
+
+**Qué cambia:**
+
+`global-ai`: nueva tool function disponible para el modelo:
+```text
+search_entity({
+  kind: "deal" | "contact" | "convo",
+  query: string  // nombre, teléfono o email parcial
+})
+```
+
+Implementación en el edge function:
+- Cuando el modelo invoque esta tool, ejecutamos en Supabase (RLS-scoped):
+  - `deal`: `select id, name, stage_name, amount from deals where name ilike '%query%' limit 5`
+  - `contact`: `select id, name, last_name, company, phone from contacts where name ilike '%query%' or last_name ilike '%query%' or phone ilike '%query%' or email ilike '%query%' limit 5`
+  - `convo`: join contacts → `select id from conversations where contact.name ilike '%query%' limit 5`
+- Devolvemos los resultados al modelo en un nuevo turno (multi-turn tool calling) y el modelo continúa con la propuesta.
+
+System prompt:
+> "Si el usuario menciona un deal/contacto que no aparece en el catálogo, NO inventes el ID. Llama primero a `search_entity` para encontrarlo. Si hay múltiples resultados, pide al usuario que confirme cuál."
+
+**Por qué:** desbloquea el caso "actualiza a Pedro García" cuando Pedro no está en los top 15.
+
+---
+
+## Cambios técnicos (resumen por archivo)
+
+```text
+src/components/layout/TopBar.tsx
+  + array PLACEHOLDERS, useEffect rotación, chip beta, microcopy
+  + captura de contexto de página al disparar ask()
+
+src/store/aiDrawer.ts
+  + AiQuery.context, source incluye "error", errorMessage, retry()
+  + ask() acepta context y lo propaga
+
+src/services/ai.ts
+  + AskAiResult.source: "live" | "error"
+  + askAi() retry 1x con backoff
+  + previewProposal() → llama ai-execute con mode=preview
+  + ProposedChange.reasoning, ProposedChange.before/after (cliente)
+
+src/components/walix/AiDrawer.tsx
+  + Banner de error con Reintentar
+  + Card propuesta:
+      - botón "¿Por qué?" (reasoning collapsible)
+      - tabla diff before→after
+      - botón Editar + form dinámico por kind
+      - re-preview al editar
+
+supabase/functions/global-ai/index.ts
+  + lee body.context, inyecta entidad activa al prompt
+  + tool search_entity con loop multi-turn
+  + cada propose_* añade `reasoning` opcional
+  + system prompt actualizado (contexto, edición, search)
+
+supabase/functions/ai-execute/index.ts
+  + mode "preview" | "execute"
+  + en preview: select del registro actual, devuelve { before, after } sin escribir
+  + sin cambios en audit_log
+```
+
+---
+
+## Seguridad y validación
+
+- `search_entity` corre con JWT del usuario → RLS aplica, no se filtran entidades cross-tenant.
+- `ai-execute mode=preview` no escribe, no audita; mismas validaciones de UUID y catálogo.
+- Edición inline pasa por la misma validación Zod del backend al confirmar — el frontend no es la única defensa.
+- `reasoning` se sanea (máx 300 chars, sin HTML).
+- El reintento de `askAi` se limita a 1 intento para no quemar créditos.
+
+---
+
+## Fuera de alcance (siguiente sprint)
+
+- Streaming SSE (#6)
+- Persistir threads server-side (#5)
+- Bulk actions (#9)
+- Undo / snapshot before en `audit_log` (#10, #18)
+- Tools compartidas con WhatsApp (#11)
+- Memoria de preferencias (#12)
+- Telemetría `ai_events` (#20)
+
+---
+
+## Validación QA
+
+Casos a probar tras implementar:
+1. *"¿Qué deals están en riesgo?"* → respuesta normal, sin propuestas, source=live.
+2. Estando en `/pipeline?dealId=X`: *"súbele el monto a 100k"* → propuesta correcta sobre ese deal sin necesidad de nombrarlo.
+3. *"actualiza a Pedro García a status Calificado"* (Pedro fuera de top-15) → modelo invoca `search_entity`, propone update con ID correcto.
+4. Click en `Editar` sobre propuesta de tarea → cambia título y fecha → diff se actualiza → confirma.
+5. Click en `¿Por qué?` → muestra reasoning del modelo.
+6. Apagar gateway (simular 500) → banner rojo con Reintentar, no el banner amarillo.
+7. Confirmar `update_deal_amount` editado → `audit_log` registra el `payload` final (editado), no el original.

@@ -61,7 +61,8 @@ export interface AskAiResult {
   text: string;
   actions: AiAction[];
   proposals: ProposedChange[];
-  source: "live" | "fallback";
+  source: "live" | "error";
+  errorMessage?: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -83,6 +84,11 @@ export interface ProposedChange {
   kind: ProposalKind;
   summary: string;
   payload: Record<string, unknown>;
+  reasoning?: string;
+  /** Filled client-side after calling previewProposal(). */
+  before?: Record<string, unknown> | null;
+  /** Filled client-side after calling previewProposal(). */
+  after?: Record<string, unknown> | null;
 }
 
 export interface ExecuteResult {
@@ -92,6 +98,27 @@ export interface ExecuteResult {
   error?: string;
 }
 
+export interface PreviewResult {
+  ok: boolean;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  error?: string;
+}
+
+export async function previewProposal(p: ProposedChange): Promise<PreviewResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke("ai-execute", {
+      body: { mode: "preview", proposal_id: p.id, kind: p.kind, payload: p.payload },
+    });
+    if (error) throw error;
+    if (!data?.ok) return { ok: false, error: data?.error ?? "Error" };
+    return { ok: true, before: data.before ?? null, after: data.after ?? null };
+  } catch (err) {
+    console.warn("[ai.previewProposal] error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Error" };
+  }
+}
+
 export async function executeProposal(
   p: ProposedChange,
   ctx: { prompt?: string } = {},
@@ -99,6 +126,7 @@ export async function executeProposal(
   try {
     const { data, error } = await supabase.functions.invoke("ai-execute", {
       body: {
+        mode: "execute",
         proposal_id: p.id,
         kind: p.kind,
         payload: p.payload,
@@ -148,6 +176,13 @@ export async function submitAiFeedback(opts: {
   }
 }
 
+export interface AskAiContext {
+  route?: string;
+  entityType?: "deal" | "contact" | "convo";
+  entityId?: string;
+  entityLabel?: string;
+}
+
 /**
  * Free-form question for the global AiDrawer.
  * Sends conversation messages so the model can carry context.
@@ -155,24 +190,46 @@ export async function submitAiFeedback(opts: {
 export async function askAi(opts: {
   prompt: string;
   history?: { role: "user" | "assistant"; content: string }[];
+  context?: AskAiContext;
 }): Promise<AskAiResult> {
-  try {
+  const attempt = async () => {
     const { data, error } = await supabase.functions.invoke("global-ai", {
-      body: { mode: "ask", prompt: opts.prompt, history: opts.history ?? [] },
+      body: {
+        mode: "ask",
+        prompt: opts.prompt,
+        history: opts.history ?? [],
+        context: opts.context ?? null,
+      },
     });
     if (error) throw error;
-    if (data && (data.error || (typeof data === "object" && "error" in data))) {
+    if (data && typeof data === "object" && "error" in data && data.error) {
       throw new Error(String(data.error));
     }
     const actions = Array.isArray(data?.actions) ? data.actions : [];
     const proposals = Array.isArray(data?.proposals) ? data.proposals : [];
     if (data?.text || actions.length || proposals.length) {
-      return { text: data?.text ?? "", actions, proposals, source: "live" };
+      return { text: data?.text ?? "", actions, proposals, source: "live" as const };
     }
     throw new Error("Respuesta vacía");
-  } catch (err) {
-    console.warn("[ai.askAi] fallback to mock:", err);
-    return { text: fallbackAiResponse(opts.prompt), actions: [], proposals: [], source: "fallback" };
+  };
+  try {
+    return await attempt();
+  } catch (err1) {
+    console.warn("[ai.askAi] retry after:", err1);
+    await new Promise((r) => setTimeout(r, 800));
+    try {
+      return await attempt();
+    } catch (err2) {
+      console.warn("[ai.askAi] failed:", err2);
+      const msg = err2 instanceof Error ? err2.message : "Error desconocido";
+      return {
+        text: fallbackAiResponse(opts.prompt),
+        actions: [],
+        proposals: [],
+        source: "error",
+        errorMessage: msg,
+      };
+    }
   }
 }
 

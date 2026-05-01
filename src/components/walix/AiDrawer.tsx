@@ -1,14 +1,16 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal } from "@/services/ai";
+import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 
 // ── Citation rendering ──────────────────────────────────────────────────
@@ -72,7 +74,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, current, loading, history, ask, source } = useAiDrawer();
+  const { open, closeDrawer, current, loading, history, ask, source, errorMessage, retry } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [rating, setRating] = useState<AiRating | null>(null);
@@ -82,6 +84,12 @@ export function AiDrawer() {
   const [proposalState, setProposalState] = useState<Record<string, "idle" | "running" | "done" | "error">>({});
   const [proposalError, setProposalError] = useState<Record<string, string>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  // Preview / edit / reasoning UI per proposal
+  const [previews, setPreviews] = useState<Record<string, { before?: any; after?: any; loading?: boolean; error?: string }>>({});
+  const [showWhy, setShowWhy] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [editPayload, setEditPayload] = useState<Record<string, Record<string, any>>>({});
+  const [livePayloads, setLivePayloads] = useState<Record<string, Record<string, any>>>({});
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -109,7 +117,40 @@ export function AiDrawer() {
     setProposalState({});
     setProposalError({});
     setDismissed({});
+    setPreviews({});
+    setShowWhy({});
+    setEditing({});
+    setEditPayload({});
+    setLivePayloads({});
   }, [current?.id]);
+
+  // Auto-fetch preview for each new proposal.
+  useEffect(() => {
+    const list = current?.proposals ?? [];
+    list.forEach((p) => {
+      if (previews[p.id]) return;
+      setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
+      previewProposal({ ...p, payload: livePayloads[p.id] ?? p.payload }).then((res) => {
+        setPreviews((s) => ({
+          ...s,
+          [p.id]: res.ok
+            ? { before: res.before, after: res.after }
+            : { error: res.error },
+        }));
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id]);
+
+  const refreshPreview = (p: ProposedChange, payload: Record<string, any>) => {
+    setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
+    previewProposal({ ...p, payload }).then((res) => {
+      setPreviews((s) => ({
+        ...s,
+        [p.id]: res.ok ? { before: res.before, after: res.after } : { error: res.error },
+      }));
+    });
+  };
 
   const sendFeedback = async (r: AiRating, withComment = false) => {
     if (!current) return;
@@ -171,7 +212,8 @@ export function AiDrawer() {
 
   const confirmProposal = async (p: ProposedChange) => {
     setProposalState((s) => ({ ...s, [p.id]: "running" }));
-    const res = await executeProposal(p, { prompt: current?.prompt });
+    const finalPayload = livePayloads[p.id] ?? p.payload;
+    const res = await executeProposal({ ...p, payload: finalPayload }, { prompt: current?.prompt });
     if (res.ok) {
       setProposalState((s) => ({ ...s, [p.id]: "done" }));
       invalidateForKind(p.kind);
@@ -253,6 +295,9 @@ export function AiDrawer() {
                     {visibleProposals.map((p) => {
                       const Icon = proposalIcon(p.kind);
                       const state = proposalState[p.id] ?? "idle";
+                      const preview = previews[p.id];
+                      const isEditing = !!editing[p.id];
+                      const draft = editPayload[p.id] ?? {};
                       return (
                         <div
                           key={p.id}
@@ -266,6 +311,59 @@ export function AiDrawer() {
                               {renderInline(p.summary, handleCitation)}
                             </div>
                           </div>
+
+                          {/* Diff before → after */}
+                          {!isEditing && (
+                            <div className="pl-9">
+                              {preview?.loading && (
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Calculando vista previa…
+                                </div>
+                              )}
+                              {preview?.error && (
+                                <div className="text-[10px] text-destructive">{preview.error}</div>
+                              )}
+                              {preview && !preview.loading && !preview.error && (
+                                <DiffTable before={preview.before} after={preview.after} />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Reasoning collapsible */}
+                          {p.reasoning && !isEditing && showWhy[p.id] && (
+                            <div className="pl-9 text-[11px] text-muted-foreground bg-background/60 rounded-md border border-border/60 px-2 py-1.5 flex gap-1.5">
+                              <Lightbulb className="h-3 w-3 text-accent shrink-0 mt-0.5" />
+                              <span>{p.reasoning}</span>
+                            </div>
+                          )}
+
+                          {/* Inline edit form */}
+                          {isEditing && (
+                            <div className="pl-9 space-y-2 rounded-md bg-background/80 border border-border/60 p-2">
+                              <ProposalEditForm
+                                kind={p.kind}
+                                payload={draft}
+                                stages={(current?.proposals ?? []).length ? undefined : undefined}
+                                onChange={(next) => setEditPayload((s) => ({ ...s, [p.id]: next }))}
+                              />
+                              <div className="flex gap-1.5 justify-end">
+                                <Button size="sm" variant="ghost" className="h-7 text-xs"
+                                  onClick={() => { setEditing((s) => ({ ...s, [p.id]: false })); }}>
+                                  Cancelar
+                                </Button>
+                                <Button size="sm" className="h-7 text-xs"
+                                  onClick={() => {
+                                    const merged = { ...p.payload, ...draft };
+                                    setLivePayloads((s) => ({ ...s, [p.id]: merged }));
+                                    setEditing((s) => ({ ...s, [p.id]: false }));
+                                    refreshPreview(p, merged);
+                                  }}>
+                                  Aplicar cambios
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
                           {state === "done" ? (
                             <div className="flex items-center gap-1.5 text-[11px] text-success pl-9">
                               <Check className="h-3 w-3" /> Ejecutado · queda en auditoría
@@ -282,8 +380,8 @@ export function AiDrawer() {
                                 </Button>
                               </div>
                             </div>
-                          ) : (
-                            <div className="flex gap-1.5 pl-9">
+                          ) : !isEditing ? (
+                            <div className="flex gap-1 pl-9 flex-wrap">
                               <Button
                                 size="sm"
                                 className="h-7 text-xs"
@@ -298,6 +396,28 @@ export function AiDrawer() {
                               </Button>
                               <Button
                                 size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={state === "running"}
+                                onClick={() => {
+                                  setEditPayload((s) => ({ ...s, [p.id]: { ...(livePayloads[p.id] ?? p.payload) } }));
+                                  setEditing((s) => ({ ...s, [p.id]: true }));
+                                }}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" /> Editar
+                              </Button>
+                              {p.reasoning && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => setShowWhy((s) => ({ ...s, [p.id]: !s[p.id] }))}
+                                >
+                                  <Lightbulb className="h-3 w-3 mr-1" /> {showWhy[p.id] ? "Ocultar" : "¿Por qué?"}
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
                                 variant="ghost"
                                 className="h-7 text-xs"
                                 disabled={state === "running"}
@@ -306,7 +426,7 @@ export function AiDrawer() {
                                 <X className="h-3 w-3 mr-1" /> Descartar
                               </Button>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
@@ -388,10 +508,23 @@ export function AiDrawer() {
               </div>
             )}
 
-            {current && !loading && source === "fallback" && (
-              <div className="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/30 px-3 py-2 text-[11px] text-warning-foreground/90">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-warning" />
-                <span>Respuesta de demostración: el servicio de IA no respondió, mostrando contenido simulado.</span>
+            {current && !loading && source === "error" && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
+                <div className="flex items-start gap-2 text-[12px] text-destructive">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold">No pude conectar con el servicio de IA</div>
+                    {errorMessage && (
+                      <div className="text-[10px] text-destructive/80 mt-0.5 break-words">{errorMessage}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 justify-end">
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={closeDrawer}>Cerrar</Button>
+                  <Button size="sm" className="h-7 text-xs" onClick={() => retry()}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -423,4 +556,138 @@ export function AiDrawer() {
       </SheetContent>
     </Sheet>
   );
+}
+
+// ─── Auxiliary components ──────────────────────────────────────────────
+
+function DiffTable({ before, after }: { before?: any; after?: any }) {
+  const isCreate = !before || Object.keys(before ?? {}).length === 0;
+  const fields = Object.keys(after ?? {});
+  if (!fields.length) return null;
+  if (isCreate) {
+    return (
+      <div className="rounded-md border border-border/60 bg-background/60 p-2 mt-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+          Nuevo registro
+        </div>
+        <div className="space-y-0.5">
+          {fields.map((k) => (
+            <div key={k} className="flex justify-between gap-2 text-[11px]">
+              <span className="text-muted-foreground">{k}</span>
+              <span className="text-foreground font-medium truncate max-w-[60%] text-right">{String(after[k] ?? "—")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  // Diff view
+  const changed = fields.filter((k) => String(before?.[k] ?? "") !== String(after?.[k] ?? ""));
+  if (!changed.length) {
+    return <div className="text-[10px] text-muted-foreground italic mt-1">Sin cambios efectivos.</div>;
+  }
+  return (
+    <div className="rounded-md border border-border/60 bg-background/60 p-2 mt-1 space-y-1">
+      {changed.map((k) => (
+        <div key={k} className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-1.5 text-[11px]">
+          <span className="text-muted-foreground">{k}</span>
+          <span className="text-muted-foreground line-through truncate text-right">{String(before?.[k] ?? "—")}</span>
+          <ArrowRight className="h-3 w-3 text-accent" />
+          <span className="text-foreground font-medium truncate">{String(after?.[k] ?? "—")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProposalEditForm({
+  kind,
+  payload,
+  onChange,
+}: {
+  kind: ProposalKind;
+  payload: Record<string, any>;
+  stages?: { id: string; name: string }[];
+  onChange: (next: Record<string, any>) => void;
+}) {
+  const set = (k: string, v: any) => onChange({ ...payload, [k]: v });
+
+  const Field = ({ label, k, type = "text", placeholder }: { label: string; k: string; type?: string; placeholder?: string }) => (
+    <div className="space-y-1">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Input
+        type={type}
+        value={payload[k] ?? ""}
+        placeholder={placeholder}
+        onChange={(e) => set(k, type === "number" ? Number(e.target.value) : e.target.value)}
+        className="h-8 text-xs"
+      />
+    </div>
+  );
+
+  switch (kind) {
+    case "update_deal_amount":
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Monto" k="amount" type="number" />
+          <Field label="Probabilidad %" k="probability" type="number" />
+        </div>
+      );
+    case "update_deal_stage":
+      return <Field label="Stage ID" k="stage_id" placeholder="UUID de la etapa" />;
+    case "create_task":
+      return (
+        <div className="space-y-2">
+          <Field label="Título" k="title" />
+          <Field label="Vence (ISO)" k="due_at" placeholder="2025-05-15T10:00:00Z" />
+        </div>
+      );
+    case "create_activity":
+      return (
+        <div className="space-y-2">
+          <Field label="Tipo" k="type" placeholder="note | deal | task | wa_sent | wa_received" />
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Descripción</Label>
+            <Textarea
+              value={payload.description ?? ""}
+              onChange={(e) => set("description", e.target.value)}
+              className="text-xs min-h-[60px]"
+            />
+          </div>
+        </div>
+      );
+    case "update_contact":
+    case "create_contact":
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Nombre" k="name" />
+          <Field label="Apellido" k="last_name" />
+          <Field label="Teléfono" k="phone" />
+          <Field label="Email" k="email" />
+          <Field label="Empresa" k="company" />
+          <Field label="Puesto" k="position" />
+          <div className="col-span-2">
+            <Field label="Estado" k="status" placeholder="Nuevo | Contactado | Calificado | Propuesta | Cerrado | Perdido" />
+          </div>
+        </div>
+      );
+    case "mark_deal_lost":
+      return (
+        <div className="space-y-2">
+          <Field label="Motivo" k="lost_reason" />
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Comentario</Label>
+            <Textarea
+              value={payload.lost_comment ?? ""}
+              onChange={(e) => set("lost_comment", e.target.value)}
+              className="text-xs min-h-[50px]"
+            />
+          </div>
+        </div>
+      );
+    case "mark_deal_won":
+      return <div className="text-[11px] text-muted-foreground">No hay parámetros editables.</div>;
+    default:
+      return null;
+  }
 }
