@@ -564,6 +564,7 @@ Deno.serve(async (req) => {
       propose_create_contact: "create_contact",
       propose_create_deal: "create_deal",
       propose_link_contact_to_deal: "link_contact_to_deal",
+      propose_send_whatsapp_message: "send_whatsapp_message",
     };
     let candidates: any = null;
     for (const tc of choice?.tool_calls ?? []) {
