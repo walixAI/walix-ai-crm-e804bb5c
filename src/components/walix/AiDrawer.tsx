@@ -7,7 +7,7 @@ import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type Pr
 import { useQueryClient } from "@tanstack/react-query";
 import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -152,7 +152,13 @@ export function AiDrawer() {
     scrollEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns.length, loading]);
 
-  // Auto-fetch preview for each new proposal across ALL turns
+  // Auto-fetch preview for each new proposal across ALL turns.
+  // Depend on the stable set of proposal IDs (sorted) so newly arrived
+  // proposals in any turn trigger a single fetch — never re-fetches existing ones.
+  const proposalIdsKey = useMemo(
+    () => turns.flatMap((t) => t.proposals ?? []).map((p) => p.id).sort().join("|"),
+    [turns],
+  );
   useEffect(() => {
     const all = turns.flatMap((t) => t.proposals ?? []);
     all.forEach((p) => {
@@ -168,7 +174,7 @@ export function AiDrawer() {
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turns.length]);
+  }, [proposalIdsKey]);
 
   const refreshPreview = (p: ProposedChange, payload: Record<string, any>) => {
     setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
@@ -259,7 +265,15 @@ export function AiDrawer() {
   const confirmProposal = async (p: ProposedChange) => {
     setProposalState((s) => ({ ...s, [p.id]: "running" }));
     const finalPayload = livePayloads[p.id] ?? p.payload;
-    const res = await executeProposal({ ...p, payload: finalPayload }, { prompt: current?.prompt });
+    // Send the last 3 turns as conversational history for richer audit logs.
+    const histSlice = turns.slice(-3).flatMap((t) => [
+      { role: "user" as const, content: t.prompt },
+      { role: "assistant" as const, content: (t.answer ?? "").slice(0, 500) },
+    ]);
+    const res = await executeProposal(
+      { ...p, payload: finalPayload },
+      { prompt: current?.prompt, history: histSlice },
+    );
     if (res.ok) {
       setProposalState((s) => ({ ...s, [p.id]: "done" }));
       invalidateForKind(p.kind);
@@ -507,10 +521,15 @@ export function AiDrawer() {
                                 </Button>
                                 <Button size="sm" className="h-7 text-xs"
                                   onClick={() => {
+                                    // Merge edits over current payload, then DROP empty/null keys
+                                    // so we never overwrite stored values with "".
                                     const merged = { ...(livePayloads[p.id] ?? p.payload), ...draft };
-                                    setLivePayloads((s) => ({ ...s, [p.id]: merged }));
+                                    const cleaned = Object.fromEntries(
+                                      Object.entries(merged).filter(([_, v]) => v !== "" && v !== null && v !== undefined),
+                                    );
+                                    setLivePayloads((s) => ({ ...s, [p.id]: cleaned }));
                                     setEditing((s) => ({ ...s, [p.id]: false }));
-                                    refreshPreview(p, merged);
+                                    refreshPreview(p, cleaned);
                                   }}>
                                   Aplicar cambios
                                 </Button>
