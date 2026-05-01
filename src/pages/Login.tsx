@@ -9,6 +9,15 @@ import { Logo } from "@/components/walix/Logo";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+async function waitForAuthContext(timeoutMs = 3000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { user, contextLoading } = useAuthStore.getState();
+    if (user && !contextLoading) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
