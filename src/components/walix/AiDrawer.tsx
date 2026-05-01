@@ -615,6 +615,7 @@ function DiffTable({ before, after }: { before?: any; after?: any }) {
 function ProposalEditForm({
   kind,
   payload,
+  stages,
   onChange,
 }: {
   kind: ProposalKind;
@@ -637,6 +638,23 @@ function ProposalEditForm({
     </div>
   );
 
+  const EnumField = ({ label, k, options }: { label: string; k: string; options: string[] }) => (
+    <div className="space-y-1">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Select value={payload[k] ?? ""} onValueChange={(v) => set(k, v)}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const STATUS_OPTS = ["Nuevo", "Contactado", "Calificado", "Propuesta", "Cerrado", "Perdido"];
+  const ACTIVITY_OPTS = ["note", "deal", "task", "wa_sent", "wa_received"];
+
   switch (kind) {
     case "update_deal_amount":
       return (
@@ -646,7 +664,22 @@ function ProposalEditForm({
         </div>
       );
     case "update_deal_stage":
-      return <Field label="Stage ID" k="stage_id" placeholder="UUID de la etapa" />;
+      return (
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Etapa destino</Label>
+          <Select value={payload.stage_id ?? ""} onValueChange={(v) => set("stage_id", v)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecciona etapa…" /></SelectTrigger>
+            <SelectContent>
+              {(stages ?? []).map((s) => (
+                <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+              ))}
+              {(!stages || stages.length === 0) && (
+                <div className="px-2 py-1 text-[11px] text-muted-foreground">Sin etapas disponibles</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      );
     case "create_task":
       return (
         <div className="space-y-2">
@@ -657,7 +690,7 @@ function ProposalEditForm({
     case "create_activity":
       return (
         <div className="space-y-2">
-          <Field label="Tipo" k="type" placeholder="note | deal | task | wa_sent | wa_received" />
+          <EnumField label="Tipo" k="type" options={ACTIVITY_OPTS} />
           <div className="space-y-1">
             <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Descripción</Label>
             <Textarea
@@ -679,7 +712,7 @@ function ProposalEditForm({
           <Field label="Empresa" k="company" />
           <Field label="Puesto" k="position" />
           <div className="col-span-2">
-            <Field label="Estado" k="status" placeholder="Nuevo | Contactado | Calificado | Propuesta | Cerrado | Perdido" />
+            <EnumField label="Estado" k="status" options={STATUS_OPTS} />
           </div>
         </div>
       );
