@@ -15,7 +15,8 @@ type Kind =
   | "create_activity"
   | "update_contact"
   | "create_contact"
-  | "create_deal";
+  | "create_deal"
+  | "link_contact_to_deal";
 
 interface Body {
   mode?: "preview" | "execute";
@@ -204,6 +205,24 @@ Deno.serve(async (req) => {
           if (typeof p.expected_close_date === "string") after["Cierre esperado"] = p.expected_close_date;
           return okPreview(null, after);
         }
+        case "link_contact_to_deal": {
+          if (!isUuid(p.deal_id)) return bad(400, "deal_id inválido");
+          if (!isUuid(p.contact_id)) return bad(400, "contact_id inválido");
+          const [{ data: deal }, { data: newContact }] = await Promise.all([
+            supabase.from("deals").select("name, contact_id").eq("id", p.deal_id).maybeSingle(),
+            supabase.from("contacts").select("name, last_name, company").eq("id", p.contact_id).maybeSingle(),
+          ]);
+          if (!deal) return bad(404, "Deal no encontrado");
+          if (!newContact) return bad(404, "Contacto no encontrado");
+          let beforeLabel = "—";
+          if (isUuid(deal.contact_id)) {
+            const { data: cur } = await supabase.from("contacts")
+              .select("name, last_name").eq("id", deal.contact_id).maybeSingle();
+            if (cur) beforeLabel = `${cur.name}${cur.last_name ? " " + cur.last_name : ""}`;
+          }
+          const afterLabel = `${newContact.name}${newContact.last_name ? " " + newContact.last_name : ""}${newContact.company ? ` (${newContact.company})` : ""}`;
+          return okPreview({ Contacto: beforeLabel }, { Contacto: afterLabel });
+        }
         default:
           return bad(400, `kind no soportado: ${body.kind}`);
       }
@@ -319,12 +338,17 @@ Deno.serve(async (req) => {
         let stageProb = 10;
         if (!stageId) {
           const { data: firstStage } = await supabase.from("pipeline_stages")
-            .select("id, name").eq("tenant_id", tenantId)
+            .select("id, name, is_won, is_lost").eq("tenant_id", tenantId)
             .order("position", { ascending: true }).limit(1).maybeSingle();
-          if (firstStage) { stageId = firstStage.id; stageName = firstStage.name; }
+          if (firstStage) {
+            stageId = firstStage.id;
+            stageName = firstStage.name;
+            stageProb = firstStage.is_won ? 100 : firstStage.is_lost ? 0 : 10;
+          }
         } else {
-          const { data: st } = await supabase.from("pipeline_stages").select("name").eq("id", stageId).maybeSingle();
+          const { data: st } = await supabase.from("pipeline_stages").select("name, is_won, is_lost").eq("id", stageId).maybeSingle();
           stageName = st?.name ?? null;
+          if (st) stageProb = st.is_won ? 100 : st.is_lost ? 0 : 10;
         }
         const ins: any = {
           tenant_id: tenantId,
@@ -339,6 +363,16 @@ Deno.serve(async (req) => {
         const { data, error } = await supabase.from("deals").insert(ins).select("id").maybeSingle();
         if (error) return bad(400, error.message);
         target_type = "deal"; target_id = data?.id ?? null;
+        break;
+      }
+      case "link_contact_to_deal": {
+        if (!isUuid(p.deal_id)) return bad(400, "deal_id inválido");
+        if (!isUuid(p.contact_id)) return bad(400, "contact_id inválido");
+        const { data, error } = await supabase.from("deals")
+          .update({ contact_id: p.contact_id })
+          .eq("id", p.deal_id).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "deal"; target_id = data?.id ?? p.deal_id;
         break;
       }
       default:
