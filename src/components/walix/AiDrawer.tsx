@@ -212,6 +212,7 @@ export function AiDrawer() {
       case "create_activity": return StickyNote;
       case "update_contact": return UserIcon;
       case "create_contact": return UserPlus;
+      case "create_deal": return KanbanSquare;
       default: return Wand2;
     }
   };
@@ -810,6 +811,33 @@ function ProposalEditForm({
       );
     case "mark_deal_won":
       return <div className="text-[11px] text-muted-foreground">No hay parámetros editables.</div>;
+    case "create_deal":
+      return (
+        <div className="space-y-2">
+          <Field label="Nombre del deal" k="name" />
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Monto" k="amount" type="number" />
+            <Field label="Probabilidad %" k="probability" type="number" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Etapa</Label>
+            <Select value={payload.stage_id ?? ""} onValueChange={(v) => set("stage_id", v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Primera etapa por defecto" /></SelectTrigger>
+              <SelectContent>
+                {(stages ?? []).map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Field label="Cierre esperado (YYYY-MM-DD)" k="expected_close_date" placeholder="2025-06-30" />
+          {payload.contact_name && (
+            <div className="text-[10px] text-muted-foreground">
+              Contacto vinculado: <span className="text-foreground">{payload.contact_name}</span>
+            </div>
+          )}
+        </div>
+      );
     default:
       return null;
   }
