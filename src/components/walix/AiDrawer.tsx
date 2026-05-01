@@ -11,6 +11,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useStages } from "@/lib/queries/pipeline";
 import { toast } from "@/hooks/use-toast";
 
 // ── Citation rendering ──────────────────────────────────────────────────
@@ -77,6 +79,7 @@ export function AiDrawer() {
   const { open, closeDrawer, current, loading, history, ask, source, errorMessage, retry } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: stages = [] } = useStages();
   const [rating, setRating] = useState<AiRating | null>(null);
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [comment, setComment] = useState("");
