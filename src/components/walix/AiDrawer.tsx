@@ -273,36 +273,89 @@ export function AiDrawer() {
               </div>
               <span>Walix IA</span>
             </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">
-              {AI_MODEL_LABEL}
-            </span>
+            <div className="flex items-center gap-1.5">
+              {turns.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-[10px] gap-1"
+                  onClick={clearConversation}
+                  title="Empezar nueva conversación"
+                >
+                  <Plus className="h-3 w-3" /> Nueva
+                </Button>
+              )}
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">
+                {AI_MODEL_LABEL}
+              </span>
+            </div>
           </SheetTitle>
         </SheetHeader>
 
         <ScrollArea className="flex-1">
-          <div className="p-5 space-y-6" key={current?.id ?? "empty"}>
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                Analizando tus datos…
+          <div className="p-5 space-y-5">
+            {/* Empty state — only when there are no turns at all */}
+            {turns.length === 0 && !loading && (
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  Pregúntame lo que sea sobre tu pipeline, leads o equipo. Puedo crear, mover y actualizar — siempre te pido confirmar.
+                </div>
+                <div className="space-y-1.5">
+                  {QUICK_AI_PROMPTS.slice(0, 4).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => ask(p)}
+                      className="w-full text-left text-xs px-3 py-2 rounded-lg border border-border hover:bg-muted hover:border-primary/30 transition-colors flex items-center gap-2"
+                    >
+                      <Sparkles className="h-3 w-3 text-accent shrink-0" />
+                      <span className="truncate">{p}</span>
+                    </button>
+                  ))}
+                </div>
+                {history.length > 0 && (
+                  <div className="pt-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      <Clock className="h-3 w-3" /> Historial reciente
+                    </div>
+                    <div className="space-y-1.5">
+                      {history.map((q) => (
+                        <button
+                          key={q.id}
+                          onClick={() => ask(q.prompt)}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-muted transition-colors flex items-start justify-between gap-2"
+                        >
+                          <span className="truncate flex-1 text-foreground">{q.prompt}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{q.at}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {current && !loading && source !== "error" && (
-              <div className="space-y-3">
-                <div className="rounded-xl bg-muted px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Tú: </span>
-                  {current.prompt}
-                </div>
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  {renderMarkdown(current.answer, handleCitation)}
-                </div>
-                {current.actions && current.actions.length > 0 && (
+            {/* Conversation turns (oldest → newest) */}
+            {turns.map((turn, turnIdx) => {
+              const isLast = turnIdx === turns.length - 1;
+              const visibleProposals = (turn.proposals ?? []).filter((p) => !dismissed[p.id]);
+              return (
+                <div key={turn.id} className="space-y-3">
+                  {/* User bubble */}
+                  <div className="rounded-xl bg-muted px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Tú: </span>
+                    {turn.prompt}
+                  </div>
+                  {/* Assistant bubble */}
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    {renderMarkdown(turn.answer, handleCitation)}
+                  </div>
+
+                  {turn.actions && turn.actions.length > 0 && (
                   <div className="space-y-1.5">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Acciones sugeridas
                     </div>
-                    {current.actions.map((a, i) => {
+                    {turn.actions.map((a, i) => {
                       const Icon = iconFor(a.type);
                       return (
                         <button
