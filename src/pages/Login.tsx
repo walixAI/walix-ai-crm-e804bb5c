@@ -425,18 +425,30 @@ export default function Login() {
                 </span>
               )}
             </div>
-            <Input
-              id="password"
-              type="password"
-              autoComplete={isSignup ? "new-password" : "current-password"}
-              required
-              minLength={isSignup ? 10 : 1}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onFocus={() => isSignup && setShowPasswordHints(true)}
-              placeholder="••••••••"
-              className="h-11"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                required
+                minLength={isSignup ? 10 : 1}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => isSignup && setShowPasswordHints(true)}
+                placeholder="••••••••"
+                className="h-11 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-pressed={showPassword}
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                tabIndex={0}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {isSignup && (showPasswordHints || password.length > 0) && (
               <ul
                 className="mt-2 space-y-1 rounded-md bg-muted/40 p-3 animate-fade-in"
@@ -452,6 +464,49 @@ export default function Login() {
               </ul>
             )}
           </div>
+
+          {isSignup && (
+            <div className="space-y-1.5 animate-fade-in">
+              <Label htmlFor="confirm-password">Confirmar contraseña</Label>
+              <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite tu contraseña"
+                  aria-invalid={showMismatch}
+                  aria-describedby={showMismatch ? "confirm-error" : undefined}
+                  className={cn(
+                    "h-11 pr-10",
+                    showMismatch && "border-destructive focus-visible:ring-destructive",
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-pressed={showConfirmPassword}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  tabIndex={0}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {showMismatch && (
+                <p id="confirm-error" className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <X className="h-3.5 w-3.5" /> Las contraseñas no coinciden
+                </p>
+              )}
+              {passwordsMatch && (
+                <p className="text-xs text-success mt-1 flex items-center gap-1">
+                  <Check className="h-3.5 w-3.5" /> Las contraseñas coinciden
+                </p>
+              )}
+            </div>
+          )}
 
             <Button
               type="submit"
