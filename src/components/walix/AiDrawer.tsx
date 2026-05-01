@@ -357,6 +357,36 @@ export function AiDrawer() {
                     {renderMarkdown(turn.answer, handleCitation)}
                   </div>
 
+                  {/* Candidate picker — for ambiguous search_entity results */}
+                  {turn.candidates && turn.candidates.items.length >= 2 && isLast && (
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <HelpCircle className="h-3 w-3 text-accent" />
+                        Selecciona una opción
+                      </div>
+                      {turn.candidates.items.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            // Build a follow-up that names the choice + intent so the AI continues the flow.
+                            const intentHint = turn.candidates?.intent ? ` (${turn.candidates.intent})` : "";
+                            ask(`Usa este: ${c.name} [id:${c.id}]${intentHint}`, turn.context);
+                          }}
+                          disabled={loading}
+                          className="w-full text-left flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-background hover:bg-accent/10 hover:border-accent/50 transition-colors px-3 py-2 text-sm disabled:opacity-50"
+                        >
+                          <span className="flex-1 min-w-0">
+                            <span className="block truncate text-foreground font-medium">{c.name}</span>
+                            {c.subtitle && (
+                              <span className="block truncate text-[11px] text-muted-foreground">{c.subtitle}</span>
+                            )}
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {turn.actions && turn.actions.length > 0 && (
                   <div className="space-y-1.5">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
