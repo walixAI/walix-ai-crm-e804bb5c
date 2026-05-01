@@ -77,7 +77,8 @@ export type ProposalKind =
   | "create_task"
   | "create_activity"
   | "update_contact"
-  | "create_contact";
+  | "create_contact"
+  | "create_deal";
 
 export interface ProposedChange {
   id: string;
