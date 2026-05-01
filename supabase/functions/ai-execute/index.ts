@@ -224,6 +224,25 @@ Deno.serve(async (req) => {
           const afterLabel = `${newContact.name}${newContact.last_name ? " " + newContact.last_name : ""}${newContact.company ? ` (${newContact.company})` : ""}`;
           return okPreview({ Contacto: beforeLabel }, { Contacto: afterLabel });
         }
+        case "send_whatsapp_message": {
+          if (!isUuid(p.conversation_id)) return bad(400, "conversation_id inválido");
+          const body = typeof p.body === "string" ? p.body.trim() : "";
+          if (!body) return bad(400, "body vacío");
+          if (body.length > 1000) return bad(400, "body demasiado largo (máx 1000)");
+          const { data: cv } = await supabase.from("conversations")
+            .select("id, status, preview, contact_id").eq("id", p.conversation_id).maybeSingle();
+          if (!cv) return bad(404, "Conversación no encontrada");
+          let toLabel = "—";
+          if (isUuid(cv.contact_id)) {
+            const { data: c } = await supabase.from("contacts")
+              .select("name, last_name").eq("id", cv.contact_id).maybeSingle();
+            if (c) toLabel = `${c.name}${c.last_name ? " " + c.last_name : ""}`;
+          }
+          return okPreview(
+            { "Último mensaje": (cv.preview ?? "—").slice(0, 80) || "—" },
+            { "Para": toLabel, "Mensaje saliente": body },
+          );
+        }
         default:
           return bad(400, `kind no soportado: ${body.kind}`);
       }
