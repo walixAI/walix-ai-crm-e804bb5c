@@ -138,7 +138,10 @@ export async function previewProposal(p: ProposedChange): Promise<PreviewResult>
 
 export async function executeProposal(
   p: ProposedChange,
-  ctx: { prompt?: string } = {},
+  ctx: {
+    prompt?: string;
+    history?: { role: "user" | "assistant"; content: string }[];
+  } = {},
 ): Promise<ExecuteResult> {
   try {
     const { data, error } = await supabase.functions.invoke("ai-execute", {
@@ -149,6 +152,7 @@ export async function executeProposal(
         payload: p.payload,
         summary: p.summary,
         prompt: ctx.prompt,
+        history: ctx.history ?? [],
       },
     });
     if (error) throw error;
