@@ -1,147 +1,75 @@
-# Mejoras de prioridad baja — AI Drawer (Walix.ai)
+# Opción B — Sugerencias locales reales para el detalle de contacto
 
-Cuatro mejoras de pulido y observabilidad. **Ningún cambio de DB ni de RLS.**
+Reemplazar el contenido hardcodeado y los botones decorativos del bloque **"Próximo paso sugerido"** por sugerencias derivadas de datos reales del contacto, sin necesidad de llamar a IA. También cablear los dos botones que hoy no hacen nada y limpiar el `AiFloatingPanel` mockeado.
 
----
+## Qué verá el usuario
 
-## #2 — Auto-preview estable cuando llegan propuestas nuevas
+- El bloque morado "Próximo paso sugerido" siempre mostrará una sugerencia útil basada en el estado real del contacto (último contacto, deals abiertos, mensajes WhatsApp pendientes, etc.), en lugar del texto genérico "Sin sugerencias activas…".
+- El botón verde se adaptará a la sugerencia (ej. *"Reactivar conversación"*, *"Pedir confirmación de cotización"*, *"Responder mensaje pendiente"*).
+- El botón **"Agendar llamada"** abrirá un diálogo para crear una tarea con fecha/hora.
+- El botón **"Otra sugerencia"** rotará entre las heurísticas disponibles (ya no será decorativo).
+- El globito flotante con IA (esquina inferior derecha) dejará de mostrar texto inventado: usará la misma sugerencia activa o se ocultará si no hay nada relevante.
 
-**Problema:** El `useEffect` que dispara `previewProposal` para cada propuesta nueva depende solo de `turns.length` (`AiDrawer.tsx:171`). Si en el mismo turno llegan propuestas adicionales (caso raro tras un reintento de la IA), el efecto no se vuelve a ejecutar y esas propuestas se quedan sin preview hasta que el usuario haga refresh manual.
+## Heurísticas que se aplicarán (en orden de prioridad)
 
-**Cambio:** Hacer la dependencia un hash estable del **set de IDs de propuestas vistas**, no del conteo de turnos.
+1. **Mensaje WhatsApp entrante sin responder** → "Responde el último mensaje de {nombre} (hace {X})". CTA: *Responder en WhatsApp*.
+2. **Deal abierto con `expected_close_date` vencida o < 3 días** → "El deal '{nombre}' cierra pronto. Confirma siguiente paso." CTA: *Enviar recordatorio*.
+3. **Sin actividad en 7+ días y status ∈ {Nuevo, Contactado, Calificado}** → "Han pasado {N} días sin contacto. Reactiva la conversación." CTA: *Reactivar por WhatsApp*.
+4. **Contacto creado hace < 24 h y sin actividad** → "Da la bienvenida a {nombre} con un primer mensaje." CTA: *Enviar bienvenida*.
+5. **Status = Ganado sin actividad reciente** → "Pide referidos o feedback a {nombre}." CTA: *Enviar mensaje*.
+6. **Fallback** (todo en orden) → "Todo al día con {nombre}. Considera agendar un follow-up." CTA: *Agendar llamada*.
 
-```ts
-// AiDrawer.tsx — reemplazar el useEffect de auto-preview
-const proposalIdsKey = useMemo(
-  () => turns.flatMap(t => t.proposals ?? []).map(p => p.id).sort().join("|"),
-  [turns]
-);
-useEffect(() => {
-  const all = turns.flatMap(t => t.proposals ?? []);
-  all.forEach(p => {
-    if (previews[p.id]) return;
-    setPreviews(s => ({ ...s, [p.id]: { loading: true } }));
-    previewProposal({ ...p, payload: livePayloads[p.id] ?? p.payload }).then(res => {
-      setPreviews(s => ({
-        ...s,
-        [p.id]: res.ok ? { before: res.before, after: res.after } : { error: res.error },
-      }));
-    });
-  });
-}, [proposalIdsKey]);
-```
+Cada sugerencia incluirá `id` estable, `text`, `cta` y un `action` (`whatsapp` | `task`) para que el componente sepa qué hacer al hacer click.
 
-Beneficio: idempotente, cubre cualquier nueva propuesta en cualquier turno, sin re-fetch innecesarios.
+## Cambios técnicos
 
----
+### 1. Nuevo módulo `src/lib/contacts/suggestions.ts`
+- Función `buildContactSuggestions({ contact, activity, deals, lastInbound })` que retorna `Suggestion[]` aplicando las reglas de arriba.
+- Tipo:
+  ```ts
+  type Suggestion = {
+    id: string;
+    text: string;
+    cta: string;
+    action: "whatsapp" | "task";
+    priority: number;
+  };
+  ```
+- 100% sincrónico, sin red, fácil de testear.
 
-## #3 — Edición segura de propuestas (no sobreescribir con strings vacíos)
+### 2. Hook `useContactSuggestions(contactId)` en `src/lib/queries/contacts.ts`
+- Combina:
+  - `useContact(contactId)` (ya existe).
+  - `useContactDeals(contactId)` (ya existe).
+  - `useContactActivity(contactId)` (ya existe).
+  - Nueva mini-query: último mensaje **inbound** del contacto desde `messages` (join vía `conversations.contact_id`).
+- Devuelve `Suggestion[]` ordenadas por prioridad. Reemplaza a `useContactAiSuggestions` en `SummaryTab` (la antigua se conserva por si se reusa en otro lado).
 
-**Problema:** El componente `ProposalEditForm.Field` (línea 783) hace `value={payload[k] ?? ""}` y al guardar persiste **todos** los keys, incluso vacíos. Si la propuesta original traía `email: "juan@x.com"` y el usuario solo edita `phone`, el `payload` final puede llevar `email: ""` si el campo se renderizó pero no fue tocado, sobrescribiendo el valor original al ejecutar `update_contact`.
+### 3. `SummaryTab.tsx`
+- Estado local `index` para rotar sugerencias con "Otra sugerencia" (`(index + 1) % suggestions.length`).
+- Botón verde dispara `onWhatsApp()` si `action === "whatsapp"`, o abre `QuickTaskDialog` si `action === "task"`.
+- "Agendar llamada" → abre `QuickTaskDialog` con título prellenado *"Llamar a {nombre}"*.
+- "Otra sugerencia" → solo visible si hay >1 sugerencia; rota el índice.
+- Eliminar el branch *"Sin sugerencias activas…"* (siempre habrá fallback).
 
-**Cambios:**
+### 4. `QuickTaskDialog` — pequeña adaptación
+- Hoy requiere `deal: PipelineDeal`. Hacer `deal` opcional y aceptar `contactId?: string` + `defaultTitle?: string` para poder crear tareas asociadas solo al contacto.
+- Si no hay deal, insertar `tasks` con `deal_id: null` y `contact_id: contactId`.
 
-1. **Frontend (`ProposalEditForm`)**: Al construir el payload final en `applyEdit` (donde se hace `setLivePayloads`), filtrar keys cuyo valor sea string vacío para que el backend reciba solo los campos modificados realmente:
+### 5. `AiFloatingPanel.tsx` — limpieza
+- Eliminar el texto "Han pasado 3 días…" hardcodeado y la lista de historial inventada.
+- Mostrar la **sugerencia top** real (vía `useContactSuggestions`) y un máximo de 2 sugerencias secundarias como historial.
+- Si `suggestions.length === 0`, ocultar todo el componente (no renderizar el FAB).
 
-```ts
-const cleanPayload = Object.fromEntries(
-  Object.entries(editPayload[p.id] ?? p.payload).filter(([_, v]) => v !== "" && v != null)
-);
-setLivePayloads(s => ({ ...s, [p.id]: cleanPayload }));
-refreshPreview(p, cleanPayload);
-```
+### 6. (Opcional, recomendado) test unitario
+- `src/lib/contacts/suggestions.test.ts` con 4-5 casos cubriendo cada heurística para evitar regresiones.
 
-2. **Backend (`ai-execute` para `update_contact` y `update_deal_*`)**: Defensa en profundidad — antes de hacer `.update(p)`, eliminar keys vacías:
+## Lo que NO cambia
 
-```ts
-const sanitized = Object.fromEntries(
-  Object.entries(p).filter(([_, v]) => v !== "" && v != null)
-);
-await supabase.from("contacts").update(sanitized).eq("id", p.contact_id);
-```
+- No se crea Edge Function nueva, no se consume Lovable AI, no hay costo adicional.
+- La tabla `ai_suggestions` se sigue usando para deals/dashboard; solo deja de ser fuente para contactos.
+- El layout, colores y estilo del bloque "Próximo paso sugerido" se mantienen idénticos.
 
-Beneficio: cero regresiones de datos por edición parcial.
+## Resultado esperado
 
----
-
-## #15 — Tests Deno para flujos críticos del agente
-
-**Problema:** No hay tests para los handlers de `ai-execute`. Riesgo de romper `create_deal` o `send_whatsapp_message` sin darse cuenta.
-
-**Cambio:** Crear `supabase/functions/ai-execute/index_test.ts` con cobertura mínima:
-
-- `create_deal` con stage_id que tiene `is_won=true` → verifica `probability=100`.
-- `create_deal` con stage_id `is_lost=true` → `probability=0`.
-- `create_deal` con stage normal → `probability=10`.
-- `send_whatsapp_message` con `body=""` → 400.
-- `send_whatsapp_message` con `body` >1000 chars → 400.
-- `send_whatsapp_message` en conversación `Cerrado` → 400.
-- `update_contact` con `email=""` → no sobreescribe el email previo (cubre #3).
-
-Los tests usan el patrón existente de Deno + `dotenv/load.ts`, llamando al edge function deployado con `fetch`. Se aprovecha la sesión actual para tener un `Authorization` válido. Si no hay sesión, los tests se saltan con `Deno.test.ignore`.
-
-Archivo nuevo: `supabase/functions/ai-execute/index_test.ts` (~150 líneas).
-
----
-
-## #16 — Audit log enriquecido con historial conversacional
-
-**Problema:** `audit_log.metadata` guarda `prompt` (el último), `summary` y `payload`, pero no el **hilo conversacional** que llevó a esa propuesta. Imposible debuggear "¿por qué la IA propuso bajar el monto del deal X?" cuando el contexto venía de turnos previos.
-
-**Cambios:**
-
-1. **`src/services/ai.ts`** → al ejecutar una propuesta, incluir los últimos 3 turnos (user+assistant) como `conversation_history`:
-
-```ts
-export async function executeProposal(p: ProposedChange, ctx: { prompt?: string; history?: Array<{role:string; content:string}> }) {
-  // body ya envía prompt; agregar history
-}
-```
-
-2. **`AiDrawer.tsx`** → al llamar `executeProposal`, pasar el slice de turnos:
-
-```ts
-const histSlice = turns.slice(-3).flatMap(t => [
-  { role: "user", content: t.prompt },
-  { role: "assistant", content: t.answer.slice(0, 500) },
-]);
-const res = await executeProposal({ ...p, payload: finalPayload }, { prompt: current?.prompt, history: histSlice });
-```
-
-3. **`supabase/functions/ai-execute/index.ts`** → recibir y persistir en metadata:
-
-```ts
-metadata: {
-  proposal_id: body.proposal_id,
-  summary: body.summary ?? null,
-  prompt: body.prompt ?? null,
-  conversation_history: body.history ?? null, // NUEVO
-  payload: body.payload,
-  ai_model: "google/gemini-2.5-flash",
-},
-```
-
-Sin cambios de DB: `audit_log.metadata` ya es `jsonb`. Truncamos cada `assistant` a 500 chars para mantener el JSON manejable.
-
----
-
-## Orden de implementación
-
-1. **#2** (5 min, 1 archivo) — refactor menor del useEffect.
-2. **#3** (15 min, 2 archivos) — frontend + backend para sanitizar.
-3. **#16** (15 min, 3 archivos) — propagar history al audit log.
-4. **#15** (30 min, 1 archivo nuevo) — tests Deno + ejecutarlos para confirmar verde.
-
-## Sin tocar
-
-- DB schema, RLS, auth, plan/limits, Supabase config.
-- Edge functions distintos a `ai-execute`.
-- UI fuera del AI Drawer.
-
-## Verificación post-implementación
-
-- Correr los tests Deno con `test_edge_functions` y validar que pasen.
-- Probar en preview: editar un contacto dejando un campo vacío y confirmar que NO se borra.
-- Aprobar una propuesta y consultar `audit_log` con `read_query` para ver `conversation_history` poblado.
-
-¿Procedo?
+El bloque deja de ser un placeholder y se convierte en un asistente útil que siempre tiene algo accionable que decir, con los 3 botones funcionando de verdad. Si más adelante quieres pasar a IA real (Opción A), el contrato `Suggestion[]` queda listo para ser alimentado por una edge function sin tocar la UI.

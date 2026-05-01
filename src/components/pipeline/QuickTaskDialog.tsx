@@ -19,11 +19,15 @@ const schema = z.object({
 
 interface Props {
   open: boolean;
-  deal: PipelineDeal | null;
+  deal?: PipelineDeal | null;
+  /** Optional contact id when creating a contact-only task (no deal). */
+  contactId?: string | null;
+  /** Optional pre-filled title. */
+  defaultTitle?: string;
   onClose: () => void;
 }
 
-export function QuickTaskDialog({ open, deal, onClose }: Props) {
+export function QuickTaskDialog({ open, deal, contactId, defaultTitle, onClose }: Props) {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,18 +35,19 @@ export function QuickTaskDialog({ open, deal, onClose }: Props) {
   const qc = useQueryClient();
 
   useEffect(() => {
-    if (open) { setTitle(""); setDue(""); }
-  }, [open]);
+    if (open) { setTitle(defaultTitle ?? ""); setDue(""); }
+  }, [open, defaultTitle]);
 
   async function save() {
-    if (!deal || !tenantId) return;
+    if (!tenantId) return;
+    if (!deal && !contactId) return;
     const parsed = schema.safeParse({ title, due });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setLoading(true);
     const { error } = await supabase.from("tasks").insert({
       tenant_id: tenantId,
-      deal_id: deal.id,
-      contact_id: deal.contactId,
+      deal_id: deal?.id ?? null,
+      contact_id: deal?.contactId ?? contactId ?? null,
       title: parsed.data.title,
       due_at: parsed.data.due ? new Date(parsed.data.due).toISOString() : null,
     });
@@ -50,6 +55,7 @@ export function QuickTaskDialog({ open, deal, onClose }: Props) {
     if (error) return toast.error(error.message);
     toast.success("Tarea creada");
     qc.invalidateQueries({ queryKey: ["pipeline-deal-tasks-map"] });
+    qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
     onClose();
   }
 

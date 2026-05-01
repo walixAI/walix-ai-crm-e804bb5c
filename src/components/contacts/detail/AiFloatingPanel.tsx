@@ -2,12 +2,20 @@ import { useState } from "react";
 import { Sparkles, X, Send, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ContactRow } from "@/lib/queries/contacts";
+import { useContactSuggestions } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 
 interface Props { contact: ContactRow; onWhatsApp: () => void }
 
 export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
   const [open, setOpen] = useState(false);
+  const { data: suggestions } = useContactSuggestions(contact.id);
+  const top = suggestions[0];
+  const rest = suggestions.slice(1, 3);
+
+  // Hide entirely if there are no suggestions (defensive — buildContactSuggestions
+  // always returns the fallback, but keep it safe).
+  if (!top) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-40">
@@ -26,25 +34,28 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
           </div>
           <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
             <div className="rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-3 text-sm leading-relaxed">
-              Han pasado <strong>3 días</strong> desde tu último contacto con <strong>{contact.name}</strong>. Envíale el catálogo que pidió.
+              {top.text}
             </div>
-            <Button onClick={onWhatsApp} className="w-full bg-success hover:bg-success/90 text-success-foreground" size="sm">
-              <Send className="h-3.5 w-3.5" /> Enviar por WhatsApp
+            <Button
+              onClick={top.action === "whatsapp" ? onWhatsApp : () => setOpen(false)}
+              className="w-full bg-success hover:bg-success/90 text-success-foreground"
+              size="sm"
+            >
+              <Send className="h-3.5 w-3.5" /> {top.cta}
             </Button>
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Historial</h4>
-              <div className="space-y-2">
-                {[
-                  "Enviar recordatorio de cotización",
-                  "Confirmar interés en paquete premium",
-                  "Agendar llamada de seguimiento",
-                ].map((s, i) => (
-                  <div key={i} className="text-xs p-2 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer flex items-center justify-between gap-2">
-                    <span>{s}</span><ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  </div>
-                ))}
+            {rest.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Otras ideas</h4>
+                <div className="space-y-2">
+                  {rest.map((s) => (
+                    <div key={s.id} className="text-xs p-2 rounded-lg bg-muted/40 flex items-center justify-between gap-2">
+                      <span className="line-clamp-2">{s.text}</span>
+                      <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       ) : (

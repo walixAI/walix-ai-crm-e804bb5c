@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { LeadStatus, Source } from "@/lib/contacts/badges";
 import { useTenantUsers, resolveOwner, colorForUser, type TenantUser } from "@/lib/queries/tenantUsers";
+import { buildContactSuggestions, type ContactSuggestion, type LastInbound } from "@/lib/contacts/suggestions";
 
 const colors = [
   "hsl(239 84% 60%)",
@@ -233,4 +234,75 @@ export function useContactAiSuggestions(contactId: string | undefined) {
       }));
     },
   });
+}
+
+/**
+ * Returns the last inbound (received) WhatsApp timestamp for the contact and
+ * the last outbound (sent) timestamp, used to detect unanswered messages.
+ */
+export function useContactLastInbound(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ["contact-last-inbound", contactId],
+    enabled: !!contactId,
+    queryFn: async (): Promise<LastInbound | null> => {
+      // Resolve conversation ids first (avoids a join requirement).
+      const { data: convs, error: convErr } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("contact_id", contactId!);
+      if (convErr) throw convErr;
+      const ids = (convs ?? []).map((c: any) => c.id);
+      if (ids.length === 0) return null;
+
+      const { data: inbound } = await supabase
+        .from("messages")
+        .select("sent_at")
+        .in("conversation_id", ids)
+        .eq("direction", "inbound")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!inbound) return null;
+
+      const { data: outbound } = await supabase
+        .from("messages")
+        .select("sent_at")
+        .in("conversation_id", ids)
+        .eq("direction", "outbound")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return {
+        receivedAt: inbound.sent_at as string,
+        lastOutboundAt: (outbound?.sent_at as string | undefined) ?? null,
+      };
+    },
+  });
+}
+
+/**
+ * Local heuristic-based suggestions for a contact. Combines contact data,
+ * deals, activity and last inbound message to surface the next best action.
+ */
+export function useContactSuggestions(contactId: string | undefined): {
+  data: ContactSuggestion[];
+  isLoading: boolean;
+} {
+  const { data: contact, isLoading: l1 } = useContact(contactId);
+  const { data: deals = [], isLoading: l2 } = useContactDeals(contactId);
+  const { data: activity = [], isLoading: l3 } = useContactActivity(contactId);
+  const { data: lastInbound = null, isLoading: l4 } = useContactLastInbound(contactId);
+
+  const isLoading = l1 || l2 || l3 || l4;
+  if (!contact) return { data: [], isLoading };
+
+  const suggestions = buildContactSuggestions({
+    contact,
+    activity,
+    deals,
+    lastInbound: lastInbound ?? null,
+  });
+  return { data: suggestions, isLoading };
 }
