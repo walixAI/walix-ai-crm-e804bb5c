@@ -1,9 +1,10 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating } from "@/services/ai";
+import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal } from "@/services/ai";
+import { useQueryClient } from "@tanstack/react-query";
 import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
@@ -73,10 +74,14 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 export function AiDrawer() {
   const { open, closeDrawer, current, loading, history, ask, source } = useAiDrawer();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [rating, setRating] = useState<AiRating | null>(null);
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [proposalState, setProposalState] = useState<Record<string, "idle" | "running" | "done" | "error">>({});
+  const [proposalError, setProposalError] = useState<Record<string, string>>({});
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -101,6 +106,9 @@ export function AiDrawer() {
     setRating(null);
     setShowCommentBox(false);
     setComment("");
+    setProposalState({});
+    setProposalError({});
+    setDismissed({});
   }, [current?.id]);
 
   const sendFeedback = async (r: AiRating, withComment = false) => {
@@ -135,6 +143,47 @@ export function AiDrawer() {
     : t === "open_contact" ? UserIcon
     : t === "open_pipeline" ? KanbanSquare
     : Inbox;
+
+  const proposalIcon = (kind: ProposalKind) => {
+    switch (kind) {
+      case "update_deal_stage": return KanbanSquare;
+      case "update_deal_amount": return DollarSign;
+      case "mark_deal_won": return Trophy;
+      case "mark_deal_lost": return XCircle;
+      case "create_task": return ListTodo;
+      case "create_activity": return StickyNote;
+      case "update_contact": return UserIcon;
+      case "create_contact": return UserPlus;
+      default: return Wand2;
+    }
+  };
+
+  const invalidateForKind = (kind: ProposalKind) => {
+    if (kind.startsWith("update_deal") || kind.startsWith("mark_deal")) {
+      queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+    }
+    if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    if (kind === "create_activity") queryClient.invalidateQueries({ queryKey: ["activities"] });
+    if (kind === "update_contact" || kind === "create_contact") queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    queryClient.invalidateQueries({ queryKey: ["audit-log"] });
+  };
+
+  const confirmProposal = async (p: ProposedChange) => {
+    setProposalState((s) => ({ ...s, [p.id]: "running" }));
+    const res = await executeProposal(p, { prompt: current?.prompt });
+    if (res.ok) {
+      setProposalState((s) => ({ ...s, [p.id]: "done" }));
+      invalidateForKind(p.kind);
+      toast({ title: "Cambio aplicado", description: p.summary.replace(/\*\*/g, "") });
+    } else {
+      setProposalState((s) => ({ ...s, [p.id]: "error" }));
+      setProposalError((s) => ({ ...s, [p.id]: res.error ?? "Error" }));
+      toast({ title: "No se pudo aplicar", description: res.error ?? "Error", variant: "destructive" });
+    }
+  };
+
+  const visibleProposals = (current?.proposals ?? []).filter((p) => !dismissed[p.id]);
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && closeDrawer()}>
@@ -190,6 +239,75 @@ export function AiDrawer() {
                           </span>
                           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                         </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {visibleProposals.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <Wand2 className="h-3 w-3 text-accent" />
+                      Cambios propuestos · requieren tu confirmación
+                    </div>
+                    {visibleProposals.map((p) => {
+                      const Icon = proposalIcon(p.kind);
+                      const state = proposalState[p.id] ?? "idle";
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-2"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="h-7 w-7 grid place-items-center rounded-md bg-accent/15 text-accent shrink-0">
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="flex-1 text-xs leading-relaxed text-foreground">
+                              {renderInline(p.summary, handleCitation)}
+                            </div>
+                          </div>
+                          {state === "done" ? (
+                            <div className="flex items-center gap-1.5 text-[11px] text-success pl-9">
+                              <Check className="h-3 w-3" /> Ejecutado · queda en auditoría
+                            </div>
+                          ) : state === "error" ? (
+                            <div className="space-y-1.5 pl-9">
+                              <div className="text-[11px] text-destructive">{proposalError[p.id] ?? "Error"}</div>
+                              <div className="flex gap-1.5">
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => confirmProposal(p)}>
+                                  Reintentar
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setDismissed((d) => ({ ...d, [p.id]: true }))}>
+                                  Descartar
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1.5 pl-9">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs"
+                                disabled={state === "running"}
+                                onClick={() => confirmProposal(p)}
+                              >
+                                {state === "running" ? (
+                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Aplicando…</>
+                                ) : (
+                                  <><Check className="h-3 w-3 mr-1" /> Confirmar</>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                disabled={state === "running"}
+                                onClick={() => setDismissed((d) => ({ ...d, [p.id]: true }))}
+                              >
+                                <X className="h-3 w-3 mr-1" /> Descartar
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

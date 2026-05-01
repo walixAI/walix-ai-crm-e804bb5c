@@ -60,7 +60,59 @@ export interface AiAction {
 export interface AskAiResult {
   text: string;
   actions: AiAction[];
+  proposals: ProposedChange[];
   source: "live" | "fallback";
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Proposed changes (Fase 1: Walix.ai como agente ejecutor)
+// ────────────────────────────────────────────────────────────────────────
+
+export type ProposalKind =
+  | "update_deal_stage"
+  | "update_deal_amount"
+  | "mark_deal_won"
+  | "mark_deal_lost"
+  | "create_task"
+  | "create_activity"
+  | "update_contact"
+  | "create_contact";
+
+export interface ProposedChange {
+  id: string;
+  kind: ProposalKind;
+  summary: string;
+  payload: Record<string, unknown>;
+}
+
+export interface ExecuteResult {
+  ok: boolean;
+  target_type?: string;
+  target_id?: string | null;
+  error?: string;
+}
+
+export async function executeProposal(
+  p: ProposedChange,
+  ctx: { prompt?: string } = {},
+): Promise<ExecuteResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke("ai-execute", {
+      body: {
+        proposal_id: p.id,
+        kind: p.kind,
+        payload: p.payload,
+        summary: p.summary,
+        prompt: ctx.prompt,
+      },
+    });
+    if (error) throw error;
+    if (!data?.ok) return { ok: false, error: data?.error ?? "Error" };
+    return { ok: true, target_type: data.target_type, target_id: data.target_id };
+  } catch (err) {
+    console.warn("[ai.executeProposal] error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Error" };
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -109,11 +161,16 @@ export async function askAi(opts: {
       body: { mode: "ask", prompt: opts.prompt, history: opts.history ?? [] },
     });
     if (error) throw error;
-    if (data?.text) return { text: data.text, actions: Array.isArray(data.actions) ? data.actions : [], source: "live" };
+    if (data?.text) return {
+      text: data.text,
+      actions: Array.isArray(data.actions) ? data.actions : [],
+      proposals: Array.isArray(data.proposals) ? data.proposals : [],
+      source: "live",
+    };
     throw new Error("Respuesta vacía");
   } catch (err) {
     console.warn("[ai.askAi] fallback to mock:", err);
-    return { text: fallbackAiResponse(opts.prompt), actions: [], source: "fallback" };
+    return { text: fallbackAiResponse(opts.prompt), actions: [], proposals: [], source: "fallback" };
   }
 }
 
