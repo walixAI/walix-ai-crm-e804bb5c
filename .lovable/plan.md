@@ -1,70 +1,78 @@
-## Problema detectado
+# Rediseño atractivo de Login y Signup
 
-El flujo actual de **registro → onboarding** falla por una **condición de carrera** entre tres procesos asíncronos:
+Actualmente Login y Signup viven en una sola tarjeta y solo cambia el texto del botón. Voy a rediseñarlo como una pantalla "split" moderna, con un cambio visual claro entre **Iniciar sesión** y **Crear cuenta**.
 
-1. `signUp()` resuelve y devuelve sesión → `navigate("/onboarding")`.
-2. En paralelo, `onAuthStateChange` dispara `loadUserContext()` que consulta `profiles`/`user_roles` (con reintentos de hasta 2s).
-3. `ProtectedRoute` se monta inmediatamente y evalúa `roles.length === 0 && !activeTenantId` → como el trigger `handle_new_user` aún no ha terminado de poblar las tablas, **redirige al usuario a `/login`** antes de que termine la carga.
+## Qué se va a cambiar
 
-Resultado: el usuario nuevo es expulsado a /login justo después de registrarse, aunque la cuenta sí se creó correctamente.
+Solo se modifica `src/pages/Login.tsx`. La lógica de auth, validaciones y traducción de errores se mantiene tal cual (ya funciona y está validada).
 
-### Causa raíz exacta
+## Diseño propuesto
 
-En `src/components/layout/ProtectedRoute.tsx` (líneas 27–31):
-
-```tsx
-if (roles.length === 0 && !activeTenantId) {
-  return <Navigate to="/login" ... />;
-}
-```
-
-Este chequeo se ejecuta **inmediatamente** después de que `loading` pasa a `false`, pero `loading` solo refleja `getSession()`, no la carga del contexto (roles/tenant). El store arranca con `roles: []` y `activeTenantId: null`, así que durante la ventana en la que el contexto aún se está cargando (los ~2s del retry loop), el guard expulsa al usuario.
-
-## Solución
-
-### 1. Añadir un flag `contextLoading` al auth store
-
-En `src/store/auth.ts`: agregar `contextLoading: boolean` (default `true`) y su setter `setContextLoading`.
-
-### 2. Marcar contextLoading en `useInitAuth`
-
-En `src/hooks/useAuth.ts`:
-- Al detectar sesión (`onAuthStateChange` y `getSession`), poner `contextLoading = true` antes de llamar a `loadUserContext`.
-- Al terminar (éxito o fallo), poner `contextLoading = false`.
-- Cuando no hay sesión, también `contextLoading = false`.
-
-### 3. Esperar el contexto en `ProtectedRoute`
-
-En `src/components/layout/ProtectedRoute.tsx`: mostrar el spinner mientras `loading || (user && contextLoading)`. Solo después evaluar el guard de cuenta huérfana.
-
-### 4. Mejorar el flujo de signup en `Login.tsx`
-
-En `src/pages/Login.tsx` (líneas 27–41):
-- Tras `signUp` exitoso con sesión, **no** llamar `navigate` inmediatamente. En su lugar, esperar a que el listener `onAuthStateChange` haya cargado el contexto antes de navegar (polling corto del store hasta que `contextLoading === false`, máx 3s).
-- Esto garantiza que cuando `/onboarding` se monte, el guard ya tenga roles/tenant.
-- Mantener el manejo de "sin sesión devuelta" (cuando se requiere confirmación de email).
-
-### 5. Verificación
-
-Tras los cambios, el flujo será:
+Layout de dos columnas en desktop (≥ md), una sola columna en móvil.
 
 ```text
-signUp() ──► sesión creada
-   │
-   ├─► onAuthStateChange dispara loadUserContext (con retries)
-   │       │
-   │       └─► profiles + user_roles listos → contextLoading=false
-   │
-   └─► Login espera contextLoading=false → navigate("/onboarding")
-                                                   │
-                                                   └─► ProtectedRoute ve roles/tenant ✓ → renderiza Onboarding
+┌──────────────────────────┬───────────────────────────┐
+│  Panel izquierdo (brand) │  Panel derecho (form)     │
+│  bg-gradient-hero        │  bg-card                  │
+│  - Logo Walix.ai         │  Tabs: [Iniciar][Crear]   │
+│  - Headline dinámico     │  Título dinámico          │
+│  - 3 bullets de valor    │  Email + Password         │
+│  - Quote / social proof  │  Checklist (solo signup)  │
+│  - Hecho en México 🇲🇽   │  CTA + link cambio modo  │
+└──────────────────────────┴───────────────────────────┘
 ```
 
-## Archivos a modificar
+### Diferenciación visual entre modos
 
-- `src/store/auth.ts` — añadir `contextLoading` + setter.
-- `src/hooks/useAuth.ts` — gestionar `contextLoading` durante la carga del contexto.
-- `src/components/layout/ProtectedRoute.tsx` — esperar `contextLoading` antes de evaluar guard.
-- `src/pages/Login.tsx` — esperar contexto cargado antes de `navigate("/onboarding")`.
+| Elemento | Login | Signup |
+|---|---|---|
+| Tabs activas | Pestaña "Iniciar sesión" resaltada con `bg-gradient-brand` | Pestaña "Crear cuenta" resaltada con `bg-gradient-brand` |
+| Headline panel izq. | "Bienvenido de vuelta" | "Empieza gratis en 2 minutos" |
+| Subcopy panel izq. | "Continúa donde lo dejaste con tu CRM." | "Crea tu cuenta y configura tu CRM con IA." |
+| Bullets panel izq. | "Tus conversaciones siguen vivas", "Tus pipelines te esperan", "IA lista para ayudarte" | "WhatsApp + CRM en un solo lugar", "IA que prioriza y responde", "Sin tarjeta, prueba 14 días" |
+| Badge superior derecho | "Iniciar sesión" en `secondary` | "Crear cuenta · Gratis" en `accent` |
+| CTA | "Entrar" + ícono `LogIn` | "Crear cuenta" + ícono `Sparkles` |
+| Color/acento del CTA | Mantiene `bg-gradient-brand` con `shadow-glow` | Mantiene `bg-gradient-brand` con `shadow-glow` + micro-animación pulse en el ícono |
+| Texto bajo el CTA | "¿Primera vez? Empieza gratis →" | "¿Ya tienes cuenta? Inicia sesión →" |
+| Checklist password | Oculto | Visible con animación `animate-fade-in` |
 
-No se requieren cambios en BD ni en edge functions.
+### Componente Tabs (interno)
+
+Un toggle pill nativo con dos botones, accesible (role="tablist"), que actualiza `mode` y resetea `emailError`/`showPasswordHints` al cambiar:
+
+```text
+┌───────────────────────────────────┐
+│ ┌───────────┐ ┌─────────────────┐ │
+│ │ Iniciar   │ │  Crear cuenta   │ │  <- el activo va con bg-gradient-brand
+│ └───────────┘ └─────────────────┘ │     y texto blanco; el inactivo, ghost.
+└───────────────────────────────────┘
+```
+
+### Detalles visuales
+
+- Panel izquierdo solo visible en `md:` y superior (`hidden md:flex`). En móvil aparece un mini-header con Logo + headline corto.
+- Fondo del panel izquierdo: `bg-gradient-hero` con dos blobs blur (`bg-accent/30` y `bg-primary-glow/40`) para mantener la estética actual.
+- Panel derecho: `bg-card` con padding generoso, `rounded-r-2xl` (rounded full en móvil).
+- Transiciones: al cambiar de tab, el contenido del formulario usa `animate-fade-in` (utility ya existente en `index.css` o equivalente Tailwind).
+- Tipografía: títulos `text-2xl md:text-3xl font-bold tracking-tight`.
+- Microcopy de seguridad bajo el CTA en signup: "Al crear tu cuenta aceptas los Términos y Privacidad".
+
+## Lógica que NO se toca
+
+- `validateEmail`, `evaluatePassword`, `translateAuthError`, `waitForAuthContext`.
+- Llamadas a `supabase.auth.signUp` / `signInWithPassword`.
+- Redirects a `/onboarding` y `/dashboard`.
+- Lectura de `?mode=signup` desde la URL.
+
+## Detalles técnicos
+
+- Iconos nuevos importados de `lucide-react`: `LogIn`, `Sparkles`, `MessageCircle`, `Bot`, `Zap` (para los bullets).
+- Sin dependencias nuevas.
+- Sin cambios en `index.css` ni en el design system; se usan tokens existentes (`gradient-hero`, `gradient-brand`, `shadow-glow`, `accent`, `primary-glow`).
+- Sin cambios en rutas, store ni hooks.
+
+## Resultado esperado
+
+- Pantalla más atractiva y profesional, alineada al branding Walix.
+- Usuario sabe en todo momento si está creando cuenta o iniciando sesión (tabs + badge + headline + bullets + CTA cambian).
+- 100% responsive: split en desktop, stack limpio en móvil.
