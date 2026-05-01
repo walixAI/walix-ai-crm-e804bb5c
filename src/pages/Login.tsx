@@ -7,7 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/walix/Logo";
-import { Loader2, Check, X } from "lucide-react";
+import {
+  Loader2,
+  Check,
+  X,
+  LogIn,
+  Sparkles,
+  MessageCircle,
+  Bot,
+  Zap,
+  ShieldCheck,
+  ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -159,6 +170,13 @@ export default function Login() {
     setEmailError(validateEmail(email));
   };
 
+  const switchMode = (next: "login" | "signup") => {
+    if (next === mode) return;
+    setMode(next);
+    setEmailError(null);
+    setShowPasswordHints(false);
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -214,22 +232,148 @@ export default function Login() {
     }
   };
 
+  const isSignup = mode === "signup";
+
+  const leftPanel = isSignup
+    ? {
+        eyebrow: "Empieza gratis",
+        title: "Tu CRM con IA, listo en 2 minutos",
+        subtitle:
+          "Crea tu cuenta y configura tu CRM con WhatsApp e Inteligencia Artificial.",
+        bullets: [
+          { icon: MessageCircle, text: "WhatsApp + CRM en un solo lugar" },
+          { icon: Bot, text: "IA que prioriza y responde por ti" },
+          { icon: Zap, text: "Sin tarjeta · prueba 14 días" },
+        ],
+      }
+    : {
+        eyebrow: "Bienvenido de vuelta",
+        title: "Continúa donde lo dejaste",
+        subtitle: "Tus conversaciones, deals y automatizaciones te esperan.",
+        bullets: [
+          { icon: MessageCircle, text: "Tus conversaciones siguen vivas" },
+          { icon: Zap, text: "Tus pipelines y tareas, al día" },
+          { icon: Bot, text: "IA lista para asistirte" },
+        ],
+      };
+
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-gradient-hero">
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-accent/30 blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-primary-glow/40 blur-3xl" />
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-gradient-soft">
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute top-1/4 -left-20 w-[28rem] h-[28rem] rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute bottom-0 -right-20 w-[28rem] h-[28rem] rounded-full bg-accent/20 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-[480px] bg-card rounded-2xl shadow-2xl p-8 md:p-10 animate-fade-in">
-        <div className="flex flex-col items-center text-center mb-8">
-          <Logo />
-          <p className="mt-3 text-sm text-muted-foreground">
-            Tu CRM con WhatsApp + IA incluidos
-          </p>
-        </div>
+      <div className="relative w-full max-w-[1040px] grid md:grid-cols-2 bg-card rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+        {/* Panel izquierdo: branding */}
+        <aside className="hidden md:flex relative flex-col justify-between p-10 text-primary-foreground bg-gradient-hero overflow-hidden">
+          <div className="absolute inset-0 opacity-40 pointer-events-none">
+            <div className="absolute top-10 left-10 w-72 h-72 rounded-full bg-accent/40 blur-3xl" />
+            <div className="absolute bottom-10 right-10 w-72 h-72 rounded-full bg-primary-glow/40 blur-3xl" />
+          </div>
 
-        <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <div className="relative">
+            <Logo />
+          </div>
+
+          <div key={mode} className="relative animate-fade-in space-y-6">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-xs font-medium border border-white/15">
+              {isSignup ? <Sparkles className="h-3.5 w-3.5" /> : <LogIn className="h-3.5 w-3.5" />}
+              {leftPanel.eyebrow}
+            </span>
+            <h1 className="text-3xl font-bold tracking-tight leading-tight">
+              {leftPanel.title}
+            </h1>
+            <p className="text-sm text-primary-foreground/80 leading-relaxed">
+              {leftPanel.subtitle}
+            </p>
+
+            <ul className="space-y-3 pt-2">
+              {leftPanel.bullets.map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-sm">
+                  <span className="grid place-items-center h-8 w-8 rounded-lg bg-white/10 border border-white/15">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {text}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="relative flex items-center gap-2 text-[11px] text-primary-foreground/70">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Hecho en México 🇲🇽 · Datos cifrados
+          </div>
+        </aside>
+
+        {/* Panel derecho: formulario */}
+        <section className="relative p-6 sm:p-10">
+          {/* Mini-header en móvil */}
+          <div className="flex md:hidden items-center justify-between mb-6">
+            <Logo />
+            <span
+              className={cn(
+                "text-[11px] font-semibold px-2.5 py-1 rounded-full",
+                isSignup
+                  ? "bg-accent/15 text-accent"
+                  : "bg-secondary text-secondary-foreground",
+              )}
+            >
+              {isSignup ? "Crear cuenta · Gratis" : "Iniciar sesión"}
+            </span>
+          </div>
+
+          {/* Tabs */}
+          <div
+            role="tablist"
+            aria-label="Modo de acceso"
+            className="relative grid grid-cols-2 p-1 rounded-xl bg-muted mb-6"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isSignup}
+              onClick={() => switchMode("login")}
+              className={cn(
+                "relative z-10 flex items-center justify-center gap-2 h-10 rounded-lg text-sm font-semibold transition-all",
+                !isSignup
+                  ? "bg-gradient-brand text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <LogIn className="h-4 w-4" />
+              Iniciar sesión
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isSignup}
+              onClick={() => switchMode("signup")}
+              className={cn(
+                "relative z-10 flex items-center justify-center gap-2 h-10 rounded-lg text-sm font-semibold transition-all",
+                isSignup
+                  ? "bg-gradient-brand text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Sparkles className="h-4 w-4" />
+              Crear cuenta
+            </button>
+          </div>
+
+          {/* Header dinámico */}
+          <div key={`head-${mode}`} className="mb-6 animate-fade-in">
+            <h2 className="text-2xl font-bold tracking-tight">
+              {isSignup ? "Crea tu cuenta" : "Inicia sesión"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isSignup
+                ? "Empieza gratis. Sin tarjeta de crédito."
+                : "Accede a tu workspace de Walix.ai."}
+            </p>
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
             <Label htmlFor="email">Correo electrónico</Label>
             <Input
@@ -256,21 +400,31 @@ export default function Login() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="password">Contraseña</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Contraseña</Label>
+              {!isSignup && (
+                <span className="text-[11px] text-muted-foreground">
+                  Mínimo 10 caracteres
+                </span>
+              )}
+            </div>
             <Input
               id="password"
               type="password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              autoComplete={isSignup ? "new-password" : "current-password"}
               required
-              minLength={mode === "signup" ? 10 : 1}
+              minLength={isSignup ? 10 : 1}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onFocus={() => mode === "signup" && setShowPasswordHints(true)}
+              onFocus={() => isSignup && setShowPasswordHints(true)}
               placeholder="••••••••"
               className="h-11"
             />
-            {mode === "signup" && (showPasswordHints || password.length > 0) && (
-              <ul className="mt-2 space-y-1 rounded-md bg-muted/40 p-3" aria-live="polite">
+            {isSignup && (showPasswordHints || password.length > 0) && (
+              <ul
+                className="mt-2 space-y-1 rounded-md bg-muted/40 p-3 animate-fade-in"
+                aria-live="polite"
+              >
                 <RequirementRow ok={pwChecks.length} label="Al menos 10 caracteres" />
                 <RequirementRow ok={pwChecks.letter} label="Incluye letras" />
                 <RequirementRow ok={pwChecks.number} label="Incluye números" />
@@ -282,35 +436,54 @@ export default function Login() {
             )}
           </div>
 
-          <Button
-            type="submit"
-            disabled={loading || !canSubmit}
-            className="w-full h-11 bg-gradient-brand hover:opacity-90 text-primary-foreground font-semibold shadow-glow"
-          >
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {mode === "signup" ? "Crear cuenta" : "Entrar"}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              disabled={loading || !canSubmit}
+              className="w-full h-11 bg-gradient-brand hover:opacity-90 text-primary-foreground font-semibold shadow-glow"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : isSignup ? (
+                <Sparkles className="h-4 w-4 mr-2" />
+              ) : (
+                <LogIn className="h-4 w-4 mr-2" />
+              )}
+              {isSignup ? "Crear cuenta gratis" : "Entrar"}
+            </Button>
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          {mode === "login" ? (
-            <>¿Primera vez?{" "}
-              <button onClick={() => setMode("signup")} className="text-primary font-medium hover:underline">
-                Empieza gratis
-              </button>
-            </>
-          ) : (
-            <>¿Ya tienes cuenta?{" "}
-              <button onClick={() => setMode("login")} className="text-primary font-medium hover:underline">
-                Inicia sesión
-              </button>
-            </>
-          )}
-        </div>
+            {isSignup && (
+              <p className="text-[11px] text-center text-muted-foreground">
+                Al crear tu cuenta aceptas los Términos y la Política de Privacidad.
+              </p>
+            )}
+          </form>
 
-        <div className="mt-6 pt-6 border-t border-border text-[11px] text-center text-muted-foreground">
-          Hecho en México 🇲🇽 · CRM + WhatsApp + IA
-        </div>
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            {isSignup ? (
+              <>
+                ¿Ya tienes cuenta?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("login")}
+                  className="inline-flex items-center gap-0.5 text-primary font-medium hover:underline"
+                >
+                  Inicia sesión <ArrowRight className="h-3 w-3" />
+                </button>
+              </>
+            ) : (
+              <>
+                ¿Primera vez en Walix?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("signup")}
+                  className="inline-flex items-center gap-0.5 text-primary font-medium hover:underline"
+                >
+                  Empieza gratis <ArrowRight className="h-3 w-3" />
+                </button>
+              </>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
