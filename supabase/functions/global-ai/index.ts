@@ -435,6 +435,23 @@ Deno.serve(async (req) => {
       {
         type: "function",
         function: {
+          name: "propose_send_whatsapp_message",
+          description: "Propone enviar un mensaje de WhatsApp en una conversación existente. El mensaje queda registrado en la conversación y como actividad. Requiere confirmación humana.",
+          parameters: {
+            type: "object",
+            properties: {
+              conversation_id: { type: "string", description: "UUID de la conversación destino (catálogo Conversaciones o resultado de search_entity kind='convo')." },
+              body: { type: "string", description: "Texto del mensaje (1–1000 chars). Si el usuario no lo dictó textual, propón un borrador breve y dilo en reasoning." },
+              summary: { type: "string", description: "Resumen humano: 'Enviar mensaje a **Juan**: \"...\"'." },
+              reasoning: { type: "string" },
+            },
+            required: ["conversation_id", "body", "summary"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
           name: "present_candidates",
           description: "Cuando search_entity devuelve múltiples resultados ambiguos, presenta los candidatos al usuario para que elija. NO emitas propose_* en el mismo turno.",
           parameters: {
