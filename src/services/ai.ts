@@ -161,12 +161,14 @@ export async function askAi(opts: {
       body: { mode: "ask", prompt: opts.prompt, history: opts.history ?? [] },
     });
     if (error) throw error;
-    if (data?.text) return {
-      text: data.text,
-      actions: Array.isArray(data.actions) ? data.actions : [],
-      proposals: Array.isArray(data.proposals) ? data.proposals : [],
-      source: "live",
-    };
+    if (data && (data.error || (typeof data === "object" && "error" in data))) {
+      throw new Error(String(data.error));
+    }
+    const actions = Array.isArray(data?.actions) ? data.actions : [];
+    const proposals = Array.isArray(data?.proposals) ? data.proposals : [];
+    if (data?.text || actions.length || proposals.length) {
+      return { text: data?.text ?? "", actions, proposals, source: "live" };
+    }
     throw new Error("Respuesta vacía");
   } catch (err) {
     console.warn("[ai.askAi] fallback to mock:", err);
