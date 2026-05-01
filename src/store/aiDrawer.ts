@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { askAi, type AiAction, type ProposedChange } from "@/services/ai";
+import { askAi, type AiAction, type ProposedChange, type AskAiContext } from "@/services/ai";
 
 export interface AiQuery {
   id: string;
@@ -8,6 +8,7 @@ export interface AiQuery {
   actions: AiAction[];
   proposals: ProposedChange[];
   at: string;
+  context?: AskAiContext;
 }
 
 interface AiDrawerState {
@@ -15,10 +16,12 @@ interface AiDrawerState {
   loading: boolean;
   history: AiQuery[];
   current: AiQuery | null;
-  source: "live" | "fallback" | null;
+  source: "live" | "error" | null;
+  errorMessage: string | null;
   openDrawer: () => void;
   closeDrawer: () => void;
-  ask: (prompt: string) => void;
+  ask: (prompt: string, context?: AskAiContext) => void;
+  retry: () => void;
 }
 
 const STORAGE_KEY = "walix.aiDrawer.history.v1";
@@ -42,17 +45,18 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
   history: loadHistory(),
   current: null,
   source: null,
+  errorMessage: null,
   openDrawer: () => set({ open: true }),
   closeDrawer: () => set({ open: false }),
-  ask: async (prompt: string) => {
+  ask: async (prompt: string, context?: AskAiContext) => {
     if (!prompt.trim()) return;
-    set({ open: true, loading: true, current: null, source: null });
+    set({ open: true, loading: true, current: null, source: null, errorMessage: null });
     const recent = get().history.slice(0, 2).reverse();
     const apiHistory = recent.flatMap((h) => [
       { role: "user" as const, content: h.prompt },
       { role: "assistant" as const, content: h.answer },
     ]);
-    const result = await askAi({ prompt, history: apiHistory });
+    const result = await askAi({ prompt, history: apiHistory, context });
     const q: AiQuery = {
       id: crypto.randomUUID(),
       prompt,
@@ -60,9 +64,22 @@ export const useAiDrawer = create<AiDrawerState>((set, get) => ({
       actions: result.actions ?? [],
       proposals: result.proposals ?? [],
       at: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
+      context,
     };
-    const history = [q, ...get().history].slice(0, 5);
-    persistHistory(history);
-    set({ loading: false, current: q, history, source: result.source });
+    // Only persist successful answers in history.
+    const history = result.source === "live" ? [q, ...get().history].slice(0, 5) : get().history;
+    if (result.source === "live") persistHistory(history);
+    set({
+      loading: false,
+      current: q,
+      history,
+      source: result.source,
+      errorMessage: result.errorMessage ?? null,
+    });
+  },
+  retry: () => {
+    const c = get().current;
+    if (!c) return;
+    void get().ask(c.prompt, c.context);
   },
 }));
