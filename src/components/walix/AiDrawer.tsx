@@ -508,10 +508,23 @@ export function AiDrawer() {
               </div>
             )}
 
-            {current && !loading && source === "fallback" && (
-              <div className="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/30 px-3 py-2 text-[11px] text-warning-foreground/90">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-warning" />
-                <span>Respuesta de demostración: el servicio de IA no respondió, mostrando contenido simulado.</span>
+            {current && !loading && source === "error" && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 space-y-2">
+                <div className="flex items-start gap-2 text-[12px] text-destructive">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold">No pude conectar con el servicio de IA</div>
+                    {errorMessage && (
+                      <div className="text-[10px] text-destructive/80 mt-0.5 break-words">{errorMessage}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 justify-end">
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={closeDrawer}>Cerrar</Button>
+                  <Button size="sm" className="h-7 text-xs" onClick={() => retry()}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
+                  </Button>
+                </div>
               </div>
             )}
 
