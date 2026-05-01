@@ -1,14 +1,16 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAiDrawer } from "@/store/aiDrawer";
-import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X } from "lucide-react";
+import { Sparkles, Clock, Loader2, AlertTriangle, ArrowRight, KanbanSquare, MessageCircle, User as UserIcon, Inbox, ThumbsUp, ThumbsDown, Check, ListTodo, UserPlus, StickyNote, Trophy, XCircle, DollarSign, Wand2, X, Lightbulb, Pencil, RefreshCw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal } from "@/services/ai";
+import { AI_MODEL_LABEL, type AiAction, submitAiFeedback, type AiRating, type ProposedChange, type ProposalKind, executeProposal, previewProposal } from "@/services/ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 
 // ── Citation rendering ──────────────────────────────────────────────────
@@ -72,7 +74,7 @@ function renderMarkdown(md: string, onCite: (kind: string, id: string) => void) 
 }
 
 export function AiDrawer() {
-  const { open, closeDrawer, current, loading, history, ask, source } = useAiDrawer();
+  const { open, closeDrawer, current, loading, history, ask, source, errorMessage, retry } = useAiDrawer();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [rating, setRating] = useState<AiRating | null>(null);
@@ -82,6 +84,12 @@ export function AiDrawer() {
   const [proposalState, setProposalState] = useState<Record<string, "idle" | "running" | "done" | "error">>({});
   const [proposalError, setProposalError] = useState<Record<string, string>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  // Preview / edit / reasoning UI per proposal
+  const [previews, setPreviews] = useState<Record<string, { before?: any; after?: any; loading?: boolean; error?: string }>>({});
+  const [showWhy, setShowWhy] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [editPayload, setEditPayload] = useState<Record<string, Record<string, any>>>({});
+  const [livePayloads, setLivePayloads] = useState<Record<string, Record<string, any>>>({});
 
   const runAction = (a: AiAction) => {
     switch (a.type) {
@@ -109,7 +117,40 @@ export function AiDrawer() {
     setProposalState({});
     setProposalError({});
     setDismissed({});
+    setPreviews({});
+    setShowWhy({});
+    setEditing({});
+    setEditPayload({});
+    setLivePayloads({});
   }, [current?.id]);
+
+  // Auto-fetch preview for each new proposal.
+  useEffect(() => {
+    const list = current?.proposals ?? [];
+    list.forEach((p) => {
+      if (previews[p.id]) return;
+      setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
+      previewProposal({ ...p, payload: livePayloads[p.id] ?? p.payload }).then((res) => {
+        setPreviews((s) => ({
+          ...s,
+          [p.id]: res.ok
+            ? { before: res.before, after: res.after }
+            : { error: res.error },
+        }));
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id]);
+
+  const refreshPreview = (p: ProposedChange, payload: Record<string, any>) => {
+    setPreviews((s) => ({ ...s, [p.id]: { loading: true } }));
+    previewProposal({ ...p, payload }).then((res) => {
+      setPreviews((s) => ({
+        ...s,
+        [p.id]: res.ok ? { before: res.before, after: res.after } : { error: res.error },
+      }));
+    });
+  };
 
   const sendFeedback = async (r: AiRating, withComment = false) => {
     if (!current) return;
@@ -171,7 +212,8 @@ export function AiDrawer() {
 
   const confirmProposal = async (p: ProposedChange) => {
     setProposalState((s) => ({ ...s, [p.id]: "running" }));
-    const res = await executeProposal(p, { prompt: current?.prompt });
+    const finalPayload = livePayloads[p.id] ?? p.payload;
+    const res = await executeProposal({ ...p, payload: finalPayload }, { prompt: current?.prompt });
     if (res.ok) {
       setProposalState((s) => ({ ...s, [p.id]: "done" }));
       invalidateForKind(p.kind);
