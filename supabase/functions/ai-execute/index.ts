@@ -16,7 +16,8 @@ type Kind =
   | "update_contact"
   | "create_contact"
   | "create_deal"
-  | "link_contact_to_deal";
+  | "link_contact_to_deal"
+  | "send_whatsapp_message";
 
 interface Body {
   mode?: "preview" | "execute";
