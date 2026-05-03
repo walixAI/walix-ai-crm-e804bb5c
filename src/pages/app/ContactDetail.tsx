@@ -1,12 +1,12 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, MessageCircle, FileText, PanelLeft, KanbanSquare } from "lucide-react";
+import { ArrowLeft, MessageCircle, PanelLeft, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { relativeTime } from "@/lib/format/relativeTime";
 import {
   useContact, useContactDeals, useContactActivity,
-  useContactConversations, useContactStats,
+  useContactConversations, useContactStats, useContactTasks,
 } from "@/lib/queries/contacts";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
@@ -16,6 +16,9 @@ import { DealsSidePanel } from "@/components/contacts/detail/DealsSidePanel";
 import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
+import { NotesTab } from "@/components/contacts/detail/NotesTab";
+import { TasksTab } from "@/components/contacts/detail/TasksTab";
+import { ActivityComposer } from "@/components/contacts/detail/ActivityComposer";
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -23,6 +26,7 @@ export default function ContactDetail() {
   const { data: deals = [] } = useContactDeals(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
+  const { data: tasks = [] } = useContactTasks(id);
   const stats = useContactStats(id, contact?.lastActivity, contact?.createdAt);
 
   if (isLoading) {
@@ -40,6 +44,8 @@ export default function ContactDetail() {
   }
 
   const openWA = () => window.open(`https://wa.me/${contact.phone.replace(/[^0-9]/g, "")}`, "_blank");
+
+  const pendingTasks = tasks.filter((t) => !t.completed).length;
 
   return (
     <div className="space-y-4 max-w-[1600px]">
@@ -82,6 +88,7 @@ export default function ContactDetail() {
               <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
               <TabsTrigger value="deals">Oportunidades <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{deals.length}</span></TabsTrigger>
               <TabsTrigger value="activity">Actividad</TabsTrigger>
+              <TabsTrigger value="tasks">Tareas {pendingTasks > 0 && <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1.5 rounded">{pendingTasks}</span>}</TabsTrigger>
               <TabsTrigger value="notes">Notas</TabsTrigger>
             </TabsList>
 
@@ -138,6 +145,8 @@ export default function ContactDetail() {
             </TabsContent>
 
             <TabsContent value="activity" className="mt-4">
+              <div className="space-y-4">
+              <ActivityComposer contactId={contact.id} />
               <div className="rounded-xl border border-border bg-card p-5 shadow-card">
                 <div className="relative">
                   <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
@@ -160,14 +169,15 @@ export default function ContactDetail() {
                   )}
                 </div>
               </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="tasks" className="mt-4">
+              <TasksTab contactId={contact.id} />
             </TabsContent>
 
             <TabsContent value="notes" className="mt-4">
-              <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center shadow-card">
-                <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground">Aún no hay notas para este contacto.</p>
-                <Button variant="outline" size="sm" className="mt-3">Agregar nota</Button>
-              </div>
+              <NotesTab contactId={contact.id} />
             </TabsContent>
           </Tabs>
         </div>

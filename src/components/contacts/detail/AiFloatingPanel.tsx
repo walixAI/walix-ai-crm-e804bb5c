@@ -1,21 +1,43 @@
 import { useState } from "react";
 import { Sparkles, X, Send, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { ContactRow } from "@/lib/queries/contacts";
-import { useContactSuggestions } from "@/lib/queries/contacts";
+import { useContactSuggestions, useCreateContactActivity } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
+import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 
 interface Props { contact: ContactRow; onWhatsApp: () => void }
 
 export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
   const [open, setOpen] = useState(false);
   const { data: suggestions } = useContactSuggestions(contact.id);
+  const createActivity = useCreateContactActivity(contact.id);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState<string>("");
   const top = suggestions[0];
   const rest = suggestions.slice(1, 3);
 
-  // Hide entirely if there are no suggestions (defensive — buildContactSuggestions
-  // always returns the fallback, but keep it safe).
   if (!top) return null;
+
+  async function handleCta() {
+    if (top.action === "whatsapp") return onWhatsApp();
+    if (top.action === "task") {
+      setTaskTitle(top.taskTitle ?? top.text.slice(0, 100));
+      setTaskOpen(true);
+      return;
+    }
+    if (top.action === "note") {
+      const text = (top.noteText ?? top.text).trim();
+      try {
+        await createActivity.mutateAsync({ type: "note", description: text });
+        toast.success("Nota guardada");
+        setOpen(false);
+      } catch (e: any) {
+        toast.error(e.message ?? "Error");
+      }
+    }
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-40">
@@ -37,7 +59,8 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
               {top.text}
             </div>
             <Button
-              onClick={top.action === "whatsapp" ? onWhatsApp : () => setOpen(false)}
+              onClick={handleCta}
+              disabled={createActivity.isPending}
               className="w-full bg-success hover:bg-success/90 text-success-foreground"
               size="sm"
             >
@@ -70,6 +93,12 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
           <Sparkles className="h-5 w-5" />
         </button>
       )}
+      <QuickTaskDialog
+        open={taskOpen}
+        contactId={contact.id}
+        defaultTitle={taskTitle}
+        onClose={() => setTaskOpen(false)}
+      />
     </div>
   );
 }

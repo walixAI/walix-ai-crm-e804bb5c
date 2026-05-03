@@ -45,12 +45,16 @@ const TOOL_DEF = {
               },
               action: {
                 type: "string",
-                enum: ["whatsapp", "task"],
-                description: "whatsapp = abre composer de WhatsApp. task = abre diálogo de nueva tarea.",
+                enum: ["whatsapp", "task", "note"],
+                description: "whatsapp = abre composer. task = abre diálogo de nueva tarea. note = registra una nota interna en el contacto.",
               },
               taskTitle: {
                 type: "string",
                 description: "Solo si action='task': título prellenado para la tarea.",
+              },
+              noteText: {
+                type: "string",
+                description: "Solo si action='note': contenido de la nota a registrar (máx 500 chars).",
               },
             },
             required: ["text", "cta", "action"],

@@ -1,54 +1,106 @@
-## Resumen
-Aplicar mejoras de UI, estabilidad e IA. Mantener Gemini Flash como modelo.
+# Crear Actividad, Notas y Tareas en el contacto
 
-## Cambios
+Actualmente, dentro de cada contacto:
+- **Actividad**: solo lectura (timeline).
+- **Notas**: pestaña vacía con un botón "Agregar nota" que no hace nada.
+- **Tareas**: la pestaña no existe (aunque la tabla `tasks` y el tipo `task` en `activities` ya existen).
 
-### 1. Renombrar "Deal/Deals" → "Oportunidad/Oportunidades" (solo UI)
-Reemplazo de textos visibles en español. No tocar claves de código, tipos, columnas DB, ni nombres de funciones/archivos.
-- `src/components/pipeline/*` (DealCard, DealDrawer, DealsListView, KanbanBoard, KanbanColumn, NewDealDialog, PipelineHeader, PipelineFilters, ForecastKpis, BulkActionsBar, QuickActions, QuickTaskDialog, AiInsightsPanel, LostReasonDialog)
-- `src/components/contacts/detail/DealsSidePanel.tsx`, `SummaryTab.tsx`, `AiFloatingPanel.tsx`
-- `src/pages/app/Pipeline.tsx`, `Dashboard.tsx`, `Reports.tsx`, `ContactDetail.tsx`
-- `src/components/walix/DashboardAiSection.tsx`, `CommandPalette.tsx`, `OnboardingTour.tsx`
-- `src/components/reports/*` (textos visibles)
-- `src/lib/constants/aiPrompts.ts` (prompts visibles del usuario)
-- Prompts de Edge Functions IA: usar "oportunidad/oportunidades" en `system`/`user` prompts (`pipeline-ai`, `dashboard-ai-widgets`, `global-ai`, `contact-ai-suggest`, `whatsapp-ai`, `ai-inbox`)
+El objetivo es que las tres se puedan crear desde la **UI del contacto**, desde la **IA** (drawer/sugerencias) y desde la pantalla de **WhatsApp**.
 
-### 2. Fix parpadeo al cambiar de pestaña
-- `src/main.tsx` (o donde se crea el `QueryClient`): defaults `refetchOnWindowFocus: false`, `staleTime: 30_000`, `refetchOnReconnect: false`.
-- `src/components/layout/AppLayout.tsx`: quitar `animate-fade-in` del `<main>` global (sigue disponible localmente en pantallas que la necesiten).
+---
 
-### 3. Saludo del Dashboard con nombre real
-- `src/pages/app/Dashboard.tsx`: leer `profiles.full_name` (fallback a `user_metadata.full_name`, luego email). Reutilizar query existente de `profiles` si la hay.
+## 1. UI dentro del contacto (`ContactDetail.tsx`)
 
-### 4. Score determinístico de "Salud del Pipeline" (Dashboard)
-Crear `src/lib/pipelineHealth.ts` con fórmula 0–100:
-```text
-activity      = 1 − stale_active / active            (peso 0.25)  stale = last_activity_at < hoy−10d
-responsiveness= 1 − unread_open / total_open         (peso 0.25)
-coverage      = min(1, weighted_forecast / target)   (peso 0.20)  target = mrr o configurable
-winRate       = won_30d / (won_30d + lost_30d)       (peso 0.15)  neutro 0.5 si denom=0
-velocity      = 1 − overdue_active / active          (peso 0.15)
-score         = round(100 * Σ(componente * peso))
+### a. Nueva pestaña "Tareas"
+Agregar `<TabsTrigger value="tasks">Tareas</TabsTrigger>` con badge de cantidad (pendientes). Lista de tareas del contacto:
+- Checkbox para marcar completada (update `tasks.completed`).
+- Título, fecha de vencimiento (badge rojo si vencida), responsable.
+- Botón **"Nueva tarea"** que abre el `QuickTaskDialog` ya existente (acepta `contactId` sin deal). Ya está implementado para este caso.
+
+Nuevo hook `useContactTasks(contactId)` en `src/lib/queries/contacts.ts` (SELECT en `tasks` filtrando por `contact_id`).
+
+### b. Pestaña "Notas" funcional
+Reemplazar el placeholder por:
+- Composer arriba (Textarea + botón "Guardar nota") — inserta en `activities` con `type='note'`, `description=texto`, `agent_id=auth.uid()`.
+- Lista debajo: `useContactActivity` filtrada por `type='note'`, con avatar del autor y tiempo relativo. Permitir borrar nota propia.
+
+### c. Pestaña "Actividad" con composer
+Mantener el timeline actual (todos los tipos) y agregar arriba un mini-composer:
+- Selector de tipo: `Llamada` / `Reunión` / `Email` / `Nota` / `Otro` (mapeados a `note` por ahora, distinguidos en `description` con prefijo o usando `metadata` — pero como el enum solo tiene `wa_*, note, deal, task`, todas las manuales caen en `note` con un prefijo "[Llamada] ...").
+- Textarea + botón "Registrar".
+
+Alternativa más limpia: extender el enum `activity_type` con `call`, `meeting`, `email`, `manual` (migración). **Recomendado**: hacer la migración para no abusar de `note`.
+
+### d. Refresco
+Tras cualquier creación, invalidar `["contact-activity", id]`, `["contact-tasks", id]`, `["contact-stats", id]`.
+
+---
+
+## 2. Crear desde la IA
+
+El `AiFloatingPanel` / `AiDrawer` ya invoca `ai-execute`, que **ya soporta** `create_task` y `create_activity`. Falta:
+
+- **Mejorar el prompt** de `contact-ai-suggest` y del drawer de IA para que, además de sugerir un mensaje WhatsApp, pueda proponer:
+  - "Registrar nota: …" → propone `create_activity` con `type='note'`.
+  - "Crear tarea: …" → propone `create_task`.
+- En la UI del drawer, al recibir una propuesta de tipo `create_activity` o `create_task`, mostrar el botón "Registrar" / "Crear tarea" que ya dispara el flujo preview → execute existente.
+- Pasar `contact_id` actual como contexto por defecto (ya disponible en el drawer).
+
+No requiere nuevas funciones edge — solo ajustar prompts y el panel para reconocer y renderizar estas dos acciones.
+
+---
+
+## 3. Crear desde WhatsApp
+
+Hoy `whatsapp-ai` solo lee (sugerir / resumir). Hay que extenderlo o apoyarse en `ai-execute`.
+
+### Cambios:
+- **`ContactSidePanel.tsx`** (panel derecho del chat de WhatsApp): agregar dos secciones nuevas:
+  - **Notas del contacto**: composer + últimas 5 notas (`activities` `type='note'`). Inserta como nota del contacto, no como `internal_notes` del chat.
+  - **Tareas**: lista compacta + botón "Nueva tarea" que abre `QuickTaskDialog` con `contactId` y opcionalmente `deal_id` si la conversación tiene uno vinculado.
+- **AI desde WhatsApp**: en `AiDrawer` del chat, agregar acciones rápidas:
+  - "Crear tarea de seguimiento" → llama `ai-execute` (`create_task`) con título derivado del último mensaje.
+  - "Guardar resumen como nota" → toma el resumen ya generado por `whatsapp-ai` (`mode=summarize`) y lo persiste con `create_activity` (`type='note'`).
+
+Reutiliza la infraestructura existente; no se necesita una nueva edge function.
+
+---
+
+## 4. Cambios técnicos resumidos
+
+### Migración (opcional pero recomendada)
+```sql
+ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'call';
+ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'meeting';
+ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'email';
+ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'manual';
 ```
-Mapeo: ≥80 excelente · 60–79 bueno · 40–59 atención · <40 crítico. Mostrar top‑3 componentes con mayor impacto negativo.
-- `dashboard-ai-widgets` deja de generar `health.score` por IA; se calcula en cliente desde `useDashboardData` (o se añade la query mínima necesaria en `src/lib/queries/dashboard.ts`).
-- `src/components/walix/DashboardAiSection.tsx`: render del score determinístico + breakdown.
 
-### 5. Anti-alucinación en sugerencias de IA
-- `supabase/functions/contact-ai-suggest/index.ts`:
-  - System prompt: prohibir inventar nombres; usar solo nombres presentes en el contexto recibido.
-  - Validación post‑LLM: extraer nombres mencionados; si alguno no coincide con `contact.name` o nombres pasados explícitamente, descartar la sugerencia y caer a heurística local.
-- `src/lib/contacts/suggestions.ts`: filtro cliente equivalente como segunda barrera.
+### Archivos nuevos
+- `src/components/contacts/detail/NotesTab.tsx`
+- `src/components/contacts/detail/TasksTab.tsx`
+- `src/components/contacts/detail/ActivityComposer.tsx`
 
-### 6. Modelo IA
-Mantener `google/gemini-2.5-flash` en todas las Edge Functions. Sin cambios.
+### Archivos modificados
+- `src/pages/app/ContactDetail.tsx` — agregar tab Tareas, montar nuevos componentes.
+- `src/lib/queries/contacts.ts` — `useContactTasks`, `useCreateActivity`, `useCreateNote`, `useToggleTask`.
+- `src/components/contacts/detail/AiFloatingPanel.tsx` — render de propuestas `create_activity` / `create_task`.
+- `supabase/functions/contact-ai-suggest/index.ts` — añadir tipos de acción `note` y `task` con validación.
+- `src/components/whatsapp/ContactSidePanel.tsx` — secciones Notas y Tareas.
+- `src/components/whatsapp/AiDrawer.tsx` — acciones rápidas "Crear tarea" / "Guardar como nota".
 
-## Detalles técnicos
-- No modificar `src/integrations/supabase/{client,types}.ts` ni `.env`.
-- No cambiar nombres de columnas/tablas (`deals`, `deal_id`, etc.) — solo strings visibles.
-- Tests: actualizar `src/lib/contacts/suggestions.test.ts` si cambia firma; añadir test unitario para `pipelineHealth.ts`.
-- Sin migraciones de DB.
+### Sin cambios
+- `ai-execute` ya soporta `create_task` y `create_activity`.
+- RLS de `tasks` y `activities` ya permite insert por tenant.
 
-## Fuera de alcance
-- Cambio a Claude / Anthropic.
-- Refactor de IDs o esquema.
+---
+
+## 5. UX y validaciones
+
+- Composer de nota: máx 2000 chars, requiere texto no vacío.
+- Tarea: título obligatorio (1-120), fecha opcional (datetime-local).
+- Toasts de éxito/error consistentes con el resto de la app.
+- Tras crear, refrescar tabs y `ContactStatsBar` (`last_activity_at`).
+- Las acciones de IA pasan siempre por **preview → confirmar → execute** (ya implementado), nunca ejecutan automáticamente.
+
+¿Procedo con esta implementación, incluyendo la migración del enum para tipos de actividad?
