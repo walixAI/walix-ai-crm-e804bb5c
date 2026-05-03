@@ -8,6 +8,8 @@ import {
   useDashboardKpis, useRecentActivity, useDashboardAiSuggestions,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
@@ -65,7 +67,7 @@ export default function Dashboard() {
   const atRiskDealsCount = kpis?.staleDeals ?? 0;
   const kpiData = [
     { label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN", delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet },
-    { label: "Deals Activos", value: String(kpis?.activeDeals ?? 0), suffix: "deals", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
+    { label: "Oportunidades Activas", value: String(kpis?.activeDeals ?? 0), suffix: "abiertas", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
     { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare },
     { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp },
   ];
@@ -82,9 +84,9 @@ export default function Dashboard() {
         <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
           <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
           <div className="flex-1 text-foreground">
-            <strong>{atRiskDealsCount} deals</strong> llevan más de 10 días sin actividad.{" "}
+            <strong>{atRiskDealsCount} oportunidades</strong> llevan más de 10 días sin actividad.{" "}
             <a href="/pipeline" className="font-medium text-warning underline-offset-2 hover:underline">
-              Ver deals →
+              Ver oportunidades →
             </a>
           </div>
           <button
