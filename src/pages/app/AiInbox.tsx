@@ -13,7 +13,7 @@ import { AiInboxSkeleton } from "@/components/walix/Skeletons";
 const TABS: { id: "all" | AiInboxCategory; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "messages", label: "Mensajes" },
-  { id: "oportunidades", label: "Oportunidades" },
+  { id: "deals", label: "Oportunidades" },
   { id: "pipeline", label: "Pipeline" },
 ];
 

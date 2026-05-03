@@ -32,7 +32,7 @@ export function BulkActionsBar({ selectedIds, stages, onClear }: Props) {
     if (!stage) return;
     setWorking(true);
     const { error } = await supabase
-      .from("oportunidades")
+      .from("deals")
       .update({
         stage_id: stage.id,
         stage_name: stage.name,
@@ -50,7 +50,7 @@ export function BulkActionsBar({ selectedIds, stages, onClear }: Props) {
 
   async function deleteAll() {
     setWorking(true);
-    const { error } = await supabase.from("oportunidades").delete().in("id", selectedIds);
+    const { error } = await supabase.from("deals").delete().in("id", selectedIds);
     setWorking(false);
     if (error) return toast.error(error.message);
     toast.success(`${selectedIds.length} oportunidades eliminados`);

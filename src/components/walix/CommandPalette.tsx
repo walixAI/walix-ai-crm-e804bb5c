@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface SearchHit {
-  type: "contact" | "oportunidad" | "conversation";
+  type: "contact" | "deal" | "conversation";
   id: string;
   title: string;
   subtitle?: string;
@@ -62,7 +62,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
             .select("id, name, company, phone")
             .or(`name.ilike.${like},company.ilike.${like},phone.ilike.${like}`)
             .limit(5),
-          supabase.from("oportunidades")
+          supabase.from("deals")
             .select("id, name, stage_name, amount")
             .ilike("name", like).limit(5),
           supabase.from("conversations")
@@ -83,7 +83,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
             subtitle: c.company ?? c.phone ?? "",
           })),
           ...(dealsR.data ?? []).map((d: any) => ({
-            type: "oportunidad" as const, id: d.id, title: d.name,
+            type: "deal" as const, id: d.id, title: d.name,
             subtitle: `${d.stage_name ?? "—"} · $${Number(d.amount ?? 0).toLocaleString("es-MX")}`,
           })),
           ...(convosR.data ?? []).map((c: any) => ({
@@ -112,7 +112,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
 
   const grouped = useMemo(() => ({
     contacts: hits.filter((h) => h.type === "contact"),
-    deals:    hits.filter((h) => h.type === "oportunidad"),
+    deals:    hits.filter((h) => h.type === "deal"),
     convos:   hits.filter((h) => h.type === "conversation"),
   }), [hits]);
 

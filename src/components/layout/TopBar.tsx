@@ -33,7 +33,7 @@ function captureContext(pathname: string, search: string): AskAiContext {
   // /pipeline?dealId=...
   if (pathname.startsWith("/pipeline")) {
     const dealId = params.get("dealId");
-    if (dealId) { ctx.entityType = "oportunidad"; ctx.entityId = dealId; }
+    if (dealId) { ctx.entityType = "deal"; ctx.entityId = dealId; }
   }
   // /contacts/:id
   const contactMatch = pathname.match(/^\/contacts\/([0-9a-f-]{36})/i);
