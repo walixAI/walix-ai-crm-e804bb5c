@@ -219,7 +219,7 @@ export default function Pipeline() {
           illustration={<EmptyIllustration variant="pipeline" />}
           title="Crea tu primera oportunidad y empieza a cerrar"
           description="Organiza tus oportunidades en etapas y arrastra para mover entre columnas."
-          action={{ label: "+ Nuevo Oportunidad", onClick: () => openNewDeal() }}
+          action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
         />
       ) : view === "kanban" ? (
         <KanbanBoard

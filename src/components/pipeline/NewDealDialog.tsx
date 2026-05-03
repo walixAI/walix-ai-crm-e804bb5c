@@ -84,7 +84,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nuevo Deal</DialogTitle>
+          <DialogTitle>Nueva Oportunidad</DialogTitle>
           <DialogDescription>Agrega una nueva oportunidad al pipeline.</DialogDescription>
         </DialogHeader>
 

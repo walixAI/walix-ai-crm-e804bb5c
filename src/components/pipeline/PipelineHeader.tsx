@@ -108,7 +108,7 @@ export function PipelineHeader({
           </Button>
 
           <Button size="sm" className="h-9 bg-primary hover:bg-primary/90" onClick={onNew}>
-            <Plus className="h-3.5 w-3.5" /> Nuevo Deal
+            <Plus className="h-3.5 w-3.5" /> Nueva Oportunidad
           </Button>
         </div>
       </div>
