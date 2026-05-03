@@ -1,6 +1,6 @@
 import type { ContactRow, DealRow, ActivityRow } from "@/lib/queries/contacts";
 
-export type SuggestionAction = "whatsapp" | "task";
+export type SuggestionAction = "whatsapp" | "task" | "note";
 
 export interface ContactSuggestion {
   id: string;
@@ -10,6 +10,8 @@ export interface ContactSuggestion {
   priority: number;
   /** Optional pre-filled task title when action === "task" */
   taskTitle?: string;
+  /** Optional pre-filled note text when action === "note" */
+  noteText?: string;
 }
 
 export interface LastInbound {
