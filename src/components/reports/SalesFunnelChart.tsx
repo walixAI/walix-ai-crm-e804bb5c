@@ -81,7 +81,7 @@ export function SalesFunnelChart() {
                   <div className="font-semibold text-sm">{s.name}</div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <div className="text-muted-foreground">Deals</div>
+                      <div className="text-muted-foreground">Oportunidades</div>
                       <div className="font-bold">{s.count}</div>
                     </div>
                     <div>
