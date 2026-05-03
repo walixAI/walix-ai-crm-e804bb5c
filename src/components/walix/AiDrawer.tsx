@@ -120,7 +120,7 @@ export function AiDrawer() {
   };
 
   const handleCitation = (kind: string, id: string) => {
-    if (kind === "oportunidad") navigate(`/pipeline?dealId=${id}`);
+    if (kind === "deal") navigate(`/pipeline?dealId=${id}`);
     else if (kind === "contact") navigate(`/contacts/${id}`);
     else if (kind === "convo") navigate(`/whatsapp?conversationId=${id}`);
     closeDrawer();
@@ -239,15 +239,15 @@ export function AiDrawer() {
   const invalidateForKind = (kind: ProposalKind) => {
     if (kind.startsWith("update_deal") || kind.startsWith("mark_deal")) {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
-      queryClient.invalidateQueries({ queryKey: ["oportunidades"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
     }
     if (kind === "create_deal") {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
-      queryClient.invalidateQueries({ queryKey: ["oportunidades"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
     }
     if (kind === "link_contact_to_deal") {
       queryClient.invalidateQueries({ queryKey: ["pipeline"] });
-      queryClient.invalidateQueries({ queryKey: ["oportunidades"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
     }
     if (kind === "create_task") queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -827,7 +827,7 @@ function ProposalEditForm({
   );
 
   const STATUS_OPTS = ["Nuevo", "Contactado", "Calificado", "Propuesta", "Cerrado", "Perdido"];
-  const ACTIVITY_OPTS = ["note", "oportunidad", "task", "wa_sent", "wa_received"];
+  const ACTIVITY_OPTS = ["note", "deal", "task", "wa_sent", "wa_received"];
 
   switch (kind) {
     case "update_deal_amount":
@@ -909,7 +909,7 @@ function ProposalEditForm({
     case "create_deal":
       return (
         <div className="space-y-2">
-          <Field label="Nombre del oportunidad" k="name" />
+          <Field label="Nombre de la oportunidad" k="name" />
           <div className="grid grid-cols-2 gap-2">
             <Field label="Monto" k="amount" type="number" />
             <Field label="Probabilidad %" k="probability" type="number" />
