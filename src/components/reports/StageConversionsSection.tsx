@@ -32,7 +32,7 @@ export function StageConversionsSection() {
   const max = Math.max(1, ...conversions.map(c => c.advanced));
   const weakest = [...conversions].sort((a, b) => a.rate - b.rate)[0];
   const insight = weakest
-    ? `Solo el ${weakest.rate}% pasa de ${weakest.from} a ${weakest.to} — esta es tu mayor oportunidad.`
+    ? `Solo el ${weakest.rate}% pasa de ${weakest.from} a ${weakest.to} — esta es tu mayor deal.`
     : "";
 
   return (

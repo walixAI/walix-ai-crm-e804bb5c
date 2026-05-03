@@ -198,14 +198,14 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 ) : <ReadValue>{deal.expectedCloseDate ? format(new Date(deal.expectedCloseDate), "PPP", { locale: es }) : "—"}</ReadValue>}
               </Field>
 
-              <Field label={`Probabilidad: ${editing ? draft.probability : oportunidad.probability}%`}>
+              <Field label={`Probabilidad: ${editing ? draft.probability : deal.probability}%`}>
                 {editing ? (
                   <Slider value={[Number(draft.probability)]} onValueChange={([v]) => setDraft({ ...draft, probability: v })} min={0} max={100} step={5} />
                 ) : (
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
-                      style={{ width: `${oportunidad.probability}%` }}
+                      style={{ width: `${deal.probability}%` }}
                     />
                   </div>
                 )}
@@ -258,7 +258,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold">{daysInStage}</span>
-                  <span className="text-sm text-muted-foreground">{daysInStage === 1 ? "día" : "días"} en "{oportunidad.stageName}"</span>
+                  <span className="text-sm text-muted-foreground">{daysInStage === 1 ? "día" : "días"} en "{deal.stageName}"</span>
                 </div>
               </div>
 
@@ -310,7 +310,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 ) : (
                   <>
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                      {aiSuggestions[0]?.text ?? "Genera una recomendación de IA basada en el contexto actual del oportunidad."}
+                      {aiSuggestions[0]?.text ?? "Genera una recomendación de IA basada en el contexto actual del deal."}
                     </p>
                     <Button size="sm" className="mt-3 bg-primary hover:bg-primary/90 h-8" onClick={runSuggestNextStep}>
                       <Sparkles className="h-3 w-3" /> Sugerir siguiente paso
