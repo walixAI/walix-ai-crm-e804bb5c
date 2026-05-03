@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { computePipelineHealth, type PipelineHealth } from "@/lib/pipelineHealth";
 
 export interface KpiBundle {
   pipelineValue: number;
@@ -132,6 +133,65 @@ export function useDealsClosedTimeline(days = 30) {
       return Array.from(buckets.entries()).map(([k, v], i) => ({
         day: String(i + 1), date: k, value: v,
       }));
+    },
+  });
+}
+
+export function usePipelineHealthScore() {
+  return useQuery<PipelineHealth>({
+    queryKey: ["pipeline-health-score"],
+    queryFn: async () => {
+      const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000).toISOString();
+      const today = new Date().toISOString().slice(0, 10);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
+
+      const [dealsRes, convRes, contactsRes] = await Promise.all([
+        supabase.from("deals").select("amount,probability,is_won,is_lost,expected_close_date,updated_at,contact_id"),
+        supabase.from("conversations").select("unread_count,status"),
+        supabase.from("contacts").select("id,last_activity_at"),
+      ]);
+      if (dealsRes.error) throw dealsRes.error;
+      if (convRes.error) throw convRes.error;
+      if (contactsRes.error) throw contactsRes.error;
+
+      const deals = dealsRes.data ?? [];
+      const conversations = convRes.data ?? [];
+      const contacts = contactsRes.data ?? [];
+
+      const lastActivityMap = new Map<string, string | null>();
+      for (const c of contacts) lastActivityMap.set(c.id, c.last_activity_at);
+
+      const active = deals.filter((d) => !d.is_won && !d.is_lost);
+      const staleActiveDeals = active.filter((d) => {
+        const ref = (d.contact_id && lastActivityMap.get(d.contact_id)) || d.updated_at;
+        return !ref || ref < tenDaysAgo;
+      }).length;
+      const overdueActiveDeals = active.filter(
+        (d) => d.expected_close_date && d.expected_close_date < today,
+      ).length;
+      const weightedForecast = active.reduce(
+        (s, d) => s + (Number(d.amount) * Number(d.probability)) / 100,
+        0,
+      );
+
+      const openConvos = conversations.filter((c) => c.status !== "Cerrado");
+      const totalOpenConversations = openConvos.length;
+      const unreadOpenConversations = openConvos.filter((c) => (c.unread_count ?? 0) > 0).length;
+
+      const wonLast30 = deals.filter((d) => d.is_won && d.updated_at >= thirtyDaysAgo).length;
+      const lostLast30 = deals.filter((d) => d.is_lost && d.updated_at >= thirtyDaysAgo).length;
+
+      return computePipelineHealth({
+        activeDeals: active.length,
+        staleActiveDeals,
+        overdueActiveDeals,
+        totalOpenConversations,
+        unreadOpenConversations,
+        weightedForecast,
+        monthlyTarget: 0,
+        wonLast30,
+        lostLast30,
+      });
     },
   });
 }
