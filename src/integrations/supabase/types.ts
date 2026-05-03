@@ -1357,7 +1357,16 @@ export type Database = {
       trial_days_left: { Args: { _tenant_id: string }; Returns: number }
     }
     Enums: {
-      activity_type: "wa_sent" | "wa_received" | "note" | "deal" | "task"
+      activity_type:
+        | "wa_sent"
+        | "wa_received"
+        | "note"
+        | "deal"
+        | "task"
+        | "call"
+        | "meeting"
+        | "email"
+        | "manual"
       app_role:
         | "super_admin"
         | "tenant_admin"
@@ -1509,7 +1518,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      activity_type: ["wa_sent", "wa_received", "note", "deal", "task"],
+      activity_type: [
+        "wa_sent",
+        "wa_received",
+        "note",
+        "deal",
+        "task",
+        "call",
+        "meeting",
+        "email",
+        "manual",
+      ],
       app_role: [
         "super_admin",
         "tenant_admin",
