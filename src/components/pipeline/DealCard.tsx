@@ -104,7 +104,7 @@ function DealCardImpl({
             checked={!!selected}
             onCheckedChange={() => onToggleSelect(deal.id)}
             className="bg-card shadow-sm"
-            aria-label="Seleccionar deal"
+            aria-label="Seleccionar oportunidad"
           />
         </div>
       )}

@@ -20,7 +20,7 @@ export function ForecastKpis({ total, weighted, closingThisMonth, closingDeltaPc
       <Kpi
         label="Pipeline total"
         value={`${formatMXN(total)} MXN`}
-        sub={`${activeCount} deals activos`}
+        sub={`${activeCount} oportunidades activas`}
       />
       <Divider />
       <Kpi

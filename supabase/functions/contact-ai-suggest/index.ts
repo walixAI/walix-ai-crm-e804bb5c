@@ -206,7 +206,7 @@ ${transcript}
         {
           role: "system",
           content:
-            "Eres un asistente comercial para vendedores B2B en LATAM. Analiza la información del contacto y genera 1-4 sugerencias accionables, específicas y priorizadas (la primera = más importante). Cada sugerencia debe ser concreta (no genérica), corta (<180 chars), en español neutro, y mencionar al contacto por su nombre cuando aplique. Usa action='whatsapp' cuando lo natural sea responder/enviar un mensaje, y action='task' cuando convenga agendar una llamada o tarea de seguimiento. NUNCA inventes datos que no estén en el contexto.",
+            `Eres un asistente comercial para vendedores B2B en LATAM. Analiza la información del contacto y genera 1-4 sugerencias accionables, específicas y priorizadas (la primera = más importante). Cada sugerencia debe ser concreta (no genérica), corta (<180 chars), en español neutro. Usa action='whatsapp' cuando lo natural sea responder/enviar un mensaje, y action='task' cuando convenga agendar una llamada o tarea. REGLAS ESTRICTAS: (1) NUNCA inventes nombres de personas, empresas, montos, fechas o eventos. (2) El ÚNICO nombre de persona permitido es exactamente "${fullName || "el contacto"}". Si necesitas referirte al contacto, usa ese nombre o expresiones genéricas como "el contacto", "el cliente". (3) Solo puedes mencionar oportunidades que aparezcan en la sección "Deals". (4) Si no tienes información suficiente, devuelve UNA sola sugerencia genérica de seguimiento sin inventar datos. Llama a "Oportunidad" en lugar de "Deal".`,
         },
         { role: "user", content: userPrompt },
       ],
@@ -238,7 +238,36 @@ ${transcript}
     }
 
     const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
-    const suggestions: AiSuggestion[] = raw.slice(0, 4).map((s, i) => ({
+    // Anti-hallucination: descartar sugerencias que mencionen nombres no presentes en el contexto.
+    const allowedNames = new Set<string>();
+    if (contact.name) allowedNames.add(String(contact.name).toLowerCase());
+    if (contact.last_name) allowedNames.add(String(contact.last_name).toLowerCase());
+    if (fullName) allowedNames.add(fullName.toLowerCase());
+    const COMMON_WORDS = new Set([
+      "WhatsApp","Cliente","Vendedor","Oportunidad","Oportunidades","Deal","Hola","Buenos","Buenas",
+      "Llamada","Tarea","Mensaje","Correo","Email","Cotización","Llama","Envía","Agenda","Recordatorio",
+      "Hoy","Mañana","Ayer","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo",
+      "Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+    ]);
+    const namePattern = /\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,})\b/g;
+    function hasInventedName(text: string): boolean {
+      const matches = text.match(namePattern) ?? [];
+      for (const m of matches) {
+        if (COMMON_WORDS.has(m)) continue;
+        if (allowedNames.has(m.toLowerCase())) continue;
+        // permitir empresa del contacto
+        if (contact.company && m.toLowerCase().includes(String(contact.company).toLowerCase().split(" ")[0])) continue;
+        return true;
+      }
+      return false;
+    }
+    const filtered = raw.filter((s) => !hasInventedName(String(s.text ?? "")));
+    const finalRaw = filtered.length ? filtered : (raw.length ? [{
+      text: `Da seguimiento a ${fullName || "el contacto"}: revisa su última conversación y define el próximo paso.`,
+      cta: "Abrir conversación",
+      action: "whatsapp" as const,
+    }] : []);
+    const suggestions: AiSuggestion[] = finalRaw.slice(0, 4).map((s, i) => ({
       id: `ai-${i}`,
       text: String(s.text ?? "").slice(0, 240),
       cta: String(s.cta ?? "Ver acción").slice(0, 40),

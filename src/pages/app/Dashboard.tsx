@@ -8,6 +8,8 @@ import {
   useDashboardKpis, useRecentActivity, useDashboardAiSuggestions,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
@@ -65,12 +67,29 @@ export default function Dashboard() {
   const atRiskDealsCount = kpis?.staleDeals ?? 0;
   const kpiData = [
     { label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN", delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet },
-    { label: "Deals Activos", value: String(kpis?.activeDeals ?? 0), suffix: "deals", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
+    { label: "Oportunidades Activas", value: String(kpis?.activeDeals ?? 0), suffix: "abiertas", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
     { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare },
     { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp },
   ];
 
-  const name = (user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "ahí").split(" ")[0];
+  const { data: profile } = useQuery({
+    queryKey: ["profile-name", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const displayName =
+    profile?.full_name ??
+    (user?.user_metadata?.full_name as string | undefined) ??
+    user?.email?.split("@")[0] ??
+    "ahí";
+  const name = displayName.split(" ")[0];
   const today = new Date().toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long",
   });
@@ -82,9 +101,9 @@ export default function Dashboard() {
         <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
           <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
           <div className="flex-1 text-foreground">
-            <strong>{atRiskDealsCount} deals</strong> llevan más de 10 días sin actividad.{" "}
+            <strong>{atRiskDealsCount} oportunidades</strong> llevan más de 10 días sin actividad.{" "}
             <a href="/pipeline" className="font-medium text-warning underline-offset-2 hover:underline">
-              Ver deals →
+              Ver oportunidades →
             </a>
           </div>
           <button
@@ -106,11 +125,11 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground capitalize mt-1">{today}</p>
         </div>
         <Button
-          onClick={() => ask("Dame el resumen IA del día: pipeline, leads calientes y riesgos.")}
+          onClick={() => ask("Dame el resumen del día: pipeline, leads calientes, oportunidades en riesgo y conversaciones pendientes.")}
           className="bg-gradient-brand hover:opacity-90 text-primary-foreground shadow-glow gap-2"
         >
           <Sparkles className="h-4 w-4" />
-          Ver resumen IA
+          Resumen del día
         </Button>
       </div>
 
@@ -222,7 +241,7 @@ export default function Dashboard() {
               Sugerencias del día
             </h3>
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gradient-brand text-primary-foreground">
-              Powered by Claude
+              Powered by IA
             </span>
           </div>
           <p className="text-xs text-muted-foreground mb-4">Acciones que mueven la aguja hoy</p>
@@ -308,11 +327,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Deals closed timeline */}
+        {/* Oportunidades cerradas timeline */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold">Deals cerrados</h3>
+              <h3 className="font-semibold">Oportunidades cerradas</h3>
               <p className="text-xs text-muted-foreground">Últimos 30 días</p>
             </div>
             <span className="text-xs font-semibold text-success inline-flex items-center gap-0.5">

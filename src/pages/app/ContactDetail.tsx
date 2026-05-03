@@ -80,7 +80,7 @@ export default function ContactDetail() {
             <TabsList>
               <TabsTrigger value="summary">Resumen</TabsTrigger>
               <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
-              <TabsTrigger value="deals">Deals <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{deals.length}</span></TabsTrigger>
+              <TabsTrigger value="deals">Oportunidades <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{deals.length}</span></TabsTrigger>
               <TabsTrigger value="activity">Actividad</TabsTrigger>
               <TabsTrigger value="notes">Notas</TabsTrigger>
             </TabsList>

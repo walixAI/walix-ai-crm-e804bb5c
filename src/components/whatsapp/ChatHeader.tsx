@@ -80,7 +80,7 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
 
         <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={onLinkDeal}>
           <Link2 className="h-3 w-3" />
-          <span className="hidden lg:inline">{conv.dealId ? "Deal vinculado" : "Vincular Deal"}</span>
+          <span className="hidden lg:inline">{conv.dealId ? "Oportunidad vinculado" : "Vincular Oportunidad"}</span>
         </Button>
 
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onTogglePanel} title={panelOpen ? "Ocultar panel" : "Mostrar panel"}>

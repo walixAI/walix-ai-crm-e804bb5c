@@ -909,7 +909,7 @@ function ProposalEditForm({
     case "create_deal":
       return (
         <div className="space-y-2">
-          <Field label="Nombre del deal" k="name" />
+          <Field label="Nombre de la oportunidad" k="name" />
           <div className="grid grid-cols-2 gap-2">
             <Field label="Monto" k="amount" type="number" />
             <Field label="Probabilidad %" k="probability" type="number" />
@@ -936,7 +936,7 @@ function ProposalEditForm({
     case "link_contact_to_deal":
       return (
         <div className="space-y-2">
-          <Field label="Deal ID" k="deal_id" />
+          <Field label="Oportunidad ID" k="deal_id" />
           <Field label="Contacto ID" k="contact_id" />
           <div className="text-[10px] text-muted-foreground">
             Los IDs vienen del agente. Modifícalos solo si sabes lo que haces.

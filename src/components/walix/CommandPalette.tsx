@@ -28,7 +28,7 @@ const NAV = [
   { to: "/dashboard", label: "Ir al Dashboard", icon: LayoutDashboard, kw: "inicio home" },
   { to: "/ai-inbox", label: "Ir al AI Inbox", icon: Inbox, kw: "sugerencias" },
   { to: "/contacts", label: "Ir a Contactos", icon: Users, kw: "leads" },
-  { to: "/pipeline", label: "Ir al Pipeline", icon: KanbanSquare, kw: "deals oportunidades kanban" },
+  { to: "/pipeline", label: "Ir al Pipeline", icon: KanbanSquare, kw: "oportunidades oportunidades kanban" },
   { to: "/whatsapp", label: "Ir a WhatsApp", icon: MessageCircle, kw: "chat mensajes" },
   { to: "/reports", label: "Ir a Reportes", icon: BarChart3, kw: "analytics métricas" },
   { to: "/automations", label: "Ir a Automatizaciones", icon: Zap, kw: "workflows" },
@@ -119,7 +119,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Busca contactos, deals, mensajes o pregunta a la IA…"
+        placeholder="Busca contactos, oportunidades, mensajes o pregunta a la IA…"
         value={query}
         onValueChange={setQuery}
       />
@@ -159,7 +159,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
         )}
 
         {grouped.deals.length > 0 && (
-          <CommandGroup heading="Deals">
+          <CommandGroup heading="Oportunidades">
             {grouped.deals.map((h) => (
               <CommandItem key={h.id} onSelect={() => go(`/pipeline?dealId=${h.id}`)} className="gap-2">
                 <KanbanSquare className="h-4 w-4 text-primary" />

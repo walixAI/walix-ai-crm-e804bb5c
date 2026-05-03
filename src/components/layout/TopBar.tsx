@@ -18,12 +18,12 @@ import { NotificationsBell } from "@/components/notifications/NotificationsBell"
 import type { AskAiContext } from "@/services/ai";
 
 const ROTATING_PLACEHOLDERS = [
-  "¿Qué deals están en riesgo?",
+  "¿Qué oportunidades están en riesgo?",
   "Mueve Acme a Negociación",
   "Crea tarea: llamar a Pedro mañana 10am",
   "Agrega a María Pérez, tel 5551234567",
   "Resume las conversaciones sin responder",
-  "Marca el deal de Acme como ganado",
+  "Marca el oportunidad de Acme como ganado",
   "¿Cuánto vale mi pipeline hoy?",
 ];
 

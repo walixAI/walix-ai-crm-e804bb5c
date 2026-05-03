@@ -90,7 +90,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           notes: draft.notes || null,
         },
       });
-      toast.success("Deal actualizado");
+      toast.success("Oportunidad actualizado");
       setEditing(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");

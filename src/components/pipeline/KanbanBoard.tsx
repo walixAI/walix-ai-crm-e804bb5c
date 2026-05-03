@@ -63,8 +63,8 @@ export function KanbanBoard(props: Props) {
     update.mutate(
       { dealId, stage },
       {
-        onSuccess: () => toast.success(`Deal movido a "${stage.name}"`),
-        onError: () => toast.error("No se pudo mover el deal"),
+        onSuccess: () => toast.success(`Oportunidad movido a "${stage.name}"`),
+        onError: () => toast.error("No se pudo mover el oportunidad"),
       },
     );
   }

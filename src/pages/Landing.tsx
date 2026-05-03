@@ -289,7 +289,7 @@ function Features() {
   const items = [
     { icon: Bot, title: "IA que vende contigo", desc: "Sugiere respuestas, califica leads y agenda seguimientos automáticamente. Tú apruebas, ella ejecuta." },
     { icon: MessageCircle, title: "Bandeja unificada de WhatsApp", desc: "Todos los chats del equipo en un solo lugar. Asigna, transfiere y nunca pierdas un cliente otra vez." },
-    { icon: KanbanSquare, title: "Pipeline drag-and-drop", desc: "Arrastra deals entre etapas. Mira en segundos qué cierra esta semana y qué necesita un empujón." },
+    { icon: KanbanSquare, title: "Pipeline drag-and-drop", desc: "Arrastra oportunidades entre etapas. Mira en segundos qué cierra esta semana y qué necesita un empujón." },
     { icon: BarChart3, title: "Reportes en tiempo real", desc: "Cuánto vendió cada agente, qué etapa frena tu pipeline, qué producto pega más. Sin Excel." },
     { icon: Zap, title: "Automatizaciones sin código", desc: "Si un lead deja de responder 24h, Walix lo recuerda. Si pide cotización, le manda PDF al instante." },
     { icon: ShieldCheck, title: "Datos tuyos, no del vendedor", desc: "Si un agente se va, los clientes se quedan. Cumplimiento y respaldos de nivel empresarial." },

@@ -51,7 +51,7 @@ export function LinkDealDialog({ open, onOpenChange, conversationId, contactId, 
   async function onLink(dealId: string | null) {
     try {
       await link.mutateAsync({ conversationId, dealId });
-      toast.success(dealId ? "Deal vinculado" : "Vinculación eliminada");
+      toast.success(dealId ? "Oportunidad vinculado" : "Vinculación eliminada");
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Error");
@@ -78,10 +78,10 @@ export function LinkDealDialog({ open, onOpenChange, conversationId, contactId, 
       if (newDealId) {
         await link.mutateAsync({ conversationId, dealId: newDealId });
       }
-      toast.success("Deal creado y vinculado");
+      toast.success("Oportunidad creado y vinculado");
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "No se pudo crear el deal");
+      toast.error(e?.message ?? "No se pudo crear el oportunidad");
     }
   }
 
