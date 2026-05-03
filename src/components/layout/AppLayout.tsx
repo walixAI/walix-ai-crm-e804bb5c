@@ -56,7 +56,7 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
         <TrialBanner />
-        <main className="flex-1 px-4 md:px-6 py-6 pb-24 md:pb-6 animate-fade-in">
+        <main className="flex-1 px-4 md:px-6 py-6 pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>

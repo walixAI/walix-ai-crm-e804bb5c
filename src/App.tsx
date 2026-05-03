@@ -32,7 +32,15 @@ const Organization = lazy(() => import("@/pages/app/Organization"));
 const Platform = lazy(() => import("@/pages/app/Platform"));
 const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 30_000,
+    },
+  },
+});
 
 function RouteFallback() {
   return (
