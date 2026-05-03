@@ -132,6 +132,7 @@ export interface ActivityRow {
   timestamp: string;
   agent: string;
   agentInitials: string;
+  agentId: string | null;
 }
 
 export function useContactActivity(contactId: string | undefined) {
@@ -154,6 +155,7 @@ export function useContactActivity(contactId: string | undefined) {
           timestamp: a.occurred_at,
           agent: owner.name === "Sin asignar" ? "Sistema" : owner.name,
           agentInitials: owner.initials === "—" ? "•" : owner.initials,
+          agentId: a.agent_id ?? null,
         };
       });
     },
