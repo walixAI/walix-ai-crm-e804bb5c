@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { LeadStatus, Source } from "@/lib/contacts/badges";
 import { useTenantUsers, resolveOwner, colorForUser, type TenantUser } from "@/lib/queries/tenantUsers";
 import { buildContactSuggestions, type ContactSuggestion, type LastInbound } from "@/lib/contacts/suggestions";
+import { useTenantId } from "@/lib/queries/tenant";
 
 const colors = [
   "hsl(239 84% 60%)",
