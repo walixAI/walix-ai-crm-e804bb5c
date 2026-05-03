@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   fetchDashboardAiWidgets, AI_MODEL_LABEL,
-  type DashboardAiResponse, type PipelineHealthWidget, type RiskWidget,
+  type DashboardAiResponse, type RiskWidget,
 } from "@/services/ai";
 import { AiSectionSkeleton } from "@/components/walix/Skeletons";
 import { renderCitations, formatMXN } from "@/lib/ai/citations";
+import { usePipelineHealthScore } from "@/lib/queries/dashboard";
+import type { HealthStatus } from "@/lib/pipelineHealth";
 
 const REPORT_CACHE_KEY = "walix.weeklyReport.v1";
 
@@ -20,7 +22,7 @@ interface CachedReport {
   data: DashboardAiResponse;
 }
 
-function healthColor(status: PipelineHealthWidget["status"]) {
+function healthColor(status: HealthStatus) {
   switch (status) {
     case "excellent": return { bg: "bg-success/10", text: "text-success", border: "border-success/30", ring: "stroke-success" };
     case "good":      return { bg: "bg-primary/10", text: "text-primary", border: "border-primary/30", ring: "stroke-primary" };
@@ -40,9 +42,10 @@ export function DashboardAiSection() {
   const [data, setData] = useState<DashboardAiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportOpen, setReportOpen] = useState(false);
+  const { data: health } = usePipelineHealthScore();
 
   const handleCitation = (kind: string, id: string) => {
-    if (kind === "deal") navigate(`/pipeline?dealId=${id}`);
+    if (kind === "deal" || kind === "oportunidad") navigate(`/pipeline?dealId=${id}`);
     else if (kind === "contact") navigate(`/contacts/${id}`);
     else if (kind === "convo" || kind === "conversation") navigate(`/whatsapp?conversationId=${id}`);
   };
@@ -86,9 +89,15 @@ export function DashboardAiSection() {
   }
   if (!data) return null;
 
-  const hc = healthColor(data.pipelineHealth.status);
+  const status: HealthStatus = health?.status ?? data.pipelineHealth.status;
+  const score = health?.score ?? data.pipelineHealth.score;
+  const summary = health?.summary ?? data.pipelineHealth.summary;
+  const signals = health
+    ? health.components.map((c) => ({ label: c.label, value: c.display, tone: c.tone }))
+    : data.pipelineHealth.signals;
+  const hc = healthColor(status);
   const circumference = 2 * Math.PI * 32;
-  const dash = (data.pipelineHealth.score / 100) * circumference;
+  const dash = (score / 100) * circumference;
 
   return (
     <div className="space-y-4">
@@ -127,15 +136,15 @@ export function DashboardAiSection() {
                   className={hc.ring} strokeDasharray={`${dash} ${circumference}`} />
               </svg>
               <div className="absolute inset-0 grid place-items-center">
-                <span className={cn("text-xl font-bold", hc.text)}>{data.pipelineHealth.score}</span>
+                <span className={cn("text-xl font-bold", hc.text)}>{score}</span>
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-foreground leading-snug">{data.pipelineHealth.summary}</p>
+              <p className="text-xs text-foreground leading-snug">{summary}</p>
             </div>
           </div>
           <div className="mt-4 space-y-1.5">
-            {data.pipelineHealth.signals.map((s, i) => (
+            {signals.map((s, i) => (
               <div key={i} className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{s.label}</span>
                 <span className={cn(
