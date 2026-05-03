@@ -18,12 +18,12 @@ import { NotificationsBell } from "@/components/notifications/NotificationsBell"
 import type { AskAiContext } from "@/services/ai";
 
 const ROTATING_PLACEHOLDERS = [
-  "¿Qué deals están en riesgo?",
+  "¿Qué oportunidades están en riesgo?",
   "Mueve Acme a Negociación",
   "Crea tarea: llamar a Pedro mañana 10am",
   "Agrega a María Pérez, tel 5551234567",
   "Resume las conversaciones sin responder",
-  "Marca el deal de Acme como ganado",
+  "Marca el oportunidad de Acme como ganado",
   "¿Cuánto vale mi pipeline hoy?",
 ];
 
@@ -33,7 +33,7 @@ function captureContext(pathname: string, search: string): AskAiContext {
   // /pipeline?dealId=...
   if (pathname.startsWith("/pipeline")) {
     const dealId = params.get("dealId");
-    if (dealId) { ctx.entityType = "deal"; ctx.entityId = dealId; }
+    if (dealId) { ctx.entityType = "oportunidad"; ctx.entityId = dealId; }
   }
   // /contacts/:id
   const contactMatch = pathname.match(/^\/contacts\/([0-9a-f-]{36})/i);

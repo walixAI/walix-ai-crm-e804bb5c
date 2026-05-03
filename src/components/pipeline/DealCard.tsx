@@ -104,7 +104,7 @@ function DealCardImpl({
             checked={!!selected}
             onCheckedChange={() => onToggleSelect(deal.id)}
             className="bg-card shadow-sm"
-            aria-label="Seleccionar deal"
+            aria-label="Seleccionar oportunidad"
           />
         </div>
       )}
@@ -136,7 +136,7 @@ function DealCardImpl({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (deal.contactId) navigate(`/contacts/${deal.contactId}`);
+            if (deal.contactId) navigate(`/contacts/${oportunidad.contactId}`);
           }}
           className="inline-flex items-center gap-1.5 text-xs bg-muted hover:bg-muted/70 rounded-full pl-0.5 pr-2 py-0.5 max-w-full"
         >
@@ -191,7 +191,7 @@ function DealCardImpl({
             >
               <div
                 className={cn("h-full transition-all", probabilityColor(deal.probability))}
-                style={{ width: `${deal.probability}%` }}
+                style={{ width: `${oportunidad.probability}%` }}
               />
             </div>
           </TooltipTrigger>

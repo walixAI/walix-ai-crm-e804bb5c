@@ -73,10 +73,10 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Pr
         source,
         notes: notes.trim() || null,
       });
-      toast.success("Deal creado");
+      toast.success("Oportunidad creado");
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "No se pudo crear el deal");
+      toast.error(e?.message ?? "No se pudo crear el oportunidad");
     }
   }
 
@@ -185,7 +185,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Pr
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={onSubmit} disabled={create.isPending}>
-            {create.isPending ? "Creando…" : "Crear Deal"}
+            {create.isPending ? "Creando…" : "Crear Oportunidad"}
           </Button>
         </DialogFooter>
       </DialogContent>

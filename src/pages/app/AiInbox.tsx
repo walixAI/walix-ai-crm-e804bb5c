@@ -13,7 +13,7 @@ import { AiInboxSkeleton } from "@/components/walix/Skeletons";
 const TABS: { id: "all" | AiInboxCategory; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "messages", label: "Mensajes" },
-  { id: "deals", label: "Deals" },
+  { id: "oportunidades", label: "Oportunidades" },
   { id: "pipeline", label: "Pipeline" },
 ];
 
@@ -157,7 +157,7 @@ export default function AiInbox() {
               <h3 className="font-semibold text-lg">Todo bajo control</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">
                 {tab === "all"
-                  ? "No hay sugerencias pendientes. Tu equipo está al día con todos los leads y deals."
+                  ? "No hay sugerencias pendientes. Tu equipo está al día con todos los leads y oportunidades."
                   : "No hay sugerencias en esta categoría ahora mismo."}
               </p>
             </div>

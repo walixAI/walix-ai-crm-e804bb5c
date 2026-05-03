@@ -34,14 +34,14 @@ const STEPS: TourStep[] = [
     placement: "right",
     title: "AI Inbox",
     description:
-      "Tu IA analiza tu CRM y te entrega sugerencias accionables: leads calientes, deals en riesgo, mensajes sin responder. Todo en un solo lugar.",
+      "Tu IA analiza tu CRM y te entrega sugerencias accionables: leads calientes, oportunidades en riesgo, mensajes sin responder. Todo en un solo lugar.",
   },
   {
     target: '[data-tour="nav-pipeline"]',
     placement: "right",
     title: "Pipeline",
     description:
-      "Tablero Kanban con drag & drop, scoring IA por deal e insights de oportunidades estancadas. La IA te dice qué deal mover y qué hacer.",
+      "Tablero Kanban con drag & drop, scoring IA por oportunidad e insights de oportunidades estancadas. La IA te dice qué oportunidad mover y qué hacer.",
   },
   {
     target: '[data-tour="nav-whatsapp"]',
@@ -55,7 +55,7 @@ const STEPS: TourStep[] = [
     placement: "bottom",
     title: "Pregunta a tu IA",
     description:
-      'Pregunta lo que quieras: "¿Cuáles son mis deals más calientes?", "Dame el resumen del día". Atajo: ⌘K para abrir el buscador rápido.',
+      'Pregunta lo que quieras: "¿Cuáles son mis oportunidades más calientes?", "Dame el resumen del día". Atajo: ⌘K para abrir el buscador rápido.',
   },
   {
     target: null,

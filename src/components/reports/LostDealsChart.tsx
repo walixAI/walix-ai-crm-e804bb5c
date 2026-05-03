@@ -32,8 +32,8 @@ export function LostDealsChart() {
 
   const top = reasons[0];
   const insight = top
-    ? `"${top.reason}" es tu principal razón de pérdida (${top.count} deals).`
-    : "Sin deals perdidos.";
+    ? `"${top.reason}" es tu principal razón de pérdida (${top.count} oportunidades).`
+    : "Sin oportunidades perdidas.";
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-card">
@@ -60,7 +60,7 @@ export function LostDealsChart() {
               contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
               formatter={(_v, _n, item) => {
                 const p = (item as { payload: { count: number; amount: number } }).payload;
-                return [`${p.count} deals · ${formatMXN(p.amount)}`, "Pérdida"];
+                return [`${p.count} oportunidades · ${formatMXN(p.amount)}`, "Pérdida"];
               }}
             />
             <Bar dataKey="count" radius={[0, 6, 6, 0]}>

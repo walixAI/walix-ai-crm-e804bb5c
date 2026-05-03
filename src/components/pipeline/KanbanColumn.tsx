@@ -54,7 +54,7 @@ export function KanbanColumn({
             variant="ghost"
             className="h-6 w-6"
             onClick={() => onAddDeal(stage)}
-            aria-label={`Añadir deal en ${stage.name}`}
+            aria-label={`Añadir oportunidad en ${stage.name}`}
           >
             <Plus className="h-3.5 w-3.5" />
           </Button>

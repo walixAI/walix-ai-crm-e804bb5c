@@ -207,7 +207,7 @@ export default function Pipeline() {
         <AiAlertBanner
           variant="warning"
           icon={<Clock className="h-4 w-4" />}
-          title={`${staleDeals.length} deal${staleDeals.length === 1 ? "" : "s"} sin actividad hace más de 10 días`}
+          title={`${staleDeals.length} oportunidad${staleDeals.length === 1 ? "" : "s"} sin actividad hace más de 10 días`}
           description={`Suman ${new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(staleAmount)} en pipeline. Revísalos antes de que se enfríen.`}
           actionLabel="Ver insights IA"
           onAction={() => setAiOpen(true)}
@@ -217,9 +217,9 @@ export default function Pipeline() {
       {deals.length === 0 ? (
         <EmptyState
           illustration={<EmptyIllustration variant="pipeline" />}
-          title="Crea tu primer deal y empieza a cerrar"
+          title="Crea tu primer oportunidad y empieza a cerrar"
           description="Organiza tus oportunidades en etapas y arrastra para mover entre columnas."
-          action={{ label: "+ Nuevo Deal", onClick: () => openNewDeal() }}
+          action={{ label: "+ Nuevo Oportunidad", onClick: () => openNewDeal() }}
         />
       ) : view === "kanban" ? (
         <KanbanBoard

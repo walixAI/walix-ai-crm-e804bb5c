@@ -80,7 +80,7 @@ export default function ContactDetail() {
             <TabsList>
               <TabsTrigger value="summary">Resumen</TabsTrigger>
               <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
-              <TabsTrigger value="deals">Deals <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{deals.length}</span></TabsTrigger>
+              <TabsTrigger value="oportunidades">Deals <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{deals.length}</span></TabsTrigger>
               <TabsTrigger value="activity">Actividad</TabsTrigger>
               <TabsTrigger value="notes">Notas</TabsTrigger>
             </TabsList>
@@ -107,7 +107,7 @@ export default function ContactDetail() {
               </div>
             </TabsContent>
 
-            <TabsContent value="deals" className="mt-4">
+            <TabsContent value="oportunidades" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {deals.map(d => (
                   <div key={d.id} className="rounded-xl border border-border bg-card p-4 shadow-card hover:shadow-card-hover transition-all">

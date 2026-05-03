@@ -266,7 +266,7 @@ export default function Login() {
     : {
         eyebrow: "Bienvenido de vuelta",
         title: "Continúa donde lo dejaste",
-        subtitle: "Tus conversaciones, deals y automatizaciones te esperan.",
+        subtitle: "Tus conversaciones, oportunidades y automatizaciones te esperan.",
         bullets: [
           { icon: MessageCircle, text: "Tus conversaciones siguen vivas" },
           { icon: Zap, text: "Tus pipelines y tareas, al día" },

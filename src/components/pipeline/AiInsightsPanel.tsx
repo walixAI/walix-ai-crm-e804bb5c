@@ -25,7 +25,7 @@ export function AiInsightsPanel({ open, onClose, deals, contactLastActivityById 
 
   async function run() {
     if (deals.length === 0) {
-      toast.error("No hay deals activos para analizar");
+      toast.error("No hay oportunidades activas para analizar");
       return;
     }
     try {
@@ -38,7 +38,7 @@ export function AiInsightsPanel({ open, onClose, deals, contactLastActivityById 
 
   async function runBulk() {
     if (deals.length === 0) {
-      toast.error("No hay deals para sugerir");
+      toast.error("No hay oportunidades para sugerir");
       return;
     }
     try {

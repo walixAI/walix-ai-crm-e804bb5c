@@ -72,7 +72,7 @@ export function PipelineHeader({
             <Input
               value={search}
               onChange={(e) => onSearch(e.target.value.slice(0, 100))}
-              placeholder="Buscar deals…"
+              placeholder="Buscar oportunidades…"
               className="h-9 pl-7 pr-7 w-[200px]"
             />
             {search && (
