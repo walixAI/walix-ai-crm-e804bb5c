@@ -339,3 +339,112 @@ export function useContactSuggestions(contactId: string | undefined): {
     source: "local",
   };
 }
+
+// ===== Tasks =====
+
+export interface ContactTaskRow {
+  id: string;
+  title: string;
+  completed: boolean;
+  dueAt: string | null;
+  assigneeId: string | null;
+  dealId: string | null;
+  createdAt: string;
+}
+
+export function useContactTasks(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ["contact-tasks", contactId],
+    enabled: !!contactId,
+    queryFn: async (): Promise<ContactTaskRow[]> => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("contact_id", contactId!)
+        .order("completed", { ascending: true })
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        completed: t.completed,
+        dueAt: t.due_at,
+        assigneeId: t.assignee_id,
+        dealId: t.deal_id,
+        createdAt: t.created_at,
+      }));
+    },
+  });
+}
+
+export function useToggleContactTask(contactId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ completed })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
+    },
+  });
+}
+
+export function useDeleteContactTask(contactId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] }),
+  });
+}
+
+// ===== Activity / Notes mutations =====
+
+export type ManualActivityType = "note" | "call" | "meeting" | "email" | "manual";
+
+export function useCreateContactActivity(contactId: string | undefined) {
+  const { data: tenantId } = useTenantId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { type: ManualActivityType; description: string; dealId?: string | null }) => {
+      if (!tenantId || !contactId) throw new Error("Tenant o contacto no disponible");
+      const { data: auth } = await supabase.auth.getUser();
+      const { error } = await supabase.from("activities").insert({
+        tenant_id: tenantId,
+        contact_id: contactId,
+        deal_id: input.dealId ?? null,
+        agent_id: auth.user?.id ?? null,
+        type: input.type,
+        description: input.description,
+      });
+      if (error) throw error;
+      // touch contact.last_activity_at
+      await supabase
+        .from("contacts")
+        .update({ last_activity_at: new Date().toISOString() })
+        .eq("id", contactId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
+      qc.invalidateQueries({ queryKey: ["contact", contactId] });
+    },
+  });
+}
+
+export function useDeleteContactActivity(contactId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("activities").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contact-activity", contactId] }),
+  });
+}
