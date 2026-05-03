@@ -18,7 +18,7 @@ export function ExecutiveSummaryAI({ onSummaryReady }: Props) {
   const [loading, setLoading] = useState(true);
 
   const handleCitation = (kind: string, id: string) => {
-    if (kind === "oportunidad") navigate(`/pipeline?dealId=${id}`);
+    if (kind === "deal") navigate(`/pipeline?dealId=${id}`);
     else if (kind === "contact") navigate(`/contacts/${id}`);
     else if (kind === "convo" || kind === "conversation") navigate(`/whatsapp?conversationId=${id}`);
   };
