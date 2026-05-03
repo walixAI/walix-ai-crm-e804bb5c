@@ -127,7 +127,7 @@ export function useContactDeals(contactId: string | undefined) {
 
 export interface ActivityRow {
   id: string;
-  type: "wa_sent" | "wa_received" | "note" | "deal" | "task";
+  type: "wa_sent" | "wa_received" | "note" | "deal" | "task" | "call" | "meeting" | "email" | "manual";
   description: string;
   timestamp: string;
   agent: string;
