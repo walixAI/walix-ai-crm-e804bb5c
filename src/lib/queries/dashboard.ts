@@ -174,7 +174,7 @@ export function usePipelineHealthScore() {
         0,
       );
 
-      const openConvos = conversations.filter((c) => c.status !== "Cerrado");
+      const openConvos = conversations.filter((c) => c.status !== "Resuelto");
       const totalOpenConversations = openConvos.length;
       const unreadOpenConversations = openConvos.filter((c) => (c.unread_count ?? 0) > 0).length;
 
