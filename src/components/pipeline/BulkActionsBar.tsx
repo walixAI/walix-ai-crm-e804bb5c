@@ -63,7 +63,7 @@ export function BulkActionsBar({ selectedIds, stages, onClear }: Props) {
     <>
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-card border border-border shadow-lg rounded-full pl-4 pr-2 py-2 flex items-center gap-3 animate-in slide-in-from-bottom-4">
         <span className="text-sm font-semibold">
-          {selectedIds.length} {selectedIds.length === 1 ? "oportunidad" : "oportunidades"} seleccionados
+          {selectedIds.length} {selectedIds.length === 1 ? "oportunidad seleccionada" : "oportunidades seleccionadas"}
         </span>
 
         <div className="h-5 w-px bg-border" />
