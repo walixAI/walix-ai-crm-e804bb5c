@@ -42,7 +42,7 @@ function fallbackDealScore(input: {
   return { score, reason: `${score}% (cálculo local de respaldo)` };
 }
 
-export const AI_MODEL_LABEL = "Claude Sonnet";
+export const AI_MODEL_LABEL = "Gemini 2.5 Flash";
 
 export type AiActionType =
   | "open_deal"
