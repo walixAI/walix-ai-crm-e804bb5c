@@ -75,7 +75,7 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
                 {ch?.status === "connected" && <WBadge variant="success"><CheckCircle2 className="h-3 w-3" /> Conectado</WBadge>}
                 {ch?.status === "pending" && <WBadge variant="warning">Pendiente verificación</WBadge>}
                 {ch?.status === "error" && <WBadge variant="danger">Error</WBadge>}
-                {!ch && <WBadge variant="default">Desconectado</WBadge>}
+                {!ch && <WBadge variant="neutral">Desconectado</WBadge>}
               </div>
               <p className="text-sm text-muted-foreground mt-1">{desc}</p>
               {ch?.phone_number && <p className="text-xs text-muted-foreground mt-1 font-mono">{ch.phone_number}</p>}
