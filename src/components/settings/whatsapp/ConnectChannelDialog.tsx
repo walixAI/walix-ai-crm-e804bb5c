@@ -43,7 +43,7 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
       return toast({ title: "Faltan datos", variant: "destructive" });
     }
     try {
-      const r = await upsert.mutateAsync(form);
+      const r = await upsert.mutateAsync({ ...form, kind });
       setVerifyToken(r.verify_token);
       setStep(3);
     } catch (e: any) {
