@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore, type Role, type OrgMembership } from "@/store/auth";
 import { toastError } from "@/lib/toast";
@@ -57,30 +57,51 @@ async function forceSignOut(reset: () => void) {
 
 export function useInitAuth() {
   const { setSession, setRoles, setOrganizations, setActiveTenantId, setLoading, setContextLoading, reset } = useAuthStore();
+  const lastLoadedUserId = useRef<string | null>(null);
 
   useEffect(() => {
+    const loadAndApply = async (userId: string) => {
+      setContextLoading(true);
+      const ctx = await loadUserContext(userId);
+      if (!ctx.accountValid) {
+        await forceSignOut(reset);
+        lastLoadedUserId.current = null;
+        setContextLoading(false);
+        return;
+      }
+      setRoles(ctx.roles);
+      setOrganizations(ctx.organizations);
+      setActiveTenantId(ctx.activeTenantId);
+      lastLoadedUserId.current = userId;
+      setContextLoading(false);
+    };
+
     // 1. Listener FIRST
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        setContextLoading(true);
-        setTimeout(async () => {
-          const ctx = await loadUserContext(session.user.id);
-          if (!ctx.accountValid) {
-            await forceSignOut(reset);
-            setContextLoading(false);
-            return;
-          }
-          setRoles(ctx.roles);
-          setOrganizations(ctx.organizations);
-          setActiveTenantId(ctx.activeTenantId);
-          setContextLoading(false);
-        }, 0);
-      } else {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION lo maneja getSession() abajo.
+      if (event === "INITIAL_SESSION") return;
+
+      // TOKEN_REFRESHED: solo actualiza la sesión, no recargues contexto.
+      if (event === "TOKEN_REFRESHED") {
+        setSession(session);
+        return;
+      }
+
+      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+        setSession(session);
         setRoles([]);
         setOrganizations([]);
         setActiveTenantId(null);
+        lastLoadedUserId.current = null;
         setContextLoading(false);
+        return;
+      }
+
+      setSession(session);
+      if (session?.user) {
+        // Si ya cargamos el contexto de este usuario, no recargues al re-emitir SIGNED_IN.
+        if (lastLoadedUserId.current === session.user.id) return;
+        setTimeout(() => { loadAndApply(session.user.id); }, 0);
       }
     });
 
@@ -89,18 +110,11 @@ export function useInitAuth() {
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        setContextLoading(true);
-        loadUserContext(session.user.id).then(async (ctx) => {
-          if (!ctx.accountValid) {
-            await forceSignOut(reset);
-            setContextLoading(false);
-            return;
-          }
-          setRoles(ctx.roles);
-          setOrganizations(ctx.organizations);
-          setActiveTenantId(ctx.activeTenantId);
+        if (lastLoadedUserId.current !== session.user.id) {
+          loadAndApply(session.user.id);
+        } else {
           setContextLoading(false);
-        });
+        }
       } else {
         setContextLoading(false);
       }
