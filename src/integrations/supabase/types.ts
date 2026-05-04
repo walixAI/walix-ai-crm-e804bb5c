@@ -1307,6 +1307,7 @@ export type Database = {
       }
       whatsapp_channels: {
         Row: {
+          access_token: string | null
           access_token_secret_name: string | null
           business_account_id: string | null
           connected_at: string | null
@@ -1324,6 +1325,7 @@ export type Database = {
           verify_token: string
         }
         Insert: {
+          access_token?: string | null
           access_token_secret_name?: string | null
           business_account_id?: string | null
           connected_at?: string | null
@@ -1341,6 +1343,7 @@ export type Database = {
           verify_token: string
         }
         Update: {
+          access_token?: string | null
           access_token_secret_name?: string | null
           business_account_id?: string | null
           connected_at?: string | null
