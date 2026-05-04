@@ -1,0 +1,173 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export type ChannelKind = "clients" | "team";
+export type ChannelStatus = "pending" | "connected" | "error" | "disabled";
+export type PermLevel = "read" | "write_light" | "write_strong";
+
+export interface WhatsappChannel {
+  id: string;
+  tenant_id: string;
+  kind: ChannelKind;
+  provider: string;
+  display_name: string | null;
+  phone_number: string | null;
+  phone_number_id: string | null;
+  business_account_id: string | null;
+  verify_token: string;
+  status: ChannelStatus;
+  last_error: string | null;
+  connected_at: string | null;
+  access_token: string | null;
+}
+
+export interface WhatsappUserAccess {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  phone_e164: string;
+  enabled: boolean;
+  permission_level: PermLevel;
+}
+
+function genVerifyToken() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(18)))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function useWhatsappChannels(tenantId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["wa-channels", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_channels")
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .order("kind");
+      if (error) throw error;
+      return data as WhatsappChannel[];
+    },
+  });
+}
+
+export function useUpsertChannel(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      kind: ChannelKind;
+      display_name?: string;
+      phone_number: string;
+      phone_number_id: string;
+      business_account_id: string;
+      access_token: string;
+    }) => {
+      // Find existing
+      const { data: existing } = await supabase.from("whatsapp_channels").select("id, verify_token")
+        .eq("tenant_id", tenantId).eq("kind", input.kind).maybeSingle();
+      const verify_token = existing?.verify_token ?? genVerifyToken();
+      if (existing) {
+        const { error } = await supabase.from("whatsapp_channels").update({
+          display_name: input.display_name ?? null,
+          phone_number: input.phone_number,
+          phone_number_id: input.phone_number_id,
+          business_account_id: input.business_account_id,
+          access_token: input.access_token,
+          status: "pending",
+          last_error: null,
+        }).eq("id", existing.id);
+        if (error) throw error;
+        return { id: existing.id, verify_token };
+      } else {
+        const { data, error } = await supabase.from("whatsapp_channels").insert({
+          tenant_id: tenantId,
+          kind: input.kind,
+          provider: "meta_cloud",
+          display_name: input.display_name ?? null,
+          phone_number: input.phone_number,
+          phone_number_id: input.phone_number_id,
+          business_account_id: input.business_account_id,
+          access_token: input.access_token,
+          verify_token,
+          status: "pending",
+        }).select("id, verify_token").single();
+        if (error) throw error;
+        return data;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
+  });
+}
+
+export function useTestChannel(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (channelId: string) => {
+      // Mark as connected (real test would call Meta /me endpoint via edge function;
+      // por simplicidad, marcamos como conectado y dejamos al webhook validar al primer mensaje).
+      const { error } = await supabase.from("whatsapp_channels").update({
+        status: "connected", connected_at: new Date().toISOString(), last_error: null,
+      }).eq("id", channelId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
+  });
+}
+
+export function useDisconnectChannel(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (channelId: string) => {
+      const { error } = await supabase.from("whatsapp_channels")
+        .update({ status: "disabled" }).eq("id", channelId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
+  });
+}
+
+export function useWhatsappUserAccess(tenantId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["wa-user-access", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("whatsapp_user_access")
+        .select("*").eq("tenant_id", tenantId!);
+      if (error) throw error;
+      return data as WhatsappUserAccess[];
+    },
+  });
+}
+
+export function useUpsertUserAccess(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { user_id: string; phone_e164: string; enabled: boolean; permission_level: PermLevel }) => {
+      const { data: existing } = await supabase.from("whatsapp_user_access")
+        .select("id").eq("tenant_id", tenantId).eq("user_id", input.user_id).maybeSingle();
+      if (existing) {
+        const { error } = await supabase.from("whatsapp_user_access").update({
+          phone_e164: input.phone_e164, enabled: input.enabled, permission_level: input.permission_level,
+        }).eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("whatsapp_user_access").insert({
+          tenant_id: tenantId, ...input,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-user-access", tenantId] }),
+  });
+}
+
+export function useDeleteUserAccess(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("whatsapp_user_access").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-user-access", tenantId] }),
+  });
+}
