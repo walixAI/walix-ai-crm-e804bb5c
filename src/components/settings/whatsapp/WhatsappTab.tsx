@@ -6,16 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { WBadge } from "@/components/walix/Badge";
-import { CheckCircle2, Plus, Trash2, RefreshCw, MessageCircle } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMembers } from "@/lib/queries/team";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
+import { ConnectChannelDialog } from "./ConnectChannelDialog";
+import { TeamAccessTable } from "./TeamAccessTable";
 
 export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: members = [] } = useMembers(tenantId);
+  const { isTenantAdmin } = usePermissions();
+  const { data: channels = [] } = useWhatsappChannels(tenantId);
+  const disconnect = useDisconnectChannel(tenantId);
+  const [dialogKind, setDialogKind] = useState<ChannelKind | null>(null);
 
   const { data: templates = [] } = useQuery({
     queryKey: ["wa-templates", tenantId],
@@ -49,53 +54,76 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
     qc.invalidateQueries({ queryKey: ["wa-templates", tenantId] });
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Conexión */}
-      <Card className="p-6">
+  const clientsCh = channels.find((c) => c.kind === "clients");
+  const teamCh = channels.find((c) => c.kind === "team");
+
+  function renderChannelCard(kind: ChannelKind, ch: WhatsappChannel | undefined) {
+    const title = kind === "clients" ? "Canal Clientes" : "Canal Equipo (Walix Bot)";
+    const desc = kind === "clients"
+      ? "Recibe y responde conversaciones con leads."
+      : "Tu equipo envía comandos a la IA y opera el CRM por WhatsApp.";
+    const icon = kind === "clients" ? <MessageCircle className="h-6 w-6 text-success" /> : <Users className="h-6 w-6 text-primary" />;
+
+    return (
+      <Card key={kind} className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-success/10 grid place-items-center">
-              <MessageCircle className="h-6 w-6 text-success" />
-            </div>
+            <div className={`h-12 w-12 rounded-2xl grid place-items-center ${kind === "clients" ? "bg-success/10" : "bg-primary/10"}`}>{icon}</div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">WhatsApp Business</h2>
-                <WBadge variant="success"><CheckCircle2 className="h-3 w-3" /> Conectado (demo)</WBadge>
+                <h3 className="text-base font-semibold">{title}</h3>
+                {ch?.status === "connected" && <WBadge variant="success"><CheckCircle2 className="h-3 w-3" /> Conectado</WBadge>}
+                {ch?.status === "pending" && <WBadge variant="warning">Pendiente verificación</WBadge>}
+                {ch?.status === "error" && <WBadge variant="danger">Error</WBadge>}
+                {!ch && <WBadge variant="neutral">Desconectado</WBadge>}
               </div>
-              <p className="text-sm text-muted-foreground mt-1">+52 55 1234 5678</p>
-              <p className="text-xs text-muted-foreground mt-2">
-                La integración real con WhatsApp Business Cloud API se habilita cuando conectes tu cuenta.
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">{desc}</p>
+              {ch?.phone_number && <p className="text-xs text-muted-foreground mt-1 font-mono">{ch.phone_number}</p>}
+              {ch?.last_error && <p className="text-xs text-destructive mt-1">{ch.last_error}</p>}
             </div>
           </div>
-          <Button variant="outline" disabled>
-            <RefreshCw className="h-4 w-4 mr-2" /> Reconectar
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            {ch && ch.status !== "disabled" && (
+              <Button variant="outline" size="sm" onClick={async () => { await disconnect.mutateAsync(ch.id); toast({ title: "Canal desconectado" }); }}>
+                Desconectar
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setDialogKind(kind)} disabled={!isTenantAdmin}>
+              {ch ? "Reconfigurar" : "Conectar"}
+            </Button>
+          </div>
         </div>
       </Card>
+    );
+  }
 
-      {/* Agentes */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold">Agentes habilitados</h2>
-        <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-          Selecciona quién puede atender conversaciones desde WhatsApp.
-        </p>
-        <div className="space-y-2">
-          {members.filter((m) => m.is_active).map((m) => (
-            <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-              <div>
-                <div className="text-sm font-medium">{m.full_name ?? "—"}</div>
-                <div className="text-xs text-muted-foreground">{m.email}</div>
-              </div>
-              <Switch defaultChecked />
-            </div>
-          ))}
-          {members.length === 0 && (
-            <p className="text-sm text-muted-foreground">Aún no hay miembros activos.</p>
-          )}
+  return (
+    <div className="space-y-6">
+      {!isTenantAdmin && (
+        <Card className="p-4 flex items-center gap-3 bg-warning/5 border-warning/30">
+          <Lock className="h-5 w-5 text-warning" />
+          <p className="text-sm">Solo administradores y propietarios pueden gestionar la conexión de WhatsApp.</p>
+        </Card>
+      )}
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Conexiones WhatsApp Business</h2>
+          <p className="text-sm text-muted-foreground">Dos canales independientes vía Meta Cloud API.</p>
         </div>
-      </Card>
+        {renderChannelCard("clients", clientsCh)}
+        {renderChannelCard("team", teamCh)}
+      </div>
+
+      {isTenantAdmin && teamCh && (
+        <TeamAccessTable tenantId={tenantId} />
+      )}
+      {isTenantAdmin && !teamCh && (
+        <Card className="p-4 flex items-center gap-3 bg-muted/30">
+          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Conecta el canal "Equipo" para autorizar a tus vendedores.</p>
+        </Card>
+      )}
 
       {/* Plantillas */}
       <Card className="p-6 space-y-4">
@@ -154,6 +182,16 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           </div>
         </div>
       </Card>
+
+      {dialogKind && (
+        <ConnectChannelDialog
+          open
+          onClose={() => setDialogKind(null)}
+          tenantId={tenantId}
+          kind={dialogKind}
+          existing={dialogKind === "clients" ? clientsCh : teamCh}
+        />
+      )}
     </div>
   );
 }

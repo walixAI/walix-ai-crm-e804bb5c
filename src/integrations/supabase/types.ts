@@ -751,6 +751,7 @@ export type Database = {
       messages: {
         Row: {
           body: string
+          channel_id: string | null
           conversation_id: string
           created_at: string
           direction: Database["public"]["Enums"]["message_direction"]
@@ -765,6 +766,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          channel_id?: string | null
           conversation_id: string
           created_at?: string
           direction: Database["public"]["Enums"]["message_direction"]
@@ -779,6 +781,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          channel_id?: string | null
           conversation_id?: string
           created_at?: string
           direction?: Database["public"]["Enums"]["message_direction"]
@@ -1302,6 +1305,144 @@ export type Database = {
           },
         ]
       }
+      whatsapp_channels: {
+        Row: {
+          access_token: string | null
+          access_token_secret_name: string | null
+          business_account_id: string | null
+          connected_at: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          kind: Database["public"]["Enums"]["whatsapp_channel_kind"]
+          last_error: string | null
+          phone_number: string | null
+          phone_number_id: string | null
+          provider: string
+          status: Database["public"]["Enums"]["whatsapp_channel_status"]
+          tenant_id: string
+          updated_at: string
+          verify_token: string
+        }
+        Insert: {
+          access_token?: string | null
+          access_token_secret_name?: string | null
+          business_account_id?: string | null
+          connected_at?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["whatsapp_channel_kind"]
+          last_error?: string | null
+          phone_number?: string | null
+          phone_number_id?: string | null
+          provider?: string
+          status?: Database["public"]["Enums"]["whatsapp_channel_status"]
+          tenant_id: string
+          updated_at?: string
+          verify_token: string
+        }
+        Update: {
+          access_token?: string | null
+          access_token_secret_name?: string | null
+          business_account_id?: string | null
+          connected_at?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["whatsapp_channel_kind"]
+          last_error?: string | null
+          phone_number?: string | null
+          phone_number_id?: string | null
+          provider?: string
+          status?: Database["public"]["Enums"]["whatsapp_channel_status"]
+          tenant_id?: string
+          updated_at?: string
+          verify_token?: string
+        }
+        Relationships: []
+      }
+      whatsapp_command_log: {
+        Row: {
+          action_payload: Json | null
+          channel_id: string | null
+          confirmation_token: string | null
+          created_at: string
+          error_message: string | null
+          executed_at: string | null
+          from_phone: string
+          id: string
+          intent: string | null
+          prompt: string
+          status: Database["public"]["Enums"]["whatsapp_command_status"]
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action_payload?: Json | null
+          channel_id?: string | null
+          confirmation_token?: string | null
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          from_phone: string
+          id?: string
+          intent?: string | null
+          prompt: string
+          status?: Database["public"]["Enums"]["whatsapp_command_status"]
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action_payload?: Json | null
+          channel_id?: string | null
+          confirmation_token?: string | null
+          created_at?: string
+          error_message?: string | null
+          executed_at?: string | null
+          from_phone?: string
+          id?: string
+          intent?: string | null
+          prompt?: string
+          status?: Database["public"]["Enums"]["whatsapp_command_status"]
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_user_access: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          permission_level: Database["public"]["Enums"]["whatsapp_permission_level"]
+          phone_e164: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          permission_level?: Database["public"]["Enums"]["whatsapp_permission_level"]
+          phone_e164: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          permission_level?: Database["public"]["Enums"]["whatsapp_permission_level"]
+          phone_e164?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1391,6 +1532,14 @@ export type Database = {
       notification_category: "operational" | "ai" | "system"
       notification_severity: "info" | "success" | "warning" | "danger"
       tag_family: "temperature" | "cycle" | "special"
+      whatsapp_channel_kind: "clients" | "team"
+      whatsapp_channel_status: "pending" | "connected" | "error" | "disabled"
+      whatsapp_command_status:
+        | "pending_confirmation"
+        | "executed"
+        | "rejected"
+        | "failed"
+      whatsapp_permission_level: "read" | "write_light" | "write_strong"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1555,6 +1704,15 @@ export const Constants = {
       notification_category: ["operational", "ai", "system"],
       notification_severity: ["info", "success", "warning", "danger"],
       tag_family: ["temperature", "cycle", "special"],
+      whatsapp_channel_kind: ["clients", "team"],
+      whatsapp_channel_status: ["pending", "connected", "error", "disabled"],
+      whatsapp_command_status: [
+        "pending_confirmation",
+        "executed",
+        "rejected",
+        "failed",
+      ],
+      whatsapp_permission_level: ["read", "write_light", "write_strong"],
     },
   },
 } as const

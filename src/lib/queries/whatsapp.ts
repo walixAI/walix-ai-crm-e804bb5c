@@ -189,26 +189,20 @@ export function useSendMessage() {
       body: string;
       isInternalNote?: boolean;
     }) => {
-      const { error } = await supabase.from("messages").insert({
-        conversation_id: input.conversationId,
-        tenant_id: input.tenantId,
-        direction: "outbound",
-        body: input.body,
-        type: "text",
-        is_internal_note: !!input.isInternalNote,
-        sent_at: new Date().toISOString(),
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", {
+        body: {
+          conversationId: input.conversationId,
+          body: input.body,
+          internal: !!input.isInternalNote,
+        },
       });
-      if (error) throw error;
-      // update preview + last_message_at
-      if (!input.isInternalNote) {
-        await supabase
-          .from("conversations")
-          .update({
-            preview: input.body.slice(0, 120),
-            last_message_at: new Date().toISOString(),
-          })
-          .eq("id", input.conversationId);
+      if (error) {
+        const msg = (error as any)?.context?.body
+          ? (() => { try { return JSON.parse((error as any).context.body).error; } catch { return error.message; } })()
+          : error.message;
+        throw new Error(msg || "Error al enviar");
       }
+      return data as { ok: boolean; simulated?: boolean };
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["wa-messages", vars.conversationId] });
