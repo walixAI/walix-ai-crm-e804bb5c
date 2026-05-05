@@ -60,25 +60,28 @@ export function useUpsertChannel(tenantId: string) {
       phone_number: string;
       phone_number_id: string;
       business_account_id: string;
-      access_token: string;
+      access_token?: string;
     }) => {
       // Find existing
       const { data: existing } = await supabase.from("whatsapp_channels").select("id, verify_token")
         .eq("tenant_id", tenantId).eq("kind", input.kind).maybeSingle();
       const verify_token = existing?.verify_token ?? genVerifyToken();
       if (existing) {
-        const { error } = await supabase.from("whatsapp_channels").update({
+        const hasNewToken = !!(input.access_token && input.access_token.trim().length > 0);
+        const update = {
           display_name: input.display_name ?? null,
           phone_number: input.phone_number,
           phone_number_id: input.phone_number_id,
           business_account_id: input.business_account_id,
-          access_token: input.access_token,
-          status: "pending",
+          status: "pending" as const,
           last_error: null,
-        }).eq("id", existing.id);
+          ...(hasNewToken ? { access_token: input.access_token! } : {}),
+        };
+        const { error } = await supabase.from("whatsapp_channels").update(update).eq("id", existing.id);
         if (error) throw error;
         return { id: existing.id, verify_token };
       } else {
+        if (!input.access_token) throw new Error("access_token requerido");
         const { data, error } = await supabase.from("whatsapp_channels").insert({
           tenant_id: tenantId,
           kind: input.kind,
@@ -103,12 +106,11 @@ export function useTestChannel(tenantId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (channelId: string) => {
-      // Mark as connected (real test would call Meta /me endpoint via edge function;
-      // por simplicidad, marcamos como conectado y dejamos al webhook validar al primer mensaje).
-      const { error } = await supabase.from("whatsapp_channels").update({
-        status: "connected", connected_at: new Date().toISOString(), last_error: null,
-      }).eq("id", channelId);
+      const { data, error } = await supabase.functions.invoke("whatsapp-verify", {
+        body: { channel_id: channelId },
+      });
       if (error) throw error;
+      return data as { ok: boolean; status: string; last_error?: string; meta_info?: { display_phone_number?: string; verified_name?: string } };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
   });

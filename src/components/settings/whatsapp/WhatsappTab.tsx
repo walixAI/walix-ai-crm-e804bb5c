@@ -72,12 +72,16 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-semibold">{title}</h3>
-                {ch?.status === "connected" && <WBadge variant="success"><CheckCircle2 className="h-3 w-3" /> Conectado</WBadge>}
+                {ch?.status === "connected" && ch.connected_at && <WBadge variant="success"><CheckCircle2 className="h-3 w-3" /> Conectado</WBadge>}
+                {ch?.status === "connected" && !ch.connected_at && <WBadge variant="info">Configurado</WBadge>}
                 {ch?.status === "pending" && <WBadge variant="warning">Pendiente verificación</WBadge>}
                 {ch?.status === "error" && <WBadge variant="danger">Error</WBadge>}
                 {!ch && <WBadge variant="neutral">Desconectado</WBadge>}
               </div>
               <p className="text-sm text-muted-foreground mt-1">{desc}</p>
+              {ch && ch.status === "pending" && (
+                <p className="text-xs text-muted-foreground mt-1">Pulsa "Reconfigurar" → "Marcar como conectado" para validar contra Meta.</p>
+              )}
               {ch?.phone_number && <p className="text-xs text-muted-foreground mt-1 font-mono">{ch.phone_number}</p>}
               {ch?.last_error && <p className="text-xs text-destructive mt-1">{ch.last_error}</p>}
             </div>
