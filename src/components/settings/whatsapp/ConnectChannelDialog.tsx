@@ -21,7 +21,7 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
   const { toast } = useToast();
   const upsert = useUpsertChannel(tenantId);
   const test = useTestChannel(tenantId);
-  const [step, setStep] = useState<1 | 2 | 3>(existing?.verify_token ? 3 : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(existing?.verify_token ? 2 : 1);
   const [form, setForm] = useState({
     display_name: existing?.display_name ?? "",
     phone_number: existing?.phone_number ?? "",
@@ -39,7 +39,7 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
   }
 
   async function handleSave() {
-    if (!form.phone_number || !form.phone_number_id || !form.business_account_id || !form.access_token) {
+    if (!form.phone_number || !form.phone_number_id || !form.business_account_id || (!existing && !form.access_token)) {
       return toast({ title: "Faltan datos", variant: "destructive" });
     }
     try {
@@ -56,9 +56,13 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
     const id = existing?.id;
     if (!id) return toast({ title: "Guarda primero las credenciales" });
     try {
-      await test.mutateAsync(id);
-      toast({ title: "Canal conectado" });
-      onClose();
+      const r = await test.mutateAsync(id);
+      if (r?.ok === false) {
+        toast({ title: "No se pudo verificar", description: r.last_error ?? "Meta rechazó las credenciales", variant: "destructive" });
+      } else {
+        toast({ title: "Canal conectado", description: r?.meta_info?.display_phone_number ?? undefined });
+        onClose();
+      }
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
@@ -112,12 +116,22 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">System User Token (permanente)</Label>
-                <Input type="password" value={form.access_token} onChange={(e) => setForm({ ...form, access_token: e.target.value })} placeholder="EAAG..." />
+                <Input
+                  type="password"
+                  value={form.access_token}
+                  onChange={(e) => setForm({ ...form, access_token: e.target.value })}
+                  placeholder={existing ? "•••••••• (deja en blanco para conservar el actual)" : "EAAG..."}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setStep(1)}>Atrás</Button>
-              <Button onClick={handleSave} disabled={upsert.isPending}>Guardar y continuar</Button>
+              {existing && verifyToken && (
+                <Button variant="outline" onClick={() => setStep(3)}>Ver webhook</Button>
+              )}
+              <Button onClick={handleSave} disabled={upsert.isPending}>
+                {existing ? "Guardar cambios" : "Guardar y continuar"}
+              </Button>
             </DialogFooter>
           </div>
         )}
@@ -152,6 +166,7 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
               </p>
             </div>
             <DialogFooter>
+              <Button variant="ghost" onClick={() => setStep(2)}>Atrás</Button>
               <Button variant="ghost" onClick={onClose}>Cerrar</Button>
               <Button onClick={handleConfirm} disabled={test.isPending}>Marcar como conectado</Button>
             </DialogFooter>
