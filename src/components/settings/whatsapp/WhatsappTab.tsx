@@ -13,6 +13,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
 import { ConnectChannelDialog } from "./ConnectChannelDialog";
 import { TeamAccessTable } from "./TeamAccessTable";
+import { LiveTestDialog } from "./LiveTestDialog";
+import { relativeTime } from "@/lib/format/relativeTime";
 
 export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
@@ -21,6 +23,7 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { data: channels = [] } = useWhatsappChannels(tenantId);
   const disconnect = useDisconnectChannel(tenantId);
   const [dialogKind, setDialogKind] = useState<ChannelKind | null>(null);
+  const [testChannel, setTestChannel] = useState<WhatsappChannel | null>(null);
 
   const { data: templates = [] } = useQuery({
     queryKey: ["wa-templates", tenantId],
@@ -83,10 +86,21 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
                 <p className="text-xs text-muted-foreground mt-1">Pulsa "Reconfigurar" → "Marcar como conectado" para validar contra Meta.</p>
               )}
               {ch?.phone_number && <p className="text-xs text-muted-foreground mt-1 font-mono">{ch.phone_number}</p>}
+              {ch?.last_inbound_at && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Último mensaje recibido: {relativeTime(ch.last_inbound_at)}
+                  {ch.last_inbound_from && <> desde <span className="font-mono">+{ch.last_inbound_from}</span></>}
+                </p>
+              )}
               {ch?.last_error && <p className="text-xs text-destructive mt-1">{ch.last_error}</p>}
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
+            {ch && isTenantAdmin && (
+              <Button variant="outline" size="sm" onClick={() => setTestChannel(ch)}>
+                Probar en vivo
+              </Button>
+            )}
             {ch && ch.status !== "disabled" && (
               <Button variant="outline" size="sm" onClick={async () => { await disconnect.mutateAsync(ch.id); toast({ title: "Canal desconectado" }); }}>
                 Desconectar
@@ -194,6 +208,15 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           tenantId={tenantId}
           kind={dialogKind}
           existing={dialogKind === "clients" ? clientsCh : teamCh}
+        />
+      )}
+
+      {testChannel && (
+        <LiveTestDialog
+          open
+          onClose={() => { setTestChannel(null); qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }); }}
+          channelId={testChannel.id}
+          channelPhone={testChannel.phone_number}
         />
       )}
     </div>
