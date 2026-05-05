@@ -19,6 +19,8 @@ export interface WhatsappChannel {
   last_error: string | null;
   connected_at: string | null;
   access_token: string | null;
+  last_inbound_at: string | null;
+  last_inbound_from: string | null;
 }
 
 export interface WhatsappUserAccess {
