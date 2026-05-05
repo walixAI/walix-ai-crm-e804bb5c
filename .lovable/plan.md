@@ -1,50 +1,48 @@
-# Permitir reconfigurar WhatsApp y validar conexión real
+# Validación en vivo de conexión WhatsApp
 
-## Problema
-1. Tras configurar el canal, no hay forma de editar credenciales (token, phone_number_id, etc.).
-2. El badge "Conectado" se muestra solo porque se guardó la fila — nunca se valida contra Meta.
+Hoy la verificación solo confirma que las credenciales son válidas contra Meta (`/phone_number_id`), pero no prueba que el **webhook** esté realmente entregando mensajes a Walix. La forma definitiva de validar la conexión es que tú envíes un mensaje desde tu número personal (+52 55 3563 7687) al número de WhatsApp Business configurado y que la app lo "vea" llegar en tiempo real.
 
-## Cambios
+## Qué se construye
 
-### 1. `ConnectChannelDialog.tsx` — modo edición
-- Si `existing` channel existe, abrir el diálogo en **paso 2 (credenciales)** en vez de paso 3.
-- Pre-llenar `phone_number`, `phone_number_id`, `business_account_id`, `display_name` con los valores actuales.
-- `access_token` se muestra como `••••••••` placeholder; solo se envía al backend si el usuario escribe un valor nuevo (en `useUpsertChannel` se omite el campo si viene vacío).
-- Añadir botón **"Atrás"** en paso 3 para regresar a paso 2.
-- En paso 2 añadir botón **"Ver webhook"** para saltar a paso 3 sin tocar credenciales.
+### 1. Registrar el último inbound en el canal
+Migración para agregar a `whatsapp_channels`:
+- `last_inbound_at timestamptz`
+- `last_inbound_from text`
 
-### 2. `WhatsappTab.tsx` — botón "Reconfigurar"
-- En la tarjeta del canal ya configurado, añadir botón **"Reconfigurar"** (icono lápiz) que abre `ConnectChannelDialog` con el canal existente.
-- Diferenciar visualmente:
-  - **Configurado** (badge azul): credenciales guardadas, sin verificar.
-  - **Conectado** (badge verde): verificado contra Meta API + `connected_at` no nulo.
-  - Si `status='connected'` pero `connected_at` es null → texto "Configurado, esperando primer evento de Meta".
+El webhook (`whatsapp-webhook`) actualizará estos campos en **cada** mensaje entrante (sirve tanto para canal *clients* como *team*). Si llega el primer inbound y `connected_at` está vacío, lo setea a `now()` y `status='connected'`.
 
-### 3. Nueva edge function `whatsapp-verify`
-- `supabase/functions/whatsapp-verify/index.ts` con `verify_jwt = true`.
-- Recibe `{ channel_id }`, valida que el usuario es admin del tenant del canal (vía RLS).
-- Llama `GET https://graph.facebook.com/v21.0/{phone_number_id}?fields=verified_name,display_phone_number` con el `access_token` del canal.
-- Si responde 200 → update `status='connected'`, `connected_at=now()`, `last_error=null`.
-- Si responde error → update `status='error'`, `last_error=<mensaje Meta>`.
-- Devuelve `{ ok, status, last_error?, meta_info? }`.
+### 2. Botón "Probar conexión en vivo"
+En la card de cada canal de `WhatsappTab.tsx` y dentro de `ConnectChannelDialog.tsx` (paso final):
 
-### 4. `whatsappChannels.ts` — `useTestChannel`
-- Reemplazar el update directo por `supabase.functions.invoke('whatsapp-verify', { body: { channel_id }})`.
-- Mostrar el `last_error` en toast si falla.
+- Botón **"Probar conexión en vivo"**.
+- Abre un modal con:
+  - Número configurado (display).
+  - Campo prellenado con el teléfono del admin (`+525535637687`), editable y normalizado a E.164.
+  - Instrucción clara: *"Envía cualquier mensaje de WhatsApp desde ese número al número configurado en los próximos 2 minutos."*
+  - Spinner + cuenta regresiva (120 s).
+- Lógica: guarda `testStartedAt = now()` y hace **polling cada 3 s** a `whatsapp_channels` (select `last_inbound_at, last_inbound_from, status, last_error`).
+  - **Éxito**: `last_inbound_at > testStartedAt` y `last_inbound_from` normalizado coincide con el teléfono ingresado → marca `status='connected'`, `connected_at=now()` (vía edge function existente o update directo) y muestra ✅ *"Conectado · primer mensaje recibido de +52 55 3563 7687"*.
+  - **Llegó otro número**: muestra advertencia *"Recibimos un mensaje pero de {numero}, no del esperado"*, sigue esperando.
+  - **Timeout 2 min**: muestra checklist de diagnóstico (Webhook URL, Verify Token, suscripción al campo `messages` en Meta, número en sandbox vs producción) y deja `status='pending'`.
 
-### 5. `useUpsertChannel` — no sobreescribir token vacío
-- Si `input.access_token` está vacío o es el placeholder, omitirlo del update (mantener el actual).
+### 3. Mostrar el último inbound en la card
+En `WhatsappTab.tsx`, cuando exista `last_inbound_at`:
+> *"Último mensaje recibido: hace 12 s desde +52 55 3563 7687"*
 
-### 6. `supabase/config.toml`
-- Añadir bloque para `whatsapp-verify` (deja `verify_jwt = true` por defecto, no requiere entrada).
+Esto da visibilidad continua de que el webhook sigue funcionando, no solo en el momento de la prueba.
 
-## Archivos
-- editar `src/components/settings/whatsapp/ConnectChannelDialog.tsx`
-- editar `src/components/settings/whatsapp/WhatsappTab.tsx`
-- editar `src/lib/queries/whatsappChannels.ts`
-- crear `supabase/functions/whatsapp-verify/index.ts`
+## Archivos afectados
 
-## Verificación
-- Click "Reconfigurar" abre diálogo con datos pre-llenados; cambiar `display_name` sin tocar token guarda correctamente.
-- Click "Probar conexión" con token inválido → badge "Error" + mensaje real de Meta.
-- Click "Probar conexión" con credenciales válidas → badge "Conectado" + `connected_at` poblado.
+- **Migración** SQL: agregar 2 columnas a `whatsapp_channels`.
+- `supabase/functions/whatsapp-webhook/index.ts`: update `last_inbound_at`, `last_inbound_from`, `connected_at`, `status` en cada inbound (ambos `kind`).
+- `src/lib/queries/whatsappChannels.ts`: extender `WhatsappChannel` con los nuevos campos; nuevo hook `useLiveConnectionTest(channelId, expectedPhone)` que abre canal de polling.
+- `src/components/settings/whatsapp/WhatsappTab.tsx`: botón "Probar conexión en vivo" + leyenda de último inbound.
+- `src/components/settings/whatsapp/ConnectChannelDialog.tsx`: agregar paso opcional "Probar ahora" después del paso webhook.
+- Nuevo componente `LiveTestDialog.tsx` con la UI de espera/checklist.
+
+## Notas técnicas
+
+- El polling es client-side (cada 3 s, max 40 intentos). No requiere Realtime, evita complejidad de canales.
+- Normalización de teléfono: quitar `+`, espacios, guiones. Comparar con `last_inbound_from` (Meta entrega ya en formato `525535637687`).
+- RLS ya permite a admin del tenant leer `whatsapp_channels`, no hay cambios de policy.
+- No se almacena el contenido del mensaje de prueba; solo se observa el timestamp y el remitente.

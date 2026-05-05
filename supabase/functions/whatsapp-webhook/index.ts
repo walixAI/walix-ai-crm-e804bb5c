@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
 
         const { data: channel } = await sb
           .from("whatsapp_channels")
-          .select("id, tenant_id, kind, access_token, phone_number_id")
+          .select("id, tenant_id, kind, access_token, phone_number_id, connected_at")
           .eq("phone_number_id", phoneNumberId)
           .maybeSingle();
         if (!channel) continue;
@@ -77,6 +77,20 @@ Deno.serve(async (req) => {
           const from = String(msg.from ?? "");
           const body = msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? "";
           if (!from || !body) continue;
+
+          // Mark live connectivity: record latest inbound; auto-promote to connected if first ever
+          {
+            const update: Record<string, unknown> = {
+              last_inbound_at: new Date().toISOString(),
+              last_inbound_from: from,
+              last_error: null,
+            };
+            if (!channel.connected_at) {
+              update.connected_at = new Date().toISOString();
+              update.status = "connected";
+            }
+            await sb.from("whatsapp_channels").update(update).eq("id", channel.id);
+          }
 
           if (channel.kind === "clients") {
             // Upsert contact by phone for this tenant

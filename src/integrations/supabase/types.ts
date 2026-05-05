@@ -1316,6 +1316,8 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["whatsapp_channel_kind"]
           last_error: string | null
+          last_inbound_at: string | null
+          last_inbound_from: string | null
           phone_number: string | null
           phone_number_id: string | null
           provider: string
@@ -1334,6 +1336,8 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["whatsapp_channel_kind"]
           last_error?: string | null
+          last_inbound_at?: string | null
+          last_inbound_from?: string | null
           phone_number?: string | null
           phone_number_id?: string | null
           provider?: string
@@ -1352,6 +1356,8 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["whatsapp_channel_kind"]
           last_error?: string | null
+          last_inbound_at?: string | null
+          last_inbound_from?: string | null
           phone_number?: string | null
           phone_number_id?: string | null
           provider?: string
