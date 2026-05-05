@@ -67,17 +67,16 @@ export function useUpsertChannel(tenantId: string) {
         .eq("tenant_id", tenantId).eq("kind", input.kind).maybeSingle();
       const verify_token = existing?.verify_token ?? genVerifyToken();
       if (existing) {
-        const update: Record<string, unknown> = {
+        const hasNewToken = !!(input.access_token && input.access_token.trim().length > 0);
+        const update = {
           display_name: input.display_name ?? null,
           phone_number: input.phone_number,
           phone_number_id: input.phone_number_id,
           business_account_id: input.business_account_id,
-          status: "pending",
+          status: "pending" as const,
           last_error: null,
+          ...(hasNewToken ? { access_token: input.access_token! } : {}),
         };
-        if (input.access_token && input.access_token.trim().length > 0) {
-          update.access_token = input.access_token;
-        }
         const { error } = await supabase.from("whatsapp_channels").update(update).eq("id", existing.id);
         if (error) throw error;
         return { id: existing.id, verify_token };
