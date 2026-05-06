@@ -22,9 +22,11 @@ export type Database = {
           deal_id: string | null
           description: string
           id: string
+          metadata: Json
           occurred_at: string
           tenant_id: string
           type: Database["public"]["Enums"]["activity_type"]
+          updated_at: string
         }
         Insert: {
           agent_id?: string | null
@@ -33,9 +35,11 @@ export type Database = {
           deal_id?: string | null
           description: string
           id?: string
+          metadata?: Json
           occurred_at?: string
           tenant_id: string
           type: Database["public"]["Enums"]["activity_type"]
+          updated_at?: string
         }
         Update: {
           agent_id?: string | null
@@ -44,9 +48,11 @@ export type Database = {
           deal_id?: string | null
           description?: string
           id?: string
+          metadata?: Json
           occurred_at?: string
           tenant_id?: string
           type?: Database["public"]["Enums"]["activity_type"]
+          updated_at?: string
         }
         Relationships: [
           {
@@ -305,6 +311,123 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          industry: string | null
+          name: string
+          notes: string | null
+          owner_id: string | null
+          phone: string | null
+          size: string | null
+          tenant_id: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          industry?: string | null
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          size?: string | null
+          tenant_id: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          industry?: string | null
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          size?: string | null
+          tenant_id?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      contact_sources: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contact_stages: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_default: boolean
+          is_lost: boolean
+          is_won: boolean
+          name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_lost?: boolean
+          is_won?: boolean
+          name: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_lost?: boolean
+          is_won?: boolean
+          name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_tags: {
         Row: {
           created_at: string
@@ -344,6 +467,7 @@ export type Database = {
         Row: {
           avatar_color: string | null
           company: string | null
+          company_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -351,9 +475,11 @@ export type Database = {
           last_name: string | null
           name: string
           owner_id: string | null
-          phone: string
+          phone: string | null
           position: string | null
           source: Database["public"]["Enums"]["lead_source"]
+          source_id: string | null
+          stage_id: string | null
           status: Database["public"]["Enums"]["lead_status"]
           tags: string[]
           tenant_id: string
@@ -362,6 +488,7 @@ export type Database = {
         Insert: {
           avatar_color?: string | null
           company?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -369,9 +496,11 @@ export type Database = {
           last_name?: string | null
           name: string
           owner_id?: string | null
-          phone: string
+          phone?: string | null
           position?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
+          source_id?: string | null
+          stage_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           tags?: string[]
           tenant_id: string
@@ -380,6 +509,7 @@ export type Database = {
         Update: {
           avatar_color?: string | null
           company?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -387,9 +517,11 @@ export type Database = {
           last_name?: string | null
           name?: string
           owner_id?: string | null
-          phone?: string
+          phone?: string | null
           position?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
+          source_id?: string | null
+          stage_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           tags?: string[]
           tenant_id?: string

@@ -4,11 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
-  useContact, useContactDeals, useContactActivity,
-  useContactConversations, useContactTasks,
+  useContact,
+  useContactConversations,
 } from "@/lib/queries/contacts";
 import { relativeTime } from "@/lib/format/relativeTime";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
 import { ContactInfoCard } from "@/components/contacts/detail/ContactInfoCard";
 import { CompanyCard } from "@/components/contacts/detail/CompanyCard";
@@ -16,17 +15,14 @@ import { DealsSidePanel } from "@/components/contacts/detail/DealsSidePanel";
 import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
-import { NotesTab } from "@/components/contacts/detail/NotesTab";
-import { TasksTab } from "@/components/contacts/detail/TasksTab";
-import { ActivityComposer } from "@/components/contacts/detail/ActivityComposer";
+import { ActivitiesTab } from "@/components/contacts/detail/ActivitiesTab";
+import { useContactActivity } from "@/lib/queries/contacts";
 
 export default function ContactDetail() {
   const { id } = useParams();
   const { data: contact, isLoading } = useContact(id);
-  const { data: deals = [] } = useContactDeals(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
-  const { data: tasks = [] } = useContactTasks(id);
 
   if (isLoading) {
     return <div className="p-6"><ContactDetailSkeleton /></div>;
@@ -43,8 +39,6 @@ export default function ContactDetail() {
   }
 
   const openWA = () => window.open(`https://wa.me/${contact.phone.replace(/[^0-9]/g, "")}`, "_blank");
-
-  const pendingTasks = tasks.filter((t) => !t.completed).length;
 
   return (
     <div className="space-y-4 max-w-[1600px]">
@@ -79,11 +73,10 @@ export default function ContactDetail() {
           <Tabs defaultValue="summary">
             <TabsList>
               <TabsTrigger value="summary">Resumen</TabsTrigger>
-              <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
-              <TabsTrigger value="deals">Oportunidades <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{deals.length}</span></TabsTrigger>
-              <TabsTrigger value="activity">Actividad</TabsTrigger>
-              <TabsTrigger value="tasks">Tareas {pendingTasks > 0 && <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1.5 rounded">{pendingTasks}</span>}</TabsTrigger>
-              <TabsTrigger value="notes">Notas</TabsTrigger>
+              <TabsTrigger value="conversations">
+                Conversaciones {convs.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{convs.length}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="activities">Actividades</TabsTrigger>
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
@@ -108,70 +101,8 @@ export default function ContactDetail() {
               </div>
             </TabsContent>
 
-            <TabsContent value="deals" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {deals.map(d => (
-                  <div key={d.id} className="rounded-xl border border-border bg-card p-4 shadow-card hover:shadow-card-hover transition-all">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold">{d.name}</h4>
-                        <div className="text-2xl font-bold text-gradient-brand mt-1">${d.amount.toLocaleString("es-MX")}</div>
-                      </div>
-                      <span className="text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 font-medium">{d.stage}</span>
-                    </div>
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-muted-foreground">Probabilidad de cierre</span>
-                        <span className="font-semibold">{d.probability}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-gradient-brand transition-all" style={{ width: `${d.probability}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {deals.length === 0 && (
-                  <div className="md:col-span-2 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                    Sin deals para este contacto.
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="activity" className="mt-4">
-              <div className="space-y-4">
-              <ActivityComposer contactId={contact.id} />
-              <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-                <div className="relative">
-                  <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
-                  {activity.map(a => (
-                    <div key={a.id} className="relative flex gap-4 pb-5 last:pb-0">
-                      <div className="relative z-10 h-9 w-9 rounded-full bg-muted grid place-items-center shrink-0">
-                        <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <div className="text-sm">{a.description}</div>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <Avatar className="h-4 w-4"><AvatarFallback className="text-[8px] bg-muted">{a.agentInitials}</AvatarFallback></Avatar>
-                          <span>{a.agent}</span><span>·</span><span>{relativeTime(a.timestamp)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {activity.length === 0 && (
-                    <div className="text-sm text-muted-foreground italic">Aún no hay actividad registrada.</div>
-                  )}
-                </div>
-              </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="tasks" className="mt-4">
-              <TasksTab contactId={contact.id} />
-            </TabsContent>
-
-            <TabsContent value="notes" className="mt-4">
-              <NotesTab contactId={contact.id} />
+            <TabsContent value="activities" className="mt-4">
+              <ActivitiesTab contactId={contact.id} />
             </TabsContent>
           </Tabs>
         </div>
