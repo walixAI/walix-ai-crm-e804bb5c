@@ -99,7 +99,7 @@ export function StagesEditor() {
         onOpenChange={(v) => !v && setDeleteId(null)}
         title="Eliminar etapa"
         description="¿Seguro que deseas eliminar esta etapa? Los contactos asignados a ella seguirán existiendo, pero quedarán sin etapa."
-        confirmText="Eliminar"
+          confirmLabel="Eliminar"
         destructive
         onConfirm={async () => {
           if (!deleteId) return;
