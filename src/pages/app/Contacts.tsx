@@ -21,6 +21,8 @@ import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useContactTags } from "@/lib/queries/contactTags";
 import { useContacts } from "@/lib/queries/contacts";
 import { useDeleteContact, useUpdateContact } from "@/lib/queries/contacts";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
 import { FirstContactAIBanner } from "@/components/contacts/FirstContactAIBanner";
@@ -69,6 +71,22 @@ export default function Contacts() {
   const { data: allContacts = [], isLoading } = useContacts();
   const { data: sellers = [] } = useTenantUsers();
   const { data: tagList = [] } = useContactTags();
+
+  const { data: aiSuggestionsList = [] } = useQuery({
+    queryKey: ["contacts-ai-suggestions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_suggestions")
+        .select("id, text, contact_id, created_at")
+        .eq("dismissed", false)
+        .not("contact_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []).map((s: any) => ({ id: s.id, text: s.text, contactId: s.contact_id }));
+    },
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -469,22 +487,34 @@ export default function Contacts() {
                 </div>
                 <button onClick={() => setAiCollapsed(true)} className="text-muted-foreground hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
               </div>
-              <div className="rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-3 text-sm leading-relaxed">
-                Han pasado <strong>3 días</strong> desde tu último contacto con <strong>María Hernández</strong>. Envíale el catálogo que mencionó — mostró interés en la propuesta de <strong>$25,000</strong>.
-              </div>
-              <Button className="w-full bg-success hover:bg-success/90 text-success-foreground" size="sm"><Send className="h-3.5 w-3.5" /> Enviar por WhatsApp</Button>
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Historial IA</h4>
-                <div className="space-y-2">
-                  {[
-                    "Reactivar 12 leads inactivos >30 días",
-                    "Pedro Sánchez listo para cerrar — confirma transferencia",
-                    "Hotel Misión: enviar cotización formal hoy"
-                  ].map((s, i) => (
-                    <div key={i} className="text-xs p-2 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer">{s}</div>
-                  ))}
+              {aiSuggestionsList.length === 0 ? (
+                <div className="rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-3 text-xs text-muted-foreground leading-relaxed">
+                  La IA analizará tus contactos y mostrará aquí el siguiente paso sugerido.
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-3 text-sm leading-relaxed">
+                    {aiSuggestionsList[0].text}
+                  </div>
+                  {aiSuggestionsList[0].contactId && (
+                    <Button asChild className="w-full" size="sm" variant="default">
+                      <Link to={`/app/contacts/${aiSuggestionsList[0].contactId}`}>
+                        <Send className="h-3.5 w-3.5" /> Abrir contacto
+                      </Link>
+                    </Button>
+                  )}
+                  {aiSuggestionsList.length > 1 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Más sugerencias</h4>
+                      <div className="space-y-2">
+                        {aiSuggestionsList.slice(1, 4).map((s) => (
+                          <div key={s.id} className="text-xs p-2 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer">{s.text}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>

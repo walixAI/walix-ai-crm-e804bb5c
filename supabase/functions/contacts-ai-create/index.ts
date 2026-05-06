@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "Extraes datos de contacto en español de un texto libre. Devuelve los campos detectados; usa null si falta. El teléfono debe ser solo dígitos (sin +, espacios ni guiones).",
+              "Extraes datos de contacto en español de un texto libre. Solo el NOMBRE es obligatorio; cualquier otro campo (teléfono, email, etc.) puede ser null si no se menciona. El teléfono, si existe, debe ser solo dígitos (sin +, espacios ni guiones).",
           },
           { role: "user", content: prompt },
         ],
@@ -100,9 +100,9 @@ Deno.serve(async (req) => {
               parameters: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Nombre de pila" },
+                  name: { type: "string", description: "Nombre de pila (único campo obligatorio)" },
                   last_name: { type: ["string", "null"] },
-                  phone: { type: "string", description: "Solo dígitos" },
+                  phone: { type: ["string", "null"], description: "Solo dígitos, o null si no se menciona" },
                   email: { type: ["string", "null"] },
                   company: { type: ["string", "null"] },
                   position: { type: ["string", "null"] },
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
                     description: "Etiquetas mencionadas (ej. VIP, Caliente)",
                   },
                 },
-                required: ["name", "phone"],
+                required: ["name"],
                 additionalProperties: false,
               },
             },
@@ -158,10 +158,11 @@ Deno.serve(async (req) => {
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
-    const phone = normalizeMxPhone(parsed.phone || "");
-    if (!parsed.name || !phone) {
+    const rawPhone = parsed.phone ? normalizeMxPhone(parsed.phone) : "";
+    const phone = rawPhone || null;
+    if (!parsed.name) {
       return new Response(
-        JSON.stringify({ error: "missing_required", message: "Necesito al menos nombre y teléfono." }),
+        JSON.stringify({ error: "missing_required", message: "Necesito al menos el nombre del contacto." }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
