@@ -17,7 +17,10 @@ type Kind =
   | "create_contact"
   | "create_deal"
   | "link_contact_to_deal"
-  | "send_whatsapp_message";
+  | "send_whatsapp_message"
+  | "create_contact_source"
+  | "create_contact_stage"
+  | "create_pipeline_stage";
 
 interface Body {
   mode?: "preview" | "execute";
@@ -81,10 +84,19 @@ Deno.serve(async (req) => {
     const tenantId = (profile?.active_tenant_id ?? profile?.tenant_id) as string | undefined;
     if (!tenantId) return bad(400, "Sin tenant activo");
 
+    // Admin role check (cached for this request)
+    const { data: rolesData } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const isAdmin = (rolesData ?? []).some((r: any) => r.role === "tenant_admin" || r.role === "tenant_owner" || r.role === "platform_owner" || r.role === "platform_staff");
+
     const body = (await req.json()) as Body;
     if (!body?.kind || !body?.payload) return bad(400, "Cuerpo inválido");
     const p = body.payload as any;
     const mode = body.mode ?? "execute";
+
+    const ADMIN_KINDS: Kind[] = ["create_contact_source", "create_contact_stage", "create_pipeline_stage"];
+    if (ADMIN_KINDS.includes(body.kind) && !isAdmin) {
+      return bad(403, "Solo administradores pueden modificar la configuración");
+    }
 
     // ─── PREVIEW MODE: read current state, compute diff, do NOT write ───
     if (mode === "preview") {
