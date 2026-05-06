@@ -17,7 +17,10 @@ type Kind =
   | "create_contact"
   | "create_deal"
   | "link_contact_to_deal"
-  | "send_whatsapp_message";
+  | "send_whatsapp_message"
+  | "create_contact_source"
+  | "create_contact_stage"
+  | "create_pipeline_stage";
 
 interface Body {
   mode?: "preview" | "execute";
@@ -81,10 +84,19 @@ Deno.serve(async (req) => {
     const tenantId = (profile?.active_tenant_id ?? profile?.tenant_id) as string | undefined;
     if (!tenantId) return bad(400, "Sin tenant activo");
 
+    // Admin role check (cached for this request)
+    const { data: rolesData } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const isAdmin = (rolesData ?? []).some((r: any) => r.role === "tenant_admin" || r.role === "tenant_owner" || r.role === "platform_owner" || r.role === "platform_staff");
+
     const body = (await req.json()) as Body;
     if (!body?.kind || !body?.payload) return bad(400, "Cuerpo inválido");
     const p = body.payload as any;
     const mode = body.mode ?? "execute";
+
+    const ADMIN_KINDS: Kind[] = ["create_contact_source", "create_contact_stage", "create_pipeline_stage"];
+    if (ADMIN_KINDS.includes(body.kind) && !isAdmin) {
+      return bad(403, "Solo administradores pueden modificar la configuración");
+    }
 
     // ─── PREVIEW MODE: read current state, compute diff, do NOT write ───
     if (mode === "preview") {
@@ -244,6 +256,15 @@ Deno.serve(async (req) => {
             { "Último mensaje": (cv.preview ?? "—").slice(0, 80) || "—" },
             { "Para": toLabel, "Mensaje saliente": body },
           );
+        }
+        case "create_contact_source": {
+          return okPreview(null, { "Nueva fuente": String(p.name ?? "—"), "Ícono": String(p.icon ?? "—") });
+        }
+        case "create_contact_stage": {
+          return okPreview(null, { "Nueva etapa de contacto": String(p.name ?? "—"), "Color": String(p.color ?? "default") });
+        }
+        case "create_pipeline_stage": {
+          return okPreview(null, { "Nueva etapa de pipeline": String(p.name ?? "—") });
         }
         default:
           return bad(400, `kind no soportado: ${body.kind}`);
@@ -434,6 +455,52 @@ Deno.serve(async (req) => {
           occurred_at: nowIso,
         });
         target_type = "message"; target_id = msg?.id ?? null;
+        break;
+      }
+      case "create_contact_source": {
+        const name = typeof p.name === "string" ? p.name.trim() : "";
+        if (!name) return bad(400, "name requerido");
+        const { data: max } = await supabase.from("contact_sources")
+          .select("position").eq("tenant_id", tenantId)
+          .order("position", { ascending: false }).limit(1).maybeSingle();
+        const position = (max?.position ?? -1) + 1;
+        const { data, error } = await supabase.from("contact_sources").insert({
+          tenant_id: tenantId,
+          name,
+          icon: typeof p.icon === "string" ? p.icon : null,
+          position,
+        }).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "contact_source"; target_id = data?.id ?? null;
+        break;
+      }
+      case "create_contact_stage": {
+        const name = typeof p.name === "string" ? p.name.trim() : "";
+        if (!name) return bad(400, "name requerido");
+        const { data: max } = await supabase.from("contact_stages")
+          .select("position").eq("tenant_id", tenantId)
+          .order("position", { ascending: false }).limit(1).maybeSingle();
+        const position = (max?.position ?? -1) + 1;
+        const ins: any = { tenant_id: tenantId, name, position };
+        if (typeof p.color === "string") ins.color = p.color;
+        const { data, error } = await supabase.from("contact_stages").insert(ins).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "contact_stage"; target_id = data?.id ?? null;
+        break;
+      }
+      case "create_pipeline_stage": {
+        const name = typeof p.name === "string" ? p.name.trim() : "";
+        if (!name) return bad(400, "name requerido");
+        const { data: max } = await supabase.from("pipeline_stages")
+          .select("position").eq("tenant_id", tenantId)
+          .order("position", { ascending: false }).limit(1).maybeSingle();
+        const position = (max?.position ?? -1) + 1;
+        const ins: any = { tenant_id: tenantId, name, position };
+        if (typeof p.color === "string") ins.color = p.color;
+        if (isUuid(p.pipeline_id)) ins.pipeline_id = p.pipeline_id;
+        const { data, error } = await supabase.from("pipeline_stages").insert(ins).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "pipeline_stage"; target_id = data?.id ?? null;
         break;
       }
       default:

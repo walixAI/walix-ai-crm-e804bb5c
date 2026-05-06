@@ -60,6 +60,11 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const userId = userData.user.id;
+    const { data: rolesData } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const isAdmin = (rolesData ?? []).some((r: any) =>
+      r.role === "tenant_admin" || r.role === "tenant_owner" || r.role === "platform_owner" || r.role === "platform_staff"
+    );
 
     const body = (await req.json()) as Body;
     if (!body?.prompt?.trim()) {
@@ -208,7 +213,13 @@ Deno.serve(async (req) => {
           "EXPLICACIÓN: cada `propose_*` incluye un campo `reasoning` (máx 200 chars) con 1-2 frases sobre qué " +
           "datos del contexto motivaron la propuesta (etapa, días sin actividad, monto, conversación, etc.). " +
           "El usuario podrá editar la propuesta antes de confirmar; si no estás 100% seguro de un valor, " +
-          "propón el más razonable y mencionalo en el reasoning.",
+          "propón el más razonable y mencionalo en el reasoning." +
+          (isAdmin
+            ? "\n\nADMIN: el usuario actual tiene permisos de administración. Si pide crear una nueva fuente de prospección, " +
+              "etapa de contactos o etapa de pipeline, usa `propose_create_contact_source`, `propose_create_contact_stage` " +
+              "o `propose_create_pipeline_stage` respectivamente. Para vendedores normales esas opciones no están disponibles."
+            : "\n\nNOTA: el usuario actual NO es admin; no puede modificar configuración (fuentes, etapas, pipelines). Si lo pide, " +
+              "indícale que pida a un administrador hacerlo."),
       },
       { role: "system", content: ctx },
       ...(pageContextBlock ? [{ role: "system", content: pageContextBlock }] : []),
@@ -491,6 +502,63 @@ Deno.serve(async (req) => {
       },
     ];
 
+    // Admin-only tools: configuration changes (sources, stages). Only exposed to tenant_admin/owner.
+    if (isAdmin) {
+      tools.push(
+        {
+          type: "function",
+          function: {
+            name: "propose_create_contact_source",
+            description: "Propone crear una nueva fuente de prospección de contactos (ej: 'Instagram', 'Feria CDMX'). Requiere confirmación. Solo admins.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Nombre visible de la fuente." },
+                icon: { type: "string", description: "Nombre opcional de ícono lucide (ej: 'instagram', 'globe')." },
+                summary: { type: "string" },
+                reasoning: { type: "string" },
+              },
+              required: ["name", "summary"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "propose_create_contact_stage",
+            description: "Propone crear una nueva etapa de contactos (Kanban de contactos). Requiere confirmación. Solo admins.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                color: { type: "string", description: "Color HSL opcional, ej: 'hsl(210 90% 55%)'." },
+                summary: { type: "string" },
+                reasoning: { type: "string" },
+              },
+              required: ["name", "summary"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "propose_create_pipeline_stage",
+            description: "Propone crear una nueva etapa del pipeline de oportunidades. Requiere confirmación. Solo admins.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                color: { type: "string" },
+                summary: { type: "string" },
+                reasoning: { type: "string" },
+              },
+              required: ["name", "summary"],
+            },
+          },
+        },
+      );
+    }
+
     // ─── Multi-turn loop to support search_entity ───
     const convoMessages: any[] = [...messages];
     let choice: any = null;
@@ -576,6 +644,9 @@ Deno.serve(async (req) => {
       propose_create_deal: "create_deal",
       propose_link_contact_to_deal: "link_contact_to_deal",
       propose_send_whatsapp_message: "send_whatsapp_message",
+      propose_create_contact_source: "create_contact_source",
+      propose_create_contact_stage: "create_contact_stage",
+      propose_create_pipeline_stage: "create_pipeline_stage",
     };
     let candidates: any = null;
     for (const tc of choice?.tool_calls ?? []) {

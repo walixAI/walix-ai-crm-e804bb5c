@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckSquare, Plus, Trash2, Calendar, User } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Calendar, User, Pencil } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useTasks, useToggleTask, useDeleteTask, type TaskView } from "@/lib/queries/tasks";
+import { useTasks, useToggleTask, useDeleteTask, type TaskRow, type TaskView } from "@/lib/queries/tasks";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
-import { relativeTime } from "@/lib/format/relativeTime";
 import { toast } from "sonner";
 
 const VIEWS: { id: TaskView; label: string }[] = [
@@ -18,12 +17,32 @@ const VIEWS: { id: TaskView; label: string }[] = [
   { id: "all", label: "Todas" },
 ];
 
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "Sin fecha";
+  return new Date(iso).toLocaleString("es-MX", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function statusBadge(t: TaskRow): { label: string; cls: string } {
+  if (t.completed) return { label: "Completada", cls: "bg-success/10 text-success border-success/20" };
+  if (!t.dueAt) return { label: "Sin fecha", cls: "bg-muted text-muted-foreground border-border" };
+  const ms = new Date(t.dueAt).getTime();
+  const now = Date.now();
+  if (ms < now) return { label: "Vencida", cls: "bg-destructive/10 text-destructive border-destructive/30" };
+  const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+  if (ms <= endOfDay.getTime()) return { label: "Hoy", cls: "bg-warning/10 text-warning border-warning/30" };
+  return { label: "Próxima", cls: "bg-primary/10 text-primary border-primary/20" };
+}
+
 export default function TasksPage() {
   const [params, setParams] = useSearchParams();
   const initial = (params.get("view") as TaskView) || "today";
   const [view, setView] = useState<TaskView>(VIEWS.some(v => v.id === initial) ? initial : "today");
-  const [mineOnly, setMineOnly] = useState(true);
+  const [mineOnly, setMineOnly] = useState(false);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<TaskRow | null>(null);
   const { data: tasks = [], isLoading } = useTasks({ view, mineOnly });
   const toggle = useToggleTask();
   const remove = useDeleteTask();
@@ -44,9 +63,9 @@ export default function TasksPage() {
         </div>
         <div className="flex gap-2">
           <Button variant={mineOnly ? "default" : "outline"} size="sm" onClick={() => setMineOnly(!mineOnly)}>
-            <User className="h-4 w-4" /> {mineOnly ? "Solo mías" : "Todas"}
+            <User className="h-4 w-4" /> {mineOnly ? "Solo mías" : "De todos"}
           </Button>
-          <Button size="sm" onClick={() => setOpen(true)}>
+          <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
             <Plus className="h-4 w-4" /> Nueva tarea
           </Button>
         </div>
@@ -70,7 +89,7 @@ export default function TasksPage() {
                 </div>
               )}
               {tasks.map((t) => {
-                const overdue = t.dueAt && !t.completed && new Date(t.dueAt).getTime() < Date.now();
+                const badge = statusBadge(t);
                 return (
                   <div key={t.id} className="p-3 flex items-start gap-3 group">
                     <Checkbox
@@ -83,15 +102,18 @@ export default function TasksPage() {
                       }
                     />
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm ${t.completed ? "line-through text-muted-foreground" : ""}`}>
-                        {t.title}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className={`text-sm ${t.completed ? "line-through text-muted-foreground" : ""}`}>
+                          {t.title}
+                        </div>
+                        <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border ${badge.cls}`}>
+                          {badge.label}
+                        </span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                        {t.dueAt && (
-                          <span className={`inline-flex items-center gap-1 ${overdue ? "text-destructive" : ""}`}>
-                            <Calendar className="h-3 w-3" /> {relativeTime(t.dueAt)} {overdue && "· vencida"}
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> {fmtDateTime(t.dueAt)}
+                        </span>
                         {t.contactId && t.contactName && (
                           <Link to={`/contacts/${t.contactId}`} className="text-primary hover:underline">
                             {t.contactName}
@@ -103,6 +125,13 @@ export default function TasksPage() {
                         </span>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                      onClick={() => { setEditing(t); setOpen(true); }}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
                     <Button
                       variant="ghost" size="icon"
                       className="h-8 w-8 opacity-0 group-hover:opacity-100"
@@ -125,7 +154,18 @@ export default function TasksPage() {
         ))}
       </Tabs>
 
-      <QuickTaskDialog open={open} onClose={() => setOpen(false)} />
+      <QuickTaskDialog
+        open={open}
+        onClose={() => { setOpen(false); setEditing(null); }}
+        task={editing ? {
+          id: editing.id,
+          title: editing.title,
+          dueAt: editing.dueAt,
+          assigneeId: editing.assigneeId,
+          contactId: editing.contactId,
+          dealId: editing.dealId,
+        } : null}
+      />
     </div>
   );
 }

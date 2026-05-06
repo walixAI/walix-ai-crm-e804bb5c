@@ -152,6 +152,28 @@ Deno.serve(async (req) => {
     const activities = activitiesRes.data ?? [];
     const convIds = (convosRes.data ?? []).map((c: any) => c.id);
 
+    // Also load activities attached to the contact's deals (without contact_id).
+    const dealIds = deals.map((d: any) => d.id);
+    let dealActivities: any[] = [];
+    if (dealIds.length > 0) {
+      const { data: dActs } = await supabase
+        .from("activities")
+        .select("type, description, occurred_at, deal_id")
+        .in("deal_id", dealIds)
+        .is("contact_id", null)
+        .order("occurred_at", { ascending: false })
+        .limit(10);
+      dealActivities = dActs ?? [];
+    }
+
+    // Load tasks for the contact to enrich the AI context.
+    const { data: contactTasks } = await supabase
+      .from("tasks")
+      .select("title, completed, due_at, deal_id")
+      .eq("contact_id", contactId)
+      .order("due_at", { ascending: false, nullsFirst: false })
+      .limit(8);
+
     let lastMessages: any[] = [];
     if (convIds.length > 0) {
       const { data: msgs } = await supabase
@@ -182,9 +204,20 @@ Deno.serve(async (req) => {
           .join("\n")
       : "(sin deals)";
 
-    const activitySummary = activities.length
-      ? activities.map((a: any) => `- ${a.type}: ${a.description} (${a.occurred_at})`).join("\n")
-      : "(sin actividad)";
+    const dealNameById: Record<string, string> = Object.fromEntries(deals.map((d: any) => [d.id, d.name]));
+    const activityLines: string[] = [];
+    for (const a of activities) {
+      activityLines.push(`- [contacto] ${a.type}: ${a.description} (${a.occurred_at})`);
+    }
+    for (const a of dealActivities) {
+      const dn = dealNameById[a.deal_id] ?? "oportunidad";
+      activityLines.push(`- [oportunidad: ${dn}] ${a.type}: ${a.description} (${a.occurred_at})`);
+    }
+    for (const t of contactTasks ?? []) {
+      const status = t.completed ? "completada" : (t.due_at && new Date(t.due_at).getTime() < Date.now() ? "vencida" : "pendiente");
+      activityLines.push(`- [tarea ${status}] ${t.title}${t.due_at ? ` (vence ${t.due_at})` : ""}`);
+    }
+    const activitySummary = activityLines.length ? activityLines.join("\n") : "(sin actividad)";
 
     const fullName = [contact.name, contact.last_name].filter(Boolean).join(" ");
     const userPrompt = `
