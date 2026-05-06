@@ -193,6 +193,8 @@ Deno.serve(async (req) => {
           "La etapa se asigna automáticamente a la primera del pipeline si no la especificas.\n\n" +
           "REGLA DE VINCULAR CONTACTO: si el usuario pide 'vincula/asocia la oportunidad X al contacto Y' o se refiere a una oportunidad " +
           "ya existente para asociarle un contacto, usa `propose_link_contact_to_deal` (NO `propose_update_deal_amount`).\n\n" +
+          "REGLA DE CREAR CONTACTO: para crear un contacto SOLO el `name` es obligatorio. NUNCA pidas teléfono, email u otros datos como " +
+          "obligatorios. Si el usuario solo dice 'crea el contacto Juan', propón el contacto con name='Juan' y nada más.\n\n" +
           "REGLA DE WHATSAPP: cuando el usuario pida 'envíale WhatsApp a X', 'respóndele a Y', 'mándale un mensaje a Z': " +
           "1) Busca la conversación con ese contacto en el catálogo Conversaciones; si no aparece, llama a `search_entity` " +
           "kind='convo'. 2) Si el usuario no dictó el texto exacto, redacta un borrador breve, claro y profesional " +
