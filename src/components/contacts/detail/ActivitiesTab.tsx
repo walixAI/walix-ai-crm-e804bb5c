@@ -43,14 +43,6 @@ export function ActivitiesTab({ contactId }: Props) {
             ))}
           </TabsList>
           <div className="flex gap-1">
-            {tab === "all" && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => openLog("note")}><FileText className="h-3.5 w-3.5" /> Nota</Button>
-                <Button size="sm" variant="outline" onClick={() => openLog("call")}><Phone className="h-3.5 w-3.5" /> Llamada</Button>
-                <Button size="sm" variant="outline" onClick={() => openLog("meeting")}><Users className="h-3.5 w-3.5" /> Reunión</Button>
-                <Button size="sm" variant="outline" onClick={() => openLog("email")}><Mail className="h-3.5 w-3.5" /> Email</Button>
-              </>
-            )}
             {current.cta && tab !== "all" && (
               <Button size="sm" onClick={() => openLog(current.cta!)}>
                 <Plus className="h-4 w-4" /> Nueva {current.label.slice(0, -1).toLowerCase()}
