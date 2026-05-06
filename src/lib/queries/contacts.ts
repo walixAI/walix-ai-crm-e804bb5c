@@ -258,14 +258,23 @@ export function useContactActivity(contactId: string | undefined) {
     queryKey: ["contact-activity", contactId, users?.length ?? 0],
     enabled: !!contactId,
     queryFn: async (): Promise<ActivityRow[]> => {
-      const { data, error } = await supabase
+      const [{ data: actData, error: actErr }, { data: taskData, error: taskErr }] = await Promise.all([
+        supabase
         .from("activities")
         .select("*")
         .eq("contact_id", contactId!)
         .order("occurred_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return (data ?? []).map((a: any) => {
+          .limit(20),
+        supabase
+          .from("tasks")
+          .select("*")
+          .eq("contact_id", contactId!)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+      if (actErr) throw actErr;
+      if (taskErr) throw taskErr;
+      const acts: ActivityRow[] = (actData ?? []).map((a: any) => {
         const owner = resolveOwner(users, a.agent_id);
         return {
           id: a.id, type: a.type, description: a.description,
@@ -279,6 +288,26 @@ export function useContactActivity(contactId: string | undefined) {
           agentId: a.agent_id ?? null,
         };
       });
+      const taskActs: ActivityRow[] = (taskData ?? []).map((t: any) => {
+        const owner = resolveOwner(users, t.assignee_id);
+        const when = t.due_at ?? t.created_at;
+        return {
+          id: `task-${t.id}`,
+          type: "task",
+          description: t.title,
+          timestamp: when,
+          occurredAt: when,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at ?? null,
+          metadata: { taskId: t.id, completed: t.completed, dueAt: t.due_at },
+          agent: owner.name === "Sin asignar" ? "Sistema" : owner.name,
+          agentInitials: owner.initials === "—" ? "•" : owner.initials,
+          agentId: t.assignee_id ?? null,
+        };
+      });
+      return [...acts, ...taskActs].sort(
+        (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+      );
     },
   });
 }
