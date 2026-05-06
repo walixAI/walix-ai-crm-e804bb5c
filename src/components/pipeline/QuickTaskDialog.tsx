@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import type { PipelineDeal } from "@/lib/queries/pipeline";
 
 const schema = z.object({
@@ -33,6 +34,7 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, onClose }
   const [loading, setLoading] = useState(false);
   const { data: tenantId } = useTenantId();
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (open) { setTitle(defaultTitle ?? ""); setDue(""); }
@@ -50,12 +52,14 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, onClose }
       contact_id: deal?.contactId ?? contactId ?? null,
       title: parsed.data.title,
       due_at: parsed.data.due ? new Date(parsed.data.due).toISOString() : null,
+      assignee_id: user?.id ?? null,
     });
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Tarea creada");
     qc.invalidateQueries({ queryKey: ["pipeline-deal-tasks-map"] });
     qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
+    qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
     onClose();
   }
 

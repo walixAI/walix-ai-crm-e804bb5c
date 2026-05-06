@@ -24,6 +24,8 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   contactId: string;
   kind: LogKind;
+  /** Pre-filled description for new entries. */
+  defaultDescription?: string;
   // For edit:
   initial?: {
     id: string;
@@ -42,7 +44,7 @@ const TITLES: Record<LogKind, string> = {
 
 const CALL_RESULTS = ["Conectó", "No contestó", "Buzón de voz", "Reagendar"];
 
-export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial }: Props) {
+export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial, defaultDescription }: Props) {
   const isEdit = !!initial;
   const create = useCreateContactActivity(contactId);
   const update = useUpdateContactActivity(contactId);
@@ -67,12 +69,12 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
       setSubject(initial.metadata?.subject ?? "");
       setLocation(initial.metadata?.location ?? "");
     } else {
-      setDescription("");
+      setDescription(defaultDescription ?? "");
       const now = new Date();
       setDate(now); setTime(format(now, "HH:mm"));
       setDuration(""); setResult("Conectó"); setSubject(""); setLocation("");
     }
-  }, [open, initial]);
+  }, [open, initial, defaultDescription]);
 
   async function save() {
     if (!description.trim() && kind !== "email") return toast.error("Describe la actividad");

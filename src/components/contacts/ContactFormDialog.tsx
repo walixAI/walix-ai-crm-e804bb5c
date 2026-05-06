@@ -9,6 +9,7 @@ import { useContactTags } from "@/lib/queries/contactTags";
 import { MessageCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateContact, useUpdateContact, type ContactRow } from "@/lib/queries/contacts";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   open: boolean;
@@ -30,6 +31,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
   const { data: tagList = [] } = useContactTags();
   const create = useCreateContact();
   const update = useUpdateContact();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!open) return;
@@ -39,9 +41,9 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
     setEmail(contact?.email ?? "");
     setCompany(contact?.company ?? "");
     setPosition(contact?.position ?? "");
-    setOwnerId(contact?.ownerId ?? null);
+    setOwnerId(contact?.ownerId ?? user?.id ?? null);
     setTags(contact?.tags ?? []);
-  }, [open, contact]);
+  }, [open, contact, user?.id]);
 
   const handleSave = async (openWA: boolean) => {
     if (!name.trim()) { toast.error("El nombre es obligatorio"); return; }
