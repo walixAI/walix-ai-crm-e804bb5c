@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 export type CitationKind = "deal" | "contact" | "conversation" | "convo";
 export type CitationHandler = (kind: string, id: string) => void;
 
-const CITATION_RE = /\[(deal|contact|conversation|convo):([a-zA-Z0-9-]+)\|([^\]]+)\]/g;
+const CITATION_RE = /\[(deal|opportunity|contact|conversation|convo):([a-zA-Z0-9-]+)\|([^\]]+)\]/g;
 
 /**
  * Render a string that may contain citation tokens like

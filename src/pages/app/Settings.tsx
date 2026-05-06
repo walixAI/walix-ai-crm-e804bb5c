@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GeneralTab } from "@/components/settings/general/GeneralTab";
 import { TeamTab } from "@/components/settings/team/TeamTab";
 import { PipelineSettingsTab } from "@/components/settings/pipeline/PipelineTab";
+import { ContactsSettingsTab } from "@/components/settings/contacts/ContactsSettingsTab";
 import { WhatsappSettingsTab } from "@/components/settings/whatsapp/WhatsappTab";
 import { ModulesTab } from "@/components/settings/modules/ModulesTab";
 import { BillingTab } from "@/components/settings/billing/BillingTab";
@@ -14,6 +15,7 @@ const TABS = [
   { id: "general", label: "General" },
   { id: "team", label: "Equipo" },
   { id: "pipeline", label: "Pipeline" },
+  { id: "contacts", label: "Contactos" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "modules", label: "Módulos" },
   { id: "billing", label: "Facturación" },
@@ -64,6 +66,7 @@ export default function Settings() {
         <TabsContent value="general"><GeneralTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="team"><TeamTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="pipeline"><PipelineSettingsTab tenantId={tenantId} /></TabsContent>
+        <TabsContent value="contacts"><ContactsSettingsTab /></TabsContent>
         <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="modules"><ModulesTab /></TabsContent>
         <TabsContent value="billing"><BillingTab tenantId={tenantId} /></TabsContent>
