@@ -59,17 +59,36 @@ export function useRecentActivity(limit = 10) {
   return useQuery({
     queryKey: ["recent-activity", limit],
     queryFn: async (): Promise<RecentActivityRow[]> => {
-      const { data, error } = await supabase
-        .from("activities")
-        .select("id,type,description,occurred_at,contact_id,contacts(name,last_name)")
-        .order("occurred_at", { ascending: false })
-        .limit(limit);
-      if (error) throw error;
-      return (data ?? []).map((a: any) => ({
+      const [actsRes, tasksRes] = await Promise.all([
+        supabase
+          .from("activities")
+          .select("id,type,description,occurred_at,contact_id,contacts(name,last_name)")
+          .order("occurred_at", { ascending: false })
+          .limit(limit),
+        supabase
+          .from("tasks")
+          .select("id,title,completed,due_at,created_at,contact_id,contacts(name,last_name)")
+          .order("created_at", { ascending: false })
+          .limit(limit),
+      ]);
+      if (actsRes.error) throw actsRes.error;
+      if (tasksRes.error) throw tasksRes.error;
+      const acts: RecentActivityRow[] = (actsRes.data ?? []).map((a: any) => ({
         id: a.id, type: a.type, description: a.description,
         occurredAt: a.occurred_at, contactId: a.contact_id,
         contactName: a.contacts ? `${a.contacts.name} ${a.contacts.last_name ?? ""}`.trim() : null,
       }));
+      const taskActs: RecentActivityRow[] = (tasksRes.data ?? []).map((t: any) => ({
+        id: `task-${t.id}`,
+        type: "task",
+        description: `${t.completed ? "Tarea completada" : "Tarea"}: ${t.title}`,
+        occurredAt: t.due_at ?? t.created_at,
+        contactId: t.contact_id,
+        contactName: t.contacts ? `${t.contacts.name} ${t.contacts.last_name ?? ""}`.trim() : null,
+      }));
+      return [...acts, ...taskActs]
+        .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+        .slice(0, limit);
     },
   });
 }
