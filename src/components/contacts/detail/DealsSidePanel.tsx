@@ -9,7 +9,7 @@ export function DealsSidePanel({ contactId }: Props) {
     <div className="space-y-2">
       <div className="rounded-xl border border-border bg-card overflow-hidden shadow-card">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Deals activos</span>
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Oportunidades</span>
           <button className="text-muted-foreground hover:text-primary transition-colors"><Plus className="h-3.5 w-3.5" /></button>
         </div>
         <div className="p-3 space-y-2">
