@@ -257,6 +257,15 @@ Deno.serve(async (req) => {
             { "Para": toLabel, "Mensaje saliente": body },
           );
         }
+        case "create_contact_source": {
+          return okPreview(null, { "Nueva fuente": String(p.name ?? "—"), "Ícono": String(p.icon ?? "—") });
+        }
+        case "create_contact_stage": {
+          return okPreview(null, { "Nueva etapa de contacto": String(p.name ?? "—"), "Color": String(p.color ?? "default") });
+        }
+        case "create_pipeline_stage": {
+          return okPreview(null, { "Nueva etapa de pipeline": String(p.name ?? "—") });
+        }
         default:
           return bad(400, `kind no soportado: ${body.kind}`);
       }
