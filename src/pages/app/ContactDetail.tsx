@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
-  useContact, useContactDeals,
+  useContact,
   useContactConversations,
 } from "@/lib/queries/contacts";
 import { relativeTime } from "@/lib/format/relativeTime";
