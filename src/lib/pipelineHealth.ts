@@ -57,6 +57,21 @@ function toneFromValue(v: number): "positive" | "neutral" | "negative" {
 }
 
 export function computePipelineHealth(i: HealthInputs): PipelineHealth {
+  const noData =
+    i.activeDeals === 0 &&
+    i.totalOpenConversations === 0 &&
+    i.wonLast30 === 0 &&
+    i.lostLast30 === 0 &&
+    (!i.weightedForecast || i.weightedForecast === 0);
+  if (noData) {
+    return {
+      score: 0,
+      status: "warning",
+      summary: "Aún no hay datos suficientes para calcular la salud del pipeline.",
+      components: [],
+      topIssues: [],
+    };
+  }
   const activity = i.activeDeals > 0 ? clamp01(1 - i.staleActiveDeals / i.activeDeals) : 1;
   const responsiveness = i.totalOpenConversations > 0
     ? clamp01(1 - i.unreadOpenConversations / i.totalOpenConversations)
