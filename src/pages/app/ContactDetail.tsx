@@ -21,7 +21,6 @@ import { useContactActivity } from "@/lib/queries/contacts";
 export default function ContactDetail() {
   const { id } = useParams();
   const { data: contact, isLoading } = useContact(id);
-  const { data: deals = [] } = useContactDeals(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
 
