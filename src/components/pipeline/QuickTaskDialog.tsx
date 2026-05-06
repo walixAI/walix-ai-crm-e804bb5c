@@ -59,6 +59,7 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, onClose }
     toast.success("Tarea creada");
     qc.invalidateQueries({ queryKey: ["pipeline-deal-tasks-map"] });
     qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
+    qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
     onClose();
   }
 
