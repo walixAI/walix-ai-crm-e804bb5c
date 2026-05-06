@@ -542,6 +542,8 @@ export function useToggleContactTask(contactId: string | undefined) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
+      qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }
@@ -553,7 +555,11 @@ export function useDeleteContactTask(contactId: string | undefined) {
       const { error } = await supabase.from("tasks").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
+      qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
   });
 }
 
