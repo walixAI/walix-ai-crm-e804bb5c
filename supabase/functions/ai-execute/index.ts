@@ -457,6 +457,52 @@ Deno.serve(async (req) => {
         target_type = "message"; target_id = msg?.id ?? null;
         break;
       }
+      case "create_contact_source": {
+        const name = typeof p.name === "string" ? p.name.trim() : "";
+        if (!name) return bad(400, "name requerido");
+        const { data: max } = await supabase.from("contact_sources")
+          .select("position").eq("tenant_id", tenantId)
+          .order("position", { ascending: false }).limit(1).maybeSingle();
+        const position = (max?.position ?? -1) + 1;
+        const { data, error } = await supabase.from("contact_sources").insert({
+          tenant_id: tenantId,
+          name,
+          icon: typeof p.icon === "string" ? p.icon : null,
+          position,
+        }).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "contact_source"; target_id = data?.id ?? null;
+        break;
+      }
+      case "create_contact_stage": {
+        const name = typeof p.name === "string" ? p.name.trim() : "";
+        if (!name) return bad(400, "name requerido");
+        const { data: max } = await supabase.from("contact_stages")
+          .select("position").eq("tenant_id", tenantId)
+          .order("position", { ascending: false }).limit(1).maybeSingle();
+        const position = (max?.position ?? -1) + 1;
+        const ins: any = { tenant_id: tenantId, name, position };
+        if (typeof p.color === "string") ins.color = p.color;
+        const { data, error } = await supabase.from("contact_stages").insert(ins).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "contact_stage"; target_id = data?.id ?? null;
+        break;
+      }
+      case "create_pipeline_stage": {
+        const name = typeof p.name === "string" ? p.name.trim() : "";
+        if (!name) return bad(400, "name requerido");
+        const { data: max } = await supabase.from("pipeline_stages")
+          .select("position").eq("tenant_id", tenantId)
+          .order("position", { ascending: false }).limit(1).maybeSingle();
+        const position = (max?.position ?? -1) + 1;
+        const ins: any = { tenant_id: tenantId, name, position };
+        if (typeof p.color === "string") ins.color = p.color;
+        if (isUuid(p.pipeline_id)) ins.pipeline_id = p.pipeline_id;
+        const { data, error } = await supabase.from("pipeline_stages").insert(ins).select("id").maybeSingle();
+        if (error) return bad(400, error.message);
+        target_type = "pipeline_stage"; target_id = data?.id ?? null;
+        break;
+      }
       default:
         return bad(400, `kind no soportado: ${body.kind}`);
     }
