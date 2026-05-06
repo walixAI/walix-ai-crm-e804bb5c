@@ -60,6 +60,11 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const userId = userData.user.id;
+    const { data: rolesData } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const isAdmin = (rolesData ?? []).some((r: any) =>
+      r.role === "tenant_admin" || r.role === "tenant_owner" || r.role === "platform_owner" || r.role === "platform_staff"
+    );
 
     const body = (await req.json()) as Body;
     if (!body?.prompt?.trim()) {
