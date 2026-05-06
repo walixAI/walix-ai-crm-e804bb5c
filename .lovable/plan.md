@@ -1,52 +1,55 @@
-## Correcciones sección de Contactos
+# Correcciones sección Contactos (ronda 4)
 
-Cuatro problemas detectados, todos de implementación menor:
+## 1) IA sigue exigiendo teléfono al crear contacto
 
-### 1. Teléfono sigue siendo requerido en alta de contacto (vía IA)
+Quedaron dos lugares con `phone` obligatorio:
 
-El formulario manual ya permite crear sin teléfono, pero la edge function `supabase/functions/contacts-ai-create/index.ts` sigue exigiéndolo:
-- Línea 120: `required: ["name", "phone"]` en el schema de extracción.
-- Líneas 161-164: rechaza si no hay phone con mensaje "Necesito al menos nombre y teléfono."
+- **`supabase/functions/global-ai/index.ts`** (tool `propose_create_contact`, línea ~401): `required: ["name", "phone", "summary"]` → cambiar a `required: ["name", "summary"]`. Agregar en la `description` del tool: "Solo `name` es obligatorio".
+- **`supabase/functions/ai-execute/index.ts`** (case `create_contact`, línea 346): quitar el chequeo `if (typeof p.phone !== "string" || !p.phone.trim()) return bad(400, "phone requerido")`. Insertar `phone` solo si viene como string no vacío.
+- Reforzar el system prompt de `global-ai` (líneas 186-191): "Para crear un contacto basta el nombre. NUNCA pidas teléfono/email como obligatorios."
 
-**Fix:** quitar `phone` de `required`, validar solo `name`, ajustar mensaje a "Necesito al menos el nombre del contacto." y permitir insertar contacto con phone null.
+## 2) Vendedor por defecto = usuario logueado
 
-### 2. Datos hardcodeados en listado de Contactos
+- **`ai-execute` `create_contact`**: añadir `owner_id: userId` al objeto `ins` cuando no venga `owner_id` en el payload.
+- **`ai-execute` `create_deal`** (consistencia): mismo patrón con `owner_id: userId`.
+- **`contacts-ai-create/index.ts`**: ya pone `owner_id: user.id`; verificar que se mantenga.
+- **`ContactFormDialog.tsx`**: inicializar `ownerId` en alta (no edición) con `user.id` desde `useAuth()` cuando el contacto es nuevo y `ownerId` está vacío. Mostrar el vendedor preseleccionado en el `Select`.
+- **`QuickTaskDialog.tsx`** y **`LogActivityDialog`**: al crear la tarea/actividad, setear `assignee_id` / `agent_id = user.id` por defecto (hoy quedan en null).
 
-`src/pages/app/Contacts.tsx` (líneas 472-486) tiene un panel "Próximo paso sugerido" con texto fijo de "María Hernández", "$25,000" y un historial IA inventado.
+## 3) Box "Próximas tareas" del detalle de contacto está hardcodeado
 
-**Fix:** Reemplazar por contenido real:
-- Conectar a `useAiSuggestions` (ya existe en `src/lib/queries/`) filtrando por `kind` relacionado a contactos / próximos pasos.
-- Si no hay sugerencias, mostrar EmptyState ("La IA analizará tus contactos y mostrará el siguiente paso aquí").
-- El "Historial IA" se elimina o se llena con las últimas N sugerencias dismissed/atendidas reales del tenant.
-- Botón "Enviar por WhatsApp" se habilita solo cuando la sugerencia trae un `contact_id`.
+`src/components/contacts/detail/DealsSidePanel.tsx` líneas 37-58 contiene 2 tareas fijas ("Llamar para seguimiento", "Enviar contrato firmado"). Reemplazar por:
 
-### 3. Cambiar terminología "Deal" → "Oportunidad" en la IA
+- Usar `useContactTasks(contactId)` (ya existe en `lib/queries/contacts.ts`).
+- Filtrar `!completed`, ordenar por `due_at` ascendente, mostrar máximo 5.
+- Por cada tarea: título, fecha relativa de vencimiento, color rojo si `due_at < now`, gris si no tiene fecha.
+- Botón `+` abre `QuickTaskDialog` con `contactId`.
+- Empty state: "Sin tareas pendientes".
+- Pasar `contactId` como prop nueva al componente; actualizar `ContactDetail.tsx` (2 lugares: sheet móvil y aside desktop).
 
-Toda la IA conversacional (`global-ai`, `whatsapp-ai-command`, `pipeline-ai`, `dashboard-ai-widgets`, `ai-execute`) y los componentes UI relacionados (`AiDrawer`, `citations.tsx`, `DealsSidePanel.tsx`) usan "deal/Deal/deals" en los prompts del sistema, descripciones de tools y textos visibles al usuario.
+## 4) "Agendar llamada" desde Resumen no se refleja y aparece como vencida
 
-**Fix (solo textos, sin renombrar la tabla `deals` ni los IDs internos):**
-- Reemplazar en TODOS los prompts del sistema y `description` de tools de las edge functions: "deal" → "oportunidad", "deals" → "oportunidades", "Deal" → "Oportunidad".
-- Mantener intactos: nombres de tablas (`deals`), nombres de tools (`propose_update_deal_stage`, etc.), parámetros (`deal_id`), tipos de citation (`[deal:UUID|...]`) — son contratos internos.
-- Actualizar UI visible: `DealsSidePanel.tsx` ya muestra "Oportunidades" (ok). Revisar `citations.tsx` para que el chip renderice "Oportunidad" en vez de "Deal". Revisar `AiDrawer` y banners.
-- Agregar regla al system prompt de `global-ai`: "Siempre llama 'oportunidad' a un deal cuando hables con el usuario, nunca uses la palabra 'deal'."
+Causa: El botón "Agendar llamada" en `SummaryTab.tsx` abre `QuickTaskDialog`, que crea una **tarea** (no una actividad) con `due_at = null`. Al no ser una actividad, no aparece en "Últimos eventos" ni en el feed de Actividades. Y como Francisco Ramírez tiene `last_activity_at` antiguo, alguna tarea anterior aparece como vencida.
 
-### 4. Falta el Tab "Contactos" en Configuración
+Cambios:
 
-El componente `ContactsSettingsTab` y los editores `StagesEditor` / `SourcesEditor` ya existen, pero `src/pages/app/Settings.tsx` nunca los registra en el array `TABS` ni renderiza el `<TabsContent value="contacts">`.
+- En `SummaryTab.tsx`:
+  - Reemplazar `QuickTaskDialog` por `LogActivityDialog` con `kind="call"` para el botón "Agendar llamada" (registra inmediatamente una actividad tipo `call`).
+  - Si el siguiente paso sugerido es de tipo `task`, abrir `LogActivityDialog` también con `kind="call"` (en lugar de tarea).
+  - Mantener el estado `taskOpen` → renombrar a `logOpen`, y `taskTitle` → `defaultDescription`.
+- Añadir prop opcional `defaultDescription` a `LogActivityDialog` para precargar el textarea.
+- Verificar que `useCreateContactActivity` invalida `["contact-activity", contactId]` (ya lo hace) para refrescar la lista en Resumen + Actividades.
+- Para los items en "Próximas tareas" del aside: marcar `vencida` solo si `due_at != null && due_at < now && !completed`. Sin `due_at`, mostrar "Sin fecha" en gris (no rojo).
 
-**Fix:** Agregar entrada `{ id: "contacts", label: "Contactos" }` en `TABS` (entre "Pipeline" y "WhatsApp"), importar `ContactsSettingsTab` y agregar el `<TabsContent value="contacts"><ContactsSettingsTab /></TabsContent>`.
+## Archivos editados
 
-### Memoria
+- `supabase/functions/global-ai/index.ts`
+- `supabase/functions/ai-execute/index.ts`
+- `src/components/contacts/ContactFormDialog.tsx`
+- `src/components/contacts/detail/DealsSidePanel.tsx`
+- `src/components/contacts/detail/SummaryTab.tsx`
+- `src/components/contacts/detail/dialogs/LogActivityDialog.tsx`
+- `src/components/pipeline/QuickTaskDialog.tsx`
+- `src/pages/app/ContactDetail.tsx` (pasar `contactId` a `DealsSidePanel`)
 
-Guardar en `mem://preferences/terminology.md`: "El usuario llama a los 'deals' siempre 'Oportunidades' en toda UI y mensajes de IA. Internamente la tabla sigue siendo `deals`."
-
-### Archivos a modificar
-
-- `supabase/functions/contacts-ai-create/index.ts` — quitar phone requerido.
-- `src/pages/app/Contacts.tsx` — reemplazar panel hardcodeado por sugerencias reales.
-- `src/pages/app/Settings.tsx` — registrar tab Contactos.
-- `supabase/functions/global-ai/index.ts`, `whatsapp-ai-command/index.ts`, `pipeline-ai/index.ts`, `dashboard-ai-widgets/index.ts`, `contact-ai-suggest/index.ts`, `ai-execute/index.ts`, `ai-inbox/index.ts`, `ai-onboarding-setup/index.ts`, `whatsapp-ai/index.ts`, `automations-ai-draft/index.ts` — terminología "oportunidad" en prompts/descripciones visibles.
-- `src/lib/ai/citations.tsx`, `src/components/walix/AiDrawer.tsx` y banners IA — etiqueta visible "Oportunidad".
-- `mem://index.md` + `mem://preferences/terminology.md` — guardar regla.
-
-Sin cambios de schema de base de datos.
+No se requieren cambios de base de datos.

@@ -398,7 +398,7 @@ Deno.serve(async (req) => {
               summary: { type: "string" },
               reasoning: { type: "string" },
             },
-            required: ["name", "phone", "summary"],
+            required: ["name", "summary"],
           },
         },
       },
