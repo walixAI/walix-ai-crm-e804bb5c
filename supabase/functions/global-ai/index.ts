@@ -496,6 +496,63 @@ Deno.serve(async (req) => {
       },
     ];
 
+    // Admin-only tools: configuration changes (sources, stages). Only exposed to tenant_admin/owner.
+    if (isAdmin) {
+      tools.push(
+        {
+          type: "function",
+          function: {
+            name: "propose_create_contact_source",
+            description: "Propone crear una nueva fuente de prospección de contactos (ej: 'Instagram', 'Feria CDMX'). Requiere confirmación. Solo admins.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Nombre visible de la fuente." },
+                icon: { type: "string", description: "Nombre opcional de ícono lucide (ej: 'instagram', 'globe')." },
+                summary: { type: "string" },
+                reasoning: { type: "string" },
+              },
+              required: ["name", "summary"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "propose_create_contact_stage",
+            description: "Propone crear una nueva etapa de contactos (Kanban de contactos). Requiere confirmación. Solo admins.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                color: { type: "string", description: "Color HSL opcional, ej: 'hsl(210 90% 55%)'." },
+                summary: { type: "string" },
+                reasoning: { type: "string" },
+              },
+              required: ["name", "summary"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "propose_create_pipeline_stage",
+            description: "Propone crear una nueva etapa del pipeline de oportunidades. Requiere confirmación. Solo admins.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                color: { type: "string" },
+                summary: { type: "string" },
+                reasoning: { type: "string" },
+              },
+              required: ["name", "summary"],
+            },
+          },
+        },
+      );
+    }
+
     // ─── Multi-turn loop to support search_entity ───
     const convoMessages: any[] = [...messages];
     let choice: any = null;
@@ -581,6 +638,9 @@ Deno.serve(async (req) => {
       propose_create_deal: "create_deal",
       propose_link_contact_to_deal: "link_contact_to_deal",
       propose_send_whatsapp_message: "send_whatsapp_message",
+      propose_create_contact_source: "create_contact_source",
+      propose_create_contact_stage: "create_contact_stage",
+      propose_create_pipeline_stage: "create_pipeline_stage",
     };
     let candidates: any = null;
     for (const tc of choice?.tool_calls ?? []) {
