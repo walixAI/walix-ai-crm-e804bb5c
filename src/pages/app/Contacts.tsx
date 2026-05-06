@@ -21,6 +21,8 @@ import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useContactTags } from "@/lib/queries/contactTags";
 import { useContacts } from "@/lib/queries/contacts";
 import { useDeleteContact, useUpdateContact } from "@/lib/queries/contacts";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
 import { FirstContactAIBanner } from "@/components/contacts/FirstContactAIBanner";
