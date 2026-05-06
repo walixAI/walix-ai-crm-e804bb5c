@@ -98,12 +98,15 @@ export function useContact(id: string | undefined) {
 export interface ContactInput {
   name?: string;
   last_name?: string | null;
-  phone?: string;
+  phone?: string | null;
   email?: string | null;
   company?: string | null;
+  company_id?: string | null;
   position?: string | null;
   status?: LeadStatus;
   source?: Source;
+  source_id?: string | null;
+  stage_id?: string | null;
   tags?: string[];
   owner_id?: string | null;
 }
@@ -112,11 +115,14 @@ export function useCreateContact() {
   const { data: tenantId } = useTenantId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: ContactInput & { name: string; phone: string }) => {
+    mutationFn: async (input: ContactInput & { name: string }) => {
       if (!tenantId) throw new Error("Sin tenant");
+      const payload: any = { tenant_id: tenantId, ...input };
+      // contacts.phone is now nullable; coerce empty string to null
+      if (!payload.phone) payload.phone = null;
       const { data, error } = await supabase
         .from("contacts")
-        .insert({ tenant_id: tenantId, ...input })
+        .insert(payload)
         .select("id")
         .single();
       if (error) throw error;
@@ -231,6 +237,10 @@ export interface ActivityRow {
   type: "wa_sent" | "wa_received" | "note" | "deal" | "task" | "call" | "meeting" | "email" | "manual";
   description: string;
   timestamp: string;
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string | null;
+  metadata: Record<string, any>;
   agent: string;
   agentInitials: string;
   agentId: string | null;
@@ -254,6 +264,10 @@ export function useContactActivity(contactId: string | undefined) {
         return {
           id: a.id, type: a.type, description: a.description,
           timestamp: a.occurred_at,
+          occurredAt: a.occurred_at,
+          createdAt: a.created_at,
+          updatedAt: a.updated_at ?? null,
+          metadata: (a.metadata as Record<string, any>) ?? {},
           agent: owner.name === "Sin asignar" ? "Sistema" : owner.name,
           agentInitials: owner.initials === "—" ? "•" : owner.initials,
           agentId: a.agent_id ?? null,
@@ -516,16 +530,24 @@ export function useCreateContactActivity(contactId: string | undefined) {
   const { data: tenantId } = useTenantId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { type: ManualActivityType; description: string; dealId?: string | null }) => {
+    mutationFn: async (input: {
+      type: ManualActivityType;
+      description: string;
+      dealId?: string | null;
+      occurredAt?: string;
+      metadata?: Record<string, any>;
+    }) => {
       if (!tenantId || !contactId) throw new Error("Tenant o contacto no disponible");
       const { data: auth } = await supabase.auth.getUser();
-      const { error } = await supabase.from("activities").insert({
+      const { error } = await (supabase as any).from("activities").insert({
         tenant_id: tenantId,
         contact_id: contactId,
         deal_id: input.dealId ?? null,
         agent_id: auth.user?.id ?? null,
         type: input.type,
         description: input.description,
+        occurred_at: input.occurredAt ?? new Date().toISOString(),
+        metadata: input.metadata ?? {},
       });
       if (error) throw error;
       // touch contact.last_activity_at
@@ -538,6 +560,28 @@ export function useCreateContactActivity(contactId: string | undefined) {
       qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
       qc.invalidateQueries({ queryKey: ["contact", contactId] });
     },
+  });
+}
+
+export function useUpdateContactActivity(contactId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      description?: string;
+      occurredAt?: string;
+      metadata?: Record<string, any>;
+      type?: ManualActivityType;
+    }) => {
+      const patch: any = {};
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.occurredAt !== undefined) patch.occurred_at = input.occurredAt;
+      if (input.metadata !== undefined) patch.metadata = input.metadata;
+      if (input.type !== undefined) patch.type = input.type;
+      const { error } = await (supabase as any).from("activities").update(patch).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contact-activity", contactId] }),
   });
 }
 
