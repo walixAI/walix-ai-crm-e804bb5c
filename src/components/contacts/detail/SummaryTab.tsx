@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send, Phone, RefreshCw } from "lucide-react";
+import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send, Phone, RefreshCw, Users, Mail } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/format/relativeTime";
@@ -8,12 +8,16 @@ import { useContactSuggestions } from "@/lib/queries/contacts";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { cn } from "@/lib/utils";
 
-const iconMap = {
+const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
   wa_sent: { Icon: MessageCircle, bg: "bg-success/10", color: "text-success" },
   wa_received: { Icon: MessageCircle, bg: "bg-info/10", color: "text-info" },
   note: { Icon: StickyNote, bg: "bg-info/10", color: "text-info" },
   deal: { Icon: KanbanSquare, bg: "bg-primary/10", color: "text-primary" },
   task: { Icon: CheckCircle2, bg: "bg-muted", color: "text-muted-foreground" },
+  call: { Icon: Phone, bg: "bg-success/10", color: "text-success" },
+  meeting: { Icon: Users, bg: "bg-primary/10", color: "text-primary" },
+  email: { Icon: Mail, bg: "bg-info/10", color: "text-info" },
+  manual: { Icon: MessageCircle, bg: "bg-muted", color: "text-muted-foreground" },
 };
 
 interface Props { contact: ContactRow; onWhatsApp: () => void; activity: ActivityRow[] }
@@ -85,7 +89,7 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
         <div className="relative">
           <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
           {recent.map(a => {
-            const { Icon, bg, color } = iconMap[a.type];
+            const { Icon, bg, color } = iconMap[a.type] ?? iconMap.manual;
             return (
               <div key={a.id} className="relative flex gap-4 pb-4 last:pb-0">
                 <div className={cn("relative z-10 h-9 w-9 rounded-full grid place-items-center shrink-0", bg)}>
