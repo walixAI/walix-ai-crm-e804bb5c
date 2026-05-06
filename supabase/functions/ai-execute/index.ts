@@ -343,8 +343,8 @@ Deno.serve(async (req) => {
       }
       case "create_contact": {
         if (typeof p.name !== "string" || !p.name.trim()) return bad(400, "name requerido");
-        if (typeof p.phone !== "string" || !p.phone.trim()) return bad(400, "phone requerido");
-        const ins: any = { tenant_id: tenantId, name: p.name.trim(), phone: p.phone.trim() };
+        const ins: any = { tenant_id: tenantId, name: p.name.trim(), owner_id: userId };
+        if (typeof p.phone === "string" && p.phone.trim() !== "") ins.phone = p.phone.trim();
         for (const k of ["last_name", "email", "company", "position"]) {
           if (typeof p[k] === "string" && p[k].trim() !== "") ins[k] = p[k];
         }
