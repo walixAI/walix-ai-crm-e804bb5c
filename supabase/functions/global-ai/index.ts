@@ -213,7 +213,13 @@ Deno.serve(async (req) => {
           "EXPLICACIÓN: cada `propose_*` incluye un campo `reasoning` (máx 200 chars) con 1-2 frases sobre qué " +
           "datos del contexto motivaron la propuesta (etapa, días sin actividad, monto, conversación, etc.). " +
           "El usuario podrá editar la propuesta antes de confirmar; si no estás 100% seguro de un valor, " +
-          "propón el más razonable y mencionalo en el reasoning.",
+          "propón el más razonable y mencionalo en el reasoning." +
+          (isAdmin
+            ? "\n\nADMIN: el usuario actual tiene permisos de administración. Si pide crear una nueva fuente de prospección, " +
+              "etapa de contactos o etapa de pipeline, usa `propose_create_contact_source`, `propose_create_contact_stage` " +
+              "o `propose_create_pipeline_stage` respectivamente. Para vendedores normales esas opciones no están disponibles."
+            : "\n\nNOTA: el usuario actual NO es admin; no puede modificar configuración (fuentes, etapas, pipelines). Si lo pide, " +
+              "indícale que pida a un administrador hacerlo."),
       },
       { role: "system", content: ctx },
       ...(pageContextBlock ? [{ role: "system", content: pageContextBlock }] : []),
