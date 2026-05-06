@@ -31,6 +31,8 @@ const SuperAdmin = lazy(() => import("@/pages/app/SuperAdmin"));
 const Organization = lazy(() => import("@/pages/app/Organization"));
 const Platform = lazy(() => import("@/pages/app/Platform"));
 const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
+const Tasks = lazy(() => import("@/pages/app/Tasks"));
+const Profile = lazy(() => import("@/pages/app/Profile"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +68,8 @@ const AppRoutes = () => {
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/contacts/:id" element={<ContactDetail />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/whatsapp" element={<Whatsapp />} />
         <Route path="/ai-inbox" element={<AiInbox />} />
         <Route path="/reports" element={<Reports />} />

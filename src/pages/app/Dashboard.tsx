@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DashboardAiSection } from "@/components/walix/DashboardAiSection";
 import { KpiCardsSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
+import { TaskCards } from "@/components/dashboard/TaskCards";
 
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
@@ -174,6 +175,9 @@ export default function Dashboard() {
 
       {/* AI Intelligence section: health, opportunities, risks, summary, weekly report */}
       <DashboardAiSection />
+
+      {/* Tareas vencidas + próximas */}
+      <TaskCards />
 
       {/* Row 2: Activity (2/3) + AI Insights (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

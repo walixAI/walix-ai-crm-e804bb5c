@@ -184,7 +184,7 @@ export function TopBar() {
             <div className="text-xs text-muted-foreground font-normal truncate">{user?.email}</div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem><UserIcon className="h-4 w-4 mr-2" /> Perfil</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/profile")}><UserIcon className="h-4 w-4 mr-2" /> Perfil</DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => window.dispatchEvent(new CustomEvent("walix:restart-tour"))}
           >

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/format/relativeTime";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
 import { useContactSuggestions } from "@/lib/queries/contacts";
-import { LogActivityDialog } from "@/components/contacts/detail/dialogs/LogActivityDialog";
+import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { cn } from "@/lib/utils";
 
 const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
@@ -25,21 +25,21 @@ interface Props { contact: ContactRow; onWhatsApp: () => void; activity: Activit
 export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
   const { data: suggestions, source } = useContactSuggestions(contact.id);
   const [index, setIndex] = useState(0);
-  const [logOpen, setLogOpen] = useState(false);
-  const [defaultDesc, setDefaultDesc] = useState<string | undefined>(undefined);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState<string | undefined>(undefined);
   const top = suggestions[index % Math.max(suggestions.length, 1)];
   const recent = activity.slice(0, 5);
 
   const handlePrimary = () => {
     if (!top) return onWhatsApp();
     if (top.action === "whatsapp") return onWhatsApp();
-    setDefaultDesc(top.taskTitle ?? `Llamar a ${contact.name}`);
-    setLogOpen(true);
+    setTaskTitle(top.taskTitle ?? `Llamar a ${contact.name}`);
+    setTaskOpen(true);
   };
 
   const handleScheduleCall = () => {
-    setDefaultDesc(`Llamada con ${contact.name}`);
-    setLogOpen(true);
+    setTaskTitle(`Llamada con ${contact.name}`);
+    setTaskOpen(true);
   };
 
   return (
@@ -90,13 +90,21 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
           <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
           {recent.map(a => {
             const { Icon, bg, color } = iconMap[a.type] ?? iconMap.manual;
+            const isTask = a.type === "task";
+            const completed = !!a.metadata?.completed;
+            const due = a.metadata?.dueAt as string | undefined;
+            const overdue = isTask && !completed && due && new Date(due).getTime() < Date.now();
             return (
               <div key={a.id} className="relative flex gap-4 pb-4 last:pb-0">
                 <div className={cn("relative z-10 h-9 w-9 rounded-full grid place-items-center shrink-0", bg)}>
                   <Icon className={cn("h-4 w-4", color)} />
                 </div>
                 <div className="flex-1 pt-1.5">
-                  <div className="text-sm">{a.description}</div>
+                  <div className={cn("text-sm", isTask && completed && "line-through text-muted-foreground")}>
+                    {isTask ? "Tarea: " : ""}{a.description}
+                    {isTask && completed && <span className="ml-2 text-[10px] uppercase text-success">completada</span>}
+                    {overdue && <span className="ml-2 text-[10px] uppercase text-destructive">vencida</span>}
+                  </div>
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                     <Avatar className="h-4 w-4"><AvatarFallback className="text-[8px] bg-muted">{a.agentInitials}</AvatarFallback></Avatar>
                     <span>{a.agent}</span><span>·</span><span>{relativeTime(a.timestamp)}</span>
@@ -111,12 +119,11 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
         </div>
       </div>
 
-      <LogActivityDialog
-        open={logOpen}
-        onOpenChange={setLogOpen}
+      <QuickTaskDialog
+        open={taskOpen}
         contactId={contact.id}
-        kind="call"
-        defaultDescription={defaultDesc}
+        defaultTitle={taskTitle}
+        onClose={() => setTaskOpen(false)}
       />
     </div>
   );

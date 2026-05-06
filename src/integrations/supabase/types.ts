@@ -1166,10 +1166,18 @@ export type Database = {
           full_name: string | null
           id: string
           is_active: boolean
+          job_title: string | null
           last_seen_at: string | null
+          locale: string
+          notification_prefs: Json
           onboarded: boolean
+          phone: string | null
+          reminder_hour: number
+          signature: string | null
           tenant_id: string | null
+          timezone: string
           updated_at: string
+          wa_greeting: string | null
         }
         Insert: {
           active_tenant_id?: string | null
@@ -1179,10 +1187,18 @@ export type Database = {
           full_name?: string | null
           id: string
           is_active?: boolean
+          job_title?: string | null
           last_seen_at?: string | null
+          locale?: string
+          notification_prefs?: Json
           onboarded?: boolean
+          phone?: string | null
+          reminder_hour?: number
+          signature?: string | null
           tenant_id?: string | null
+          timezone?: string
           updated_at?: string
+          wa_greeting?: string | null
         }
         Update: {
           active_tenant_id?: string | null
@@ -1192,10 +1208,18 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean
+          job_title?: string | null
           last_seen_at?: string | null
+          locale?: string
+          notification_prefs?: Json
           onboarded?: boolean
+          phone?: string | null
+          reminder_hour?: number
+          signature?: string | null
           tenant_id?: string | null
+          timezone?: string
           updated_at?: string
+          wa_greeting?: string | null
         }
         Relationships: [
           {
