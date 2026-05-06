@@ -21,9 +21,12 @@ export interface ContactRow {
   phone: string;
   email: string | null;
   company: string | null;
+  companyId: string | null;
   position: string | null;
   status: LeadStatus;
+  stageId: string | null;
   source: Source;
+  sourceId: string | null;
   tags: string[];
   ownerId: string | null;
   ownerName: string;
@@ -45,12 +48,15 @@ function mapContact(r: any, users?: TenantUser[]): ContactRow {
     id: r.id,
     name: r.name,
     lastName: r.last_name,
-    phone: r.phone,
+    phone: r.phone ?? "",
     email: r.email,
     company: r.company,
+    companyId: r.company_id ?? null,
     position: r.position,
     status: r.status,
+    stageId: r.stage_id ?? null,
     source: r.source,
+    sourceId: r.source_id ?? null,
     tags: r.tags ?? [],
     ownerId: r.owner_id,
     ownerName: owner.name,
