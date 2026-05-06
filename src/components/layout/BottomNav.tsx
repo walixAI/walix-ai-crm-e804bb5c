@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, MoreHorizontal,
-  BarChart3, Sparkles, Zap, Store, Settings as SettingsIcon,
+  BarChart3, Sparkles, Zap, Store, Settings as SettingsIcon, CheckSquare, User as UserIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -15,6 +15,8 @@ const primary = [
 ];
 
 const more = [
+  { to: "/tasks", label: "Tareas", icon: CheckSquare },
+  { to: "/profile", label: "Mi perfil", icon: UserIcon },
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/ai-inbox", label: "AI Inbox", icon: Sparkles },
   { to: "/automations", label: "Automatizaciones", icon: Zap },
