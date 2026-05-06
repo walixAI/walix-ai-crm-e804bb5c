@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/format/relativeTime";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
 import { useContactSuggestions } from "@/lib/queries/contacts";
-import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { LogActivityDialog } from "@/components/contacts/detail/dialogs/LogActivityDialog";
 import { cn } from "@/lib/utils";
 
 const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
@@ -25,21 +25,21 @@ interface Props { contact: ContactRow; onWhatsApp: () => void; activity: Activit
 export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
   const { data: suggestions, source } = useContactSuggestions(contact.id);
   const [index, setIndex] = useState(0);
-  const [taskOpen, setTaskOpen] = useState(false);
-  const [taskTitle, setTaskTitle] = useState<string | undefined>(undefined);
+  const [logOpen, setLogOpen] = useState(false);
+  const [defaultDesc, setDefaultDesc] = useState<string | undefined>(undefined);
   const top = suggestions[index % Math.max(suggestions.length, 1)];
   const recent = activity.slice(0, 5);
 
   const handlePrimary = () => {
     if (!top) return onWhatsApp();
     if (top.action === "whatsapp") return onWhatsApp();
-    setTaskTitle(top.taskTitle ?? `Llamar a ${contact.name}`);
-    setTaskOpen(true);
+    setDefaultDesc(top.taskTitle ?? `Llamar a ${contact.name}`);
+    setLogOpen(true);
   };
 
   const handleScheduleCall = () => {
-    setTaskTitle(`Llamar a ${contact.name}`);
-    setTaskOpen(true);
+    setDefaultDesc(`Llamada con ${contact.name}`);
+    setLogOpen(true);
   };
 
   return (
@@ -111,11 +111,12 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
         </div>
       </div>
 
-      <QuickTaskDialog
-        open={taskOpen}
+      <LogActivityDialog
+        open={logOpen}
+        onOpenChange={setLogOpen}
         contactId={contact.id}
-        defaultTitle={taskTitle}
-        onClose={() => setTaskOpen(false)}
+        kind="call"
+        defaultDescription={defaultDesc}
       />
     </div>
   );
