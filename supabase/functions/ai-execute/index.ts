@@ -379,6 +379,7 @@ Deno.serve(async (req) => {
           name: p.name.trim(),
           amount: p.amount,
           probability: typeof p.probability === "number" ? Math.max(0, Math.min(100, Math.round(p.probability))) : stageProb,
+          owner_id: userId,
         };
         if (stageId) ins.stage_id = stageId;
         if (stageName) ins.stage_name = stageName;
