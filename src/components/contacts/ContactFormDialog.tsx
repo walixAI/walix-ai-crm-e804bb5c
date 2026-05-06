@@ -45,11 +45,10 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
 
   const handleSave = async (openWA: boolean) => {
     if (!name.trim()) { toast.error("El nombre es obligatorio"); return; }
-    if (!editing && !phone.trim()) { toast.error("El teléfono es obligatorio"); return; }
     const patch = {
       name: name.trim(),
       last_name: lastName.trim() || null,
-      phone: phone.trim(),
+      phone: phone.trim() || null,
       email: email.trim() || null,
       company: company.trim() || null,
       position: position.trim() || null,
@@ -90,7 +89,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Hernández" />
           </div>
           <div className="col-span-2 sm:col-span-1">
-            <Label>Teléfono {editing ? "" : "*"}</Label>
+            <Label>Teléfono</Label>
             <div className="flex gap-2">
               <div className="h-10 px-3 rounded-md border border-input bg-muted/50 flex items-center text-sm font-medium">🇲🇽 +52</div>
               <Input className="flex-1" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="55 1234 5678" />
@@ -143,7 +142,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
           <Button variant="secondary" onClick={() => handleSave(false)} disabled={create.isPending || update.isPending}>
             <Save className="h-4 w-4" /> {editing ? "Guardar cambios" : "Solo guardar"}
           </Button>
-          {!editing && (
+          {!editing && phone.trim() && (
             <Button onClick={() => handleSave(true)} disabled={create.isPending} className="bg-success hover:bg-success/90 text-success-foreground">
               <MessageCircle className="h-4 w-4" /> Guardar y abrir WhatsApp
             </Button>
