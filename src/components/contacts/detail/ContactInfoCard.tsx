@@ -75,12 +75,13 @@ export function ContactInfoCard({ contact }: Props) {
           <Select
             value={contact.sourceId ?? ""}
             onValueChange={(v) => {
-              const src = sources.find((s) => s.id === v);
-              save({ source_id: v || null, source: src?.name ?? contact.source });
+              save({ source_id: v || null });
             }}
           >
             <SelectTrigger className="h-7 text-xs flex-1 border-0 bg-transparent shadow-none px-1 hover:bg-muted/50">
-              <SelectValue placeholder={contact.source} />
+              <SelectValue placeholder={
+                sources.find((s) => s.id === contact.sourceId)?.name ?? contact.source ?? "Sin fuente"
+              } />
             </SelectTrigger>
             <SelectContent>
               {sources.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
