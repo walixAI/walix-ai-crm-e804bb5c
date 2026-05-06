@@ -93,6 +93,107 @@ export function useContact(id: string | undefined) {
   });
 }
 
+// ===== CRUD mutations =====
+
+export interface ContactInput {
+  name?: string;
+  last_name?: string | null;
+  phone?: string;
+  email?: string | null;
+  company?: string | null;
+  position?: string | null;
+  status?: LeadStatus;
+  source?: Source;
+  tags?: string[];
+  owner_id?: string | null;
+}
+
+export function useCreateContact() {
+  const { data: tenantId } = useTenantId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ContactInput & { name: string; phone: string }) => {
+      if (!tenantId) throw new Error("Sin tenant");
+      const { data, error } = await supabase
+        .from("contacts")
+        .insert({ tenant_id: tenantId, ...input })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id as string;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
+export function useUpdateContact() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: ContactInput }) => {
+      const { error } = await supabase.from("contacts").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, { id }) => {
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["contact", id] });
+    },
+  });
+}
+
+export function useDeleteContact() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("contacts").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
+export function useBulkUpdateContacts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, patch }: { ids: string[]; patch: ContactInput }) => {
+      const { error } = await supabase.from("contacts").update(patch).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
+/**
+ * Adds tags (union) to many contacts in one go. Reads current tags first to merge.
+ */
+export function useBulkAddTags() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, tags }: { ids: string[]; tags: string[] }) => {
+      if (ids.length === 0 || tags.length === 0) return;
+      const { data, error } = await supabase.from("contacts").select("id, tags").in("id", ids);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        const merged = Array.from(new Set([...(row.tags ?? []), ...tags]));
+        const { error: uerr } = await supabase.from("contacts").update({ tags: merged }).eq("id", row.id);
+        if (uerr) throw uerr;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
+export function useBulkDeleteContacts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const { error } = await supabase.from("contacts").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
 export interface DealRow {
   id: string;
   name: string;

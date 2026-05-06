@@ -3,15 +3,15 @@ import { ArrowLeft, MessageCircle, PanelLeft, KanbanSquare } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { relativeTime } from "@/lib/format/relativeTime";
 import {
   useContact, useContactDeals, useContactActivity,
-  useContactConversations, useContactStats, useContactTasks,
+  useContactConversations, useContactTasks,
 } from "@/lib/queries/contacts";
+import { relativeTime } from "@/lib/format/relativeTime";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
-import { ContactStatsBar } from "@/components/contacts/detail/ContactStatsBar";
-import { InfoSidePanel } from "@/components/contacts/detail/InfoSidePanel";
+import { ContactInfoCard } from "@/components/contacts/detail/ContactInfoCard";
+import { CompanyCard } from "@/components/contacts/detail/CompanyCard";
 import { DealsSidePanel } from "@/components/contacts/detail/DealsSidePanel";
 import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
@@ -27,7 +27,6 @@ export default function ContactDetail() {
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
   const { data: tasks = [] } = useContactTasks(id);
-  const stats = useContactStats(id, contact?.lastActivity, contact?.createdAt);
 
   if (isLoading) {
     return <div className="p-6"><ContactDetailSkeleton /></div>;
@@ -54,18 +53,12 @@ export default function ContactDetail() {
       </Link>
 
       <ContactHeader contact={contact} onWhatsApp={openWA} />
-      <ContactStatsBar stats={{
-        pipelineValue: stats.pipelineValue,
-        probability: stats.probability,
-        lastContactRelative: stats.lastContactAt ? relativeTime(stats.lastContactAt) : "—",
-        customerSince: stats.customerSince,
-      }} />
 
       {/* Mobile: paneles como sheets */}
       <div className="flex gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><PanelLeft className="h-4 w-4" /> Info</Button></SheetTrigger>
-          <SheetContent side="left" className="w-[300px]"><div className="mt-6"><InfoSidePanel contact={contact} /></div></SheetContent>
+          <SheetContent side="left" className="w-[300px]"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><CompanyCard contact={contact} /></div></SheetContent>
         </Sheet>
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Deals</Button></SheetTrigger>
@@ -76,8 +69,9 @@ export default function ContactDetail() {
       {/* Layout 3 columnas (desktop) */}
       <div className="grid gap-4 lg:grid-cols-[256px_1fr_256px]">
         <aside className="hidden lg:block">
-          <div className="sticky top-4">
-            <InfoSidePanel contact={contact} />
+          <div className="sticky top-4 space-y-2">
+            <ContactInfoCard contact={contact} />
+            <CompanyCard contact={contact} />
           </div>
         </aside>
 
