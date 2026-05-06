@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   Plus, Upload, Download, LayoutGrid, List, Search, Filter, X,
   MessageCircle, Edit, MoreHorizontal, ChevronUp, ChevronDown, Save,
-  Tag, UserCheck, Send, Trash2, ChevronLeft, ChevronRight, Sparkles
+  Tag, UserCheck, Send, Trash2, ChevronLeft, ChevronRight, Sparkles, KanbanSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,16 @@ import { relativeTime } from "@/lib/format/relativeTime";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useContactTags } from "@/lib/queries/contactTags";
 import { useContacts } from "@/lib/queries/contacts";
+import { useDeleteContact, useUpdateContact } from "@/lib/queries/contacts";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
 import { FirstContactAIBanner } from "@/components/contacts/FirstContactAIBanner";
+import { BulkActionsInline } from "@/components/contacts/BulkActionsInline";
+import { ContactsKanban } from "@/components/contacts/ContactsKanban";
+import { ReassignPopover } from "@/components/contacts/ReassignPopover";
+import { ChangeStatusPopover } from "@/components/contacts/ChangeStatusPopover";
+import { TagsPopover } from "@/components/contacts/TagsPopover";
+import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import { TableSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
@@ -38,7 +45,7 @@ export default function Contacts() {
   const [searchParams, setSearchParams] = useSearchParams();
   const firstRunParam = searchParams.get("firstRun") === "1";
   const [showFirstRun, setShowFirstRun] = useState(firstRunParam);
-  const [view, setView] = useState<"list" | "canvas">("list");
+  const [view, setView] = useState<"list" | "kanban" | "cards">("list");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -54,6 +61,10 @@ export default function Contacts() {
   const [openNew, setOpenNew] = useState(false);
   const [openImport, setOpenImport] = useState(false);
   const [aiCollapsed, setAiCollapsed] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const updateContact = useUpdateContact();
+  const deleteContact = useDeleteContact();
 
   const { data: allContacts = [], isLoading } = useContacts();
   const { data: sellers = [] } = useTenantUsers();
@@ -131,6 +142,34 @@ export default function Contacts() {
     window.open(`https://wa.me/${clean}`, "_blank");
   };
 
+  const exportSelected = () => {
+    const ids = Array.from(selected);
+    const rows = allContacts.filter((c) => ids.includes(c.id));
+    const headers = ["nombre","apellido","telefono","email","empresa","cargo","status","fuente","etiquetas","vendedor"];
+    const csv = [headers.join(",")].concat(
+      rows.map((c) => [
+        c.name, c.lastName ?? "", c.phone, c.email ?? "", c.company ?? "",
+        c.position ?? "", c.status, c.source, (c.tags ?? []).join("|"), c.ownerName,
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")),
+    ).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `contactos-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${rows.length} contactos exportados`);
+  };
+
+  const rowReassign = (id: string, ownerId: string | null) =>
+    updateContact.mutate({ id, patch: { owner_id: ownerId } }, { onSuccess: () => toast.success("Reasignado") });
+  const rowStatus = (id: string, status: any) =>
+    updateContact.mutate({ id, patch: { status } }, { onSuccess: () => toast.success(`Status: ${status}`) });
+  const rowToggleTag = (c: any, tag: string, checked: boolean) => {
+    const tags = checked ? Array.from(new Set([...(c.tags ?? []), tag])) : (c.tags ?? []).filter((t: string) => t !== tag);
+    updateContact.mutate({ id: c.id, patch: { tags } });
+  };
+
   return (
     <div className="flex gap-6 max-w-[1600px]">
       <div className="flex-1 min-w-0 space-y-4">
@@ -161,7 +200,8 @@ export default function Contacts() {
           </Button>
           <div className="ml-auto flex items-center gap-1 p-1 rounded-lg border border-border bg-card">
             <button onClick={() => setView("list")} className={cn("p-1.5 rounded-md transition-colors", view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}><List className="h-4 w-4" /></button>
-            <button onClick={() => setView("canvas")} className={cn("p-1.5 rounded-md transition-colors", view === "canvas" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}><LayoutGrid className="h-4 w-4" /></button>
+            <button onClick={() => setView("kanban")} className={cn("p-1.5 rounded-md transition-colors", view === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")} title="Kanban por status"><KanbanSquare className="h-4 w-4" /></button>
+            <button onClick={() => setView("cards")} className={cn("p-1.5 rounded-md transition-colors", view === "cards" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")} title="Tarjetas"><LayoutGrid className="h-4 w-4" /></button>
           </div>
         </div>
 
@@ -262,6 +302,13 @@ export default function Contacts() {
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Bulk actions inline (entre búsqueda y tabla) */}
+        <BulkActionsInline
+          selectedIds={Array.from(selected)}
+          onClear={() => setSelected(new Set())}
+          onExport={exportSelected}
+        />
+
         {/* Content */}
         {isLoading && allContacts.length === 0 ? (
           view === "list"
@@ -282,6 +329,13 @@ export default function Contacts() {
             description="Importa un CSV o crea un contacto manual para empezar a vender por WhatsApp."
             action={{ label: "+ Nuevo Contacto", onClick: () => setOpenNew(true) }}
             secondaryAction={{ label: "Importar CSV", onClick: () => setOpenImport(true) }}
+          />
+        ) : view === "kanban" ? (
+          <ContactsKanban
+            contacts={filtered}
+            selected={selected}
+            onToggleSelect={toggleOne}
+            onWhatsApp={openWA}
           />
         ) : view === "list" ? (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -336,10 +390,23 @@ export default function Contacts() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Ver detalle</DropdownMenuItem>
-                              <DropdownMenuItem>Reasignar</DropdownMenuItem>
-                              <DropdownMenuItem>Etiquetar</DropdownMenuItem>
-                              <DropdownMenuItem className="text-danger">Eliminar</DropdownMenuItem>
+                              <DropdownMenuItem asChild><Link to={`/contacts/${c.id}`}>Ver detalle</Link></DropdownMenuItem>
+                              <ReassignPopover
+                                currentOwnerId={c.ownerId}
+                                onSelect={(uid) => rowReassign(c.id, uid)}
+                                trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Reasignar</DropdownMenuItem>}
+                              />
+                              <ChangeStatusPopover
+                                current={c.status}
+                                onSelect={(s) => rowStatus(c.id, s)}
+                                trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Cambiar status</DropdownMenuItem>}
+                              />
+                              <TagsPopover
+                                current={c.tags}
+                                onToggle={(t, ck) => rowToggleTag(c, t, ck)}
+                                trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Etiquetar</DropdownMenuItem>}
+                              />
+                              <DropdownMenuItem className="text-danger" onSelect={() => setDeleteId(c.id)}>Eliminar</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -423,24 +490,23 @@ export default function Contacts() {
         </div>
       </aside>
 
-      {/* Bulk actions floating bar */}
-      {selected.size > 0 && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-4">
-          <div className="flex items-center gap-1 px-3 py-2 rounded-2xl bg-foreground text-background shadow-glow border border-border">
-            <span className="text-sm font-medium px-2"><strong>{selected.size}</strong> seleccionados</span>
-            <div className="h-5 w-px bg-background/20 mx-1" />
-            <Button variant="ghost" size="sm" className="text-background hover:bg-background/10 hover:text-background h-8"><UserCheck className="h-3.5 w-3.5" /> Reasignar</Button>
-            <Button variant="ghost" size="sm" className="text-background hover:bg-background/10 hover:text-background h-8"><Tag className="h-3.5 w-3.5" /> Etiquetar</Button>
-            <Button variant="ghost" size="sm" className="text-background hover:bg-background/10 hover:text-background h-8"><Send className="h-3.5 w-3.5" /> WA masivo</Button>
-            <Button variant="ghost" size="sm" className="text-background hover:bg-background/10 hover:text-background h-8"><Download className="h-3.5 w-3.5" /> Exportar</Button>
-            <Button variant="ghost" size="sm" className="text-danger hover:bg-danger/20 hover:text-danger h-8"><Trash2 className="h-3.5 w-3.5" /></Button>
-            <button onClick={() => setSelected(new Set())} className="ml-1 text-background/60 hover:text-background p-1"><X className="h-4 w-4" /></button>
-          </div>
-        </div>
-      )}
-
       <ContactFormDialog open={openNew} onOpenChange={setOpenNew} />
       <ImportCsvDialog open={openImport} onOpenChange={setOpenImport} />
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="¿Eliminar este contacto?"
+        description="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={deleteContact.isPending}
+        onConfirm={() => {
+          if (!deleteId) return;
+          deleteContact.mutate(deleteId, {
+            onSuccess: () => { toast.success("Contacto eliminado"); setDeleteId(null); },
+          });
+        }}
+      />
     </div>
   );
 }
