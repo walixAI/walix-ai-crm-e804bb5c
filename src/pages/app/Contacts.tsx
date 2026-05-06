@@ -72,6 +72,22 @@ export default function Contacts() {
   const { data: sellers = [] } = useTenantUsers();
   const { data: tagList = [] } = useContactTags();
 
+  const { data: aiSuggestionsList = [] } = useQuery({
+    queryKey: ["contacts-ai-suggestions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_suggestions")
+        .select("id, text, contact_id, created_at")
+        .eq("dismissed", false)
+        .not("contact_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []).map((s: any) => ({ id: s.id, text: s.text, contactId: s.contact_id }));
+    },
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
     return () => clearTimeout(t);
