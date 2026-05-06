@@ -42,7 +42,6 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, onClose }
 
   async function save() {
     if (!tenantId) return;
-    if (!deal && !contactId) return;
     const parsed = schema.safeParse({ title, due });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setLoading(true);
