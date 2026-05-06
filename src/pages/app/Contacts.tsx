@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   Plus, Upload, Download, LayoutGrid, List, Search, Filter, X,
   MessageCircle, Edit, MoreHorizontal, ChevronUp, ChevronDown, Save,
-  Tag, UserCheck, Send, Trash2, ChevronLeft, ChevronRight, Sparkles, KanbanSquare
+  ChevronLeft, ChevronRight, Sparkles, KanbanSquare, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

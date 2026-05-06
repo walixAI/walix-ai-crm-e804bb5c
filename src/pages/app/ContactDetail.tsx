@@ -3,11 +3,11 @@ import { ArrowLeft, MessageCircle, PanelLeft, KanbanSquare } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { relativeTime } from "@/lib/format/relativeTime";
 import {
   useContact, useContactDeals, useContactActivity,
-  useContactConversations, useContactStats, useContactTasks,
+  useContactConversations, useContactTasks,
 } from "@/lib/queries/contacts";
+import { relativeTime } from "@/lib/format/relativeTime";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
 import { ContactInfoCard } from "@/components/contacts/detail/ContactInfoCard";
