@@ -477,7 +477,7 @@ export type Database = {
           owner_id: string | null
           phone: string | null
           position: string | null
-          source: Database["public"]["Enums"]["lead_source"]
+          source: string
           source_id: string | null
           stage_id: string | null
           status: Database["public"]["Enums"]["lead_status"]
@@ -498,7 +498,7 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           position?: string | null
-          source?: Database["public"]["Enums"]["lead_source"]
+          source?: string
           source_id?: string | null
           stage_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
@@ -519,7 +519,7 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           position?: string | null
-          source?: Database["public"]["Enums"]["lead_source"]
+          source?: string
           source_id?: string | null
           stage_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
@@ -648,7 +648,7 @@ export type Database = {
           notes: string | null
           owner_id: string | null
           probability: number
-          source: Database["public"]["Enums"]["lead_source"]
+          source: string
           stage_id: string | null
           stage_name: string | null
           tenant_id: string
@@ -668,7 +668,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string | null
           probability?: number
-          source?: Database["public"]["Enums"]["lead_source"]
+          source?: string
           stage_id?: string | null
           stage_name?: string | null
           tenant_id: string
@@ -688,7 +688,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string | null
           probability?: number
-          source?: Database["public"]["Enums"]["lead_source"]
+          source?: string
           stage_id?: string | null
           stage_name?: string | null
           tenant_id?: string
