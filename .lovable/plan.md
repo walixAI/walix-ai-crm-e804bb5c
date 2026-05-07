@@ -1,100 +1,129 @@
-## Resumen
-Conectar la memoria persistente de IA (`ai_proactive_suggestions` + `ai_entity_context`) a la UI: nuevo briefing matutino, panel de sugerencias proactivas, panel lateral con contexto real en Contactos/Deals e indicadores de urgencia en cards/listas.
+
+# Implementación del Copiloto IA con Tool Use
+
+Decisiones confirmadas:
+- Provider: **Gemini 2.5 Pro vía Lovable AI Gateway** (sin secrets nuevos).
+- Historial persistente en `ai_conversation_history` desde el inicio.
+- Incluye las 3 limpiezas pendientes.
+- **Sin backfill** de eventos WA históricos — solo nuevos eventos quedan normalizados.
 
 ---
 
-## Recomendaciones guardadas (del prompt anterior, pendientes de aplicar después)
-1. Configurar Database Webhook en Cloud → Database → Webhooks: tabla `ai_memory_events`, evento `INSERT`, target `ai-context-updater`. (No automatizable desde código; requiere acción del usuario en el panel).
-2. Agregar `logEvent('contact', id, 'note_added', …)` donde se crean notas/actividades del contacto.
-3. Normalizar WhatsApp para que `logEvent` registre también `entity_type='contact'` (resolviendo `contact_id` desde la conversación), de modo que el resumen del contacto incluya actividad de WhatsApp.
+## 1. Migración: tabla `ai_conversation_history`
 
-(Estos puntos quedan registrados; se aplicarán en un prompt posterior.)
+```text
+ai_conversation_history
+├─ id              uuid pk
+├─ tenant_id       uuid (fk tenants)
+├─ user_id         uuid (fk auth.users)
+├─ conversation_key text         ej. "deal:UUID", "contact:UUID", "global"
+├─ role            text          ('user' | 'assistant' | 'tool')
+├─ content         jsonb         mensaje completo (incluye tool_calls / tool_results)
+├─ created_at      timestamptz default now()
+└─ index (tenant_id, user_id, conversation_key, created_at desc)
+```
+
+RLS:
+- SELECT/INSERT: usuario autenticado donde `user_id = auth.uid()` y `tenant_id = get_user_tenant(auth.uid())`.
+- Sin UPDATE/DELETE desde cliente.
+
+## 2. Edge Function nueva: `supabase/functions/ai-copilot/index.ts`
+
+- `verify_jwt = true` (registrado en `supabase/config.toml`).
+- Modelo: `google/gemini-2.5-pro` vía AI Gateway (OpenAI-compatible, soporta `tools` y `tool_choice`).
+- Define `CRM_TOOLS` (formato OpenAI function calling):
+  1. `get_pipeline_status` — KPIs del pipeline activo.
+  2. `search_contacts(query, limit)` — busca por nombre/teléfono/email.
+  3. `get_contact_context(contact_id)` — lee `ai_entity_context` + últimos eventos.
+  4. `create_contact(name, phone, email?, source?)`.
+  5. `create_deal(contact_id, title, amount, stage_id?)`.
+  6. `move_deal_stage(deal_id, stage_id, reason?)`.
+  7. `add_note(entity_type, entity_id, text)`.
+  8. `create_task(entity_type, entity_id, title, due_at?)`.
+  9. `prepare_whatsapp_message(contact_id, draft)` — **NO envía**, solo retorna preview para confirmación humana.
+- `executeTool(name, args, supabaseUserClient)`: switch que ejecuta cada tool con cliente Supabase usando JWT del usuario (respeta RLS).
+- **Loop agéntico** (máx 5 iteraciones):
+  ```
+  while (response.choices[0].finish_reason === 'tool_calls') {
+    push assistant tool_calls → messages
+    for each tool_call: execute → push tool result → messages
+    re-call gateway
+  }
+  ```
+- `buildSystemPrompt(ctx)` inyecta:
+  - Rol y nombre del usuario, tenant.
+  - Pipeline activo + stages.
+  - Hora local `America/Mexico_City`.
+  - `ai_entity_context` de la entidad activa (si viene `conversation_key`).
+  - Top 3 sugerencias proactivas pendientes.
+  - **Regla de oro**: WhatsApp nunca se envía sola; siempre `prepare_whatsapp_message` y esperar confirmación.
+- Persistencia: tras cada turno, INSERT en `ai_conversation_history` (mensaje del user, assistant final, y cada tool call/result).
+- Manejo errores: 429 → "Rate limit"; 402 → "Sin créditos en Lovable AI"; pasar mensaje claro al cliente.
+
+## 3. Cliente: `src/services/ai.ts`
+
+- Nueva función pública `runCopilot({ message, conversationKey, entityType?, entityId? })`.
+- Retorna `CopilotTurn`:
+  ```ts
+  { text: string;
+    toolsUsed: { name: string; args: any; result: any }[];
+    pendingWhatsapp?: { contact_id: string; draft: string };
+  }
+  ```
+- `askAi` actual queda intacto (Fase 1 sigue funcionando).
+
+## 4. Limpieza #1 — Database Webhook para `ai-context-updater`
+
+Migración con trigger PG:
+```sql
+CREATE TRIGGER ai_memory_events_after_insert
+AFTER INSERT ON ai_memory_events
+FOR EACH ROW EXECUTE FUNCTION net.http_post(
+  url := '<edge>/ai-context-updater',
+  headers := '{"Authorization":"Bearer <service_role>"}'::jsonb,
+  body := jsonb_build_object('entity_type', NEW.entity_type, 'entity_id', NEW.entity_id)
+);
+```
+Con `pg_net`. Si falla la extensión, fallback a `pg_cron` cada minuto procesando entidades con eventos nuevos.
+
+## 5. Limpieza #2 — `logEvent('contact', id, 'note_added', …)`
+
+Editar:
+- `src/components/contacts/detail/NotesTab.tsx`: tras `create.mutateAsync`, llamar `aiMemory.logEvent('contact', contactId, 'note_added', { length: t.length })`.
+- `src/components/contacts/detail/dialogs/LogActivityDialog.tsx`: para `note`, mismo log; para `call/meeting/email`, log con su `event_type` correspondiente.
+
+## 6. Limpieza #3 — Normalizar `entity_type` de WhatsApp (solo nuevos)
+
+En `supabase/functions/whatsapp-webhook/index.ts` y `whatsapp-send/index.ts`, tras resolver `contact_id` desde la conversación, escribir **dos eventos**:
+- `entity_type='conversation'`, `entity_id=conversation_id` (vista de hilo, comportamiento actual).
+- `entity_type='contact'`, `entity_id=contact_id` (alimenta contexto del contacto).
+
+Sin backfill; eventos antiguos quedan como están.
+
+## 7. `supabase/config.toml`
+
+Añadir bloque para `ai-copilot` con `verify_jwt = true`. Sin tocar otras funciones.
 
 ---
 
-## Cambios de este prompt
+## Lo que NO se toca
 
-### 1. Nuevo componente `MorningBriefing` (widget arriba del Dashboard)
-Archivo nuevo: `src/components/walix/MorningBriefing.tsx`.
+- `src/services/aiMemory.ts`, `useAiMemory`, `AiContextPanel`, `MorningBriefing`, `ProactiveBriefing`, `useEntityUrgency` (ya implementados).
+- `global-ai`, `ai-execute`, `dashboard-ai-widgets`, etc.
+- Esquema de `ai_memory_events` ni `ai_entity_context`.
 
-- Fondo `bg-gradient-to-br from-indigo-900 to-indigo-800`, texto blanco, `rounded-xl p-6`.
-- Saludo: `"Buenos días, {nombre}. Esto es lo más importante de hoy:"`.
-- Lista las 3 sugerencias con mayor `priority` desde `useProactiveSuggestions()`.
-- Pie: `+ Ver N sugerencias más →` (scroll/anchor al panel `ProactiveBriefing`).
-- Botón X: guarda `walix.morningBriefing.dismissed = YYYY-MM-DD` en `localStorage` y no vuelve a mostrarse hasta el siguiente día.
-- No se renderiza si no hay sugerencias o si ya fue cerrado hoy.
+## Riesgos
 
-Integración: insertar al inicio del JSX en `src/pages/app/Dashboard.tsx` (antes del bloque "Risk alert").
+- **Latencia**: tool loops pueden tardar 5–10s. Mostrar spinner con texto "Pensando…" / "Ejecutando acción…".
+- **RLS en tools**: cliente Supabase dentro del edge function debe usar el JWT del usuario (no service_role) para que las acciones respeten permisos.
+- **`pg_net`**: si no está habilitado en el proyecto, el webhook falla silente; verificar en migración con `CREATE EXTENSION IF NOT EXISTS pg_net`.
 
-### 2. Nuevo componente `ProactiveBriefing` (reemplaza el panel "Sugerencias del día")
-Archivo nuevo: `src/components/walix/ProactiveBriefing.tsx`.
+## Orden de ejecución
 
-- Header: `✨ Tu briefing de hoy` + texto `Actualizado hace X min` (calculado del `created_at` más reciente).
-- Sub-badge: `Gemini 2.5 Flash · N eventos procesados` (N = sugerencias activas; se usa Gemini porque Lovable AI Gateway no expone Claude — sustitución coherente con el contexto manager ya implementado).
-- Renderiza máx 5 sugerencias activas (ya filtradas por `getProactiveSuggestions`).
-- Cada card:
-  - Icono según `action_type`: 💬 `send_whatsapp`, 📊 `move_deal`, 📋 `create_task`, 🔔 `schedule_followup`, ⚠️ fallback.
-  - `suggestion_text` (clamp 2 líneas).
-  - Chip clickable de la entidad (`entity_type` + `entity_id`) que navega a `/contacts/:id`, `/pipeline?dealId=:id` o `/whatsapp?conversationId=:id`.
-  - Barra de urgencia con color: verde `priority<4`, amarillo `4–7`, rojo `>7` (mapeo desde `priority` 0–10).
-  - Botón primario según `action_type` (texto/icono variable).
-  - Botón X que llama `dismiss(id)`.
-- Al pulsar acción: llamar `actOn(id)` + navegar/abrir el destino + `toast.success("Acción registrada")`.
+1. Migración (tabla historial + trigger pg_net).
+2. Edge function `ai-copilot` + `config.toml`.
+3. Cliente `runCopilot` en `ai.ts`.
+4. Logs en `NotesTab` y `LogActivityDialog`.
+5. Doble-evento WA en `whatsapp-webhook` y `whatsapp-send`.
 
-Reemplaza el bloque actual `AI Insights` (líneas 240–280 de `Dashboard.tsx`).
-
-### 3. Nuevo `AiContextPanel` (panel lateral de contexto)
-Archivo nuevo: `src/components/walix/AiContextPanel.tsx`.
-
-Props: `entityType: 'contact'|'deal'`, `entityId: string`.
-Usa `useEntityContext(entityType, entityId)` y `useProactiveSuggestions()` filtrando por entidad.
-
-Secciones:
-- **Lo que sé**: `context_summary` en 2–3 frases + chips de `key_facts` (máx 5) + indicador de sentimiento (😊/😐/😟 según `sentiment`).
-- **Urgencia**: barra horizontal con `urgency_score` (0–100), color semántico (verde<30, amarillo 30–70, rojo>70), label numérico.
-- **Siguiente paso sugerido**: render de la sugerencia proactiva activa más prioritaria para esa entidad (si existe), con su botón de acción.
-- Botón **Actualizar contexto**: dispara `aiMemory.logEvent(entityType, entityId, 'manual_refresh', {})` (lo cual fuerza el trigger de actualización del contexto vía el webhook cuando esté configurado) + invalida la query.
-- Estado vacío: "Aún no hay contexto suficiente — la IA aprende con cada interacción."
-
-Integración:
-- En `src/components/contacts/detail/InfoSidePanel.tsx`: agregar `<AiContextPanel entityType="contact" entityId={contact.id} />` arriba del contenido existente.
-- En `src/components/pipeline/DealDrawer.tsx`: agregar dentro del panel lateral existente.
-
-### 4. Indicadores de urgencia
-Archivo nuevo: `src/hooks/useEntityUrgency.ts` — wrapper que devuelve `{ urgencyScore, sentiment }` desde `useEntityContext` (más conveniente y evita refetch agresivo: usa `staleTime: 60_000`).
-
-- **`DealCard.tsx`**: si `urgencyScore > 75`, mostrar punto rojo parpadeante (`h-2 w-2 rounded-full bg-destructive animate-pulse`) en la esquina superior derecha de la card.
-- **Lista de Contactos** (`ContactsKanban.tsx` y/o vista lista en `Contacts.tsx`): añadir punto coloreado al lado de "Última actividad":
-  - verde `<30`, amarillo `30–70`, rojo `>70`.
-- Si no hay contexto cargado, no renderizar el indicador.
-
-### 5. Ajustes finales
-- `useProactiveSuggestions` ya tiene `refetchInterval: 60_000` y `staleTime: 30_000` — confirma alineación con la sugerencia (60s).
-- Sin nuevas tablas ni migraciones.
-- Sin nuevas Edge Functions ni secretos.
-
----
-
-## Detalles técnicos
-- Mapeo `priority` (0–10) → urgencia: low <4, mid 4–7, high >7. El `urgency_score` (0–100) en `ai_entity_context` se mapea directamente para los indicadores en cards.
-- Navegación entidad:
-  - `contact` → `/contacts/{id}`
-  - `deal` → `/pipeline?dealId={id}`
-  - `conversation` → `/whatsapp?conversationId={id}`
-- Toast: `sonner` (ya en uso global).
-- Modelo en badges: usar `Gemini 2.5 Flash` (lo que realmente corre en `ai-context-updater`), no Claude.
-- LocalStorage key del briefing: `walix.morningBriefing.dismissed` con valor `YYYY-MM-DD`.
-
-## Archivos
-**Nuevos**
-- `src/components/walix/MorningBriefing.tsx`
-- `src/components/walix/ProactiveBriefing.tsx`
-- `src/components/walix/AiContextPanel.tsx`
-- `src/hooks/useEntityUrgency.ts`
-
-**Editados**
-- `src/pages/app/Dashboard.tsx` (insertar `MorningBriefing`, reemplazar bloque "AI Insights" por `ProactiveBriefing`).
-- `src/components/contacts/detail/InfoSidePanel.tsx` (montar `AiContextPanel`).
-- `src/components/pipeline/DealDrawer.tsx` (montar `AiContextPanel`).
-- `src/components/pipeline/DealCard.tsx` (punto de urgencia).
-- `src/components/contacts/ContactsKanban.tsx` y `src/pages/app/Contacts.tsx` (indicador de urgencia en última actividad).
+¿Confirmas para arrancar?
