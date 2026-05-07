@@ -1918,6 +1918,7 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { _token: string }; Returns: Json }
+      ai_recompute_next_run: { Args: { p_agent_id: string }; Returns: string }
       ai_run_due_agents: { Args: never; Returns: number }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
       delete_email: {
