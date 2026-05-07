@@ -30,6 +30,7 @@ const Settings = lazy(() => import("@/pages/app/Settings"));
 const SuperAdmin = lazy(() => import("@/pages/app/SuperAdmin"));
 const Organization = lazy(() => import("@/pages/app/Organization"));
 const Platform = lazy(() => import("@/pages/app/Platform"));
+const AIMetrics = lazy(() => import("@/pages/app/admin/AIMetrics"));
 const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
 const Tasks = lazy(() => import("@/pages/app/Tasks"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
@@ -92,6 +93,11 @@ const AppRoutes = () => {
         <Route path="/platform" element={
           <ProtectedRoute requireRoles={["platform_owner", "platform_staff", "super_admin"]}>
             <Platform />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/ai-metrics" element={
+          <ProtectedRoute requireRoles={["platform_owner", "platform_staff", "super_admin"]}>
+            <AIMetrics />
           </ProtectedRoute>
         } />
         <Route path="/marketplace" element={<Marketplace />} />
