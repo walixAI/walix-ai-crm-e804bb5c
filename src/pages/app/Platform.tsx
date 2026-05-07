@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WBadge } from "@/components/walix/Badge";
-import { Building2, DollarSign, Users, Layers, Loader2, ChevronRight } from "lucide-react";
+import { Building2, DollarSign, Users, Layers, Loader2, ChevronRight, Sparkles } from "lucide-react";
 import { usePlatformOrgs, usePlatformKpis } from "@/lib/queries/platform";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -22,9 +22,16 @@ export default function Platform() {
             Vista global de organizaciones, instancias e ingresos.
           </p>
         </div>
-        <Link to="/admin">
-          <Button variant="outline">Ver instancias (legacy)</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/admin/ai-metrics">
+            <Button variant="outline">
+              <Sparkles className="h-4 w-4 mr-2" /> Métricas de IA
+            </Button>
+          </Link>
+          <Link to="/admin">
+            <Button variant="outline">Ver instancias (legacy)</Button>
+          </Link>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

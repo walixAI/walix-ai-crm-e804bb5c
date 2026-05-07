@@ -13,6 +13,7 @@ import { LeadSourcesPie } from "@/components/reports/LeadSourcesPie";
 import { LostDealsChart } from "@/components/reports/LostDealsChart";
 import { TeamActivityHeatmap } from "@/components/reports/TeamActivityHeatmap";
 import { StageConversionsSection } from "@/components/reports/StageConversionsSection";
+import { CopilotImpactCard } from "@/components/reports/CopilotImpactCard";
 
 export default function Reports() {
   const { filters, setPeriod, setSellers } = useReportFilters();
@@ -63,6 +64,8 @@ export default function Reports() {
         </div>
 
         <StageConversionsSection />
+
+        <CopilotImpactCard />
 
         <div className="text-xs text-muted-foreground text-center pt-2 pb-6">
           Última actualización: {updatedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
