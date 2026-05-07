@@ -1,6 +1,5 @@
-import { Sparkles, Menu, LogOut, User as UserIcon, Inbox, HelpCircle, Zap } from "lucide-react";
+import { Sparkles, Menu, LogOut, User as UserIcon, HelpCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -9,13 +8,11 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
-import { useAiDrawer } from "@/store/aiDrawer";
-import { QUICK_AI_PROMPTS } from "@/lib/constants/aiPrompts";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useCopilot } from "@/store/copilot";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
-import type { AskAiContext } from "@/services/ai";
 
 const ROTATING_PLACEHOLDERS = [
   "¿Qué oportunidades están en riesgo?",
@@ -27,53 +24,26 @@ const ROTATING_PLACEHOLDERS = [
   "¿Cuánto vale mi pipeline hoy?",
 ];
 
-function captureContext(pathname: string, search: string): AskAiContext {
-  const ctx: AskAiContext = { route: pathname };
-  const params = new URLSearchParams(search);
-  // /pipeline?dealId=...
-  if (pathname.startsWith("/pipeline")) {
-    const dealId = params.get("dealId");
-    if (dealId) { ctx.entityType = "deal"; ctx.entityId = dealId; }
-  }
-  // /contacts/:id
-  const contactMatch = pathname.match(/^\/contacts\/([0-9a-f-]{36})/i);
-  if (contactMatch) { ctx.entityType = "contact"; ctx.entityId = contactMatch[1]; }
-  // /whatsapp?conversationId=...
-  if (pathname.startsWith("/whatsapp")) {
-    const cid = params.get("conversationId");
-    if (cid) { ctx.entityType = "convo"; ctx.entityId = cid; }
-  }
-  return ctx;
-}
-
 export function TopBar() {
-  // Intentionally untyped prop is ignored; the palette is opened via the
-  // global ⌘K shortcut handled in AppLayout. The kbd hint stays as a visual
-  // affordance that focusing the input also triggers IA suggestions.
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [prompt, setPrompt] = useState("");
-  const ask = useAiDrawer((s) => s.ask);
-  const [focused, setFocused] = useState(false);
+  const openCopilot = useCopilot((s) => s.openDrawer);
+  const proactiveCount = useCopilot((s) => s.proactiveCount);
+  const refreshProactiveCount = useCopilot((s) => s.refreshProactiveCount);
   const [phIndex, setPhIndex] = useState(0);
-  const wrapRef = useRef<HTMLDivElement>(null);
 
+  // Refresh proactive count on mount + every 60s.
   useEffect(() => {
-    if (!focused) return;
-    const onClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setFocused(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [focused]);
+    void refreshProactiveCount();
+    const t = setInterval(() => void refreshProactiveCount(), 60_000);
+    return () => clearInterval(t);
+  }, [refreshProactiveCount]);
 
-  // Rotating placeholders, paused when input has text or is focused.
+  // Rotating placeholders.
   useEffect(() => {
-    if (focused || prompt.trim()) return;
     const t = setInterval(() => setPhIndex((i) => (i + 1) % ROTATING_PLACEHOLDERS.length), 4000);
     return () => clearInterval(t);
-  }, [focused, prompt]);
+  }, []);
 
   const initials = (user?.user_metadata?.full_name ?? user?.email ?? "U")
     .split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
@@ -81,20 +51,6 @@ export function TopBar() {
   const signOut = async () => {
     await supabase.auth.signOut();
     navigate("/login");
-  };
-
-  const submitPrompt = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-    ask(prompt, captureContext(location.pathname, location.search));
-    setPrompt("");
-    setFocused(false);
-  };
-
-  const pickSuggestion = (p: string) => {
-    ask(p, captureContext(location.pathname, location.search));
-    setPrompt("");
-    setFocused(false);
   };
 
   return (
@@ -107,8 +63,12 @@ export function TopBar() {
         <TenantSwitcher />
       </div>
 
-      <form onSubmit={submitPrompt} className="flex-1 max-w-2xl" ref={wrapRef as any} data-tour="ai-prompt">
-        <div className={`relative group transition-all duration-200 ${focused ? "scale-[1.01]" : ""}`}>
+      <div className="flex-1 max-w-2xl" data-tour="ai-prompt">
+        <button
+          type="button"
+          onClick={openCopilot}
+          className="relative group w-full text-left transition-all duration-200 hover:scale-[1.01]"
+        >
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -117,52 +77,24 @@ export function TopBar() {
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                Walix.ai puede ejecutar acciones (crear, mover, actualizar) — siempre te pide confirmar.
+                Walix Copiloto puede ejecutar acciones (crear, mover, actualizar) — siempre te pide confirmar.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onFocus={() => setFocused(true)}
-            placeholder={`Pregunta o instruye a tu IA… ej: ${ROTATING_PLACEHOLDERS[phIndex]}`}
-            className={`pl-[68px] pr-20 h-10 bg-background border-border focus-visible:ring-primary rounded-xl transition-shadow ${focused ? "shadow-glow" : ""}`}
-          />
+          <div className="pl-[68px] pr-20 h-10 flex items-center bg-background border border-border rounded-xl text-sm text-muted-foreground group-hover:border-primary/40 group-hover:shadow-glow transition-all">
+            <Sparkles className="h-3.5 w-3.5 mr-2 text-accent shrink-0" />
+            <span className="truncate">
+              Pregunta a tu copiloto… <span className="opacity-70">ej: {ROTATING_PLACEHOLDERS[phIndex]}</span>
+            </span>
+          </div>
+          {proactiveCount > 0 && (
+            <span className="absolute left-[60px] top-2 h-2 w-2 rounded-full bg-destructive animate-pulse ring-2 ring-background" />
+          )}
           <kbd className="hidden md:inline-flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
             ⌘ K
           </kbd>
-
-          {focused && (
-            <div className="absolute left-0 right-0 top-12 z-40 rounded-xl border border-border bg-popover shadow-lg p-2 animate-in fade-in slide-in-from-top-1">
-              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Sugerencias rápidas
-              </div>
-              <div className="flex flex-wrap gap-1.5 px-1 pb-1">
-                {QUICK_AI_PROMPTS.slice(0, 3).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onMouseDown={(e) => { e.preventDefault(); pickSuggestion(p); }}
-                    className="text-xs px-2.5 py-1.5 rounded-full bg-muted hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-colors"
-                  >
-                    <Sparkles className="inline h-3 w-3 mr-1 text-accent" />{p}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); navigate("/ai-inbox"); setFocused(false); }}
-                  className="text-xs px-2.5 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
-                >
-                  <Inbox className="inline h-3 w-3 mr-1" />Ver AI Inbox
-                </button>
-              </div>
-              <div className="px-2 pt-1 pb-0.5 text-[10px] text-muted-foreground border-t border-border/60 mt-1">
-                También puedo crear, mover y actualizar — siempre te pido confirmar.
-              </div>
-            </div>
-          )}
-        </div>
-      </form>
+        </button>
+      </div>
 
       <div data-tour="notifications">
         <NotificationsBell />

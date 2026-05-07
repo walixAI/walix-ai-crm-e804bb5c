@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
   Zap, Settings, Inbox, Sparkles, UserPlus, Search,
 } from "lucide-react";
-import { useAiDrawer } from "@/store/aiDrawer";
+import { useCopilot } from "@/store/copilot";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -37,7 +37,7 @@ const NAV = [
 
 export function CommandPalette({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
-  const askAi = useAiDrawer((s) => s.ask);
+  const askCopilot = useCopilot((s) => s.send);
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 200);
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -104,7 +104,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
 
   const askAiNow = () => {
     if (!query.trim()) return;
-    askAi(query.trim());
+    void askCopilot(query.trim());
     onOpenChange(false);
   };
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useAiDrawer } from "@/store/aiDrawer";
+import { useCopilot } from "@/store/copilot";
 import {
   useDashboardKpis, useRecentActivity,
   usePipelineByStage, useDealsClosedTimeline,
@@ -57,7 +57,7 @@ const stageColors = [
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const ask = useAiDrawer((s) => s.ask);
+  const send = useCopilot((s) => s.send);
   const [showAlert, setShowAlert] = useState(true);
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
@@ -130,7 +130,7 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground capitalize mt-1">{today}</p>
         </div>
         <Button
-          onClick={() => ask("Dame el resumen del día: pipeline, leads calientes, oportunidades en riesgo y conversaciones pendientes.")}
+          onClick={() => send("Dame el resumen del día: pipeline, leads calientes, oportunidades en riesgo y conversaciones pendientes.")}
           className="bg-gradient-brand hover:opacity-90 text-primary-foreground shadow-glow gap-2"
         >
           <Sparkles className="h-4 w-4" />

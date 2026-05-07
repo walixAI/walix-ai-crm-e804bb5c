@@ -1,129 +1,180 @@
 
-# Implementación del Copiloto IA con Tool Use
+# Copiloto Drawer — UI conversacional con tool use
 
-Decisiones confirmadas:
-- Provider: **Gemini 2.5 Pro vía Lovable AI Gateway** (sin secrets nuevos).
-- Historial persistente en `ai_conversation_history` desde el inicio.
-- Incluye las 3 limpiezas pendientes.
-- **Sin backfill** de eventos WA históricos — solo nuevos eventos quedan normalizados.
+Reemplaza el `AiDrawer` y el AiPromptBar del TopBar por un **`CopilotDrawer`** lateral persistente que conversa con `runCopilot` (Gemini 2.5 Pro vía AI Gateway, ya implementado), muestra acciones ejecutadas en tiempo real, gestiona la confirmación de WhatsApp y soporta entrada por voz.
+
+**Decisiones confirmadas:**
+- ⌘K → CopilotDrawer · ⌘J → CommandPalette
+- AiDrawer viejo y `aiDrawer.ts` se eliminan; `Dashboard`, `TopBar`, `CommandPalette` se migran
+- Badge dice **"Walix Copiloto"** sin nombre de modelo (chip neutral "Beta" opcional)
 
 ---
 
-## 1. Migración: tabla `ai_conversation_history`
+## 1. Tokens
+
+`src/index.css` + `tailwind.config.ts`: agregar token `success` si falta (`--success: 142 70% 45%; --success-foreground: 0 0% 100%`). Todo lo nuevo usa tokens semánticos (`primary`, `success`, `muted`, etc.) — cero `bg-indigo-500` o `bg-green-50` directos.
+
+## 2. Sugerencias contextuales
+
+`src/lib/constants/copilotSuggestions.ts`: mapa `route → string[3]`. Hook `useContextSuggestions(pathname, entity)` devuelve los chips a mostrar bajo el composer.
+
+| Ruta | Sugerencias |
+|---|---|
+| `/dashboard` | "¿Cuánto vale mi pipeline?" · "¿Qué deals cierran esta semana?" · "Resume conversaciones sin responder" |
+| `/contacts/:id` | "¿Cuándo fue el último contacto?" · "Crea tarea de seguimiento mañana" · "Redacta WhatsApp de seguimiento" |
+| `/pipeline` | "¿Qué oportunidades están en riesgo?" · "Top 5 deals por monto" · "Mueve {deal} a Negociación" |
+| `/whatsapp` | "Resume esta conversación" · "Sugiere respuesta" · "Crea deal con este contacto" |
+| default | "Top 5 leads más calientes" · "¿Quién es mi contacto más activo?" · "¿Qué necesito hacer hoy?" |
+
+## 3. Store: `src/store/copilot.ts`
+
+```ts
+type CopilotMessage =
+  | { id; role: 'user'; text; at }
+  | { id; role: 'assistant'; text; toolsUsed: ToolUse[]; pendingWhatsapp?: PendingWa | null; at }
+
+state {
+  open, status: 'idle'|'thinking'|'executing',
+  messages: CopilotMessage[],
+  conversationKey: string,        // 'global' | `deal:UUID` | `contact:UUID` | `convo:UUID`
+  hasLoadedHistory: Record<conversationKey, boolean>,
+  proactiveCount: number,         // badge en TopBar
+}
+
+actions:
+  openDrawer(), closeDrawer(),
+  setContext({ conversationKey })  // llamado por AppLayout en cambio de ruta
+  loadHistoryForCurrentKey()       // SELECT últimos 20 ai_conversation_history (user_id + session_id)
+  send(text)                        // push user, status='thinking'→'executing'→'idle', llama runCopilot, append assistant
+  newConversation()                 // limpia messages locales, rota conversationKey con sufijo `:${ts}`
+  confirmWhatsapp(msgId, draft)    // resuelve conversation_id desde contact_id, invoca whatsapp-send
+  cancelWhatsapp(msgId), editWhatsapp(msgId, newDraft)
+  refreshProactiveCount()
+```
+
+Sin streaming real (runCopilot devuelve todo al final): durante `executing` mostramos un placeholder card "🔧 Ejecutando…" en el último slot; al recibir respuesta se reemplaza con los `toolsUsed[]` reales en orden + texto final.
+
+## 4. Componente `src/components/walix/CopilotDrawer.tsx`
 
 ```text
-ai_conversation_history
-├─ id              uuid pk
-├─ tenant_id       uuid (fk tenants)
-├─ user_id         uuid (fk auth.users)
-├─ conversation_key text         ej. "deal:UUID", "contact:UUID", "global"
-├─ role            text          ('user' | 'assistant' | 'tool')
-├─ content         jsonb         mensaje completo (incluye tool_calls / tool_results)
-├─ created_at      timestamptz default now()
-└─ index (tenant_id, user_id, conversation_key, created_at desc)
+┌─ Sheet side="right" w-[480px] modal={false} ──────────────────┐
+│ Header (gradient sutil primary→accent /5)                      │
+│  ╭──╮  Walix Copiloto    [Beta]                  [+] [X]       │
+│  │✨│  ● Listo / Pensando… / Ejecutando…                       │
+│  ╰──╯                                                          │
+├────────────────────────────────────────────────────────────────┤
+│ ScrollArea flex-1                                              │
+│  ▸ UserBubble (derecha, bg-primary/10, rounded-2xl)            │
+│  ▸ AssistantBubble (izq, avatar sparkles + bg-card border)     │
+│      · markdown (bold, listas, code inline + bloques, citas)   │
+│      · ToolCards renderizadas inline en orden de ejecución     │
+│      · WhatsappConfirmCard si pendingWhatsapp                  │
+│  ▸ ToolRunningCard (skeleton con shimmer) durante 'executing'  │
+├────────────────────────────────────────────────────────────────┤
+│ Suggestion chips (3, según ruta)                               │
+│ Composer: textarea autogrow + 🎙️ + → (Enter envía)             │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-RLS:
-- SELECT/INSERT: usuario autenticado donde `user_id = auth.uid()` y `tenant_id = get_user_tenant(auth.uid())`.
-- Sin UPDATE/DELETE desde cliente.
+**Avatar animado:** círculo `bg-gradient-to-br from-primary to-accent` con `<Sparkles>`. En `thinking`: `animate-pulse` + halo absoluto `ring-2 ring-primary/40 animate-ping`.
 
-## 2. Edge Function nueva: `supabase/functions/ai-copilot/index.ts`
+**Persistencia abierto:** `Sheet modal={false}` → resto de la app sigue interactiva, no se cierra al navegar.
 
-- `verify_jwt = true` (registrado en `supabase/config.toml`).
-- Modelo: `google/gemini-2.5-pro` vía AI Gateway (OpenAI-compatible, soporta `tools` y `tool_choice`).
-- Define `CRM_TOOLS` (formato OpenAI function calling):
-  1. `get_pipeline_status` — KPIs del pipeline activo.
-  2. `search_contacts(query, limit)` — busca por nombre/teléfono/email.
-  3. `get_contact_context(contact_id)` — lee `ai_entity_context` + últimos eventos.
-  4. `create_contact(name, phone, email?, source?)`.
-  5. `create_deal(contact_id, title, amount, stage_id?)`.
-  6. `move_deal_stage(deal_id, stage_id, reason?)`.
-  7. `add_note(entity_type, entity_id, text)`.
-  8. `create_task(entity_type, entity_id, title, due_at?)`.
-  9. `prepare_whatsapp_message(contact_id, draft)` — **NO envía**, solo retorna preview para confirmación humana.
-- `executeTool(name, args, supabaseUserClient)`: switch que ejecuta cada tool con cliente Supabase usando JWT del usuario (respeta RLS).
-- **Loop agéntico** (máx 5 iteraciones):
-  ```
-  while (response.choices[0].finish_reason === 'tool_calls') {
-    push assistant tool_calls → messages
-    for each tool_call: execute → push tool result → messages
-    re-call gateway
-  }
-  ```
-- `buildSystemPrompt(ctx)` inyecta:
-  - Rol y nombre del usuario, tenant.
-  - Pipeline activo + stages.
-  - Hora local `America/Mexico_City`.
-  - `ai_entity_context` de la entidad activa (si viene `conversation_key`).
-  - Top 3 sugerencias proactivas pendientes.
-  - **Regla de oro**: WhatsApp nunca se envía sola; siempre `prepare_whatsapp_message` y esperar confirmación.
-- Persistencia: tras cada turno, INSERT en `ai_conversation_history` (mensaje del user, assistant final, y cada tool call/result).
-- Manejo errores: 429 → "Rate limit"; 402 → "Sin créditos en Lovable AI"; pasar mensaje claro al cliente.
+**Markdown:** extiendo el render existente de `AiDrawer` (bold, listas, citas `[deal:...|...]`) para soportar `` `inline` `` y bloques ```` ``` ````. Sin `react-markdown`.
 
-## 3. Cliente: `src/services/ai.ts`
+### ToolCard
 
-- Nueva función pública `runCopilot({ message, conversationKey, entityType?, entityId? })`.
-- Retorna `CopilotTurn`:
-  ```ts
-  { text: string;
-    toolsUsed: { name: string; args: any; result: any }[];
-    pendingWhatsapp?: { contact_id: string; draft: string };
-  }
-  ```
-- `askAi` actual queda intacto (Fase 1 sigue funcionando).
+Mapeo `toolName → { icon, label, summary(result), action? }`:
 
-## 4. Limpieza #1 — Database Webhook para `ai-context-updater`
+| Tool | Label | Acción de la card |
+|---|---|---|
+| `search_contacts` | 🔍 Búsqueda | lista hits, click → `/contacts/:id` |
+| `get_contact_context` | 🧠 Contexto | resumen 1 línea, expandible |
+| `get_pipeline_status` | 📊 Pipeline | KPIs inline |
+| `create_contact` | 👤 Contacto creado | "Ver →" `/contacts/:id` |
+| `create_deal` | 💼 Deal creado | "Ver pipeline →" |
+| `move_deal_stage` | ➡️ Movido a {stage} | "Ver deal →" |
+| `add_note` | 📝 Nota agregada | — |
+| `create_task` | ✅ Tarea creada | "Ver tareas →" |
+| `prepare_whatsapp_message` | 💬 Mensaje preparado | abre WhatsappConfirmCard |
 
-Migración con trigger PG:
-```sql
-CREATE TRIGGER ai_memory_events_after_insert
-AFTER INSERT ON ai_memory_events
-FOR EACH ROW EXECUTE FUNCTION net.http_post(
-  url := '<edge>/ai-context-updater',
-  headers := '{"Authorization":"Bearer <service_role>"}'::jsonb,
-  body := jsonb_build_object('entity_type', NEW.entity_type, 'entity_id', NEW.entity_id)
-);
+Estado `running`: spinner + label en gris. Estado `done`: ✅ + bg-success/5 border-success/20. Estado `error`: ✗ + bg-destructive/5.
+
+### WhatsappConfirmCard (regla de oro — visualmente imposible de ignorar)
+
 ```
-Con `pg_net`. Si falla la extensión, fallback a `pg_cron` cada minuto procesando entidades con eventos nuevos.
+┌─ border-2 border-success bg-success/10 ────────────┐
+│ 💬 Enviar mensaje a María García                    │
+│ ┌───────────────────────────────────────────────┐  │
+│ │ Hola María, te confirmo nuestra reunión del   │  │
+│ │ jueves a las 10am. ¿Sigue en pie?             │  │
+│ └───────────────────────────────────────────────┘  │
+│ [📱 Enviar ahora]  [✏️ Editar]  [✗ Cancelar]        │
+└────────────────────────────────────────────────────┘
+```
+- "Editar" → reemplaza preview por `<Textarea>` editable + "Confirmar".
+- "Enviar" → resuelve `conversation_id` desde `contact_id` (busca `conversations` open o crea), invoca edge `whatsapp-send`. Toast éxito/error. Card se transforma en "✅ Enviado a HH:mm".
+- "Cancelar" → solo retira la card.
 
-## 5. Limpieza #2 — `logEvent('contact', id, 'note_added', …)`
+### Composer
 
-Editar:
-- `src/components/contacts/detail/NotesTab.tsx`: tras `create.mutateAsync`, llamar `aiMemory.logEvent('contact', contactId, 'note_added', { length: t.length })`.
-- `src/components/contacts/detail/dialogs/LogActivityDialog.tsx`: para `note`, mismo log; para `call/meeting/email`, log con su `event_type` correspondiente.
+- `<Textarea>` autogrow 1–4 líneas (recálculo en `onInput` con `scrollHeight`, cap 96px).
+- Atajos: `Enter` envía · `Shift+Enter` salto · `Cmd/Ctrl+Enter` también envía.
+- Placeholder rota cada 4s con sugerencias contextuales si está vacío y sin foco.
+- Botón 🎙️: ver Voz.
 
-## 6. Limpieza #3 — Normalizar `entity_type` de WhatsApp (solo nuevos)
+### Voz (Web Speech API)
 
-En `supabase/functions/whatsapp-webhook/index.ts` y `whatsapp-send/index.ts`, tras resolver `contact_id` desde la conversación, escribir **dos eventos**:
-- `entity_type='conversation'`, `entity_id=conversation_id` (vista de hilo, comportamiento actual).
-- `entity_type='contact'`, `entity_id=contact_id` (alimenta contexto del contacto).
+```ts
+const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+```
+- Sin soporte (Firefox) → tooltip "Voz no disponible" + botón disabled.
+- Con soporte: click inicia `recognition.start()` con `lang='es-MX'`, `interimResults=true`, `continuous=false`. Botón cambia a rojo `animate-pulse` + barra de "escuchando…" arriba del composer. Cada `onresult` actualiza el composer con la transcripción acumulada. Al `onend` (silencio o stop manual) auto-envía si hay texto. Segundo click cancela sin enviar.
 
-Sin backfill; eventos antiguos quedan como están.
+### Historial persistente
 
-## 7. `supabase/config.toml`
+Al primer `openDrawer()` por `conversationKey`: SELECT `role, content, tool_calls` FROM `ai_conversation_history` WHERE `user_id=auth.uid()` AND `session_id={key}` ORDER BY `created_at DESC` LIMIT 20 → reconstruye en orden cronológico. "Nueva conversación" rota el key con `:${ts}` y limpia la vista (el thread anterior queda intacto en BD).
 
-Añadir bloque para `ai-copilot` con `verify_jwt = true`. Sin tocar otras funciones.
+## 5. TopBar — `src/components/layout/TopBar.tsx`
+
+- El `<Input>` actual se vuelve **trigger visual** (read-only, `onClick` → `openCopilot()`). Mantengo aspecto, kbd hint `⌘K`, ícono Beta.
+- Quitar dropdown de sugerencias del Input (ahora viven en el drawer).
+- **Badge proactivo:** dot rojo `absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive animate-pulse` sobre el ícono Sparkles del Input cuando `proactiveCount > 0` (lee del store).
+
+## 6. AppLayout — `src/components/layout/AppLayout.tsx`
+
+- Reemplazar `<AiDrawer/>` por `<CopilotDrawer/>` (montado fuera del `<Outlet/>`, persistente).
+- Shortcuts: `⌘/Ctrl+K` → `openCopilot()` · `⌘/Ctrl+J` → abrir CommandPalette.
+- `useEffect([location])` → `setContext({ conversationKey: deriveKey(pathname, search) })`:
+  - `/contacts/:id` → `contact:UUID`
+  - `/pipeline?dealId=...` → `deal:UUID`
+  - `/whatsapp?conversationId=...` → `convo:UUID`
+  - resto → `global`
+
+## 7. Cleanup
+
+- **Borrar:** `src/components/walix/AiDrawer.tsx`, `src/store/aiDrawer.ts`.
+- **Migrar a `useCopilot`:**
+  - `src/pages/app/Dashboard.tsx` (botones que llamaban `useAiDrawer().ask`).
+  - `src/components/walix/CommandPalette.tsx` (item "Preguntar a IA").
+  - `src/components/layout/TopBar.tsx`.
+- **No tocar:** `services/ai.ts` exports `executeProposal`/`previewProposal` — siguen usados por flujos `ai-execute` independientes (AiContextPanel, etc.).
 
 ---
 
-## Lo que NO se toca
+## Riesgos & límites
 
-- `src/services/aiMemory.ts`, `useAiMemory`, `AiContextPanel`, `MorningBriefing`, `ProactiveBriefing`, `useEntityUrgency` (ya implementados).
-- `global-ai`, `ai-execute`, `dashboard-ai-widgets`, etc.
-- Esquema de `ai_memory_events` ni `ai_entity_context`.
-
-## Riesgos
-
-- **Latencia**: tool loops pueden tardar 5–10s. Mostrar spinner con texto "Pensando…" / "Ejecutando acción…".
-- **RLS en tools**: cliente Supabase dentro del edge function debe usar el JWT del usuario (no service_role) para que las acciones respeten permisos.
-- **`pg_net`**: si no está habilitado en el proyecto, el webhook falla silente; verificar en migración con `CREATE EXTENSION IF NOT EXISTS pg_net`.
+- **Sin streaming real:** `runCopilot` espera todo el loop antes de responder (5–10s). Mitigación: status `Pensando…`/`Ejecutando…` + skeleton card. Streaming SSE quedaría para una iteración futura.
+- **Web Speech API:** solo Chrome/Edge/Safari; Firefox queda sin voz (graceful disable).
+- **`whatsapp-send`** requiere `conversation_id`: el botón "Enviar ahora" hace round-trip para resolverlo desde `contact_id` (consulta `conversations` open o la crea).
+- **Sheet `modal={false}`** de Radix: verificar que no rompa scroll lock ni focus trap en mobile (en mobile <768px se podría seguir usando `modal={true}`).
 
 ## Orden de ejecución
 
-1. Migración (tabla historial + trigger pg_net).
-2. Edge function `ai-copilot` + `config.toml`.
-3. Cliente `runCopilot` en `ai.ts`.
-4. Logs en `NotesTab` y `LogActivityDialog`.
-5. Doble-evento WA en `whatsapp-webhook` y `whatsapp-send`.
-
-¿Confirmas para arrancar?
+1. Token `success` (si falta).
+2. `copilotSuggestions.ts` + hook.
+3. `store/copilot.ts`.
+4. `CopilotDrawer.tsx` (+ subcomponentes inline).
+5. `TopBar.tsx`: trigger read-only + badge proactivo.
+6. `AppLayout.tsx`: montar drawer, ⌘K/⌘J, setContext por ruta.
+7. Borrar `AiDrawer.tsx` + `aiDrawer.ts`, migrar `Dashboard` y `CommandPalette`.

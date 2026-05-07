@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
-import { AiDrawer } from "@/components/walix/AiDrawer";
+import { CopilotDrawer } from "@/components/walix/CopilotDrawer";
 import { CommandPalette } from "@/components/walix/CommandPalette";
 import { OnboardingTour, useAutoOnboardingTour, resetTour } from "@/components/walix/OnboardingTour";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,11 +12,16 @@ import { useTenantId } from "@/lib/queries/tenant";
 import { fetchTenant } from "@/services/tenant";
 import { applyBrandPrimary, removeBrandPrimary } from "@/lib/branding";
 import { TrialBanner } from "@/components/walix/TrialBanner";
+import { useCopilot } from "@/store/copilot";
+import { deriveConversationKey, deriveEntity } from "@/lib/constants/copilotSuggestions";
 
 export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const tour = useAutoOnboardingTour();
   const { user } = useAuth();
+  const location = useLocation();
+  const openCopilot = useCopilot((s) => s.openDrawer);
+  const setCopilotContext = useCopilot((s) => s.setContext);
   const { data: tenantId } = useTenantId();
   const { data: tenant } = useQuery({
     queryKey: ["tenant", tenantId],
@@ -31,14 +36,26 @@ export function AppLayout() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      const k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === "k") {
+        e.preventDefault();
+        openCopilot();
+      } else if ((e.metaKey || e.ctrlKey) && k === "j") {
         e.preventDefault();
         setPaletteOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [openCopilot]);
+
+  // Sync copilot context to current route/entity.
+  useEffect(() => {
+    setCopilotContext({
+      conversationKey: deriveConversationKey(location.pathname, location.search),
+      entity: deriveEntity(location.pathname, location.search),
+    });
+  }, [location.pathname, location.search, setCopilotContext]);
 
   // Allow restart via global event (TopBar dispatches it from the avatar menu).
   useEffect(() => {
@@ -61,7 +78,7 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
-      <AiDrawer />
+      <CopilotDrawer />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <OnboardingTour open={tour.open} onClose={tour.close} />
     </div>
