@@ -5,6 +5,7 @@
 // se envía sin confirmación humana — solo se prepara como `pendingWhatsapp`.
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import { CRM_TOOLS, executeTool } from "../_shared/ai-tools.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
