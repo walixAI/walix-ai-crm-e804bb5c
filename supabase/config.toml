@@ -1,8 +1,6 @@
 project_id = "qomyfafowhuxuwbuubqk"
 
 [functions]
-  [functions.admin-reset-password]
-    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.ai-context-updater]
