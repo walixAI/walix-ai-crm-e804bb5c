@@ -12,6 +12,7 @@ import { ALL_LEAD_STATUSES, statusBadgeClass, type LeadStatus } from "@/lib/cont
 import { relativeTime } from "@/lib/format/relativeTime";
 import { useUpdateContact, type ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
+import { useEntityUrgency } from "@/hooks/useEntityUrgency";
 
 interface Props {
   contacts: ContactRow[];
@@ -125,6 +126,15 @@ function ContactCard({
   onWhatsApp: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: contact.id });
+  const { urgencyScore } = useEntityUrgency("contact", contact.id);
+  const dotColor =
+    urgencyScore === null
+      ? null
+      : urgencyScore > 70
+        ? "bg-destructive"
+        : urgencyScore >= 30
+          ? "bg-warning"
+          : "bg-success";
   return (
     <div
       ref={setNodeRef}
@@ -166,7 +176,15 @@ function ContactCard({
           <MessageCircle className="h-3 w-3" />
           <span className="font-mono">{contact.phone}</span>
         </button>
-        <span>{relativeTime(contact.lastActivity)}</span>
+        <span className="inline-flex items-center gap-1.5">
+          {dotColor && (
+            <span
+              className={cn("h-1.5 w-1.5 rounded-full", dotColor)}
+              title={`Urgencia ${urgencyScore}/100`}
+            />
+          )}
+          {relativeTime(contact.lastActivity)}
+        </span>
       </div>
       {contact.tags.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
