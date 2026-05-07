@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAiDrawer } from "@/store/aiDrawer";
 import {
-  useDashboardKpis, useRecentActivity, useDashboardAiSuggestions,
+  useDashboardKpis, useRecentActivity,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
 import { useQuery } from "@tanstack/react-query";
@@ -13,8 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
-  Sparkles, AlertTriangle, X, ArrowRight, Clock,
-  MoveRight, FileText, UserPlus, StickyNote, CheckCircle2,
+  Sparkles, AlertTriangle, X, Clock,
+  MoveRight, FileText, StickyNote, CheckCircle2,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -58,7 +58,6 @@ const stageColors = [
 export default function Dashboard() {
   const { user } = useAuth();
   const ask = useAiDrawer((s) => s.ask);
-  const openDrawer = useAiDrawer((s) => s.openDrawer);
   const [showAlert, setShowAlert] = useState(true);
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
