@@ -433,8 +433,11 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
     ? CRM_TOOLS.filter((t) => allowedTools.includes(t.function.name))
     : CRM_TOOLS;
 
+  const learned = await getTenantPatterns(sb, tenantId);
+  const finalSystem = appendLearnedPatterns(systemPrompt, learned);
+
   const messages: any[] = [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: finalSystem },
     ...priorMessages,
     { role: "user", content: userMessage },
   ];
