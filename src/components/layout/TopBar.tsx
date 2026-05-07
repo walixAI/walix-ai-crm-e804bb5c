@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useCopilot } from "@/store/copilot";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
+import { AgentsActivityIndicator } from "@/components/agents/AgentsActivityIndicator";
 
 const ROTATING_PLACEHOLDERS = [
   "¿Qué oportunidades están en riesgo?",
@@ -62,6 +63,8 @@ export function TopBar() {
       <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-border">
         <TenantSwitcher />
       </div>
+
+      <AgentsActivityIndicator />
 
       <div className="flex-1 max-w-2xl" data-tour="ai-prompt">
         <button

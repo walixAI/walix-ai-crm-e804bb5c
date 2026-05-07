@@ -179,7 +179,8 @@ async function selectEntities(sb: any, tenantId: string, agentType: string, conf
   const limit = Number(config?.entity_limit ?? 50);
   switch (agentType) {
     case "followup_watchdog": {
-      const cutoff = new Date(Date.now() - 5 * 86400_000).toISOString();
+      const inactiveDays = Number(config?.inactive_days ?? 5);
+      const cutoff = new Date(Date.now() - inactiveDays * 86400_000).toISOString();
       const { data } = await sb.from("deals")
         .select("id, name, amount, owner_id, contact_id, stage_name, updated_at")
         .eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false)
@@ -200,14 +201,21 @@ async function selectEntities(sb: any, tenantId: string, agentType: string, conf
       }));
     }
     case "deal_risk_detector": {
+      const minScore = Number(config?.min_urgency_score ?? 60);
       const { data: deals } = await sb.from("deals")
         .select("id, name, amount, owner_id, contact_id, stage_name, expected_close_date, updated_at")
         .eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false)
         .or("stage_name.ilike.%propuesta%,stage_name.ilike.%negocia%")
         .limit(limit);
-      return (deals ?? []).map((d: any) => ({
-        id: d.id, entity_type: "deal", label: d.name, owner_id: d.owner_id, data: d,
-      }));
+      // Filter by urgency_score from ai_entity_context
+      const ids = (deals ?? []).map((d: any) => d.id);
+      const { data: ctxs } = ids.length
+        ? await sb.from("ai_entity_context").select("entity_id, urgency_score").eq("entity_type", "deal").in("entity_id", ids)
+        : { data: [] as any[] };
+      const scoreMap = new Map((ctxs ?? []).map((c: any) => [c.entity_id, c.urgency_score ?? 0]));
+      return (deals ?? [])
+        .filter((d: any) => (scoreMap.get(d.id) ?? 0) >= minScore)
+        .map((d: any) => ({ id: d.id, entity_type: "deal", label: d.name, owner_id: d.owner_id, data: d }));
     }
     case "morning_briefing": {
       const { data: profiles } = await sb.from("profiles")

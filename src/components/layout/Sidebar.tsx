@@ -41,7 +41,7 @@ export function Sidebar() {
 
   const adminItems = [
     ...(isOrgOwner ? [{ to: "/org", label: "Mi organización", icon: Building2 }] : []),
-    ...(isAdmin ? [{ to: "/settings/agents", label: "Agentes IA", icon: Bot }] : []),
+    ...(isAdmin ? [{ to: "/settings?tab=agents", label: "Agentes IA", icon: Bot }] : []),
     ...(isAdmin ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
     ...(isPlatform ? [{ to: "/platform", label: "Plataforma", icon: Globe2 }] : []),
     ...(isPlatform ? [{ to: "/admin", label: "SuperAdmin", icon: Shield }] : []),
