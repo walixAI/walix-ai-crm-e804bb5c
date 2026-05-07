@@ -188,9 +188,15 @@ export const useCopilot = create<CopilotState>((set, get) => ({
         .maybeSingle();
       let conversationId = convo?.id as string | undefined;
       if (!conversationId) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("active_tenant_id, tenant_id")
+          .maybeSingle();
+        const tenantId = prof?.active_tenant_id ?? prof?.tenant_id;
+        if (!tenantId) throw new Error("No tenant");
         const { data: newConvo, error } = await supabase
           .from("conversations")
-          .insert({ contact_id: contactId, status: "open" })
+          .insert({ contact_id: contactId, tenant_id: tenantId, status: "Nuevo" })
           .select("id")
           .single();
         if (error) throw error;
