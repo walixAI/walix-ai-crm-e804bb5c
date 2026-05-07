@@ -22,6 +22,7 @@ import {
 import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type ProbabilityScore } from "@/lib/queries/pipelineAi";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
+import { AiContextPanel } from "@/components/walix/AiContextPanel";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -283,6 +284,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
             </TabsContent>
 
             <TabsContent value="ai" className="space-y-4 m-0">
+              <AiContextPanel entityType="deal" entityId={deal.id} />
               <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-7 w-7 rounded-lg bg-gradient-brand grid place-items-center">

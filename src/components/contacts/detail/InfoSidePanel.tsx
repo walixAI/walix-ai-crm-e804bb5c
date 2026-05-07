@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2 } from "lucide-react";
 import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
+import { AiContextPanel } from "@/components/walix/AiContextPanel";
 
 interface Props { contact: ContactRow }
 
@@ -40,6 +41,7 @@ export function InfoSidePanel({ contact }: Props) {
 
   return (
     <div className="space-y-2">
+      <AiContextPanel entityType="contact" entityId={contact.id} />
       {sections.map(s => (
         <div key={s.key} className="rounded-xl border border-border bg-card overflow-hidden shadow-card">
           <button
