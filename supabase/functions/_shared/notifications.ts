@@ -1,5 +1,6 @@
 // Helper compartido para entregar notificaciones respetando los toggles
-// del perfil IA del usuario (notify_only_work_hours, notify_digest_9am).
+// del perfil IA del usuario (notify_only_work_hours, notify_digest_9am)
+// y la zona horaria del perfil.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 export interface NotificationInput {
@@ -13,40 +14,64 @@ export interface NotificationInput {
   severity?: "info" | "success" | "warning" | "error";
   category?: "operational" | "ai" | "billing" | "security";
   data?: Record<string, unknown>;
+  /** TZ explícito; si no se pasa, se busca en profiles.timezone del userId. */
+  timezone?: string;
 }
 
-const TZ = "America/Mexico_City";
+const DEFAULT_TZ = "America/Mexico_City";
 
-function localDateParts(d: Date) {
+function localDateParts(d: Date, tz: string) {
   const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ, hour: "2-digit", minute: "2-digit", weekday: "short", hour12: false,
+    timeZone: tz, hour: "2-digit", minute: "2-digit", weekday: "short", hour12: false,
   });
   const parts = fmt.formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   return { hour: parseInt(get("hour"), 10), weekday: get("weekday") };
 }
 
-export function isWithinWorkHours(d: Date) {
-  const { hour, weekday } = localDateParts(d);
+export function isWithinWorkHours(d: Date, tz = DEFAULT_TZ) {
+  const { hour, weekday } = localDateParts(d, tz);
   const isWeekday = ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(weekday);
   return isWeekday && hour >= 8 && hour < 19;
 }
 
-export function nextWorkHourStart(d: Date): Date {
+export function nextWorkHourStart(d: Date, tz = DEFAULT_TZ): Date {
   const next = new Date(d.getTime());
   for (let i = 0; i < 96; i++) {
     next.setHours(next.getHours() + 1);
-    if (isWithinWorkHours(next)) return next;
+    if (isWithinWorkHours(next, tz)) return next;
   }
   return next;
 }
 
-export function nextDigest9amCDMX(d: Date): Date {
-  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
-  const todayCdmx = fmt.format(d);
-  const today9 = new Date(`${todayCdmx}T09:00:00-06:00`);
-  if (today9.getTime() > d.getTime()) return today9;
-  return new Date(today9.getTime() + 24 * 3600 * 1000);
+/** Próxima ocurrencia de las 9:00 locales en `tz`. */
+export function nextDigest9am(d: Date, tz = DEFAULT_TZ): Date {
+  // Avanza minuto a minuto en horas locales hasta encontrar hora==9 y minuto<5.
+  // Implementación robusta sin depender del offset (DST, etc.).
+  const candidate = new Date(d.getTime());
+  // Saltamos al siguiente minuto múltiplo de 5 para acotar el loop.
+  candidate.setSeconds(0, 0);
+  for (let i = 0; i < 60 * 24 * 2; i++) {
+    candidate.setMinutes(candidate.getMinutes() + 1);
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+    const parts = fmt.formatToParts(candidate);
+    const h = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+    const m = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0", 10);
+    if (h === 9 && m === 0) return candidate;
+  }
+  return candidate;
+}
+
+async function resolveTimezone(sb: SupabaseClient, userId: string, override?: string): Promise<string> {
+  if (override) return override;
+  try {
+    const { data } = await sb.from("profiles").select("timezone").eq("id", userId).maybeSingle();
+    return (data?.timezone as string) || DEFAULT_TZ;
+  } catch {
+    return DEFAULT_TZ;
+  }
 }
 
 export async function deliverNotification(sb: SupabaseClient, n: NotificationInput): Promise<{ delivered: boolean; queued?: boolean; reason?: string }> {
@@ -55,6 +80,7 @@ export async function deliverNotification(sb: SupabaseClient, n: NotificationInp
     .eq("user_id", n.userId).maybeSingle();
 
   const now = new Date();
+  const tz = await resolveTimezone(sb, n.userId, n.timezone);
   const wantsDigest = !!profile?.notify_digest_9am;
   const wantsWorkHoursOnly = !!profile?.notify_only_work_hours;
 
@@ -75,10 +101,10 @@ export async function deliverNotification(sb: SupabaseClient, n: NotificationInp
   let reason = "immediate";
 
   if (wantsDigest) {
-    deliverAfter = nextDigest9amCDMX(now);
+    deliverAfter = nextDigest9am(now, tz);
     reason = "digest_9am";
-  } else if (wantsWorkHoursOnly && !isWithinWorkHours(now)) {
-    deliverAfter = nextWorkHourStart(now);
+  } else if (wantsWorkHoursOnly && !isWithinWorkHours(now, tz)) {
+    deliverAfter = nextWorkHourStart(now, tz);
     reason = "work_hours";
   }
 
