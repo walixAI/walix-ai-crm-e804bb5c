@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import parser from "npm:cron-parser@4.9.0";
 import { runAgenticLoop } from "../_shared/ai-tools.ts";
+import { deliverNotification } from "../_shared/notifications.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
