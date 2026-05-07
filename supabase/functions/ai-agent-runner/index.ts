@@ -127,6 +127,8 @@ Deno.serve(async (req) => {
             allowedTools: perEntityTools,
             model: agent.model || "google/gemini-2.5-flash",
             maxIterations: 3,
+            surface: "agent",
+            agentId: agent.id,
           });
         } catch (e) {
           runLog.push({ entity: ent, error: e instanceof Error ? e.message : String(e) });
