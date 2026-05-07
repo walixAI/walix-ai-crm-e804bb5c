@@ -235,6 +235,39 @@ export type Database = {
           },
         ]
       }
+      ai_draft_edits: {
+        Row: {
+          char_delta: number
+          contact_id: string | null
+          created_at: string
+          edited: string
+          id: string
+          original: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          char_delta?: number
+          contact_id?: string | null
+          created_at?: string
+          edited: string
+          id?: string
+          original: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          char_delta?: number
+          contact_id?: string | null
+          created_at?: string
+          edited?: string
+          id?: string
+          original?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_entity_context: {
         Row: {
           context_summary: string
@@ -552,6 +585,75 @@ export type Database = {
           sample_size?: number
           tenant_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_user_profile: {
+        Row: {
+          allow_auto_tasks: boolean
+          avg_response_time_hours: number | null
+          best_close_day: string | null
+          best_close_hour: number | null
+          close_rate: number
+          communication_style: string
+          created_at: string
+          custom_instructions: string
+          improvement_areas: string[]
+          notify_digest_9am: boolean
+          notify_only_work_hours: boolean
+          preferred_message_length: string
+          strengths: string[]
+          tenant_id: string
+          top_performing_stage: string | null
+          total_deals_closed: number
+          total_deals_lost: number
+          updated_at: string
+          user_id: string
+          weekly_coaching_report: boolean
+        }
+        Insert: {
+          allow_auto_tasks?: boolean
+          avg_response_time_hours?: number | null
+          best_close_day?: string | null
+          best_close_hour?: number | null
+          close_rate?: number
+          communication_style?: string
+          created_at?: string
+          custom_instructions?: string
+          improvement_areas?: string[]
+          notify_digest_9am?: boolean
+          notify_only_work_hours?: boolean
+          preferred_message_length?: string
+          strengths?: string[]
+          tenant_id: string
+          top_performing_stage?: string | null
+          total_deals_closed?: number
+          total_deals_lost?: number
+          updated_at?: string
+          user_id: string
+          weekly_coaching_report?: boolean
+        }
+        Update: {
+          allow_auto_tasks?: boolean
+          avg_response_time_hours?: number | null
+          best_close_day?: string | null
+          best_close_hour?: number | null
+          close_rate?: number
+          communication_style?: string
+          created_at?: string
+          custom_instructions?: string
+          improvement_areas?: string[]
+          notify_digest_9am?: boolean
+          notify_only_work_hours?: boolean
+          preferred_message_length?: string
+          strengths?: string[]
+          tenant_id?: string
+          top_performing_stage?: string | null
+          total_deals_closed?: number
+          total_deals_lost?: number
+          updated_at?: string
+          user_id?: string
+          weekly_coaching_report?: boolean
         }
         Relationships: []
       }

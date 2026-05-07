@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { runCopilot, type CopilotToolUse, type CopilotPendingWhatsapp } from "@/services/ai";
 import { supabase } from "@/integrations/supabase/client";
+import { logDraftEdit } from "@/services/userProfile";
 
 export type CopilotStatus = "idle" | "thinking" | "executing";
 
@@ -177,6 +178,10 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const msg = get().messages.find((m) => m.id === msgId);
     if (!msg || msg.role !== "assistant" || !msg.pendingWhatsapp) return;
     const contactId = msg.pendingWhatsapp.contact_id;
+    const originalDraft = msg.pendingWhatsapp.draft ?? "";
+    if (originalDraft && draft && originalDraft !== draft) {
+      void logDraftEdit({ original: originalDraft, edited: draft, contactId }).catch(() => {});
+    }
     try {
       // Resolve or create open conversation for this contact.
       const { data: convo } = await supabase
