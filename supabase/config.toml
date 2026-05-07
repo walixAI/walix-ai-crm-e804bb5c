@@ -3,6 +3,8 @@ project_id = "qomyfafowhuxuwbuubqk"
 [functions]
   [functions.auth-email-hook]
     verify_jwt = false
+  [functions.ai-context-updater]
+    verify_jwt = false
   [functions.process-email-queue]
     verify_jwt = true
   [functions.whatsapp-webhook]
