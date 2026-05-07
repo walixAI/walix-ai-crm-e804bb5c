@@ -3,6 +3,50 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+export interface LearnedPattern {
+  pattern_type: string;
+  pattern_data: any;
+  confidence_score: number;
+  sample_size: number;
+}
+
+export async function getTenantPatterns(sb: SupabaseClient, tenantId: string, limit = 6): Promise<LearnedPattern[]> {
+  const { data } = await sb.from("ai_tenant_patterns")
+    .select("pattern_type, pattern_data, confidence_score, sample_size")
+    .eq("tenant_id", tenantId)
+    .order("confidence_score", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as LearnedPattern[];
+}
+
+export function formatPattern(p: LearnedPattern): string {
+  const d = p.pattern_data ?? {};
+  switch (p.pattern_type) {
+    case "best_followup_day":
+      return `Mejor día para seguimientos: ${d.day} (tasa de respuesta ${Math.round((d.response_rate ?? 0) * 100)}%).`;
+    case "peak_response_hours":
+      return `Horas pico de respuesta: ${(d.hours ?? []).join(", ")} (${d.timezone ?? "America/Mexico_City"}).`;
+    case "avg_close_days":
+      return `Tiempo promedio de cierre: ${d.days} días.`;
+    case "top_objections":
+      return `Objeciones más frecuentes: ${(d.objections ?? []).join(", ")}.`;
+    case "best_message_style":
+      return `Estilo de mensaje que mejor funciona: ${d.style}.`;
+    case "winning_sequences":
+      return `Secuencia ganadora: ${(d.steps ?? []).join(" → ")}.`;
+    case "top_seller_by_stage":
+      return `Vendedor estrella en ${d.stage}: ${d.seller} (${Math.round((d.rate ?? 0) * 100)}% de avance).`;
+    default:
+      return `${p.pattern_type}: ${JSON.stringify(d)}`;
+  }
+}
+
+export function appendLearnedPatterns(systemPrompt: string, patterns: LearnedPattern[]): string {
+  if (!patterns.length) return systemPrompt;
+  const lines = patterns.map((p) => `  • ${formatPattern(p)} (confianza ${(p.confidence_score * 100).toFixed(0)}%, n=${p.sample_size})`);
+  return `${systemPrompt}\n\nPATRONES APRENDIDOS DE ESTE NEGOCIO (úsalos para personalizar tus sugerencias):\n${lines.join("\n")}`;
+}
+
 export const CRM_TOOLS = [
   {
     type: "function",
