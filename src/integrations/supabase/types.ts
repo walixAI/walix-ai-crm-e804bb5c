@@ -362,6 +362,56 @@ export type Database = {
           },
         ]
       }
+      ai_outcome_feedback: {
+        Row: {
+          action_taken: string
+          context_at_action: Json
+          created_at: string
+          days_to_outcome: number | null
+          entity_id: string
+          entity_type: string
+          id: string
+          outcome: string | null
+          outcome_value: number
+          suggestion_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action_taken: string
+          context_at_action?: Json
+          created_at?: string
+          days_to_outcome?: number | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          outcome?: string | null
+          outcome_value?: number
+          suggestion_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action_taken?: string
+          context_at_action?: Json
+          created_at?: string
+          days_to_outcome?: number | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          outcome?: string | null
+          outcome_value?: number
+          suggestion_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_outcome_feedback_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "ai_proactive_suggestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_proactive_suggestions: {
         Row: {
           acted_on: boolean
@@ -471,6 +521,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_tenant_patterns: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          id: string
+          pattern_data: Json
+          pattern_type: string
+          sample_size: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          pattern_data?: Json
+          pattern_type: string
+          sample_size?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          pattern_data?: Json
+          pattern_type?: string
+          sample_size?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       audit_log: {
         Row: {
@@ -1964,6 +2047,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      recent_acted_suggestion: {
+        Args: { _entity_id: string; _entity_type: string; _tenant_id: string }
+        Returns: string
       }
       seed_default_ai_agents: {
         Args: { _tenant_id: string }
