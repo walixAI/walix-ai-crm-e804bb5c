@@ -336,6 +336,19 @@ export async function executeTool(
         if (error) return { ok: false, error: error.message };
         return { ok: true, suggestion_id: data.id };
       }
+      case "update_tenant_pattern": {
+        const conf = Math.max(0, Math.min(1, Number(args.confidence_score ?? 0)));
+        const { error } = await sb.from("ai_tenant_patterns").upsert({
+          tenant_id: tenantId,
+          pattern_type: String(args.pattern_type),
+          pattern_data: args.pattern_data ?? {},
+          confidence_score: conf,
+          sample_size: Number(args.sample_size ?? 0),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "tenant_id,pattern_type" });
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      }
       default:
         return { ok: false, error: `Tool desconocida: ${name}` };
     }
