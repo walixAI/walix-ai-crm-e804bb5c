@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
+import { aiMemory } from "@/services/aiMemory";
 
 export interface Pipeline {
   id: string;
@@ -242,6 +243,12 @@ export function useUpdateDealStage() {
         })
         .eq("id", args.dealId);
       if (error) throw error;
+      void aiMemory.logEvent("deal", args.dealId, "deal_stage_changed", {
+        stage_id: args.stage.id,
+        stage_name: args.stage.name,
+        is_won: args.stage.isWon,
+        is_lost: args.stage.isLost,
+      });
     },
     onMutate: async ({ dealId, stage }) => {
       await qc.cancelQueries({ queryKey: ["pipeline-deals"] });
@@ -333,7 +340,16 @@ export function useCreateDeal() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline-deals"] }),
+    onSuccess: (data, input) => {
+      qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+      if (data?.id) {
+        void aiMemory.logEvent("deal", data.id, "deal_created", {
+          name: input.name,
+          amount: input.amount,
+          contact_id: input.contactId,
+        });
+      }
+    },
   });
 }
 
