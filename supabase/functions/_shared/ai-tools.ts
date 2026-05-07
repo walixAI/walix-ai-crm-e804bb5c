@@ -459,6 +459,22 @@ export async function executeTool(
         if (error) return { ok: false, error: error.message };
         return { ok: true };
       }
+      case "update_user_profile_insights": {
+        const targetUser = String(args.user_id ?? "");
+        if (!targetUser) return { ok: false, error: "user_id requerido" };
+        // Validar que el usuario pertenezca al tenant
+        const { data: prof } = await sb.from("profiles")
+          .select("id, tenant_id, active_tenant_id").eq("id", targetUser).maybeSingle();
+        const targetTenant = prof?.active_tenant_id ?? prof?.tenant_id;
+        if (!prof || targetTenant !== tenantId) return { ok: false, error: "usuario fuera del tenant" };
+        const patch: Record<string, any> = {};
+        if (Array.isArray(args.strengths)) patch.strengths = args.strengths.slice(0, 8);
+        if (Array.isArray(args.improvement_areas)) patch.improvement_areas = args.improvement_areas.slice(0, 8);
+        if (!Object.keys(patch).length) return { ok: true };
+        const { error } = await sb.from("ai_user_profile").update(patch).eq("user_id", targetUser);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      }
       default:
         return { ok: false, error: `Tool desconocida: ${name}` };
     }
