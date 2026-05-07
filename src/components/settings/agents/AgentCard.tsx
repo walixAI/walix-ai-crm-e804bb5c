@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Loader2, Settings2, History, ShieldAlert, TrendingDown, Sunrise, GraduationCap, UserCheck, Sparkles, Brain } from "lucide-react";
+import { Play, Loader2, Settings2, History, ShieldAlert, TrendingDown, Sunrise, GraduationCap, UserCheck, Sparkles, Brain, Database } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
 import { setAgentActive, runAgentNow, type AiAgent } from "@/services/agents";
+import { supabase } from "@/integrations/supabase/client";
 import { describeCron, nextRunFromCron } from "./scheduleHelpers";
 import { AgentRunsList } from "./AgentRunsList";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export function AgentCard({ agent, isRunning, onChanged, onConfigure }: Props) {
   const Icon = ICONS[agent.agent_type] ?? Sparkles;
   const [running, setRunning] = useState(false);
   const [showLog, setShowLog] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const next = nextRunFromCron(agent.schedule);
 
   async function toggle(v: boolean) {
@@ -49,6 +51,21 @@ export function AgentCard({ agent, isRunning, onChanged, onConfigure }: Props) {
     } catch (e: any) {
       toast.error(e.message ?? "Error al ejecutar agente");
     } finally { setRunning(false); }
+  }
+
+  async function runBackfill() {
+    if (!confirm("Procesar los últimos 90 días de datos para que el Aprendiz aprenda patrones históricos. Solo se puede ejecutar una vez al día.")) return;
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("aprendiz-backfill", {
+        body: { tenant_id: agent.tenant_id, days: 90 },
+      });
+      if (error) throw error;
+      toast.success(`Backfill listo: ${data?.users_updated ?? 0} perfiles, ${data?.patterns_created ?? 0} patrones.`);
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Error en backfill");
+    } finally { setBackfilling(false); }
   }
 
   const status = !agent.is_active ? "paused"
@@ -111,6 +128,13 @@ export function AgentCard({ agent, isRunning, onChanged, onConfigure }: Props) {
           <Button size="sm" variant="ghost" onClick={() => setShowLog(!showLog)}>
             <History className="h-3.5 w-3.5 mr-1.5" /> {showLog ? "Ocultar" : "Ver"} historial
           </Button>
+          {agent.agent_type === "aprendiz" && (
+            <Button size="sm" variant="ghost" onClick={runBackfill} disabled={backfilling}>
+              {backfilling
+                ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Procesando…</>
+                : <><Database className="h-3.5 w-3.5 mr-1.5" /> Procesar histórico (90d)</>}
+            </Button>
+          )}
         </div>
 
         {showLog && <AgentRunsList agentId={agent.id} />}

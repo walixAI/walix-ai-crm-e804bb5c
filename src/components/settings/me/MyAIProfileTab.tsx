@@ -13,8 +13,33 @@ import {
   updateMyAIProfile,
   countMyDealsClosed,
   getTeamCloseRate,
+  getMyTimezone,
+  updateMyTimezone,
   type AIUserProfile,
 } from "@/services/userProfile";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const COMMON_TIMEZONES = [
+  "America/Mexico_City",
+  "America/Tijuana",
+  "America/Monterrey",
+  "America/Cancun",
+  "America/Bogota",
+  "America/Lima",
+  "America/Santiago",
+  "America/Buenos_Aires",
+  "America/Caracas",
+  "America/La_Paz",
+  "America/Montevideo",
+  "America/Asuncion",
+  "America/Guatemala",
+  "America/Costa_Rica",
+  "America/Panama",
+  "America/New_York",
+  "America/Los_Angeles",
+  "Europe/Madrid",
+  "Atlantic/Canary",
+];
 
 const STYLE_LABELS: Record<string, string> = {
   formal: "Formal y profesional",
@@ -41,6 +66,7 @@ export function MyAIProfileTab() {
   const [saving, setSaving] = useState(false);
   const [dealsAnalyzed, setDealsAnalyzed] = useState(0);
   const [teamCloseRate, setTeamCloseRate] = useState(0);
+  const [timezone, setTimezone] = useState<string>("America/Mexico_City");
 
   async function reload() {
     setLoading(true);
@@ -54,6 +80,7 @@ export function MyAIProfileTab() {
       ]);
       setDealsAnalyzed(n);
       setTeamCloseRate(t);
+      try { setTimezone(await getMyTimezone()); } catch { /* noop */ }
     } finally {
       setLoading(false);
     }
@@ -238,6 +265,30 @@ export function MyAIProfileTab() {
             checked={profile.weekly_coaching_report}
             onChange={(v) => toggle("weekly_coaching_report", v)}
           />
+          <div className="flex items-center justify-between gap-4 pt-2 border-t border-border">
+            <Label className="text-sm">Mi zona horaria</Label>
+            <Select
+              value={timezone}
+              onValueChange={async (tz) => {
+                setTimezone(tz);
+                try {
+                  await updateMyTimezone(tz);
+                  toast({ title: "Zona horaria actualizada" });
+                } catch (e: any) {
+                  toast({ title: "No se pudo actualizar", description: e.message, variant: "destructive" });
+                }
+              }}
+            >
+              <SelectTrigger className="w-[260px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {COMMON_TIMEZONES.map((tz) => (
+                  <SelectItem key={tz} value={tz}>{tz.replace("_", " ")}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
     </div>
