@@ -377,7 +377,8 @@ async function buildSystemPrompt(
     sb.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
     sb.from("user_roles").select("role").eq("user_id", userId),
     sb.from("pipelines").select("id, name").eq("tenant_id", tenantId)
-      .order("created_at", { ascending: true }).limit(1).maybeSingle(),
+      .order("is_default", { ascending: false })
+      .order("position", { ascending: true }).limit(1).maybeSingle(),
     sb.from("ai_proactive_suggestions")
       .select("suggestion_text, priority, entity_type, entity_id")
       .eq("dismissed", false).order("priority", { ascending: false }).limit(3),
