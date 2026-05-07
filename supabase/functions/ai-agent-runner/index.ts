@@ -146,6 +146,17 @@ Deno.serve(async (req) => {
           tools: result.toolsUsed.map((t) => ({ name: t.name, ok: t.result?.ok ?? false })),
         });
       }
+
+      // Aprendiz: además de patrones del tenant, actualiza perfiles individuales
+      // con métricas deterministas (estilo, longitud, close_rate, mejor día/hora).
+      if (agent.agent_type === "aprendiz") {
+        try {
+          const updated = await updateUserProfilesFromData(sbAdmin, tenantId);
+          runLog.push({ entity: { type: "user", id: tenantId, label: "user_profiles" }, finalText: `Perfiles IA actualizados: ${updated}`, tools: [] });
+        } catch (e) {
+          runLog.push({ entity: { type: "user", id: tenantId, label: "user_profiles" }, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
     } catch (e) {
       runStatus = "failed";
       errorMessage = e instanceof Error ? e.message : String(e);
@@ -337,4 +348,73 @@ function buildEntityPrompt(agentType: string, ent: EntityRef, ctx: any): string 
     default:
       return base;
   }
+}
+
+async function updateUserProfilesFromData(sb: any, tenantId: string): Promise<number> {
+  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const { data: profiles } = await sb.from("profiles")
+    .select("id").eq("tenant_id", tenantId).eq("is_active", true);
+  let count = 0;
+  for (const p of profiles ?? []) {
+    const userId = p.id;
+    // 1) Style + length from recent edited drafts
+    const { data: edits } = await sb.from("ai_draft_edits")
+      .select("edited, created_at").eq("user_id", userId)
+      .gte("created_at", since).limit(50);
+    const patch: Record<string, any> = {};
+    if (edits && edits.length >= 5) {
+      const avgLen = edits.reduce((s: number, e: any) => s + (e.edited?.length ?? 0), 0) / edits.length;
+      patch.preferred_message_length = avgLen < 120 ? "short" : avgLen < 300 ? "medium" : "long";
+      const all = edits.map((e: any) => (e.edited ?? "").toLowerCase()).join(" ");
+      const tuteo = / tu | tú | tuyo | te /.test(all);
+      const usted = / usted | suyo | le /.test(all);
+      const emoji = /[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{27BF}]/u.test(all);
+      patch.communication_style = (emoji || (tuteo && !usted)) ? (emoji ? "muy_casual" : "casual") : "formal";
+    }
+    // 2) Close stats from deals
+    const { data: deals } = await sb.from("deals")
+      .select("id, is_won, is_lost, stage_name, updated_at")
+      .eq("tenant_id", tenantId).eq("owner_id", userId);
+    if (deals && deals.length) {
+      const won = deals.filter((d: any) => d.is_won).length;
+      const lost = deals.filter((d: any) => d.is_lost).length;
+      const finished = won + lost;
+      patch.total_deals_closed = won;
+      patch.total_deals_lost = lost;
+      patch.close_rate = finished ? won / finished : 0;
+
+      // best close day/hour from is_won deals
+      const wonDeals = deals.filter((d: any) => d.is_won && d.updated_at);
+      if (wonDeals.length >= 3) {
+        const dayMap: Record<string, number> = {};
+        const hourMap: Record<number, number> = {};
+        const dows = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        for (const d of wonDeals) {
+          const dt = new Date(d.updated_at);
+          dayMap[dows[dt.getDay()]] = (dayMap[dows[dt.getDay()]] || 0) + 1;
+          hourMap[dt.getHours()] = (hourMap[dt.getHours()] || 0) + 1;
+        }
+        patch.best_close_day = Object.entries(dayMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+        patch.best_close_hour = Number(Object.entries(hourMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null);
+      }
+
+      // top performing stage = stage with most won deals
+      const stageMap: Record<string, number> = {};
+      for (const d of wonDeals) {
+        if (d.stage_name) stageMap[d.stage_name] = (stageMap[d.stage_name] || 0) + 1;
+      }
+      const topStage = Object.entries(stageMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (topStage) patch.top_performing_stage = topStage;
+    }
+
+    if (Object.keys(patch).length) {
+      // Ensure row exists
+      await sb.from("ai_user_profile").upsert(
+        { user_id: userId, tenant_id: tenantId, ...patch },
+        { onConflict: "user_id" },
+      );
+      count++;
+    }
+  }
+  return count;
 }
