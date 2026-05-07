@@ -48,8 +48,10 @@ export async function logDraftEdit(opts: {
   original: string;
   edited: string;
   contactId?: string | null;
+  messageId?: string | null;
+  conversationId?: string | null;
 }) {
-  if (!opts.original || !opts.edited || opts.original === opts.edited) return;
+  if (!opts.original || !opts.edited) return;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   const { data: prof } = await supabase
@@ -66,7 +68,24 @@ export async function logDraftEdit(opts: {
     edited: opts.edited,
     char_delta: Math.abs(opts.edited.length - opts.original.length),
     contact_id: opts.contactId ?? null,
+    message_id: opts.messageId ?? null,
+    conversation_id: opts.conversationId ?? null,
   });
+}
+
+/** Lee la zona horaria del perfil del usuario (default America/Mexico_City). */
+export async function getMyTimezone(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "America/Mexico_City";
+  const { data } = await supabase.from("profiles").select("timezone").eq("id", user.id).maybeSingle();
+  return ((data as any)?.timezone as string) || "America/Mexico_City";
+}
+
+export async function updateMyTimezone(tz: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("not authenticated");
+  const { error } = await supabase.from("profiles").update({ timezone: tz }).eq("id", user.id);
+  if (error) throw error;
 }
 
 export async function countMyDealsClosed(): Promise<number> {
