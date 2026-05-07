@@ -465,3 +465,62 @@ export async function fetchDashboardAiWidgets(includeReport = true): Promise<Das
     };
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Copiloto IA con tool use (Fase 3)
+// ────────────────────────────────────────────────────────────────────────
+
+export interface CopilotToolUse {
+  name: string;
+  args: Record<string, unknown>;
+  result: any;
+}
+
+export interface CopilotPendingWhatsapp {
+  contact_id: string;
+  draft: string;
+}
+
+export interface CopilotTurn {
+  text: string;
+  toolsUsed: CopilotToolUse[];
+  pendingWhatsapp: CopilotPendingWhatsapp | null;
+  source: "live" | "error";
+  errorMessage?: string;
+}
+
+export async function runCopilot(opts: {
+  message: string;
+  conversationKey?: string;
+  entityType?: "contact" | "deal" | "conversation" | null;
+  entityId?: string | null;
+}): Promise<CopilotTurn> {
+  try {
+    const { data, error } = await supabase.functions.invoke("ai-copilot", {
+      body: {
+        message: opts.message,
+        conversationKey: opts.conversationKey ?? "global",
+        entityType: opts.entityType ?? null,
+        entityId: opts.entityId ?? null,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(String(data.error));
+    return {
+      text: data?.text ?? "",
+      toolsUsed: Array.isArray(data?.toolsUsed) ? data.toolsUsed : [],
+      pendingWhatsapp: data?.pendingWhatsapp ?? null,
+      source: "live",
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error";
+    console.warn("[ai.runCopilot] error:", msg);
+    return {
+      text: `No pude completar la acción. ${msg}`,
+      toolsUsed: [],
+      pendingWhatsapp: null,
+      source: "error",
+      errorMessage: msg,
+    };
+  }
+}
