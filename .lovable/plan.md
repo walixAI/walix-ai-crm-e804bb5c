@@ -1,74 +1,76 @@
-## Issues encontrados y plan de implementación
+# Plan: Memoria persistente de IA
 
-### 1) Fuente de prospección no se puede cambiar para contactos nuevos
+Infraestructura de contexto que persiste entre sesiones para alimentar el copiloto, sugerencias proactivas y prompts enriquecidos.
 
-**Causa**: en `ContactInfoCard.tsx` al cambiar fuente se guarda `source` (columna ENUM `lead_source` con sólo 4 valores: WhatsApp/Formulario web/Referido/Manual) además de `source_id`. Si la fuente es personalizada (creada en Configuración) el UPDATE falla con error de enum y la lista no responde. También el `Select` queda vacío si `source_id` es null aunque haya `source` enum.
+## 1. Migración de base de datos
 
-**Fix**:
-- En `ContactInfoCard.tsx`: guardar **sólo** `source_id`. Eliminar el set de `source` enum.
-- Mostrar como label el nombre del source resuelto desde `sources` por `sourceId`, con fallback a `contact.source` si no hay match.
-- Migración: convertir `contacts.source` y `deals.source` de enum `lead_source` a `text` (no destructiva: `ALTER COLUMN ... TYPE text USING source::text`) para que cualquier fuente personalizada pueda persistirse. Mantener default `'Manual'`.
+Adaptaciones necesarias respecto al SQL propuesto:
+- No existe tabla `users`; las FKs de "usuario" apuntarán a `auth.users(id)` (mismo patrón usado en el resto del proyecto vía `profiles.id`).
+- Las políticas RLS usarán el helper existente `get_user_tenant(auth.uid())` y `is_platform(auth.uid())` — no `auth.jwt()->>'tenant_id'` (ese claim no está poblado en este proyecto).
+- Trigger `set_updated_at` en `ai_entity_context`.
 
-### 2) IA no crea fuentes (ni configuración) para tenant_owner / tenant_admin
+### Tablas
 
-**Causa**: `global-ai/index.ts` no expone tools de configuración. `ai-execute/index.ts` no maneja kinds para crear stages, sources, pipelines.
+**`ai_entity_context`** — Resumen vivo por entidad (contact|deal|conversation|team) con `context_summary`, `key_facts JSONB`, `sentiment`, `urgency_score`, `last_interaction`. UNIQUE(tenant_id, entity_type, entity_id).
 
-**Fix**:
-- En `ai-execute/index.ts`: nuevos kinds `create_contact_source`, `create_contact_stage`, `create_pipeline_stage`. Validan rol del usuario (debe ser `tenant_admin` o `tenant_owner` vía `has_role`) antes de insertar. Devuelven preview con nombre/posición y ejecutan el insert con `tenant_id` del perfil.
-- En `global-ai/index.ts`: añadir tools `propose_create_contact_source`, `propose_create_contact_stage`, `propose_create_pipeline_stage`. Sólo se exponen al modelo si el usuario es admin/owner (consulta `user_roles` al iniciar la conversación). Para vendedores, se omiten del array `tools`.
-- Mensaje de sistema describe: "Si eres admin puedes proponer nuevas fuentes, etapas, etc.".
+**`ai_memory_events`** — Log inmutable de eventos (`wa_message_sent`, `wa_message_received`, `deal_stage_changed`, `note_added`, `deal_created`, `contact_updated`, `task_completed`, …). `actor_id` → `auth.users(id)`.
 
-### 3) Dashboard y Reportes deben incluir actividad del contacto (tareas)
+**`ai_proactive_suggestions`** — Sugerencias generadas sin pregunta: `suggestion_text`, `action_type` (`send_whatsapp|move_deal|create_task|schedule_followup`), `action_payload`, `priority 1-10`, `expires_at` default +24h, flags `acted_on`/`dismissed`.
 
-**Fix**:
-- `useRecentActivity` (dashboard.ts): hacer dos queries en paralelo (`activities` + `tasks` con join a `contacts(name,last_name)`), mapear tasks como filas con `type:"task"`, ordenar por `occurred_at`/`due_at` desc y devolver el top N.
-- En `Reports`: equivalente — pasar tasks al heatmap de actividad de equipo y a `TeamActivityHeatmap` / `SellerPerformanceTable` (sumar tasks completadas por vendedor en el período).
+**`ai_conversation_history`** — Historial del copiloto (AiPromptBar) con `session_id`, `role` (`user|assistant|tool`), `content`, `tool_calls`, `context_snapshot`.
 
-### 4) No se muestran todas las tareas + tareas con mismo nombre desaparecen
+### Índices
+Los 4 índices propuestos tal cual.
 
-**Causas**:
-- En `Tasks.tsx` el toggle **"Solo mías"** está activo por default (`useState(true)`) y filtra por `assignee_id = auth.user.id`. Las tareas seed y las creadas sin asignar no aparecen.
-- En `useTasks` los views Hoy/Próximas/Vencidas requieren `due_at` (gte/lte). Tareas sin fecha no aparecen en ningún tab excepto "Todas".
-- "Mismo nombre, distinto contacto sólo muestra 1": revisar render — la lista usa `key={t.id}` (único) así que no debería colapsar; el caso probable es que ambas tareas comparten misma fecha y el orden secundario causa que React Query las trate igual en algún memo. Añadiremos `key={t.id}` ya garantizado y test manual.
+### RLS (todas las tablas)
+- `SELECT`: `tenant_id = get_user_tenant(auth.uid()) OR is_platform(auth.uid())`
+- `INSERT`: `tenant_id = get_user_tenant(auth.uid())`
+- `UPDATE/DELETE`: `tenant_id = get_user_tenant(auth.uid())`
+- En `ai_proactive_suggestions` además limitamos `UPDATE` a `target_user_id = auth.uid()` o admin/owner del tenant.
+- En `ai_conversation_history` limitamos lectura a `user_id = auth.uid()` (más privacidad) + admins del tenant.
 
-**Fix**:
-- Default `mineOnly = false`.
-- Mostrar tareas sin `due_at` en "Todas" y "Hoy/Próximas" tratándolas como sin fecha (sección aparte "Sin fecha").
-- En cada item mostrar fecha absoluta + hora (`dd MMM, HH:mm`) y un **badge de estatus**: Vencida (rojo), Hoy (warning), Próxima (info), Completada (success).
-- Verificar que la query no aplique distinct ni dedupe por título.
+### Trigger de auto-actualización
+Función `update_ai_context_from_event()` que tras cada `INSERT` en `ai_memory_events` haga `UPSERT` mínimo en `ai_entity_context` (actualiza `last_interaction = NEW.created_at` y mantiene `updated_at`). El enriquecimiento semántico (`context_summary`, `key_facts`, `sentiment`, `urgency_score`) lo hace una edge function aparte (siguiente iteración).
 
-### 5) Editar tareas (en sección Tareas y dentro del contacto)
+## 2. Servicio: `src/services/aiMemory.ts`
 
-**Fix**:
-- Refactorizar `QuickTaskDialog` para aceptar `task?: TaskRow` y entrar en modo edición: precarga título/fecha/asignado/contacto, hace UPDATE en lugar de INSERT.
-- Añadir botón ✏️ junto al ✕ en cada fila de `Tasks.tsx` y `TasksTab.tsx` que abre el diálogo en modo edición.
-- Añadir campo "Asignado a" (Select de `useTenantUsers`) en el diálogo.
+```text
+aiMemory.getContext(entityType, entityId): Promise<EntityContext | null>
+aiMemory.logEvent(entityType, entityId, eventType, data): Promise<void>
+aiMemory.getProactiveSuggestions(userId): Promise<Suggestion[]>
+aiMemory.actOnSuggestion(suggestionId, acted: boolean): Promise<void>
+aiMemory.buildSystemPrompt(ctx: EntityContext, userRole: string): string
+```
 
-### 6) IA en Resumen del contacto debe leer actividades del contacto + actividades de sus oportunidades
+- `logEvent` inserta en `ai_memory_events`; el trigger refresca `last_interaction`.
+- `getProactiveSuggestions` filtra `dismissed=false AND expires_at > now() AND (target_user_id = userId OR target_user_id IS NULL)`, ordena por `priority DESC, created_at DESC`.
+- `buildSystemPrompt` arma un bloque de contexto en español que incluye resumen, top 5 `key_facts`, último sentimiento y urgencia, y modula instrucciones según `userRole` (vendedor vs. tenant_admin/owner).
+- Tipos exportados (`EntityContext`, `Suggestion`, `EventType`, `EntityType`) compartidos.
 
-**Causa**: `contact-ai-suggest/index.ts` sólo carga `activities WHERE contact_id = X`. Las actividades ligadas al deal (con `deal_id` pero `contact_id` null) no entran.
+## 3. Hooks: `src/hooks/useAiMemory.ts`
 
-**Fix**: en `contact-ai-suggest`, después de cargar los deals del contacto, hacer una query adicional `activities WHERE deal_id IN (deal_ids) AND contact_id IS NULL` y combinarlas con las del contacto en `activitySummary`. Etiquetar cada línea con `[contacto]` o `[oportunidad: <nombre>]` para que el modelo distinga.
+- `useEntityContext(entityType, entityId)` — React Query con `refetchInterval: 30_000`.
+- `useProactiveSuggestions()` — usa `useAuth` para tomar `userId`; `refetchInterval: 60_000`; expone `actOn(id, acted)` y `dismiss(id)` con invalidación.
+- `useAiMemoryLogger()` — devuelve `logEvent` memoizado (mutación) para usar en componentes (DealDrawer, Composer, TasksTab, etc.).
 
----
+## 4. Integraciones (mínimas en este paso)
 
-### Archivos a editar
+Para validar la capa sin romper flujos existentes, agregamos llamadas a `logEvent` en:
+- `Composer` de WhatsApp (mensaje saliente → `wa_message_sent`).
+- `whatsapp-webhook` edge function (entrante → `wa_message_received`).
+- `KanbanBoard`/`DealDrawer` al cambiar stage → `deal_stage_changed`.
+- `QuickTaskDialog` al completar tarea → `task_completed`.
 
-| Archivo | Cambio |
-|---|---|
-| `src/components/contacts/detail/ContactInfoCard.tsx` | Guardar sólo `source_id`; resolver label desde `sources` |
-| `supabase/migrations/<new>.sql` | `ALTER COLUMN contacts.source / deals.source TYPE text` |
-| `supabase/functions/ai-execute/index.ts` | Nuevos kinds: create_contact_source/stage, create_pipeline_stage |
-| `supabase/functions/global-ai/index.ts` | Nuevos tools admin + filtrado por rol |
-| `src/lib/queries/dashboard.ts` | `useRecentActivity` une activities + tasks |
-| `src/components/reports/TeamActivityHeatmap.tsx` + queries de reports | Incluir tasks |
-| `src/pages/app/Tasks.tsx` | mineOnly=false, fecha absoluta, badge estatus, botón editar, sección "Sin fecha" |
-| `src/components/contacts/detail/TasksTab.tsx` | Mostrar fecha+hora+badge, botón editar |
-| `src/components/pipeline/QuickTaskDialog.tsx` | Modo edición + Select asignado |
-| `src/lib/queries/tasks.ts` | `useUpdateTask` mutation; ajuste de filtros para tareas sin due_at |
-| `supabase/functions/contact-ai-suggest/index.ts` | Cargar activities de deals del contacto |
+Las edge functions de IA (`global-ai`, `contact-ai-suggest`, `pipeline-ai`) **no** se modifican aún; el consumo de `buildSystemPrompt` y de las sugerencias proactivas se hará en el siguiente prompt para mantener este cambio enfocado en infraestructura.
 
-### Notas técnicas
-- La migración a `text` para `source` es retrocompatible: los valores existentes ('Manual', 'WhatsApp', etc.) se preservan como strings. El enum `lead_source` queda sin uso pero no se elimina (otros componentes podrían referenciarlo).
-- El check de rol en `global-ai` se hace una sola vez al inicio: `await supabase.from('user_roles').select('role').eq('user_id', userId)` y se calcula `isAdmin = roles.includes('tenant_admin'|'tenant_owner')`.
-- Los recordatorios de IA por hora (cron) no se incluyen en este lote, ya están en el plan previo aprobado pendiente.
+## 5. Archivos
+
+- **Crear migración:** tablas + índices + RLS + trigger.
+- **Crear:** `src/services/aiMemory.ts`, `src/hooks/useAiMemory.ts`.
+- **Editar:** `src/components/whatsapp/Composer.tsx`, `src/components/pipeline/KanbanBoard.tsx` (o `DealDrawer.tsx` donde vive el cambio de stage), `src/components/pipeline/QuickTaskDialog.tsx`, `supabase/functions/whatsapp-webhook/index.ts`.
+
+## Fuera de alcance (próxima iteración)
+- Edge function `ai-memory-enrich` que recalcula `context_summary`/`sentiment`/`urgency_score` con LLM tras N eventos.
+- Generación automática de `ai_proactive_suggestions` (cron horario).
+- UI para mostrar sugerencias proactivas en Dashboard / AiDrawer.
+- Wire de `buildSystemPrompt` en las edge functions de IA existentes.
