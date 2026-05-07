@@ -1,67 +1,73 @@
-# Cierre de pendientes — 9 prompts del día
+# Mejoras post-9 prompts: timezone, métricas IA, backfill Aprendiz, A/B drafts
 
-Tras re-auditar el código, varios pendientes que figuraban antes ya están implementados (cron de agentes, gating del wizard por plan, validación tenant en `update_user_profile_insights`, índice en `ai_draft_edits`, estado vacío del widget de insights). Este plan ataca solo lo que realmente queda abierto.
+Cuatro mejoras independientes que se pueden ejecutar en una sola pasada. Ninguna toca el flujo crítico de los 9 prompts ya entregados.
 
-## 1. Notificaciones inteligentes (toggles del Perfil IA)
+## 1. Timezone real por usuario
 
-Hoy los toggles `notify_only_work_hours`, `notify_digest_9am` y `weekly_coaching_report` se persisten pero **ningún código los respeta** porque no existe un punto central que inserte notificaciones (no se encontraron inserts a `notifications` en edge functions).
+Hoy `deliverNotification` y los cálculos de "mejor hora/día" del Aprendiz asumen `America/Mexico_City`. Solución:
 
-Acciones:
+- **Migración**: añadir `profiles.timezone text NOT NULL DEFAULT 'America/Mexico_City'`.
+- **UI**: en `MyAIProfileTab.tsx` (o `Settings → General → Mi cuenta`), un `Select` con zonas comunes de LATAM + buscador (`Intl.supportedValuesOf("timeZone")`).
+- **Helper `_shared/notifications.ts`**: aceptar `timezone` opcional; si no se pasa, leerlo de `profiles.timezone` del `userId`. `isWithinWorkHours` y `nextDigest9amCDMX` reciben el TZ por parámetro.
+- **`ai-agent-runner` (rama Aprendiz)**: al calcular `best_close_day/hour`, usar el TZ del owner del deal.
 
-- **Helper compartido** `supabase/functions/_shared/notifications.ts`:
-  - `deliverNotification(sb, { userId, tenantId, type, title, body, payload })`
-  - Lee `ai_user_profile` del usuario.
-  - Si `notify_only_work_hours = true` y la hora local CDMX no está en 8–19 lun–vie → guarda en `notifications_queue` (tabla nueva) en vez de `notifications`.
-  - Si `notify_digest_9am = true` → siempre encola hasta el digest.
-  - En caso normal → insert directo en `notifications`.
-- **Tabla `notifications_queue`** (migración):
-  - `id, tenant_id, user_id, payload jsonb, deliver_after timestamptz, created_at`
-  - RLS: usuario propio + service role.
-- **Edge function `notifications-digest`** (nueva):
-  - Drena `notifications_queue` con `deliver_after <= now()`.
-  - Agrupa por usuario y hace 1 insert resumen en `notifications` (título "Resumen del día (N novedades)").
-- **Cron `pg_cron`**: cada 15 min llama a `notifications-digest` (anon key).
-- **Cableado**: usar `deliverNotification(...)` desde `ai-agent-runner` cuando crea sugerencias proactivas dirigidas a un user (Briefing Matutino, Coach Semanal, Detector de Riesgo).
+## 2. Tablero de métricas IA en `/admin` (Platform)
 
-## 2. Modo voz del AiPromptBar (prompt 5)
+Para Platform Owner / Staff. Nueva pestaña en `Platform.tsx` o ruta `/admin/ai-metrics`:
 
-Confirmar/implementar el dictado por voz del copiloto:
+- **KPIs globales (últimos 7 / 30 días)**:
+  - Runs de agentes ejecutados, tasa de éxito (`status='completed'`), tasa de error.
+  - Sugerencias creadas vs. accionadas (`acted_on=true`).
+  - Tokens consumidos por tenant (requiere registro previo — ver siguiente bullet).
+  - Top 5 tenants por uso del Copiloto (count de `ai_conversation_history`).
+- **Captura de tokens**: `runAgenticLoop` ya recibe la respuesta del gateway → extender para devolver `usage.total_tokens` y persistir en una nueva tabla `ai_usage_log (tenant_id, surface, model, input_tokens, output_tokens, created_at)`.
+- **Componente**: `src/pages/app/admin/AIMetrics.tsx` con `Card` de KPIs + tabla `usePlatformAIUsage`.
+- **RLS**: `ai_usage_log` solo lectura para `is_platform(auth.uid())`; insert por service role.
 
-- En `AiPromptBar`, botón micrófono usa `webkitSpeechRecognition` (Web Speech API) con `lang="es-MX"`, `continuous=false`, `interimResults=true`.
-- Estado visual: pulso rojo mientras escucha, transcripción en vivo en el input, auto-stop al detectar silencio (~1.5s).
-- Fallback: si la API no existe en el navegador, deshabilitar el botón con tooltip "Tu navegador no soporta dictado".
+## 3. Backfill histórico del Aprendiz
 
-## 3. Hardening / limpieza
+Para que tenants nuevos no esperen una semana antes de ver patrones.
 
-- **Tests Deno** mínimos en `supabase/functions/_shared/`:
-  - `ai-tools_test.ts`: `appendUserProfile`, `appendLearnedPatterns`, `update_user_profile_insights` (rechaza usuario fuera de tenant).
-- **Job de retención** (`pg_cron` semanal):
-  - `delete from ai_draft_edits where created_at < now() - interval '90 days'`
-  - `delete from ai_outcome_feedback where created_at < now() - interval '180 days'`
-  - `delete from notifications_queue where deliver_after < now() - interval '7 days'`
+- **Edge function `aprendiz-backfill`** (manual / one-shot por tenant):
+  - Input: `{ tenant_id, days?: number }` (default 90).
+  - Reusa la lógica de `updateUserProfilesFromData` y agregadores de `ai_outcome_feedback` que ya existen en la rama `aprendiz` de `ai-agent-runner`, pero con ventana extendida.
+  - Llama a `update_tenant_pattern` y `update_user_profile_insights` igual que el agente.
+- **Botón en `AgentsTab`** (solo para `agent_type='aprendiz'`): "Procesar histórico (90 días)" — solo visible para tenant_admin/owner, con `confirm` y rate limit (máximo 1 vez al día por tenant, con flag en `ai_agents.config.last_backfill_at`).
+
+## 4. A/B de borradores (analytics del Copiloto)
+
+Cuantificar el valor de los drafts del Copiloto comparando tasa de respuesta entre mensajes editados vs. no editados.
+
+- **Marcado en `ai_draft_edits`** ya está; añadir columna **`message_id uuid`** a `ai_draft_edits` para enlazar el draft con el mensaje real enviado (capturar al insertar en `messages` desde `confirmWhatsapp`).
+- **Vista `v_ai_draft_ab`** (SQL view o tabla materializada semanal):
+  - Por mensaje del Copiloto: `was_edited`, `char_delta`, `got_reply` (existe inbound posterior dentro de 48h en la misma `conversation`), `reply_within_hours`.
+- **Widget en `Reports.tsx`**: card "Impacto del Copiloto" con:
+  - Tasa de respuesta — drafts originales vs. editados.
+  - Tiempo promedio a respuesta.
+  - Volumen analizado + badge confianza (>50 mensajes = alta).
 
 ## Archivos
 
 **Nuevos:**
-- `supabase/functions/_shared/notifications.ts`
-- `supabase/functions/notifications-digest/index.ts`
-- `supabase/functions/_shared/ai-tools_test.ts`
-- `supabase/migrations/<ts>_notifications_queue_and_retention.sql` (tabla + cron digest + cron retención)
+- `supabase/migrations/<ts>_timezone_and_ai_usage.sql` (profiles.timezone + ai_usage_log + ai_draft_edits.message_id + view v_ai_draft_ab)
+- `supabase/functions/aprendiz-backfill/index.ts`
+- `src/pages/app/admin/AIMetrics.tsx`
+- `src/lib/queries/platformAI.ts`
+- `src/components/reports/CopilotImpactCard.tsx`
 
 **Editados:**
-- `supabase/functions/ai-agent-runner/index.ts` (usar `deliverNotification` y respetar `weekly_coaching_report` ya estaba; ampliar a Briefing/Detector)
-- `src/components/copilot/AiPromptBar.tsx` (modo voz)
+- `supabase/functions/_shared/notifications.ts` (TZ por parámetro / lookup)
+- `supabase/functions/_shared/ai-tools.ts` (`runAgenticLoop` registra `ai_usage_log`)
+- `supabase/functions/ai-agent-runner/index.ts` (Aprendiz usa TZ del owner)
+- `src/components/settings/me/MyAIProfileTab.tsx` (selector timezone)
+- `src/components/settings/agents/AgentsTab.tsx` o `AgentCard.tsx` (botón backfill en Aprendiz)
+- `src/store/copilot.ts` (capturar `message_id` en `logDraftEdit`)
+- `src/pages/app/Reports.tsx` (montar `CopilotImpactCard`)
+- `src/pages/app/Platform.tsx` (link a `/admin/ai-metrics`)
 
 ## Riesgos
 
-- `notifications_queue` requiere que sepamos el timezone del usuario. Por ahora se asume CDMX (`America/Mexico_City`); más adelante leer de `profiles.timezone` si existe.
-- Web Speech API no funciona en Safari iOS bien — se acepta degradación.
-- El cron de digest cada 15 min puede generar latencia hasta 15 min en notificaciones encoladas; es aceptable para un digest 9am.
-
-## Fuera de alcance (descartados como no-pendiente)
-
-- Cron de `ai_run_due_agents`: ya existe.
-- Gating Growth/Enterprise del wizard: ya existe.
-- Validación tenant en `update_user_profile_insights`: ya existe.
-- Índice en `ai_draft_edits`: ya existe.
-- Estado vacío del widget de insights: ya renderiza.
+- `Intl.supportedValuesOf` no existe en Safari < 17 — fallback a lista hardcodeada de ~10 zonas LATAM.
+- Backfill puede ser pesado: limitar a 90 días y usar `LIMIT 5000` en queries internas.
+- `ai_usage_log` puede crecer rápido — incluir en la limpieza semanal (`>180 días`).
+- La heurística de "got_reply" necesita que `messages.direction='inbound'` esté correctamente seteado para WhatsApp; si no, la métrica subreporta.
