@@ -1483,6 +1483,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications_queue: {
+        Row: {
+          created_at: string
+          deliver_after: string
+          delivered_at: string | null
+          id: string
+          payload: Json
+          reason: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deliver_after?: string
+          delivered_at?: string | null
+          id?: string
+          payload?: Json
+          reason?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deliver_after?: string
+          delivered_at?: string | null
+          id?: string
+          payload?: Json
+          reason?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       org_plan_limits: {
         Row: {
           max_tenants: number
@@ -2103,6 +2136,7 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { _token: string }; Returns: Json }
+      ai_cleanup_old_data: { Args: never; Returns: undefined }
       ai_recompute_next_run: { Args: { p_agent_id: string }; Returns: string }
       ai_run_due_agents: { Args: never; Returns: number }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
