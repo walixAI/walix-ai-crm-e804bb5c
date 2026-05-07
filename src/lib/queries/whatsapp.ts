@@ -207,6 +207,14 @@ export function useSendMessage() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["wa-messages", vars.conversationId] });
       qc.invalidateQueries({ queryKey: ["wa-conversations"] });
+      if (!vars.isInternalNote) {
+        // Fire-and-forget: registra el evento en la memoria de IA.
+        import("@/services/aiMemory").then(({ aiMemory }) => {
+          void aiMemory.logEvent("conversation", vars.conversationId, "wa_message_sent", {
+            length: vars.body.length,
+          });
+        });
+      }
     },
   });
 }
