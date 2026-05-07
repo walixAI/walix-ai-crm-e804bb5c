@@ -1,107 +1,73 @@
-## Objetivo
+# Walix Learning Loop — Plan
 
-Convertir la sección de Agentes IA en una experiencia completa para Tenant Admins: lista visual con cards ricas, configuración sin cron raw, historial legible, indicador global en TopBar, y wizard para agentes personalizados (gated por plan).
+Implements the feedback cycle so Walix.ai learns from each tenant's results: capture outcomes of acted-on suggestions, distill weekly patterns via a new agent, inject those patterns into every AI system prompt, and surface them as a "Insights del negocio" widget in Reports.
 
-## Cambios
+## 1. Database (migration)
 
-### 1. Mover Agentes IA a tab dentro de `/settings`
+New tables (RLS, tenant-scoped):
 
-- En `src/pages/app/Settings.tsx`: añadir tab `"agents"` con label `"Agentes IA"` (con badge Beta) entre `Módulos` y `Facturación`.
-- Crear `src/components/settings/agents/AgentsTab.tsx` (refactor del actual `AgentsSettings.tsx`) que recibe `tenantId`.
-- Mantener la ruta `/settings/agents` redirigiendo a `/settings` con `?tab=agents` (compat) — actualizar `Sidebar.tsx` para apuntar al tab.
-- Eliminar `src/pages/app/settings/AgentsSettings.tsx` y su import en `App.tsx`.
+- **`ai_outcome_feedback`**
+  `id, tenant_id, suggestion_id (nullable FK ai_proactive_suggestions), action_taken text, entity_type text, entity_id uuid, outcome text, outcome_value numeric default 0, days_to_outcome int, context_at_action jsonb default '{}', created_at`.
+  RLS: tenant select; insert by tenant members; no update/delete (immutable log).
+  Indexes: `(tenant_id, created_at desc)`, `(tenant_id, outcome)`, `(suggestion_id)`.
 
-### 2. Lista de agentes — `AgentsTab.tsx`
+- **`ai_tenant_patterns`**
+  `id, tenant_id, pattern_type text, pattern_data jsonb, confidence_score float default 0, sample_size int default 0, updated_at`.
+  Unique `(tenant_id, pattern_type)` so the Aprendiz upserts.
+  RLS: tenant select; insert/update only via service-role (no client policies for write).
 
-Header con resumen calculado client-side:
-- `X agentes activos · Última ejecución hace Y · Z acciones hoy` (suma de `actions_taken_today`, min `now - max(last_run_at)`).
+DB triggers (security definer, search_path=public) to auto-capture outcomes — only when an `ai_proactive_suggestions` row was `acted_on` within the last 7 days for the same `entity_id`:
 
-Cada `AgentCard` (`src/components/settings/agents/AgentCard.tsx`):
-- Ícono por `agent_type` (mapa: followup_watchdog→ShieldAlert, deal_risk_detector→TrendingDown, morning_briefing→Sunrise, weekly_coach→GraduationCap, lead_qualifier→UserCheck, custom→Sparkles).
-- Nombre + descripción + Switch ON/OFF.
-- "Próxima ejecución" derivada de `schedule` con `cronstrue`-like helper local (extender `describeCron` con `nextRunFromCron(schedule)` usando una mini util).
-- "Última ejecución: hace Xh · N acciones" usando `date-fns/formatDistanceToNow`.
-- Status badge: `Activo` / `Ejecutando` (spinner cuando hay run con `status="running"`) / `Error` / `Pausado`.
-- Tres botones: `Ejecutar ahora` (existente), `Configurar` (abre modal nuevo), `Ver historial` (expande inline accordion en lugar de Sheet).
+- `trg_deals_outcome` AFTER UPDATE on `deals`:
+  - `is_won` flips true → `outcome='deal_closed'`, `outcome_value=NEW.amount`.
+  - `is_lost` flips true → `outcome='deal_lost'`.
+  - `stage_id` changes (and not won/lost) → `outcome='deal_advanced'`.
+- `trg_messages_outcome` AFTER INSERT on `messages` where `direction='inbound'`: if there was an outbound message in the last 24h on the same conversation linked to a recent acted-on suggestion → `outcome='contact_responded'`.
+- `no_response` is computed lazily by the Aprendiz agent (scan outbound msgs older than 72h with no reply on suggestions linked to the contact).
 
-### 3. Modal de configuración — `AgentConfigDialog.tsx`
+Helper SQL function `public.get_tenant_patterns(_tenant_id)` returning the latest pattern rows (used by edge functions via service-role; readable also under tenant select RLS).
 
-Dialog con form (react-hook-form + zod):
-- Nombre, Descripción.
-- **Schedule sin cron raw**: RadioGroup `Diario / Dos veces al día / Solo días hábiles / Solo lunes` + `<Input type="time">`. Helper `buildCron(preset, time) → string` y `parseCron(string) → {preset, time}`. Preview legible debajo.
-- Slider `max_actions_per_run` (1–50).
-- Sección condicional por `agent_type`, persiste en `config jsonb`:
-  - `followup_watchdog`: `inactive_days` (input number, default 5).
-  - `deal_risk_detector`: `min_urgency_score` (slider 0–100, default 60).
-  - `morning_briefing`: checkboxes `include_deals / include_contacts / include_tasks / include_metrics`.
-- `Guardar`: `update ai_agents set name, description, schedule, max_actions_per_run, config`. Recalcular `next_run_at` server-side via función `ai_recompute_next_run(agent_id)` (migration nueva, SECURITY DEFINER, usa cron parser simple) — invocada con `supabase.rpc`.
+Enable Realtime on `ai_outcome_feedback` so the Reports widget can refresh.
 
-### 4. Historial expandible — `AgentRunsList.tsx`
+## 2. New agent type: `aprendiz`
 
-Reemplazar el `Sheet` actual por accordion inline dentro de la card.
-- Tabla compacta: Fecha · Duración (`completed_at - started_at`) · Entidades · Acciones · Status.
-- Click en fila → expande `run_log` formateado: cada item `{ts, message}` se renderiza como `HH:MM — message` (no JSON crudo). Ya el runner debería estar logueando entradas estructuradas; añadir helper `formatLogEntry(entry)` que tolera strings y objetos legacy.
+- Add `'aprendiz'` to `AgentType` (TS) and seed one row per tenant in `seed_default_ai_agents()` (cron `0 3 * * 0`, model `google/gemini-2.5-flash`, allowed_tools includes a new `update_tenant_pattern`).
+- New backfill migration: `INSERT ... SELECT id FROM tenants` so existing tenants also get an Aprendiz.
 
-### 5. Indicador global en TopBar
+## 3. Edge function changes
 
-- Nuevo componente `src/components/agents/AgentsActivityIndicator.tsx`:
-  - Suscripción Supabase Realtime a `ai_agent_runs` (filtrado por tenant via RLS) + fallback `setInterval` 30s.
-  - Cuenta runs con `status="running"`. Si >0, muestra ícono `Bot` con badge numérico y tooltip con nombre del agente activo.
-  - Click → `navigate("/settings?tab=agents")`.
-- Insertarlo en `TopBar.tsx` justo a la izquierda del AiPromptBar (antes de `<div className="flex-1 max-w-2xl">`).
-- Habilitar realtime en migration: `ALTER PUBLICATION supabase_realtime ADD TABLE ai_agent_runs;` y `REPLICA IDENTITY FULL`.
+- **`supabase/functions/_shared/ai-tools.ts`**
+  - Add tool `update_tenant_pattern(pattern_type, pattern_data, confidence_score, sample_size)` → upsert into `ai_tenant_patterns`.
+  - Add helper `getTenantPatterns(sb, tenantId)` and `formatPattern(p)` (returns one human line in Spanish per pattern type).
+  - In the prompt builder used by `runAgenticLoop` (and exported `appendLearnedPatterns(systemPrompt, patterns)`), append a `PATRONES APRENDIDOS DE ESTE NEGOCIO:` block when patterns exist.
+- **`supabase/functions/ai-copilot/index.ts`** — call `appendLearnedPatterns` at the end of `buildSystemPrompt`.
+- **`supabase/functions/ai-agent-runner/index.ts`**
+  - Same prompt injection (already uses runAgenticLoop, but we centralize so no extra wiring needed).
+  - New branch for `agent_type='aprendiz'`: pulls `ai_outcome_feedback` for the past 7 days, requires ≥20 rows, computes preliminary aggregates (best_followup_day, peak_response_hours from `contact_responded` events, avg_close_days from `deal_closed`, top_objections from `deals.lost_comment` + recent notes, winning_sequences from suggestion → outcome paths, top seller per stage from `deal_stage_history`). Passes raw aggregates to the LLM and lets it call `update_tenant_pattern` for each pattern with a confidence score. Also runs the lazy `no_response` capture.
 
-### 6. Wizard de agente personalizado
+## 4. Frontend — Reports widget
 
-`src/components/settings/agents/CustomAgentWizard.tsx` con `Dialog` multi-step (5 pasos):
-1. Nombre + objetivo (textarea).
-2. Scope de datos: checkboxes (`pipeline / contacts / whatsapp / reports`) — controla qué `allowed_tools` se incluyen.
-3. Acciones: radio `Solo sugerir` / `Sugerir + crear tareas` / `Sugerir + crear tareas + mover deals` — mapea a subset de tools.
-4. Schedule (mismo selector visual del modal de config).
-5. Preview del `system_prompt` autogenerado a partir de objetivo + scope + acciones, **editable**.
+- New component `src/components/reports/BusinessInsightsCard.tsx`:
+  - Queries `ai_tenant_patterns` for current tenant + count of `ai_outcome_feedback` rows.
+  - If sample size <20 deals analyzed → "Recopilando datos..." with a `Progress` bar (`min(count/20, 1)`).
+  - Otherwise renders a list of insight rows (icon + Spanish sentence per pattern_type) using existing `InsightCard`.
+  - Footer badge: `Basado en N deals analizados · Confianza: Alta/Media/Baja` (Alta ≥0.8, Media ≥0.5).
+- Wire it into `src/pages/app/Reports.tsx` right above `KpiHeroRow`.
+- Pattern formatters live in `src/lib/reports/patternFormatters.ts` (shared label/icon map).
 
-Botón `+ Crear agente personalizado`:
-- Plan PyME → botón con `<Lock>`, abre `<UpgradeDialog>` (reusar patrón existente o un toast con CTA si no hay).
-- Plan Growth/Enterprise → abre wizard. Detección via `tenants.plan` (query existente `useTenantPlan` o similar; verificar y si no existe, crear hook simple).
-- Submit → `insert ai_agents` con `agent_type='custom'`, `tenant_id`, `system_prompt` editado, `allowed_tools` calculados.
+## 5. Services / types
 
-### 7. Backend mínimo
+- `src/services/learning.ts` with `listTenantPatterns()`, `countOutcomeFeedback()`.
+- Extend `src/services/agents.ts` `AgentType` union with `'aprendiz'` and an icon entry in `AgentCard.tsx`.
 
-Migration nueva:
-- Función `ai_recompute_next_run(p_agent_id uuid)` SECURITY DEFINER: parsea `schedule` (soportar los presets generados) y setea `next_run_at`.
-- `ALTER PUBLICATION supabase_realtime ADD TABLE ai_agent_runs;` + `REPLICA IDENTITY FULL`.
-- Permitir UPDATE en `ai_agents` (ya existe policy admin update — confirmar que cubre `config`, `schedule`, `name`, `description`, `max_actions_per_run`).
+## 6. Files to add/edit
 
-`runner` actual: ajustar para que respete `config` por tipo:
-- `followup_watchdog`: usar `config.inactive_days`.
-- `deal_risk_detector`: usar `config.min_urgency_score`.
-- `morning_briefing`: pasar flags al prompt.
+- New: migration SQL, `BusinessInsightsCard.tsx`, `patternFormatters.ts`, `services/learning.ts`.
+- Edited: `_shared/ai-tools.ts`, `ai-copilot/index.ts`, `ai-agent-runner/index.ts`, `services/agents.ts`, `AgentCard.tsx`, `Reports.tsx`.
+- Backfill insert (via insert tool, not migration): one Aprendiz row per existing tenant.
 
-### 8. Archivos
+## Risks / notes
 
-**Nuevos**
-- `src/components/settings/agents/AgentsTab.tsx`
-- `src/components/settings/agents/AgentCard.tsx`
-- `src/components/settings/agents/AgentConfigDialog.tsx`
-- `src/components/settings/agents/AgentRunsList.tsx`
-- `src/components/settings/agents/CustomAgentWizard.tsx`
-- `src/components/settings/agents/scheduleHelpers.ts` (buildCron / parseCron / nextRun / describe)
-- `src/components/agents/AgentsActivityIndicator.tsx`
-- `supabase/migrations/<timestamp>_agents_ui.sql`
-
-**Editados**
-- `src/pages/app/Settings.tsx` (tab nuevo)
-- `src/components/layout/Sidebar.tsx` (link → `/settings?tab=agents`)
-- `src/components/layout/TopBar.tsx` (indicador)
-- `src/App.tsx` (quitar ruta `/settings/agents` o redirigir)
-- `src/services/agents.ts` (añadir `updateAgent`, `createCustomAgent`, `getRunningAgents`, `recomputeNextRun`)
-- `supabase/functions/ai-agent-runner/index.ts` (leer `config`)
-
-**Eliminados**
-- `src/pages/app/settings/AgentsSettings.tsx`
-
-## Riesgos
-
-- Realtime en `ai_agent_runs` necesita que `pg_cron` dispare runs reales para que el indicador se vea; ya está scheduled cada 5 min.
-- Parsear cron arbitrario es complejo; sólo soportamos los presets del UI (cualquier cron custom externo cae en `describeCron` raw fallback).
-- Plan gating: si no existe hook de plan, lo creo simple leyendo `tenants.plan`.
+- Triggers must be SECURITY DEFINER with `set search_path=public` and only fire when `ai_proactive_suggestions` proves recent intent — keeps the feedback signal clean.
+- Pattern injection adds tokens to every prompt; cap at top 6 patterns by confidence.
+- All writes to `ai_tenant_patterns` go through service-role inside the Aprendiz to avoid spoofing from clients.

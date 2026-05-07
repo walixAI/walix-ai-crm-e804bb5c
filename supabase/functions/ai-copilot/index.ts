@@ -5,6 +5,7 @@
 // se envía sin confirmación humana — solo se prepara como `pendingWhatsapp`.
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import { getTenantPatterns, appendLearnedPatterns } from "../_shared/ai-tools.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -400,7 +401,7 @@ async function buildSystemPrompt(
     entityCtx = data;
   }
 
-  return [
+  const base = [
     "Eres Walix.ai, copiloto IA del CRM para PyMEs mexicanas.",
     "Hablas español, eres directo, conciso y orientado a acción.",
     "",
@@ -423,6 +424,8 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "Cuando uses tools, encadénalas si hace falta (ej: search_contacts → get_contact_context → create_deal → prepare_whatsapp_message).",
     "Al terminar, responde en lenguaje natural confirmando lo que hiciste o preparaste.",
   ].filter(Boolean).join("\n");
+  const patterns = await getTenantPatterns(sb, tenantId);
+  return appendLearnedPatterns(base, patterns);
 }
 
 // ────────────────────────────────────────────────────────────────────────

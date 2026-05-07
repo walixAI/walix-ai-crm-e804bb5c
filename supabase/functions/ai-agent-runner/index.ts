@@ -235,6 +235,59 @@ async function selectEntities(sb: any, tenantId: string, agentType: string, conf
         user_id: p.id, owner_id: p.id, data: p,
       }));
     }
+    case "aprendiz": {
+      const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+      const { data: outcomes } = await sb.from("ai_outcome_feedback")
+        .select("outcome, outcome_value, days_to_outcome, context_at_action, created_at, entity_type, entity_id")
+        .eq("tenant_id", tenantId).gte("created_at", since).limit(500);
+      const list = outcomes ?? [];
+      // Aggregate
+      const byDow: Record<string, { responded: number; total: number }> = {};
+      const byHour: Record<number, number> = {};
+      let closeDaysSum = 0, closeDaysN = 0;
+      const objections: string[] = [];
+      const sellerStage: Record<string, { advanced: number; total: number; seller: string; stage: string }> = {};
+      const dows = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+      for (const o of list) {
+        const d = new Date(o.created_at);
+        const dowName = dows[d.getDay()];
+        if (o.outcome === "contact_responded") {
+          byDow[dowName] = byDow[dowName] || { responded: 0, total: 0 };
+          byDow[dowName].responded++;
+          byDow[dowName].total++;
+          byHour[d.getHours()] = (byHour[d.getHours()] || 0) + 1;
+        }
+        if (o.outcome === "deal_closed" && o.days_to_outcome != null) {
+          closeDaysSum += o.days_to_outcome; closeDaysN++;
+        }
+      }
+      // top objections from recently lost deals
+      const { data: lost } = await sb.from("deals")
+        .select("lost_reason, lost_comment, updated_at")
+        .eq("tenant_id", tenantId).eq("is_lost", true).gte("updated_at", since).limit(100);
+      for (const l of lost ?? []) {
+        if (l.lost_reason) objections.push(String(l.lost_reason));
+      }
+
+      const summary = {
+        sample_size: list.length,
+        outcomes_by_type: list.reduce((acc: Record<string, number>, o: any) => {
+          if (o.outcome) acc[o.outcome] = (acc[o.outcome] || 0) + 1;
+          return acc;
+        }, {}),
+        responses_by_day: byDow,
+        responses_by_hour: byHour,
+        avg_close_days: closeDaysN > 0 ? Math.round(closeDaysSum / closeDaysN) : null,
+        recent_lost_reasons: objections,
+        timezone: "America/Mexico_City",
+      };
+
+      return [{
+        id: tenantId, entity_type: "user", label: "tenant aggregates",
+        owner_id: null, data: summary,
+      }] as any;
+    }
     default:
       return [];
   }
@@ -264,6 +317,8 @@ function buildEntityPrompt(agentType: string, ent: EntityRef, ctx: any): string 
       return `${base}\n\nAnaliza el rendimiento de este vendedor en la semana anterior y crea una sugerencia proactiva de tipo coaching, target_user_id="${ent.id}", priority=6, con UNA recomendación accionable.`;
     case "lead_qualifier":
       return `${base}${ctxStr}\n\nCalifica este lead nuevo. Si parece de alta intención, crea una sugerencia proactiva (priority=8) para owner_id "${ent.owner_id}" pidiendo contacto inmediato.`;
+    case "aprendiz":
+      return `Eres el agente Aprendiz. Recibes los siguientes agregados de outcomes de la última semana del tenant:\n\n${JSON.stringify(ent.data, null, 2)}\n\nRequisitos: solo emite patrones cuando sample_size sea ≥ 20. Para cada patrón relevante (best_followup_day, peak_response_hours, avg_close_days, top_objections), llama update_tenant_pattern con pattern_data específico y un confidence_score honesto (0.5–0.95). No inventes datos: si no hay evidencia suficiente para un patrón, omítelo.`;
     default:
       return base;
   }

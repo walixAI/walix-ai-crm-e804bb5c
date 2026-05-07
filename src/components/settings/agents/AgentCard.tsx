@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Loader2, Settings2, History, ShieldAlert, TrendingDown, Sunrise, GraduationCap, UserCheck, Sparkles } from "lucide-react";
+import { Play, Loader2, Settings2, History, ShieldAlert, TrendingDown, Sunrise, GraduationCap, UserCheck, Sparkles, Brain } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +18,7 @@ const ICONS: Record<string, any> = {
   morning_briefing: Sunrise,
   weekly_coach: GraduationCap,
   lead_qualifier: UserCheck,
+  aprendiz: Brain,
   custom: Sparkles,
 };
 

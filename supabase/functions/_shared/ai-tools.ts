@@ -3,6 +3,50 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+export interface LearnedPattern {
+  pattern_type: string;
+  pattern_data: any;
+  confidence_score: number;
+  sample_size: number;
+}
+
+export async function getTenantPatterns(sb: SupabaseClient, tenantId: string, limit = 6): Promise<LearnedPattern[]> {
+  const { data } = await sb.from("ai_tenant_patterns")
+    .select("pattern_type, pattern_data, confidence_score, sample_size")
+    .eq("tenant_id", tenantId)
+    .order("confidence_score", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as LearnedPattern[];
+}
+
+export function formatPattern(p: LearnedPattern): string {
+  const d = p.pattern_data ?? {};
+  switch (p.pattern_type) {
+    case "best_followup_day":
+      return `Mejor día para seguimientos: ${d.day} (tasa de respuesta ${Math.round((d.response_rate ?? 0) * 100)}%).`;
+    case "peak_response_hours":
+      return `Horas pico de respuesta: ${(d.hours ?? []).join(", ")} (${d.timezone ?? "America/Mexico_City"}).`;
+    case "avg_close_days":
+      return `Tiempo promedio de cierre: ${d.days} días.`;
+    case "top_objections":
+      return `Objeciones más frecuentes: ${(d.objections ?? []).join(", ")}.`;
+    case "best_message_style":
+      return `Estilo de mensaje que mejor funciona: ${d.style}.`;
+    case "winning_sequences":
+      return `Secuencia ganadora: ${(d.steps ?? []).join(" → ")}.`;
+    case "top_seller_by_stage":
+      return `Vendedor estrella en ${d.stage}: ${d.seller} (${Math.round((d.rate ?? 0) * 100)}% de avance).`;
+    default:
+      return `${p.pattern_type}: ${JSON.stringify(d)}`;
+  }
+}
+
+export function appendLearnedPatterns(systemPrompt: string, patterns: LearnedPattern[]): string {
+  if (!patterns.length) return systemPrompt;
+  const lines = patterns.map((p) => `  • ${formatPattern(p)} (confianza ${(p.confidence_score * 100).toFixed(0)}%, n=${p.sample_size})`);
+  return `${systemPrompt}\n\nPATRONES APRENDIDOS DE ESTE NEGOCIO (úsalos para personalizar tus sugerencias):\n${lines.join("\n")}`;
+}
+
 export const CRM_TOOLS = [
   {
     type: "function",
@@ -166,6 +210,24 @@ export const CRM_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "update_tenant_pattern",
+      description: "Guarda o actualiza un patrón aprendido del negocio (usado por el agente Aprendiz).",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern_type: { type: "string", description: "best_followup_day | avg_close_days | top_objections | best_message_style | peak_response_hours | winning_sequences | top_seller_by_stage" },
+          pattern_data: { type: "object" },
+          confidence_score: { type: "number", description: "0..1" },
+          sample_size: { type: "number" },
+        },
+        required: ["pattern_type", "pattern_data", "confidence_score", "sample_size"],
+        additionalProperties: false,
+      },
+    },
+  },
 ] as const;
 
 export async function executeTool(
@@ -318,6 +380,19 @@ export async function executeTool(
         if (error) return { ok: false, error: error.message };
         return { ok: true, suggestion_id: data.id };
       }
+      case "update_tenant_pattern": {
+        const conf = Math.max(0, Math.min(1, Number(args.confidence_score ?? 0)));
+        const { error } = await sb.from("ai_tenant_patterns").upsert({
+          tenant_id: tenantId,
+          pattern_type: String(args.pattern_type),
+          pattern_data: args.pattern_data ?? {},
+          confidence_score: conf,
+          sample_size: Number(args.sample_size ?? 0),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "tenant_id,pattern_type" });
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      }
       default:
         return { ok: false, error: `Tool desconocida: ${name}` };
     }
@@ -358,8 +433,11 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
     ? CRM_TOOLS.filter((t) => allowedTools.includes(t.function.name))
     : CRM_TOOLS;
 
+  const learned = await getTenantPatterns(sb, tenantId);
+  const finalSystem = appendLearnedPatterns(systemPrompt, learned);
+
   const messages: any[] = [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: finalSystem },
     ...priorMessages,
     { role: "user", content: userMessage },
   ];

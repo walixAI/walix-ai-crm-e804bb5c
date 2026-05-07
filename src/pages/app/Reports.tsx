@@ -5,6 +5,7 @@ import { useReportsData } from "@/lib/queries/reports";
 import { ReportsProvider } from "@/lib/reports/context";
 import { ReportsHeader } from "@/components/reports/ReportsHeader";
 import { ExecutiveSummaryAI } from "@/components/reports/ExecutiveSummaryAI";
+import { BusinessInsightsCard } from "@/components/reports/BusinessInsightsCard";
 import { KpiHeroRow } from "@/components/reports/KpiHeroRow";
 import { SalesFunnelChart } from "@/components/reports/SalesFunnelChart";
 import { SellerPerformanceTable } from "@/components/reports/SellerPerformanceTable";
@@ -39,6 +40,8 @@ export default function Reports() {
         />
 
         <ExecutiveSummaryAI onSummaryReady={setExecutiveSummary} />
+
+        <BusinessInsightsCard />
 
         <KpiHeroRow />
 

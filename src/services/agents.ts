@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AgentType =
   | "followup_watchdog" | "lead_qualifier" | "deal_risk_detector"
-  | "morning_briefing" | "weekly_coach" | "custom";
+  | "morning_briefing" | "weekly_coach" | "aprendiz" | "custom";
 
 export interface AiAgent {
   id: string;
