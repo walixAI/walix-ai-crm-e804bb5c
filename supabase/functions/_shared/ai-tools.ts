@@ -495,6 +495,9 @@ export interface AgenticLoopOptions {
   maxIterations?: number;
   onAssistant?: (msg: any) => Promise<void> | void;
   onTool?: (call: { name: string; args: any; result: any; tool_call_id: string }) => Promise<void> | void;
+  /** Para registro de uso (`ai_usage_log`). */
+  surface?: "copilot" | "agent";
+  agentId?: string | null;
 }
 
 export interface AgenticLoopResult {
@@ -508,7 +511,7 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
   const {
     sb, tenantId, userId, systemPrompt, userMessage,
     priorMessages = [], allowedTools, model = "google/gemini-2.5-flash",
-    maxIterations = 5, onAssistant, onTool,
+    maxIterations = 5, onAssistant, onTool, surface = "copilot", agentId = null,
   } = opts;
 
   const tools = allowedTools
@@ -528,6 +531,9 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
   let pendingWhatsapp: { contact_id: string; draft: string } | null = null;
   let finalText = "";
   let iter = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalTokens = 0;
 
   for (; iter < maxIterations; iter++) {
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -540,6 +546,12 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
       throw new Error(`gateway ${aiRes.status}: ${t.slice(0, 200)}`);
     }
     const data = await aiRes.json();
+    const u = data?.usage;
+    if (u) {
+      inputTokens += Number(u.prompt_tokens ?? u.input_tokens ?? 0);
+      outputTokens += Number(u.completion_tokens ?? u.output_tokens ?? 0);
+      totalTokens += Number(u.total_tokens ?? 0);
+    }
     const msg = data?.choices?.[0]?.message;
     if (!msg) throw new Error("respuesta vacía del modelo");
 
@@ -564,6 +576,21 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
     if (onAssistant) await onAssistant(msg);
     break;
   }
+
+  // Registro de uso (best-effort, no bloquea respuesta)
+  try {
+    await sb.from("ai_usage_log").insert({
+      tenant_id: tenantId,
+      user_id: userId,
+      surface,
+      agent_id: agentId,
+      model,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      total_tokens: totalTokens || (inputTokens + outputTokens),
+      iterations: iter + 1,
+    });
+  } catch { /* noop */ }
 
   return { finalText, toolsUsed, pendingWhatsapp, iterations: iter + 1 };
 }
