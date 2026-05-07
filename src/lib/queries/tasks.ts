@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
+import { aiMemory } from "@/services/aiMemory";
 
 export interface TaskRow {
   id: string;
@@ -71,8 +72,26 @@ export function useToggleTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
-      const { error } = await supabase.from("tasks").update({ completed }).eq("id", id);
+      const { data, error } = await supabase
+        .from("tasks")
+        .update({ completed })
+        .eq("id", id)
+        .select("contact_id, deal_id, title")
+        .maybeSingle();
       if (error) throw error;
+      if (completed && data) {
+        const target = data.deal_id
+          ? { type: "deal" as const, id: data.deal_id }
+          : data.contact_id
+          ? { type: "contact" as const, id: data.contact_id }
+          : null;
+        if (target) {
+          void aiMemory.logEvent(target.type, target.id, "task_completed", {
+            task_id: id,
+            title: data.title,
+          });
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });

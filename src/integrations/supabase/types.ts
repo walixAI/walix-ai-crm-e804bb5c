@@ -78,6 +78,100 @@ export type Database = {
           },
         ]
       }
+      ai_conversation_history: {
+        Row: {
+          content: string
+          context_snapshot: Json
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          tenant_id: string
+          tool_calls: Json
+          user_id: string
+        }
+        Insert: {
+          content: string
+          context_snapshot?: Json
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          tenant_id: string
+          tool_calls?: Json
+          user_id: string
+        }
+        Update: {
+          content?: string
+          context_snapshot?: Json
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          tenant_id?: string
+          tool_calls?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_entity_context: {
+        Row: {
+          context_summary: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          key_facts: Json
+          last_interaction: string | null
+          sentiment: string
+          tenant_id: string
+          updated_at: string
+          urgency_score: number
+        }
+        Insert: {
+          context_summary?: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          key_facts?: Json
+          last_interaction?: string | null
+          sentiment?: string
+          tenant_id: string
+          updated_at?: string
+          urgency_score?: number
+        }
+        Update: {
+          context_summary?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          key_facts?: Json
+          last_interaction?: string | null
+          sentiment?: string
+          tenant_id?: string
+          updated_at?: string
+          urgency_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_entity_context_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_feedback: {
         Row: {
           answer: string
@@ -113,6 +207,106 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ai_memory_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          event_data: Json
+          event_type: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          event_data?: Json
+          event_type: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          event_data?: Json
+          event_type?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_memory_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_proactive_suggestions: {
+        Row: {
+          acted_on: boolean
+          action_payload: Json
+          action_type: string | null
+          created_at: string
+          dismissed: boolean
+          entity_id: string | null
+          entity_type: string | null
+          expires_at: string
+          id: string
+          priority: number
+          shown_at: string | null
+          suggestion_text: string
+          target_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          acted_on?: boolean
+          action_payload?: Json
+          action_type?: string | null
+          created_at?: string
+          dismissed?: boolean
+          entity_id?: string | null
+          entity_type?: string | null
+          expires_at?: string
+          id?: string
+          priority?: number
+          shown_at?: string | null
+          suggestion_text: string
+          target_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          acted_on?: boolean
+          action_payload?: Json
+          action_type?: string | null
+          created_at?: string
+          dismissed?: boolean
+          entity_id?: string | null
+          entity_type?: string | null
+          expires_at?: string
+          id?: string
+          priority?: number
+          shown_at?: string | null
+          suggestion_text?: string
+          target_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_proactive_suggestions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_suggestions: {
         Row: {
