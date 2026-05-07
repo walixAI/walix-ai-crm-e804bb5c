@@ -166,6 +166,24 @@ export const CRM_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "update_tenant_pattern",
+      description: "Guarda o actualiza un patrón aprendido del negocio (usado por el agente Aprendiz).",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern_type: { type: "string", description: "best_followup_day | avg_close_days | top_objections | best_message_style | peak_response_hours | winning_sequences | top_seller_by_stage" },
+          pattern_data: { type: "object" },
+          confidence_score: { type: "number", description: "0..1" },
+          sample_size: { type: "number" },
+        },
+        required: ["pattern_type", "pattern_data", "confidence_score", "sample_size"],
+        additionalProperties: false,
+      },
+    },
+  },
 ] as const;
 
 export async function executeTool(
