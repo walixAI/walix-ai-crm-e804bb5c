@@ -239,9 +239,11 @@ export type Database = {
         Row: {
           char_delta: number
           contact_id: string | null
+          conversation_id: string | null
           created_at: string
           edited: string
           id: string
+          message_id: string | null
           original: string
           tenant_id: string
           user_id: string
@@ -249,9 +251,11 @@ export type Database = {
         Insert: {
           char_delta?: number
           contact_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           edited: string
           id?: string
+          message_id?: string | null
           original: string
           tenant_id: string
           user_id: string
@@ -259,9 +263,11 @@ export type Database = {
         Update: {
           char_delta?: number
           contact_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           edited?: string
           id?: string
+          message_id?: string | null
           original?: string
           tenant_id?: string
           user_id?: string
@@ -585,6 +591,48 @@ export type Database = {
           sample_size?: number
           tenant_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_usage_log: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          input_tokens: number
+          iterations: number
+          model: string
+          output_tokens: number
+          surface: string
+          tenant_id: string
+          total_tokens: number
+          user_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          input_tokens?: number
+          iterations?: number
+          model: string
+          output_tokens?: number
+          surface: string
+          tenant_id: string
+          total_tokens?: number
+          user_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          input_tokens?: number
+          iterations?: number
+          model?: string
+          output_tokens?: number
+          surface?: string
+          tenant_id?: string
+          total_tokens?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2132,7 +2180,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_ai_draft_ab: {
+        Row: {
+          abs_char_delta: number | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          got_reply: boolean | null
+          id: string | null
+          message_id: string | null
+          reply_within_hours: number | null
+          tenant_id: string | null
+          user_id: string | null
+          was_edited: boolean | null
+        }
+        Insert: {
+          abs_char_delta?: never
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          got_reply?: never
+          id?: string | null
+          message_id?: string | null
+          reply_within_hours?: never
+          tenant_id?: string | null
+          user_id?: string | null
+          was_edited?: never
+        }
+        Update: {
+          abs_char_delta?: never
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          got_reply?: never
+          id?: string | null
+          message_id?: string | null
+          reply_within_hours?: never
+          tenant_id?: string | null
+          user_id?: string | null
+          was_edited?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invitation: { Args: { _token: string }; Returns: Json }
