@@ -76,7 +76,7 @@ export interface UpdateAgentInput {
 }
 
 export async function updateAgent(id: string, patch: UpdateAgentInput) {
-  const { error } = await supabase.from("ai_agents").update(patch).eq("id", id);
+  const { error } = await supabase.from("ai_agents").update(patch as any).eq("id", id);
   if (error) throw error;
   // Recompute next_run_at server-side if schedule changed.
   if (patch.schedule) {
