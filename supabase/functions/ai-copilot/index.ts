@@ -180,37 +180,35 @@ async function executeTool(
   try {
     switch (name) {
       case "get_pipeline_status": {
-        const { data: prefs } = await sb
-          .from("user_pipeline_prefs")
-          .select("pipeline_id")
-          .eq("user_id", userId)
+        const { data: p } = await sb
+          .from("pipelines")
+          .select("id, name")
+          .eq("tenant_id", tenantId)
+          .order("is_default", { ascending: false })
+          .order("position", { ascending: true })
+          .limit(1)
           .maybeSingle();
-        let pipelineId = prefs?.pipeline_id as string | undefined;
-        if (!pipelineId) {
-          const { data: p } = await sb
-            .from("pipelines")
-            .select("id")
-            .eq("tenant_id", tenantId)
-            .order("created_at", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-          pipelineId = p?.id;
-        }
+        const pipelineId = p?.id;
         if (!pipelineId) return { ok: false, error: "Sin pipeline configurado" };
+
+        const { data: stages } = await sb.from("pipeline_stages")
+          .select("id").eq("pipeline_id", pipelineId);
+        const stageIds = (stages ?? []).map((s: any) => s.id);
+        if (!stageIds.length) return { ok: true, pipeline_id: pipelineId, open: 0, won: 0, lost: 0, open_amount: 0 };
 
         const { data: deals } = await sb
           .from("deals")
-          .select("id, amount, status")
+          .select("id, amount, is_won, is_lost")
           .eq("tenant_id", tenantId)
-          .eq("pipeline_id", pipelineId);
+          .in("stage_id", stageIds);
 
         const summary = { open: 0, won: 0, lost: 0, open_amount: 0 };
         for (const d of deals ?? []) {
-          if (d.status === "won") summary.won++;
-          else if (d.status === "lost") summary.lost++;
+          if (d.is_won) summary.won++;
+          else if (d.is_lost) summary.lost++;
           else { summary.open++; summary.open_amount += Number(d.amount ?? 0); }
         }
-        return { ok: true, pipeline_id: pipelineId, ...summary };
+        return { ok: true, pipeline_id: pipelineId, pipeline_name: p?.name, ...summary };
       }
 
       case "search_contacts": {
@@ -219,7 +217,7 @@ async function executeTool(
         if (!q) return { ok: false, error: "query vacío" };
         const { data, error } = await sb
           .from("contacts")
-          .select("id, name, phone, email, stage_name")
+          .select("id, name, last_name, phone, email, status, source")
           .eq("tenant_id", tenantId)
           .or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
           .limit(limit);
@@ -238,7 +236,7 @@ async function executeTool(
             .eq("entity_type", "contact").eq("entity_id", id)
             .order("created_at", { ascending: false }).limit(10),
           sb.from("contacts")
-            .select("id, name, phone, email, stage_name, owner_id")
+            .select("id, name, last_name, phone, email, status, source, owner_id")
             .eq("id", id).maybeSingle(),
         ]);
         return { ok: true, contact, context: ctx ?? null, recent_events: events ?? [] };
@@ -259,33 +257,34 @@ async function executeTool(
 
       case "create_deal": {
         let stageId = args.stage_id as string | undefined;
-        let pipelineId: string | undefined;
+        let stageName: string | undefined;
         if (!stageId) {
           const { data: p } = await sb.from("pipelines")
             .select("id").eq("tenant_id", tenantId)
-            .order("created_at", { ascending: true }).limit(1).maybeSingle();
-          pipelineId = p?.id;
-          if (pipelineId) {
+            .order("is_default", { ascending: false })
+            .order("position", { ascending: true }).limit(1).maybeSingle();
+          if (p?.id) {
             const { data: s } = await sb.from("pipeline_stages")
-              .select("id").eq("pipeline_id", pipelineId)
+              .select("id, name").eq("pipeline_id", p.id)
               .order("position", { ascending: true }).limit(1).maybeSingle();
             stageId = s?.id;
+            stageName = s?.name;
           }
         } else {
           const { data: s } = await sb.from("pipeline_stages")
-            .select("pipeline_id").eq("id", stageId).maybeSingle();
-          pipelineId = s?.pipeline_id;
+            .select("name").eq("id", stageId).maybeSingle();
+          stageName = s?.name;
         }
-        if (!stageId || !pipelineId) return { ok: false, error: "No se encontró etapa para el deal" };
+        if (!stageId) return { ok: false, error: "No se encontró etapa para el deal" };
         const { data, error } = await sb.from("deals").insert({
           tenant_id: tenantId,
           contact_id: args.contact_id,
-          title: args.title,
+          name: args.title,
           amount: args.amount ?? 0,
-          pipeline_id: pipelineId,
           stage_id: stageId,
+          stage_name: stageName ?? null,
           owner_id: userId,
-        }).select("id, title, amount, stage_id").single();
+        }).select("id, name, amount, stage_id, stage_name").single();
         if (error) return { ok: false, error: error.message };
         return { ok: true, deal: data };
       }
@@ -309,13 +308,14 @@ async function executeTool(
       }
 
       case "add_note": {
-        const { error } = await sb.from("contact_activities").insert({
+        const { error } = await sb.from("activities").insert({
           tenant_id: tenantId,
           contact_id: args.entity_type === "contact" ? args.entity_id : null,
           deal_id: args.entity_type === "deal" ? args.entity_id : null,
           type: "note",
           description: args.text,
           agent_id: userId,
+          occurred_at: new Date().toISOString(),
         });
         if (error) return { ok: false, error: error.message };
         await sb.from("ai_memory_events").insert({
@@ -337,8 +337,7 @@ async function executeTool(
           contact_id: args.entity_type === "contact" ? args.entity_id : null,
           deal_id: args.entity_type === "deal" ? args.entity_id : null,
           assignee_id: userId,
-          created_by: userId,
-          status: "pending",
+          completed: false,
         }).select("id, title, due_at").single();
         if (error) return { ok: false, error: error.message };
         return { ok: true, task: data };
