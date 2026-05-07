@@ -12,6 +12,7 @@ import {
 } from "@/lib/queries/contacts";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { aiMemory } from "@/services/aiMemory";
 
 interface Props { contactId: string }
 
@@ -34,6 +35,7 @@ export function NotesTab({ contactId }: Props) {
     if (t.length > 2000) return toast.error("Máx 2000 caracteres");
     try {
       await create.mutateAsync({ type: "note", description: t });
+      aiMemory.logEvent("contact", contactId, "note_added", { length: t.length }).catch(() => {});
       setText("");
       toast.success("Nota guardada");
     } catch (e: any) {
