@@ -265,6 +265,30 @@ export function MyAIProfileTab() {
             checked={profile.weekly_coaching_report}
             onChange={(v) => toggle("weekly_coaching_report", v)}
           />
+          <div className="flex items-center justify-between gap-4 pt-2 border-t border-border">
+            <Label className="text-sm">Mi zona horaria</Label>
+            <Select
+              value={timezone}
+              onValueChange={async (tz) => {
+                setTimezone(tz);
+                try {
+                  await updateMyTimezone(tz);
+                  toast({ title: "Zona horaria actualizada" });
+                } catch (e: any) {
+                  toast({ title: "No se pudo actualizar", description: e.message, variant: "destructive" });
+                }
+              }}
+            >
+              <SelectTrigger className="w-[260px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {COMMON_TIMEZONES.map((tz) => (
+                  <SelectItem key={tz} value={tz}>{tz.replace("_", " ")}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
     </div>
