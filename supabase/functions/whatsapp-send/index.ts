@@ -103,6 +103,28 @@ Deno.serve(async (req) => {
     if (insErr) throw insErr;
     await sb.from("conversations").update({ preview: body.body, last_message_at: new Date().toISOString() }).eq("id", conv.id);
 
+    // Memoria de IA: doble evento para mensaje saliente (no para notas internas).
+    if (!body.internal && conv.contact_id) {
+      await sb.from("ai_memory_events").insert([
+        {
+          tenant_id: conv.tenant_id,
+          entity_type: "conversation",
+          entity_id: conv.id,
+          event_type: "wa_message_sent",
+          event_data: { length: body.body.length, wamid, contact_id: conv.contact_id },
+          actor_id: userData.user.id,
+        },
+        {
+          tenant_id: conv.tenant_id,
+          entity_type: "contact",
+          entity_id: conv.contact_id,
+          event_type: "wa_message_sent",
+          event_data: { length: body.body.length, wamid, conversation_id: conv.id },
+          actor_id: userData.user.id,
+        },
+      ]);
+    }
+
     if (providerError) {
       return new Response(JSON.stringify({ error: providerError }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

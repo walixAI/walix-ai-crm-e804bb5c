@@ -16,6 +16,7 @@ import {
   useUpdateContactActivity,
   type ManualActivityType,
 } from "@/lib/queries/contacts";
+import { aiMemory } from "@/services/aiMemory";
 
 export type LogKind = "call" | "meeting" | "email" | "note";
 
@@ -102,6 +103,12 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
           occurredAt: occurred.toISOString(),
           metadata,
         });
+        const eventType =
+          kind === "note" ? "note_added" :
+          kind === "call" ? "call_logged" :
+          kind === "meeting" ? "meeting_logged" :
+          kind === "email" ? "email_logged" : "activity_logged";
+        aiMemory.logEvent("contact", contactId, eventType, { kind, ...metadata }).catch(() => {});
         toast.success("Actividad registrada");
       }
       onOpenChange(false);
