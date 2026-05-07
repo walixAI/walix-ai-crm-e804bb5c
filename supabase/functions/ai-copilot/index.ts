@@ -496,6 +496,7 @@ Deno.serve(async (req) => {
     const toolsUsed: { name: string; args: any; result: any }[] = [];
     let pendingWhatsapp: { contact_id: string; draft: string } | undefined;
     let finalText = "";
+    let usageInput = 0, usageOutput = 0, usageTotal = 0, usageIters = 0;
 
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
       const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -521,6 +522,13 @@ Deno.serve(async (req) => {
       }
 
       const data = await aiRes.json();
+      const u = data?.usage;
+      if (u) {
+        usageInput += Number(u.prompt_tokens ?? u.input_tokens ?? 0);
+        usageOutput += Number(u.completion_tokens ?? u.output_tokens ?? 0);
+        usageTotal += Number(u.total_tokens ?? 0);
+      }
+      usageIters = iter + 1;
       const choice = data?.choices?.[0];
       const msg = choice?.message;
       if (!msg) return json({ error: "Respuesta vacía del modelo" }, 500);
@@ -562,6 +570,20 @@ Deno.serve(async (req) => {
       });
       break;
     }
+
+    // Registro de uso (best-effort)
+    try {
+      await sb.from("ai_usage_log").insert({
+        tenant_id: tenantId,
+        user_id: userId,
+        surface: "copilot",
+        model: MODEL,
+        input_tokens: usageInput,
+        output_tokens: usageOutput,
+        total_tokens: usageTotal || (usageInput + usageOutput),
+        iterations: usageIters,
+      });
+    } catch { /* noop */ }
 
     return json({
       text: finalText || "(sin respuesta)",
