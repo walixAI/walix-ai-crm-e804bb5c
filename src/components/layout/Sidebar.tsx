@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare
+  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,6 +41,7 @@ export function Sidebar() {
 
   const adminItems = [
     ...(isOrgOwner ? [{ to: "/org", label: "Mi organización", icon: Building2 }] : []),
+    ...(isAdmin ? [{ to: "/settings/agents", label: "Agentes IA", icon: Bot }] : []),
     ...(isAdmin ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
     ...(isPlatform ? [{ to: "/platform", label: "Plataforma", icon: Globe2 }] : []),
     ...(isPlatform ? [{ to: "/admin", label: "SuperAdmin", icon: Shield }] : []),

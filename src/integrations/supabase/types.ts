@@ -78,6 +78,119 @@ export type Database = {
           },
         ]
       }
+      ai_agent_runs: {
+        Row: {
+          actions_taken: number
+          agent_id: string
+          completed_at: string | null
+          entities_processed: number
+          error_message: string | null
+          id: string
+          run_log: Json
+          started_at: string
+          status: string
+          suggestions_created: number
+          tenant_id: string
+        }
+        Insert: {
+          actions_taken?: number
+          agent_id: string
+          completed_at?: string | null
+          entities_processed?: number
+          error_message?: string | null
+          id?: string
+          run_log?: Json
+          started_at?: string
+          status?: string
+          suggestions_created?: number
+          tenant_id: string
+        }
+        Update: {
+          actions_taken?: number
+          agent_id?: string
+          completed_at?: string | null
+          entities_processed?: number
+          error_message?: string | null
+          id?: string
+          run_log?: Json
+          started_at?: string
+          status?: string
+          suggestions_created?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_runs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agents: {
+        Row: {
+          actions_taken_today: number
+          agent_type: string
+          allowed_tools: string[]
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          last_run_status: string | null
+          max_actions_per_run: number
+          model: string
+          name: string
+          next_run_at: string | null
+          schedule: string
+          system_prompt: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actions_taken_today?: number
+          agent_type: string
+          allowed_tools?: string[]
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          last_run_status?: string | null
+          max_actions_per_run?: number
+          model?: string
+          name: string
+          next_run_at?: string | null
+          schedule: string
+          system_prompt: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actions_taken_today?: number
+          agent_type?: string
+          allowed_tools?: string[]
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          last_run_status?: string | null
+          max_actions_per_run?: number
+          model?: string
+          name?: string
+          next_run_at?: string | null
+          schedule?: string
+          system_prompt?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_conversation_history: {
         Row: {
           content: string
@@ -1805,6 +1918,7 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { _token: string }; Returns: Json }
+      ai_run_due_agents: { Args: never; Returns: number }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -1849,6 +1963,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      seed_default_ai_agents: {
+        Args: { _tenant_id: string }
+        Returns: undefined
       }
       tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
       trial_days_left: { Args: { _tenant_id: string }; Returns: number }

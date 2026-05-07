@@ -33,6 +33,7 @@ const Platform = lazy(() => import("@/pages/app/Platform"));
 const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
 const Tasks = lazy(() => import("@/pages/app/Tasks"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
+const AgentsSettings = lazy(() => import("@/pages/app/settings/AgentsSettings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +78,11 @@ const AppRoutes = () => {
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "platform_owner", "platform_staff", "super_admin"]}>
             <Settings />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings/agents" element={
+          <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "platform_owner", "platform_staff", "super_admin"]}>
+            <AgentsSettings />
           </ProtectedRoute>
         } />
         <Route path="/org" element={
