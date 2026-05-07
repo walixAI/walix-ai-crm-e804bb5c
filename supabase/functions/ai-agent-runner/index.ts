@@ -141,6 +141,31 @@ Deno.serve(async (req) => {
           (t) => t.name === "create_proactive_suggestion" && t.result?.ok
         ).length;
 
+        // Notificación inteligente al owner cuando el agente creó una sugerencia
+        // dirigida a un vendedor concreto (Briefing, Detector, Coach, Watchdog).
+        if (ownerUserId) {
+          const created = result.toolsUsed.filter(
+            (t) => t.name === "create_proactive_suggestion" && t.result?.ok
+          ).length;
+          if (created > 0) {
+            try {
+              await deliverNotification(sbAdmin, {
+                userId: ownerUserId,
+                tenantId,
+                type: `agent_${agent.agent_type}`,
+                title: `${agent.name}: ${created} ${created === 1 ? "sugerencia nueva" : "sugerencias nuevas"}`,
+                body: ent.label ? `Sobre: ${ent.label}` : undefined,
+                link: ent.entity_type === "deal" ? `/deals/${ent.id}` : ent.entity_type === "contact" ? `/contacts/${ent.id}` : undefined,
+                severity: "info",
+                category: "ai",
+                data: { agent_id: agent.id, entity_type: ent.entity_type, entity_id: ent.id },
+              });
+            } catch (e) {
+              runLog.push({ entity: ent, warn: `notify failed: ${e instanceof Error ? e.message : String(e)}` });
+            }
+          }
+        }
+
         runLog.push({
           entity: { type: ent.entity_type, id: ent.id, label: ent.label },
           finalText: result.finalText,
