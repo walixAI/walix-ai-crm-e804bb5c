@@ -240,7 +240,12 @@ async function selectEntities(sb: any, tenantId: string, agentType: string, conf
       const { data: profiles } = await sb.from("profiles")
         .select("id, full_name, email")
         .eq("tenant_id", tenantId).eq("is_active", true).limit(limit);
-      return (profiles ?? []).map((p: any) => ({
+      const ids = (profiles ?? []).map((p: any) => p.id);
+      const { data: prefs } = ids.length
+        ? await sb.from("ai_user_profile").select("user_id, weekly_coaching_report").in("user_id", ids)
+        : { data: [] as any[] };
+      const optedOut = new Set((prefs ?? []).filter((p: any) => p.weekly_coaching_report === false).map((p: any) => p.user_id));
+      return (profiles ?? []).filter((p: any) => !optedOut.has(p.id)).map((p: any) => ({
         id: p.id, entity_type: "user", label: p.full_name ?? p.email,
         user_id: p.id, owner_id: p.id, data: p,
       }));
