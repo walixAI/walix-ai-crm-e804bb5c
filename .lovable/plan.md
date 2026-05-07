@@ -1,123 +1,67 @@
-# Personalización individual del Copiloto (capa "Mi Perfil IA")
+# Cierre de pendientes — 9 prompts del día
 
-Añade una capa de aprendizaje y configuración por usuario. El copiloto conoce el estilo, horarios y preferencias de cada vendedor y adapta sus respuestas y borradores WhatsApp.
+Tras re-auditar el código, varios pendientes que figuraban antes ya están implementados (cron de agentes, gating del wizard por plan, validación tenant en `update_user_profile_insights`, índice en `ai_draft_edits`, estado vacío del widget de insights). Este plan ataca solo lo que realmente queda abierto.
 
-## 1. Base de datos (migración)
+## 1. Notificaciones inteligentes (toggles del Perfil IA)
 
-**Nueva tabla `ai_user_profile`** (PK `user_id`, FK lógico a `auth.users`, NO foreign key real — por instrucciones Supabase):
+Hoy los toggles `notify_only_work_hours`, `notify_digest_9am` y `weekly_coaching_report` se persisten pero **ningún código los respeta** porque no existe un punto central que inserte notificaciones (no se encontraron inserts a `notifications` en edge functions).
 
-| Columna | Tipo | Default |
-|---|---|---|
-| `user_id` | uuid PK | — |
-| `tenant_id` | uuid NOT NULL | — |
-| `communication_style` | text | `'formal'` (`formal` / `casual` / `muy_casual`) |
-| `preferred_message_length` | text | `'medium'` |
-| `best_close_day` | text | null |
-| `best_close_hour` | int | null |
-| `avg_response_time_hours` | float | null |
-| `top_performing_stage` | text | null |
-| `close_rate` | float | 0 |
-| `total_deals_closed` | int | 0 |
-| `total_deals_lost` | int | 0 |
-| `strengths` | text[] | `{}` |
-| `improvement_areas` | text[] | `{}` |
-| `custom_instructions` | text | `''` |
-| `notify_only_work_hours` | bool | false |
-| `notify_digest_9am` | bool | false |
-| `allow_auto_tasks` | bool | true |
-| `weekly_coaching_report` | bool | true |
-| `created_at` / `updated_at` | timestamptz | now() |
+Acciones:
 
-**RLS:**
-- `select` / `insert` / `update`: el propio usuario (`user_id = auth.uid()`) o admin/owner del tenant.
-- Service role para Aprendiz.
+- **Helper compartido** `supabase/functions/_shared/notifications.ts`:
+  - `deliverNotification(sb, { userId, tenantId, type, title, body, payload })`
+  - Lee `ai_user_profile` del usuario.
+  - Si `notify_only_work_hours = true` y la hora local CDMX no está en 8–19 lun–vie → guarda en `notifications_queue` (tabla nueva) en vez de `notifications`.
+  - Si `notify_digest_9am = true` → siempre encola hasta el digest.
+  - En caso normal → insert directo en `notifications`.
+- **Tabla `notifications_queue`** (migración):
+  - `id, tenant_id, user_id, payload jsonb, deliver_after timestamptz, created_at`
+  - RLS: usuario propio + service role.
+- **Edge function `notifications-digest`** (nueva):
+  - Drena `notifications_queue` con `deliver_after <= now()`.
+  - Agrupa por usuario y hace 1 insert resumen en `notifications` (título "Resumen del día (N novedades)").
+- **Cron `pg_cron`**: cada 15 min llama a `notifications-digest` (anon key).
+- **Cableado**: usar `deliverNotification(...)` desde `ai-agent-runner` cuando crea sugerencias proactivas dirigidas a un user (Briefing Matutino, Coach Semanal, Detector de Riesgo).
 
-**Nueva tabla `ai_draft_edits`** (para aprendizaje de estilo):
-`id, tenant_id, user_id, original text, edited text, char_delta int, contact_id uuid null, created_at`. RLS: insert/select propio usuario.
+## 2. Modo voz del AiPromptBar (prompt 5)
 
-**Trigger / función `seed_ai_user_profile()`**: crea fila vacía cuando un profile nuevo se inserta. Backfill insert para usuarios existentes.
+Confirmar/implementar el dictado por voz del copiloto:
 
-## 2. Servicio frontend
+- En `AiPromptBar`, botón micrófono usa `webkitSpeechRecognition` (Web Speech API) con `lang="es-MX"`, `continuous=false`, `interimResults=true`.
+- Estado visual: pulso rojo mientras escucha, transcripción en vivo en el input, auto-stop al detectar silencio (~1.5s).
+- Fallback: si la API no existe en el navegador, deshabilitar el botón con tooltip "Tu navegador no soporta dictado".
 
-`src/services/userProfile.ts`:
-- `getMyAIProfile()`
-- `updateMyAIProfile(patch)`
-- `logDraftEdit({ original, edited, contactId? })`
+## 3. Hardening / limpieza
 
-## 3. UI en Settings — nueva tab "Mi Perfil IA"
+- **Tests Deno** mínimos en `supabase/functions/_shared/`:
+  - `ai-tools_test.ts`: `appendUserProfile`, `appendLearnedPatterns`, `update_user_profile_insights` (rechaza usuario fuera de tenant).
+- **Job de retención** (`pg_cron` semanal):
+  - `delete from ai_draft_edits where created_at < now() - interval '90 days'`
+  - `delete from ai_outcome_feedback where created_at < now() - interval '180 days'`
+  - `delete from notifications_queue where deliver_after < now() - interval '7 days'`
 
-Añadir tab `me` en `src/pages/app/Settings.tsx` (visible para todos, no solo admin).
-
-Componente `src/components/settings/me/MyAIProfileTab.tsx` con 3 secciones:
-
-**Sección 1 — "Cómo me conoce el copiloto"** (read-only, datos del perfil):
-- Badge estilo de comunicación detectado
-- Longitud preferida
-- Horas de actividad
-- Tasa de cierre vs promedio del equipo (calculado contra `deals` del tenant)
-- Chips de fortalezas / áreas de mejora
-- Footer: "Basado en el análisis de tus últimos N deals" + estado vacío "Recopilando datos…" si <10 deals
-
-**Sección 2 — "Instrucciones personales para el copiloto"**:
-- `Textarea` con `custom_instructions` (placeholder con ejemplo)
-- Botón "Guardar mis instrucciones"
-
-**Sección 3 — "Notificaciones inteligentes"**:
-- 4 toggles → `notify_only_work_hours`, `notify_digest_9am`, `allow_auto_tasks`, `weekly_coaching_report`
-
-## 4. Inyección en system prompt
-
-En `supabase/functions/ai-copilot/index.ts`:
-- Cargar perfil del usuario activo (`ai_user_profile` por `userId`).
-- Tras `appendLearnedPatterns`, añadir bloque:
-  ```
-  PERFIL DEL VENDEDOR ACTIVO:
-  - Estilo de comunicación: {style}
-  - Longitud preferida: {length}
-  - Tasa de cierre personal: {close_rate}%
-  - Mejor día / hora: ...
-  - Instrucciones personales: {custom_instructions}
-  Ajusta el tono y estilo de tus respuestas y borradores a este perfil.
-  ```
-- Helper compartido `appendUserProfile(systemPrompt, profile)` en `supabase/functions/_shared/ai-tools.ts` para reutilizar también en `ai-agent-runner` cuando el agente actúe en nombre de un vendedor concreto (Briefing Matutino, Coach Semanal).
-
-## 5. Aprendizaje de estilo desde drafts editados
-
-**Frontend (`src/store/copilot.ts` `confirmWhatsapp`)**: comparar `draft` final con `msg.pendingWhatsapp.draft` original; si difieren llamar `logDraftEdit({ original, edited, contactId })`.
-
-**Aprendiz (`ai-agent-runner.ts` rama `aprendiz`)**: además del análisis actual, agregar paso:
-- Para cada usuario del tenant con ≥10 entradas en `ai_draft_edits` última semana:
-  - Calcular promedio `char_delta`, longitud promedio editada → derivar `preferred_message_length` (`<120` short, `<300` medium, else long).
-  - Heurística simple para `communication_style` (presencia de "tú/tutear" vs "usted", emojis, signos !).
-  - Calcular `close_rate`, `total_deals_closed/lost`, `best_close_day/hour`, `top_performing_stage` desde `deals`/`deal_stage_history`.
-  - `update` upsert sobre `ai_user_profile` vía service-role.
-- Las `strengths` / `improvement_areas` las propone el LLM; nueva tool `update_user_profile_insights(user_id, strengths[], improvement_areas[])` añadida a `CRM_TOOLS` y autorizada solo para el agente `aprendiz`.
-
-## 6. Notificaciones inteligentes (consumo de toggles)
-
-- En `notification-dispatcher` o donde se inserten `notifications` para un user, respetar `notify_only_work_hours` (hora local CDMX 8–19) y `notify_digest_9am` (encolar para batch). Por ahora añadir helper `shouldDeliverNotificationNow(userId)` y aplicarlo en los puntos existentes que insertan notificaciones dirigidas (búsqueda y wiring); si alguno falta, queda como TODO con log claro.
-- `allow_auto_tasks` lo lee `ai-agent-runner` antes de invocar `create_task` para ese usuario.
-- `weekly_coaching_report`: el agente Coach Semanal salta usuarios con `false`.
-
-## 7. Archivos
+## Archivos
 
 **Nuevos:**
-- `supabase/migrations/<ts>_ai_user_profile.sql`
-- `src/services/userProfile.ts`
-- `src/components/settings/me/MyAIProfileTab.tsx`
-- `src/components/settings/me/AIProfileInsights.tsx`
-- `src/components/settings/me/PersonalInstructions.tsx`
-- `src/components/settings/me/SmartNotifications.tsx`
+- `supabase/functions/_shared/notifications.ts`
+- `supabase/functions/notifications-digest/index.ts`
+- `supabase/functions/_shared/ai-tools_test.ts`
+- `supabase/migrations/<ts>_notifications_queue_and_retention.sql` (tabla + cron digest + cron retención)
 
 **Editados:**
-- `src/pages/app/Settings.tsx` (añadir tab `me` "Mi Perfil IA")
-- `src/store/copilot.ts` (log de edición de draft)
-- `supabase/functions/_shared/ai-tools.ts` (helpers `getUserProfile`, `appendUserProfile`, tool `update_user_profile_insights`)
-- `supabase/functions/ai-copilot/index.ts` (inyectar perfil)
-- `supabase/functions/ai-agent-runner/index.ts` (rama aprendiz extendida + respeto a toggles)
+- `supabase/functions/ai-agent-runner/index.ts` (usar `deliverNotification` y respetar `weekly_coaching_report` ya estaba; ampliar a Briefing/Detector)
+- `src/components/copilot/AiPromptBar.tsx` (modo voz)
 
 ## Riesgos
 
-- Heurística de `communication_style` es naive — está bien como semilla; el LLM la refina.
-- Asegurar que `update_user_profile_insights` solo escribe perfiles del mismo tenant (validación server-side).
-- `ai_draft_edits` puede crecer rápido — sin índice extra por ahora; cleanup futuro.
+- `notifications_queue` requiere que sepamos el timezone del usuario. Por ahora se asume CDMX (`America/Mexico_City`); más adelante leer de `profiles.timezone` si existe.
+- Web Speech API no funciona en Safari iOS bien — se acepta degradación.
+- El cron de digest cada 15 min puede generar latencia hasta 15 min en notificaciones encoladas; es aceptable para un digest 9am.
+
+## Fuera de alcance (descartados como no-pendiente)
+
+- Cron de `ai_run_due_agents`: ya existe.
+- Gating Growth/Enterprise del wizard: ya existe.
+- Validación tenant en `update_user_profile_insights`: ya existe.
+- Índice en `ai_draft_edits`: ya existe.
+- Estado vacío del widget de insights: ya renderiza.
