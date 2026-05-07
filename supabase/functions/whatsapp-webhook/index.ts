@@ -143,6 +143,14 @@ Deno.serve(async (req) => {
               type: "text",
               metadata: { wamid: msg.id },
             });
+            // Memoria de IA: registra mensaje entrante.
+            await sb.from("ai_memory_events").insert({
+              tenant_id: channel.tenant_id,
+              entity_type: "conversation",
+              entity_id: convId,
+              event_type: "wa_message_received",
+              event_data: { from, length: body.length, wamid: msg.id },
+            });
           } else if (channel.kind === "team") {
             // Verify user authorization
             const { data: access } = await sb
