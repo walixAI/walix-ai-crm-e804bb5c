@@ -107,13 +107,23 @@ Deno.serve(async (req) => {
         const userMessage = buildEntityPrompt(agent.agent_type, ent, ctx);
         const ownerUserId = ent.owner_id ?? ent.user_id ?? null;
 
+        // Respect per-user toggle: allow_auto_tasks
+        let perEntityTools = allowedTools;
+        if (ownerUserId) {
+          const { data: up } = await sbAdmin.from("ai_user_profile")
+            .select("allow_auto_tasks").eq("user_id", ownerUserId).maybeSingle();
+          if (up && up.allow_auto_tasks === false && perEntityTools.includes("create_task")) {
+            perEntityTools = perEntityTools.filter((t) => t !== "create_task");
+          }
+        }
+
         let result;
         try {
           result = await runAgenticLoop({
             sb: sbAdmin, tenantId, userId: ownerUserId,
             systemPrompt: agent.system_prompt + `\n\nTenant ID: ${tenantId}. Hoy: ${now.toISOString()}.`,
             userMessage,
-            allowedTools,
+            allowedTools: perEntityTools,
             model: agent.model || "google/gemini-2.5-flash",
             maxIterations: 3,
           });
