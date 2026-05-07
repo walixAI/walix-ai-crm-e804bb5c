@@ -47,6 +47,55 @@ export function appendLearnedPatterns(systemPrompt: string, patterns: LearnedPat
   return `${systemPrompt}\n\nPATRONES APRENDIDOS DE ESTE NEGOCIO (úsalos para personalizar tus sugerencias):\n${lines.join("\n")}`;
 }
 
+export interface AIUserProfile {
+  user_id: string;
+  tenant_id: string;
+  communication_style: string;
+  preferred_message_length: string;
+  best_close_day: string | null;
+  best_close_hour: number | null;
+  close_rate: number;
+  total_deals_closed: number;
+  custom_instructions: string;
+  strengths: string[] | null;
+  improvement_areas: string[] | null;
+  allow_auto_tasks: boolean;
+  weekly_coaching_report: boolean;
+}
+
+export async function getUserAIProfile(sb: SupabaseClient, userId: string): Promise<AIUserProfile | null> {
+  const { data } = await sb.from("ai_user_profile").select("*").eq("user_id", userId).maybeSingle();
+  return (data as AIUserProfile | null) ?? null;
+}
+
+const STYLE_LABEL: Record<string, string> = {
+  formal: "Formal y profesional",
+  casual: "Casual y directo",
+  muy_casual: "Muy casual, con confianza",
+};
+const LENGTH_LABEL: Record<string, string> = {
+  short: "Mensajes cortos (<3 líneas)",
+  medium: "Mensajes de longitud media",
+  long: "Mensajes detallados",
+};
+
+export function appendUserProfile(systemPrompt: string, profile: AIUserProfile | null): string {
+  if (!profile) return systemPrompt;
+  const lines = [
+    `- Estilo de comunicación: ${STYLE_LABEL[profile.communication_style] ?? profile.communication_style}`,
+    `- Longitud preferida de mensajes: ${LENGTH_LABEL[profile.preferred_message_length] ?? profile.preferred_message_length}`,
+    profile.close_rate ? `- Tasa de cierre personal: ${Math.round(profile.close_rate * 100)}%` : null,
+    profile.best_close_day ? `- Mejor día de cierre: ${profile.best_close_day}` : null,
+    profile.best_close_hour != null ? `- Mejor hora: ${profile.best_close_hour}:00` : null,
+    profile.strengths?.length ? `- Fortalezas: ${profile.strengths.join(", ")}` : null,
+    profile.improvement_areas?.length ? `- Áreas de mejora: ${profile.improvement_areas.join(", ")}` : null,
+    profile.custom_instructions?.trim()
+      ? `- Instrucciones personales del vendedor (PRIORIDAD ALTA, respétalas siempre):\n  "${profile.custom_instructions.trim()}"`
+      : null,
+  ].filter(Boolean).join("\n");
+  return `${systemPrompt}\n\nPERFIL DEL VENDEDOR ACTIVO:\n${lines}\nAjusta el tono, longitud y estilo de tus respuestas y borradores de WhatsApp a este perfil.`;
+}
+
 export const CRM_TOOLS = [
   {
     type: "function",
@@ -224,6 +273,23 @@ export const CRM_TOOLS = [
           sample_size: { type: "number" },
         },
         required: ["pattern_type", "pattern_data", "confidence_score", "sample_size"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_user_profile_insights",
+      description: "Actualiza fortalezas y áreas de mejora del perfil IA de un vendedor (solo agente Aprendiz).",
+      parameters: {
+        type: "object",
+        properties: {
+          user_id: { type: "string" },
+          strengths: { type: "array", items: { type: "string" } },
+          improvement_areas: { type: "array", items: { type: "string" } },
+        },
+        required: ["user_id"],
         additionalProperties: false,
       },
     },
