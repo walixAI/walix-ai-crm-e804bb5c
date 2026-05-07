@@ -13,6 +13,7 @@ import { QuickActions } from "./QuickActions";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { scoreDeal } from "@/services/ai";
+import { useEntityUrgency } from "@/hooks/useEntityUrgency";
 
 interface Props {
   deal: PipelineDeal;
@@ -45,6 +46,7 @@ function DealCardImpl({
   const navigate = useNavigate();
   const pendingTask = (tasks ?? []).some(t => !t.completed);
   const health = computeDealHealth(deal, contactLastActivityAt);
+  const { urgencyScore } = useEntityUrgency("deal", deal.id);
 
   // Tooltip explanation for the probability bar.
   // Reuses the shared `scoreDeal()` helper so the explanation phrasing
@@ -91,6 +93,12 @@ function DealCardImpl({
         isOverlay && "shadow-glow rotate-1",
       )}
     >
+      {urgencyScore !== null && urgencyScore > 75 && (
+        <span
+          className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive animate-pulse z-10"
+          title={`Urgencia ${urgencyScore}/100`}
+        />
+      )}
       {/* Selection checkbox */}
       {!isOverlay && onToggleSelect && (
         <div

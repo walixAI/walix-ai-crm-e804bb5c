@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAiDrawer } from "@/store/aiDrawer";
 import {
-  useDashboardKpis, useRecentActivity, useDashboardAiSuggestions,
+  useDashboardKpis, useRecentActivity,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
 import { useQuery } from "@tanstack/react-query";
@@ -13,8 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
-  Sparkles, AlertTriangle, X, ArrowRight, Clock,
-  MoveRight, FileText, UserPlus, StickyNote, CheckCircle2,
+  Sparkles, AlertTriangle, X, Clock,
+  MoveRight, FileText, StickyNote, CheckCircle2,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { DashboardAiSection } from "@/components/walix/DashboardAiSection";
 import { KpiCardsSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
 import { TaskCards } from "@/components/dashboard/TaskCards";
+import { MorningBriefing } from "@/components/walix/MorningBriefing";
+import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
 
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
@@ -56,12 +58,11 @@ const stageColors = [
 export default function Dashboard() {
   const { user } = useAuth();
   const ask = useAiDrawer((s) => s.ask);
-  const openDrawer = useAiDrawer((s) => s.openDrawer);
   const [showAlert, setShowAlert] = useState(true);
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
   const { data: activity = [], isLoading: activityLoading } = useRecentActivity(10);
-  const { data: aiSuggestions = [] } = useDashboardAiSuggestions();
+  // Legacy hardcoded suggestions replaced by ProactiveBriefing (uses ai_proactive_suggestions).
   const { data: pipelineByStage = [] } = usePipelineByStage();
   const { data: dealsTimeline = [] } = useDealsClosedTimeline(30);
 
@@ -97,6 +98,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
+      {/* Morning briefing (auto-hides for the day on close) */}
+      <MorningBriefing />
+
       {/* Risk alert */}
       {showAlert && atRiskDealsCount > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
@@ -237,46 +241,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* AI Insights */}
-        <div className="rounded-xl border border-border border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10 p-5 shadow-card flex flex-col">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Sugerencias del día
-            </h3>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gradient-brand text-primary-foreground">
-              Powered by IA
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-4">Acciones que mueven la aguja hoy</p>
-
-          <div className="space-y-3 flex-1">
-            {aiSuggestions.map((s) => (
-              <div
-                key={s.id}
-                className="rounded-lg bg-card border border-border p-3 hover:border-primary/40 transition-colors"
-              >
-                <p className="text-sm leading-snug text-foreground mb-2">{s.text}</p>
-                <button
-                  onClick={() => ask(s.text)}
-                  className="text-xs font-semibold text-primary hover:gap-1.5 inline-flex items-center gap-1 transition-all"
-                >
-                  {s.cta ?? "Ver"} <ArrowRight className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-            {aiSuggestions.length === 0 && (
-              <div className="text-xs text-muted-foreground italic">No hay sugerencias por ahora.</div>
-            )}
-          </div>
-
-          <button
-            onClick={openDrawer}
-            className="mt-4 text-xs font-medium text-primary hover:underline text-left"
-          >
-            Abrir asistente IA →
-          </button>
-        </div>
+        {/* Proactive briefing (powered by ai_proactive_suggestions) */}
+        <ProactiveBriefing />
       </div>
 
       {/* Row 3: Charts */}

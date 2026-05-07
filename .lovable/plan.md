@@ -1,76 +1,100 @@
-# Plan: Memoria persistente de IA
+## Resumen
+Conectar la memoria persistente de IA (`ai_proactive_suggestions` + `ai_entity_context`) a la UI: nuevo briefing matutino, panel de sugerencias proactivas, panel lateral con contexto real en Contactos/Deals e indicadores de urgencia en cards/listas.
 
-Infraestructura de contexto que persiste entre sesiones para alimentar el copiloto, sugerencias proactivas y prompts enriquecidos.
+---
 
-## 1. Migración de base de datos
+## Recomendaciones guardadas (del prompt anterior, pendientes de aplicar después)
+1. Configurar Database Webhook en Cloud → Database → Webhooks: tabla `ai_memory_events`, evento `INSERT`, target `ai-context-updater`. (No automatizable desde código; requiere acción del usuario en el panel).
+2. Agregar `logEvent('contact', id, 'note_added', …)` donde se crean notas/actividades del contacto.
+3. Normalizar WhatsApp para que `logEvent` registre también `entity_type='contact'` (resolviendo `contact_id` desde la conversación), de modo que el resumen del contacto incluya actividad de WhatsApp.
 
-Adaptaciones necesarias respecto al SQL propuesto:
-- No existe tabla `users`; las FKs de "usuario" apuntarán a `auth.users(id)` (mismo patrón usado en el resto del proyecto vía `profiles.id`).
-- Las políticas RLS usarán el helper existente `get_user_tenant(auth.uid())` y `is_platform(auth.uid())` — no `auth.jwt()->>'tenant_id'` (ese claim no está poblado en este proyecto).
-- Trigger `set_updated_at` en `ai_entity_context`.
+(Estos puntos quedan registrados; se aplicarán en un prompt posterior.)
 
-### Tablas
+---
 
-**`ai_entity_context`** — Resumen vivo por entidad (contact|deal|conversation|team) con `context_summary`, `key_facts JSONB`, `sentiment`, `urgency_score`, `last_interaction`. UNIQUE(tenant_id, entity_type, entity_id).
+## Cambios de este prompt
 
-**`ai_memory_events`** — Log inmutable de eventos (`wa_message_sent`, `wa_message_received`, `deal_stage_changed`, `note_added`, `deal_created`, `contact_updated`, `task_completed`, …). `actor_id` → `auth.users(id)`.
+### 1. Nuevo componente `MorningBriefing` (widget arriba del Dashboard)
+Archivo nuevo: `src/components/walix/MorningBriefing.tsx`.
 
-**`ai_proactive_suggestions`** — Sugerencias generadas sin pregunta: `suggestion_text`, `action_type` (`send_whatsapp|move_deal|create_task|schedule_followup`), `action_payload`, `priority 1-10`, `expires_at` default +24h, flags `acted_on`/`dismissed`.
+- Fondo `bg-gradient-to-br from-indigo-900 to-indigo-800`, texto blanco, `rounded-xl p-6`.
+- Saludo: `"Buenos días, {nombre}. Esto es lo más importante de hoy:"`.
+- Lista las 3 sugerencias con mayor `priority` desde `useProactiveSuggestions()`.
+- Pie: `+ Ver N sugerencias más →` (scroll/anchor al panel `ProactiveBriefing`).
+- Botón X: guarda `walix.morningBriefing.dismissed = YYYY-MM-DD` en `localStorage` y no vuelve a mostrarse hasta el siguiente día.
+- No se renderiza si no hay sugerencias o si ya fue cerrado hoy.
 
-**`ai_conversation_history`** — Historial del copiloto (AiPromptBar) con `session_id`, `role` (`user|assistant|tool`), `content`, `tool_calls`, `context_snapshot`.
+Integración: insertar al inicio del JSX en `src/pages/app/Dashboard.tsx` (antes del bloque "Risk alert").
 
-### Índices
-Los 4 índices propuestos tal cual.
+### 2. Nuevo componente `ProactiveBriefing` (reemplaza el panel "Sugerencias del día")
+Archivo nuevo: `src/components/walix/ProactiveBriefing.tsx`.
 
-### RLS (todas las tablas)
-- `SELECT`: `tenant_id = get_user_tenant(auth.uid()) OR is_platform(auth.uid())`
-- `INSERT`: `tenant_id = get_user_tenant(auth.uid())`
-- `UPDATE/DELETE`: `tenant_id = get_user_tenant(auth.uid())`
-- En `ai_proactive_suggestions` además limitamos `UPDATE` a `target_user_id = auth.uid()` o admin/owner del tenant.
-- En `ai_conversation_history` limitamos lectura a `user_id = auth.uid()` (más privacidad) + admins del tenant.
+- Header: `✨ Tu briefing de hoy` + texto `Actualizado hace X min` (calculado del `created_at` más reciente).
+- Sub-badge: `Gemini 2.5 Flash · N eventos procesados` (N = sugerencias activas; se usa Gemini porque Lovable AI Gateway no expone Claude — sustitución coherente con el contexto manager ya implementado).
+- Renderiza máx 5 sugerencias activas (ya filtradas por `getProactiveSuggestions`).
+- Cada card:
+  - Icono según `action_type`: 💬 `send_whatsapp`, 📊 `move_deal`, 📋 `create_task`, 🔔 `schedule_followup`, ⚠️ fallback.
+  - `suggestion_text` (clamp 2 líneas).
+  - Chip clickable de la entidad (`entity_type` + `entity_id`) que navega a `/contacts/:id`, `/pipeline?dealId=:id` o `/whatsapp?conversationId=:id`.
+  - Barra de urgencia con color: verde `priority<4`, amarillo `4–7`, rojo `>7` (mapeo desde `priority` 0–10).
+  - Botón primario según `action_type` (texto/icono variable).
+  - Botón X que llama `dismiss(id)`.
+- Al pulsar acción: llamar `actOn(id)` + navegar/abrir el destino + `toast.success("Acción registrada")`.
 
-### Trigger de auto-actualización
-Función `update_ai_context_from_event()` que tras cada `INSERT` en `ai_memory_events` haga `UPSERT` mínimo en `ai_entity_context` (actualiza `last_interaction = NEW.created_at` y mantiene `updated_at`). El enriquecimiento semántico (`context_summary`, `key_facts`, `sentiment`, `urgency_score`) lo hace una edge function aparte (siguiente iteración).
+Reemplaza el bloque actual `AI Insights` (líneas 240–280 de `Dashboard.tsx`).
 
-## 2. Servicio: `src/services/aiMemory.ts`
+### 3. Nuevo `AiContextPanel` (panel lateral de contexto)
+Archivo nuevo: `src/components/walix/AiContextPanel.tsx`.
 
-```text
-aiMemory.getContext(entityType, entityId): Promise<EntityContext | null>
-aiMemory.logEvent(entityType, entityId, eventType, data): Promise<void>
-aiMemory.getProactiveSuggestions(userId): Promise<Suggestion[]>
-aiMemory.actOnSuggestion(suggestionId, acted: boolean): Promise<void>
-aiMemory.buildSystemPrompt(ctx: EntityContext, userRole: string): string
-```
+Props: `entityType: 'contact'|'deal'`, `entityId: string`.
+Usa `useEntityContext(entityType, entityId)` y `useProactiveSuggestions()` filtrando por entidad.
 
-- `logEvent` inserta en `ai_memory_events`; el trigger refresca `last_interaction`.
-- `getProactiveSuggestions` filtra `dismissed=false AND expires_at > now() AND (target_user_id = userId OR target_user_id IS NULL)`, ordena por `priority DESC, created_at DESC`.
-- `buildSystemPrompt` arma un bloque de contexto en español que incluye resumen, top 5 `key_facts`, último sentimiento y urgencia, y modula instrucciones según `userRole` (vendedor vs. tenant_admin/owner).
-- Tipos exportados (`EntityContext`, `Suggestion`, `EventType`, `EntityType`) compartidos.
+Secciones:
+- **Lo que sé**: `context_summary` en 2–3 frases + chips de `key_facts` (máx 5) + indicador de sentimiento (😊/😐/😟 según `sentiment`).
+- **Urgencia**: barra horizontal con `urgency_score` (0–100), color semántico (verde<30, amarillo 30–70, rojo>70), label numérico.
+- **Siguiente paso sugerido**: render de la sugerencia proactiva activa más prioritaria para esa entidad (si existe), con su botón de acción.
+- Botón **Actualizar contexto**: dispara `aiMemory.logEvent(entityType, entityId, 'manual_refresh', {})` (lo cual fuerza el trigger de actualización del contexto vía el webhook cuando esté configurado) + invalida la query.
+- Estado vacío: "Aún no hay contexto suficiente — la IA aprende con cada interacción."
 
-## 3. Hooks: `src/hooks/useAiMemory.ts`
+Integración:
+- En `src/components/contacts/detail/InfoSidePanel.tsx`: agregar `<AiContextPanel entityType="contact" entityId={contact.id} />` arriba del contenido existente.
+- En `src/components/pipeline/DealDrawer.tsx`: agregar dentro del panel lateral existente.
 
-- `useEntityContext(entityType, entityId)` — React Query con `refetchInterval: 30_000`.
-- `useProactiveSuggestions()` — usa `useAuth` para tomar `userId`; `refetchInterval: 60_000`; expone `actOn(id, acted)` y `dismiss(id)` con invalidación.
-- `useAiMemoryLogger()` — devuelve `logEvent` memoizado (mutación) para usar en componentes (DealDrawer, Composer, TasksTab, etc.).
+### 4. Indicadores de urgencia
+Archivo nuevo: `src/hooks/useEntityUrgency.ts` — wrapper que devuelve `{ urgencyScore, sentiment }` desde `useEntityContext` (más conveniente y evita refetch agresivo: usa `staleTime: 60_000`).
 
-## 4. Integraciones (mínimas en este paso)
+- **`DealCard.tsx`**: si `urgencyScore > 75`, mostrar punto rojo parpadeante (`h-2 w-2 rounded-full bg-destructive animate-pulse`) en la esquina superior derecha de la card.
+- **Lista de Contactos** (`ContactsKanban.tsx` y/o vista lista en `Contacts.tsx`): añadir punto coloreado al lado de "Última actividad":
+  - verde `<30`, amarillo `30–70`, rojo `>70`.
+- Si no hay contexto cargado, no renderizar el indicador.
 
-Para validar la capa sin romper flujos existentes, agregamos llamadas a `logEvent` en:
-- `Composer` de WhatsApp (mensaje saliente → `wa_message_sent`).
-- `whatsapp-webhook` edge function (entrante → `wa_message_received`).
-- `KanbanBoard`/`DealDrawer` al cambiar stage → `deal_stage_changed`.
-- `QuickTaskDialog` al completar tarea → `task_completed`.
+### 5. Ajustes finales
+- `useProactiveSuggestions` ya tiene `refetchInterval: 60_000` y `staleTime: 30_000` — confirma alineación con la sugerencia (60s).
+- Sin nuevas tablas ni migraciones.
+- Sin nuevas Edge Functions ni secretos.
 
-Las edge functions de IA (`global-ai`, `contact-ai-suggest`, `pipeline-ai`) **no** se modifican aún; el consumo de `buildSystemPrompt` y de las sugerencias proactivas se hará en el siguiente prompt para mantener este cambio enfocado en infraestructura.
+---
 
-## 5. Archivos
+## Detalles técnicos
+- Mapeo `priority` (0–10) → urgencia: low <4, mid 4–7, high >7. El `urgency_score` (0–100) en `ai_entity_context` se mapea directamente para los indicadores en cards.
+- Navegación entidad:
+  - `contact` → `/contacts/{id}`
+  - `deal` → `/pipeline?dealId={id}`
+  - `conversation` → `/whatsapp?conversationId={id}`
+- Toast: `sonner` (ya en uso global).
+- Modelo en badges: usar `Gemini 2.5 Flash` (lo que realmente corre en `ai-context-updater`), no Claude.
+- LocalStorage key del briefing: `walix.morningBriefing.dismissed` con valor `YYYY-MM-DD`.
 
-- **Crear migración:** tablas + índices + RLS + trigger.
-- **Crear:** `src/services/aiMemory.ts`, `src/hooks/useAiMemory.ts`.
-- **Editar:** `src/components/whatsapp/Composer.tsx`, `src/components/pipeline/KanbanBoard.tsx` (o `DealDrawer.tsx` donde vive el cambio de stage), `src/components/pipeline/QuickTaskDialog.tsx`, `supabase/functions/whatsapp-webhook/index.ts`.
+## Archivos
+**Nuevos**
+- `src/components/walix/MorningBriefing.tsx`
+- `src/components/walix/ProactiveBriefing.tsx`
+- `src/components/walix/AiContextPanel.tsx`
+- `src/hooks/useEntityUrgency.ts`
 
-## Fuera de alcance (próxima iteración)
-- Edge function `ai-memory-enrich` que recalcula `context_summary`/`sentiment`/`urgency_score` con LLM tras N eventos.
-- Generación automática de `ai_proactive_suggestions` (cron horario).
-- UI para mostrar sugerencias proactivas en Dashboard / AiDrawer.
-- Wire de `buildSystemPrompt` en las edge functions de IA existentes.
+**Editados**
+- `src/pages/app/Dashboard.tsx` (insertar `MorningBriefing`, reemplazar bloque "AI Insights" por `ProactiveBriefing`).
+- `src/components/contacts/detail/InfoSidePanel.tsx` (montar `AiContextPanel`).
+- `src/components/pipeline/DealDrawer.tsx` (montar `AiContextPanel`).
+- `src/components/pipeline/DealCard.tsx` (punto de urgencia).
+- `src/components/contacts/ContactsKanban.tsx` y `src/pages/app/Contacts.tsx` (indicador de urgencia en última actividad).
