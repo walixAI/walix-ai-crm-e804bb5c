@@ -476,14 +476,55 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false }).limit(historyLimit);
     const history = (prevHistory ?? []).reverse();
 
-    // 2. Construir mensajes
+    // 2. Construir mensajes (con saneo defensivo del historial)
     const systemPrompt = await buildSystemPrompt(sb, tenantId, userId, body.entityType ?? null, body.entityId ?? null);
-    const messages: any[] = [{ role: "system", content: systemPrompt }];
+    const rebuilt: any[] = [];
     for (const h of history) {
-      const msg: any = { role: h.role, content: h.content };
-      if (h.role === "assistant" && h.tool_calls) msg.tool_calls = h.tool_calls;
-      messages.push(msg);
+      if (h.role === "assistant") {
+        const msg: any = { role: "assistant", content: h.content ?? "" };
+        if (h.tool_calls && Array.isArray(h.tool_calls) && h.tool_calls.length > 0) {
+          msg.tool_calls = h.tool_calls;
+        }
+        rebuilt.push(msg);
+      } else if (h.role === "tool") {
+        // tool_call_id se persistió dentro de tool_calls como { tool_call_id, name }
+        const meta = h.tool_calls && !Array.isArray(h.tool_calls) ? h.tool_calls : null;
+        const tcid = meta?.tool_call_id;
+        if (!tcid) continue; // descartar tool messages huérfanos
+        const msg: any = {
+          role: "tool",
+          content: h.content ?? "",
+          tool_call_id: tcid,
+        };
+        if (meta?.name) msg.name = meta.name;
+        rebuilt.push(msg);
+      } else {
+        rebuilt.push({ role: h.role, content: h.content ?? "" });
+      }
     }
+    // Eliminar pares huérfanos: assistant.tool_calls sin todas las respuestas tool correspondientes
+    const sanitized: any[] = [];
+    for (let i = 0; i < rebuilt.length; i++) {
+      const m = rebuilt[i];
+      if (m.role === "assistant" && m.tool_calls?.length) {
+        const expectedIds: string[] = m.tool_calls.map((t: any) => t.id).filter(Boolean);
+        const followingToolIds = new Set<string>();
+        let j = i + 1;
+        while (j < rebuilt.length && rebuilt[j].role === "tool") {
+          if (rebuilt[j].tool_call_id) followingToolIds.add(rebuilt[j].tool_call_id);
+          j++;
+        }
+        const allPresent = expectedIds.every((id) => followingToolIds.has(id));
+        if (!allPresent) {
+          // saltar este assistant y los tool siguientes
+          i = j - 1;
+          continue;
+        }
+      }
+      if (m.role === "tool" && sanitized.length === 0) continue; // tool sin assistant previo
+      sanitized.push(m);
+    }
+    const messages: any[] = [{ role: "system", content: systemPrompt }, ...sanitized];
     messages.push({ role: "user", content: body.message });
 
     // 3. Persistir mensaje del usuario
@@ -499,7 +540,7 @@ Deno.serve(async (req) => {
     let usageInput = 0, usageOutput = 0, usageTotal = 0, usageIters = 0;
 
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      let aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -515,6 +556,25 @@ Deno.serve(async (req) => {
 
       if (aiRes.status === 429) return json({ error: "Rate limit. Intenta en unos segundos." }, 429);
       if (aiRes.status === 402) return json({ error: "Sin créditos en Lovable AI. Agrega fondos en Workspace > Usage." }, 402);
+      // Fallback: si el historial está corrupto, reintentar con system + último user
+      if (aiRes.status === 400 && iter === 0) {
+        const t = await aiRes.text();
+        console.warn("[ai-copilot] gateway 400, retrying without history:", t.slice(0, 300));
+        const minimal = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: body.message },
+        ];
+        messages.length = 0;
+        messages.push(...minimal);
+        aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: MODEL, messages, tools: CRM_TOOLS, tool_choice: "auto" }),
+        });
+      }
       if (!aiRes.ok) {
         const t = await aiRes.text();
         console.error("[ai-copilot] gateway error", aiRes.status, t);
