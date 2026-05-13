@@ -1,27 +1,31 @@
-## Problema
+## Objetivo
 
-El edge function `ai-copilot` falla con HTTP 400 del gateway de IA:
-`"Tool message must have either name or tool_call_id"`
+Crear 3 asesores de venta de prueba en el tenant de `qa.signup.5012@walix-test.io` y distribuir los contactos (≈?) y los 11 negocios existentes entre ellos para poder probar reportes, filtros por vendedor, reasignación, etc.
 
-Causa: al rehidratar el historial desde `ai_conversation_history`, los mensajes con `role: "tool"` se reenvían sin `tool_call_id` en el nivel raíz (se guardó dentro del campo `tool_calls` como `{ tool_call_id, name }`, pero la reconstrucción solo lo aplica a mensajes `assistant`).
+## Asesores a crear
 
-## Cambios
+Tres usuarios funcionales (login real con email + password de prueba) dentro del mismo tenant `24314271-0f64-41de-81e4-dab2dd8e7620`:
 
-### `supabase/functions/ai-copilot/index.ts`
+| # | Nombre | Email | Rol |
+|---|--------|-------|-----|
+| 1 | Ana Torres | qa.seller1.5012@walix-test.io | tenant_member |
+| 2 | Luis Pérez | qa.seller2.5012@walix-test.io | tenant_member |
+| 3 | Sofía Ramírez | qa.seller3.5012@walix-test.io | tenant_member |
 
-1. **Reconstrucción correcta del historial** (líneas ~482–486): para mensajes `role: "tool"`, mapear `h.tool_calls.tool_call_id` y `h.tool_calls.name` a las propiedades raíz `tool_call_id` y `name` del mensaje.
+Password de prueba común: `Walix2026!` (solo cuenta QA).
 
-2. **Saneo defensivo del historial** antes de enviar al gateway:
-   - Descartar mensajes `tool` sin `tool_call_id` válido.
-   - Descartar mensajes `assistant` con `tool_calls` cuyas respuestas `tool` correspondientes falten (pares huérfanos).
-   - Garantizar que la secuencia enviada al modelo sea consistente.
+## Pasos técnicos
 
-3. **Fallback ante error 400 del gateway**: si la primera llamada devuelve 400, reintentar una sola vez con solo `system` + mensaje actual del usuario (descartando el historial corrupto), y registrar warning. Esto evita que el copilot quede inutilizable si la BD tiene filas previas malformadas.
+1. **Crear usuarios en auth** vía inserción directa en `auth.users` + `auth.identities` con email confirmado (cuenta QA, sin envío de correo).
+2. **Insertar `profiles`** para cada uno con `tenant_id` = tenant de la cuenta y `is_active = true`. El trigger `seed_ai_user_profile` creará su `ai_user_profile`.
+3. **Asignar roles** en `user_roles` (`tenant_member`) ligados al tenant.
+4. **Reasignar datos existentes** (round-robin entre los 3 nuevos vendedores + el owner original opcional):
+   - `UPDATE contacts SET owner_id = ...` por bloques.
+   - `UPDATE deals SET owner_id = ...` por bloques (los 11 negocios).
+5. Verificar con un `SELECT` final que cada vendedor tenga contactos y deals asignados.
 
-4. **Logging mejorado**: incluir el cuerpo de error truncado en la respuesta interna (no al cliente) para futuros diagnósticos.
+## Notas
 
-## Verificación
-
-- Redesplegar `ai-copilot`.
-- Probar en la app: hacer una pregunta al copilot que dispare tools (ej. "¿cómo va mi pipeline?"), seguida de una segunda pregunta en la misma sesión.
-- Revisar `supabase--edge_function_logs` para confirmar ausencia del error `Tool message must have either name or tool_call_id`.
+- Las contraseñas de QA quedan documentadas solo en este plan; no se guardan en código.
+- No se modifica ningún componente de UI. Es solo data seeding + reasignación.
+- Si más adelante quieres eliminar a estos asesores de prueba, basta con borrar sus filas en `auth.users` (cascada a `profiles`, `user_roles`, etc.).
