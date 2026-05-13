@@ -88,7 +88,11 @@ export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
           window.removeEventListener("message", onMessage);
           if (settled) return;
           settled = true;
-          if (!code) return reject(new Error("Conexión cancelada o sin código de autorización."));
+        if (!code) {
+          return reject(new Error(
+            `Meta no devolvió código. Verifica que el App ID ${cfg.appId} tenga “Inicio de sesión con el SDK para JavaScript” en “Sí” y que el dominio ${window.location.host} esté permitido para el SDK.`,
+          ));
+        }
           if (!phoneNumberId || !wabaId) {
             return reject(new Error("No se recibió número o cuenta de negocio. Reintenta."));
           }

@@ -16,9 +16,13 @@ interface RowState {
   dirty: boolean;
 }
 
+const EMPTY_LIST: [] = [];
+
 export function TeamAccessTable({ tenantId }: { tenantId: string }) {
-  const { data: members = [] } = useMembers(tenantId);
-  const { data: access = [] } = useWhatsappUserAccess(tenantId);
+  const { data: membersData } = useMembers(tenantId);
+  const { data: accessData } = useWhatsappUserAccess(tenantId);
+  const members = membersData ?? EMPTY_LIST;
+  const access = accessData ?? EMPTY_LIST;
   const upsert = useUpsertUserAccess(tenantId);
   const { toast } = useToast();
   const [rows, setRows] = useState<Record<string, RowState>>({});
@@ -34,7 +38,16 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
         dirty: false,
       };
     });
-    setRows(next);
+    setRows((current) => {
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      const hasChanged = currentKeys.length !== nextKeys.length || nextKeys.some((id) => {
+        const a = current[id];
+        const b = next[id];
+        return !a || a.phone !== b.phone || a.enabled !== b.enabled || a.level !== b.level;
+      });
+      return hasChanged ? next : current;
+    });
   }, [members, access]);
 
   function update(id: string, patch: Partial<RowState>) {
