@@ -13,8 +13,6 @@ declare global {
   }
 }
 
-let cachedConfig: { appId: string; configId: string; graphVersion: string } | null = null;
-let sdkLoadingPromise: Promise<void> | null = null;
 export const PUBLISHED_APP_URL = "https://walix-ai-crm.lovable.app";
 
 export function isPreviewHost(): boolean {
@@ -42,18 +40,21 @@ function buildMissingCodeMessage(appId: string) {
 }
 
 async function loadConfig() {
-  if (cachedConfig) return cachedConfig;
   const { data, error } = await supabase.functions.invoke("whatsapp-embedded-config", { method: "GET" });
   if (error) throw new Error("No se pudo cargar la configuración de Meta");
   if (!data?.appId || !data?.configId) throw new Error("META_APP_ID o META_CONFIG_ID no configurados");
-  cachedConfig = data;
   return data;
 }
 
 function loadFacebookSdk(appId: string, version: string): Promise<void> {
-  if (window.FB) return Promise.resolve();
-  if (sdkLoadingPromise) return sdkLoadingPromise;
-  sdkLoadingPromise = new Promise((resolve, reject) => {
+  // Always re-init to pick up a possibly-changed appId
+  return new Promise((resolve, reject) => {
+    // Remove any previously injected SDK script so a new appId takes effect
+    const existing = document.getElementById("facebook-jssdk");
+    if (existing) existing.remove();
+    // Drop the global FB so init runs again
+    try { delete (window as unknown as { FB?: unknown }).FB; } catch { /* ignore */ }
+
     window.fbAsyncInit = () => {
       window.FB!.init({ appId, cookie: true, xfbml: false, version });
       resolve();
@@ -67,7 +68,6 @@ function loadFacebookSdk(appId: string, version: string): Promise<void> {
     script.onerror = () => reject(new Error("No se pudo cargar el SDK de Facebook"));
     document.body.appendChild(script);
   });
-  return sdkLoadingPromise;
 }
 
 export interface EmbeddedSignupResult {
