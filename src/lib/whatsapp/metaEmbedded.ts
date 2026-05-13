@@ -15,6 +15,16 @@ declare global {
 
 let cachedConfig: { appId: string; configId: string; graphVersion: string } | null = null;
 let sdkLoadingPromise: Promise<void> | null = null;
+const PUBLISHED_APP_URL = "https://walix-ai-crm.lovable.app";
+
+function buildMissingCodeMessage(appId: string) {
+  const currentHost = window.location.host;
+  const isPreviewHost = currentHost.includes("lovableproject.com") || currentHost.includes("id-preview--");
+  if (isPreviewHost) {
+    return `Meta no devolvió código porque el flujo se abrió desde Preview (${currentHost}). Prueba desde la URL publicada ${PUBLISHED_APP_URL} y autoriza en Meta el dominio walix-ai-crm.lovable.app.`;
+  }
+  return `Meta no devolvió código. Verifica que el App ID ${appId} tenga “Inicio de sesión con el SDK para JavaScript” en “Sí” y que el dominio ${currentHost} esté en Allowed domains y Valid OAuth Redirect URIs.`;
+}
 
 async function loadConfig() {
   if (cachedConfig) return cachedConfig;
@@ -95,9 +105,7 @@ export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
           if (settled) return;
           settled = true;
         if (!code) {
-          return reject(new Error(
-            `Meta no devolvió código. Verifica que el App ID ${cfg.appId} tenga “Inicio de sesión con el SDK para JavaScript” en “Sí” y que el dominio ${window.location.host} esté permitido para el SDK.`,
-          ));
+          return reject(new Error(buildMissingCodeMessage(cfg.appId)));
         }
           if (!phoneNumberId || !wabaId) {
             return reject(new Error("No se recibió número o cuenta de negocio. Reintenta."));
