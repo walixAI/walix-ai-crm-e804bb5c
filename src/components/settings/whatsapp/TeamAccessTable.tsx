@@ -65,8 +65,8 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
         user_id: userId, phone_e164: r.phone, enabled: r.enabled, permission_level: r.level,
       });
       toast({ title: "Acceso actualizado" });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo guardar", variant: "destructive" });
     }
   }
 

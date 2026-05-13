@@ -51,6 +51,10 @@ export interface EmbeddedSignupResult {
   waba_id: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
   const cfg = await loadConfig();
   await loadFacebookSdk(cfg.appId, cfg.graphVersion);
@@ -62,15 +66,17 @@ export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
 
     const onMessage = (event: MessageEvent) => {
       if (typeof event.origin !== "string" || !event.origin.includes("facebook.com")) return;
-      let payload: any = event.data;
+      let payload: unknown = event.data;
       if (typeof payload === "string") {
         try { payload = JSON.parse(payload); } catch { return; }
       }
-      if (payload?.type === "WA_EMBEDDED_SIGNUP" && payload?.event === "FINISH") {
-        phoneNumberId = payload?.data?.phone_number_id ?? phoneNumberId;
-        wabaId = payload?.data?.waba_id ?? wabaId;
+      if (!isRecord(payload) || payload.type !== "WA_EMBEDDED_SIGNUP") return;
+      const data = isRecord(payload.data) ? payload.data : {};
+      if (payload.event === "FINISH") {
+        phoneNumberId = typeof data.phone_number_id === "string" ? data.phone_number_id : phoneNumberId;
+        wabaId = typeof data.waba_id === "string" ? data.waba_id : wabaId;
       }
-      if (payload?.type === "WA_EMBEDDED_SIGNUP" && payload?.event === "CANCEL") {
+      if (payload.event === "CANCEL") {
         if (!settled) {
           settled = true;
           window.removeEventListener("message", onMessage);
