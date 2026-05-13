@@ -110,9 +110,9 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
             {isTenantAdmin && (
               <EmbeddedSignupButton tenantId={tenantId} kind={kind} isReconnect={!!ch} />
             )}
-            {ch && isTenantAdmin && (
-              <Button variant="ghost" size="sm" onClick={() => setDialogKind(kind)} title="Conexión avanzada (manual)">
-                Avanzado
+            {isTenantAdmin && (
+              <Button variant={ch ? "ghost" : "outline"} size="sm" onClick={() => setDialogKind(kind)} title="Conexión manual sin Facebook JSSDK">
+                {ch ? "Avanzado" : "Conexión manual"}
               </Button>
             )}
           </div>
