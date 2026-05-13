@@ -51,6 +51,10 @@ export interface EmbeddedSignupResult {
   waba_id: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
   const cfg = await loadConfig();
   await loadFacebookSdk(cfg.appId, cfg.graphVersion);
@@ -62,15 +66,17 @@ export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
 
     const onMessage = (event: MessageEvent) => {
       if (typeof event.origin !== "string" || !event.origin.includes("facebook.com")) return;
-      let payload: any = event.data;
+      let payload: unknown = event.data;
       if (typeof payload === "string") {
         try { payload = JSON.parse(payload); } catch { return; }
       }
-      if (payload?.type === "WA_EMBEDDED_SIGNUP" && payload?.event === "FINISH") {
-        phoneNumberId = payload?.data?.phone_number_id ?? phoneNumberId;
-        wabaId = payload?.data?.waba_id ?? wabaId;
+      if (!isRecord(payload) || payload.type !== "WA_EMBEDDED_SIGNUP") return;
+      const data = isRecord(payload.data) ? payload.data : {};
+      if (payload.event === "FINISH") {
+        phoneNumberId = typeof data.phone_number_id === "string" ? data.phone_number_id : phoneNumberId;
+        wabaId = typeof data.waba_id === "string" ? data.waba_id : wabaId;
       }
-      if (payload?.type === "WA_EMBEDDED_SIGNUP" && payload?.event === "CANCEL") {
+      if (payload.event === "CANCEL") {
         if (!settled) {
           settled = true;
           window.removeEventListener("message", onMessage);
@@ -88,7 +94,11 @@ export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
           window.removeEventListener("message", onMessage);
           if (settled) return;
           settled = true;
-          if (!code) return reject(new Error("Conexión cancelada o sin código de autorización."));
+        if (!code) {
+          return reject(new Error(
+            `Meta no devolvió código. Verifica que el App ID ${cfg.appId} tenga “Inicio de sesión con el SDK para JavaScript” en “Sí” y que el dominio ${window.location.host} esté permitido para el SDK.`,
+          ));
+        }
           if (!phoneNumberId || !wabaId) {
             return reject(new Error("No se recibió número o cuenta de negocio. Reintenta."));
           }
