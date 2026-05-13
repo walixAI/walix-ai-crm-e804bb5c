@@ -41,6 +41,12 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
     if (mode === "subscribe" && token) {
+      // Global verify token (Embedded Signup / app-level webhook)
+      const globalToken = Deno.env.get("META_VERIFY_TOKEN");
+      if (globalToken && token === globalToken) {
+        return new Response(challenge ?? "", { status: 200 });
+      }
+      // Legacy: per-channel verify_token
       const { data } = await sb.from("whatsapp_channels").select("id").eq("verify_token", token).maybeSingle();
       if (data) return new Response(challenge ?? "", { status: 200 });
     }

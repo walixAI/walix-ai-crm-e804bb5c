@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
 import { ConnectChannelDialog } from "./ConnectChannelDialog";
+import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
 import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
@@ -106,9 +107,14 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
                 Desconectar
               </Button>
             )}
-            <Button size="sm" onClick={() => setDialogKind(kind)} disabled={!isTenantAdmin}>
-              {ch ? "Reconfigurar" : "Conectar"}
-            </Button>
+            {isTenantAdmin && (
+              <EmbeddedSignupButton tenantId={tenantId} kind={kind} isReconnect={!!ch} />
+            )}
+            {ch && isTenantAdmin && (
+              <Button variant="ghost" size="sm" onClick={() => setDialogKind(kind)} title="Conexión avanzada (manual)">
+                Avanzado
+              </Button>
+            )}
           </div>
         </div>
       </Card>
