@@ -20,7 +20,7 @@ export const PUBLISHED_APP_URL = "https://walix-ai-crm.lovable.app";
 export function isPreviewHost(): boolean {
   if (typeof window === "undefined") return false;
   const h = window.location.host;
-  return h.includes("lovableproject.com") || h.includes("id-preview--") || h.includes("lovable.app") === false && h.includes("localhost");
+  return h.includes("lovableproject.com") || h.includes("id-preview--") || h.includes("localhost");
 }
 
 export class PreviewHostError extends Error {
