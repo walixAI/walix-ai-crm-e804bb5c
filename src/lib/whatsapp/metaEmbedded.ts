@@ -15,7 +15,22 @@ declare global {
 
 let cachedConfig: { appId: string; configId: string; graphVersion: string } | null = null;
 let sdkLoadingPromise: Promise<void> | null = null;
-const PUBLISHED_APP_URL = "https://walix-ai-crm.lovable.app";
+export const PUBLISHED_APP_URL = "https://walix-ai-crm.lovable.app";
+
+export function isPreviewHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.host;
+  return h.includes("lovableproject.com") || h.includes("id-preview--") || h.includes("lovable.app") === false && h.includes("localhost");
+}
+
+export class PreviewHostError extends Error {
+  constructor() {
+    super(
+      `El popup de Meta no funciona desde Preview (${typeof window !== "undefined" ? window.location.host : ""}). Abre la URL publicada para conectar WhatsApp: ${PUBLISHED_APP_URL}/settings?tab=whatsapp`,
+    );
+    this.name = "PreviewHostError";
+  }
+}
 
 function buildMissingCodeMessage(appId: string) {
   const currentHost = window.location.host;
@@ -66,6 +81,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
+  if (isPreviewHost()) {
+    throw new PreviewHostError();
+  }
   const cfg = await loadConfig();
   await loadFacebookSdk(cfg.appId, cfg.graphVersion);
 
