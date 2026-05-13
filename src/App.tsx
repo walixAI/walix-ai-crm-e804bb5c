@@ -34,6 +34,8 @@ const AIMetrics = lazy(() => import("@/pages/app/admin/AIMetrics"));
 const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
 const Tasks = lazy(() => import("@/pages/app/Tasks"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Terms = lazy(() => import("@/pages/Terms"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +64,8 @@ const AppRoutes = () => {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
