@@ -18,7 +18,7 @@ interface Props {
   contacts: ContactRow[];
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
-  onWhatsApp: (phone: string) => void;
+  onWhatsApp: (contactId: string) => void;
 }
 
 export function ContactsKanban({ contacts, selected, onToggleSelect, onWhatsApp }: Props) {
@@ -82,7 +82,7 @@ function KanbanColumn({
   items: ContactRow[];
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
-  onWhatsApp: (phone: string) => void;
+  onWhatsApp: (contactId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
@@ -106,7 +106,7 @@ function KanbanColumn({
             contact={c}
             selected={selected.has(c.id)}
             onToggleSelect={() => onToggleSelect(c.id)}
-            onWhatsApp={() => onWhatsApp(c.phone)}
+            onWhatsApp={() => onWhatsApp(c.id)}
           />
         ))}
         {items.length === 0 && (

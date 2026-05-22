@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import {
   Plus, Upload, Download, LayoutGrid, List, Search, Filter, X,
   MessageCircle, Edit, MoreHorizontal, ChevronUp, ChevronDown, Save,
@@ -45,6 +45,7 @@ const PAGE_SIZE = 25;
 
 export default function Contacts() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const firstRunParam = searchParams.get("firstRun") === "1";
   const [showFirstRun, setShowFirstRun] = useState(firstRunParam);
   const [view, setView] = useState<"list" | "kanban" | "cards">("list");
@@ -155,9 +156,8 @@ export default function Contacts() {
     }
   };
 
-  const openWA = (phone: string) => {
-    const clean = phone.replace(/[^0-9]/g, "");
-    window.open(`https://wa.me/${clean}`, "_blank");
+  const openWA = (contactId: string) => {
+    navigate(`/whatsapp?contactId=${contactId}`);
   };
 
   const exportSelected = () => {
@@ -385,7 +385,7 @@ export default function Contacts() {
                         </Link>
                       </td>
                       <td className="px-3 py-2.5">
-                        <button onClick={() => openWA(c.phone)} className="inline-flex items-center gap-1.5 text-sm hover:text-success transition-colors group">
+                        <button onClick={() => openWA(c.id)} className="inline-flex items-center gap-1.5 text-sm hover:text-success transition-colors group">
                           <MessageCircle className="h-3.5 w-3.5 text-success opacity-70 group-hover:opacity-100" />
                           <span className="font-mono text-xs">{c.phone}</span>
                         </button>
@@ -403,7 +403,7 @@ export default function Contacts() {
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">{relativeTime(c.lastActivity)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-0.5 justify-end">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openWA(c.phone)}><MessageCircle className="h-3.5 w-3.5 text-success" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openWA(c.id)}><MessageCircle className="h-3.5 w-3.5 text-success" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link to={`/contacts/${c.id}`}><Edit className="h-3.5 w-3.5" /></Link></Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
@@ -460,7 +460,7 @@ export default function Contacts() {
                   <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border mb-3", statusBadgeClass[c.status])}>{c.status}</span>
                   <div className="font-mono text-xs text-muted-foreground mb-3">{c.phone}</div>
                   <div className="flex gap-2 w-full">
-                    <Button size="sm" className="flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => openWA(c.phone)}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</Button>
+                    <Button size="sm" className="flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => openWA(c.id)}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</Button>
                     <Button size="sm" variant="outline" asChild><Link to={`/contacts/${c.id}`}>Ver detalle</Link></Button>
                   </div>
                 </div>

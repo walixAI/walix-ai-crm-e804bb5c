@@ -1,4 +1,5 @@
 import { Mail, Phone, Target, UserCircle2, Pencil } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -14,6 +15,7 @@ export function ContactInfoCard({ contact }: Props) {
   const update = useUpdateContact();
   const { data: users = [] } = useTenantUsers();
   const { data: sources = [] } = useContactSources();
+  const navigate = useNavigate();
 
   const save = (patch: any) =>
     update.mutate(
@@ -21,7 +23,7 @@ export function ContactInfoCard({ contact }: Props) {
       { onSuccess: () => { toast.success("Actualizado"); } },
     );
 
-  const openWA = () => window.open(`https://wa.me/${contact.phone.replace(/[^0-9]/g, "")}`, "_blank");
+  const openWA = () => navigate(`/whatsapp?contactId=${contact.id}`);
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-card">

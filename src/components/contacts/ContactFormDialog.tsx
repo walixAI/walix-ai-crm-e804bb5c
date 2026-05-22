@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { toE164, toWaId } from "@/lib/phone";
+import { useNavigate } from "react-router-dom";
+import { toE164 } from "@/lib/phone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ interface Props {
 
 export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
   const editing = !!contact;
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -59,18 +61,17 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
       tags,
     };
     try {
+      let savedId: string | undefined;
       if (editing && contact) {
         await update.mutateAsync({ id: contact.id, patch });
+        savedId = contact.id;
         toast.success("Contacto actualizado");
       } else {
-        await create.mutateAsync(patch as any);
+        savedId = await create.mutateAsync(patch as any);
         toast.success("Contacto creado");
       }
-      if (openWA) {
-        const wa = toWaId(phone);
-        if (wa) window.open(`https://wa.me/${wa}`, "_blank");
-      }
       onOpenChange(false);
+      if (openWA && savedId) navigate(`/whatsapp?contactId=${savedId}`);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");
     }

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, ChevronLeft } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/hooks/use-toast";
@@ -27,6 +29,7 @@ import { useTenantUsers } from "@/lib/queries/tenantUsers";
 export default function Whatsapp() {
   const user = useAuthStore((s) => s.user);
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: conversations = [], isLoading: convLoading } = useConversations();
   const { data: templates = [] } = useMessageTemplates();
@@ -37,10 +40,50 @@ export default function Whatsapp() {
   const [notesDraft, setNotesDraft] = useState("");
   const [aiDraftActive, setAiDraftActive] = useState(false);
 
-  // pick first conversation by default
+  // Open by deep link: ?conversationId=... or ?contactId=...
+  // If contactId has no conversation yet, create one (Nuevo) on the fly.
   useEffect(() => {
+    const convParam = searchParams.get("conversationId");
+    const contactParam = searchParams.get("contactId");
+    if (convParam) {
+      setActiveId(convParam);
+      const next = new URLSearchParams(searchParams);
+      next.delete("conversationId");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (contactParam) {
+      const existing = conversations.find((c) => c.contactId === contactParam);
+      if (existing) {
+        setActiveId(existing.id);
+        const next = new URLSearchParams(searchParams);
+        next.delete("contactId");
+        setSearchParams(next, { replace: true });
+        return;
+      }
+      // No conversation yet — create one for this contact.
+      (async () => {
+        const { data: prof } = await supabase
+          .from("profiles").select("tenant_id").eq("id", user?.id ?? "").maybeSingle();
+        const tid = prof?.tenant_id;
+        if (!tid) return;
+        const { data: created, error } = await supabase
+          .from("conversations")
+          .insert({ tenant_id: tid, contact_id: contactParam, status: "Nuevo" })
+          .select("id").single();
+        if (error || !created) {
+          toast({ title: "No se pudo abrir la conversación", description: error?.message ?? "", variant: "destructive" as any });
+          return;
+        }
+        setActiveId(created.id);
+        const next = new URLSearchParams(searchParams);
+        next.delete("contactId");
+        setSearchParams(next, { replace: true });
+      })();
+      return;
+    }
     if (!activeId && conversations.length) setActiveId(conversations[0].id);
-  }, [conversations, activeId]);
+  }, [conversations, searchParams, user?.id]); // eslint-disable-line
 
   const activeConv = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
