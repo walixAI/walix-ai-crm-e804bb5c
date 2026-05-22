@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
         body: body.body,
         type: "text",
         is_internal_note: true,
+        metadata: { sent_by_user_id: userData.user.id },
       });
       if (insErr) throw insErr;
       await sb.from("conversations").update({ preview: body.body, last_message_at: new Date().toISOString() }).eq("id", conv.id);
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
       direction: "outbound",
       body: body.body,
       type: "text",
-      metadata: { wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected" },
+      metadata: { wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected", sent_by_user_id: userData.user.id },
     });
     if (insErr) throw insErr;
     await sb.from("conversations").update({ preview: body.body, last_message_at: new Date().toISOString() }).eq("id", conv.id);
