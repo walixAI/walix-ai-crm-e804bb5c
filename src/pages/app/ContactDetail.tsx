@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, PanelLeft, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +20,7 @@ import { useContactActivity } from "@/lib/queries/contacts";
 
 export default function ContactDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data: contact, isLoading } = useContact(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
@@ -38,7 +39,7 @@ export default function ContactDetail() {
     );
   }
 
-  const openWA = () => window.open(`https://wa.me/${contact.phone.replace(/[^0-9]/g, "")}`, "_blank");
+  const openWA = () => navigate(`/whatsapp?contactId=${contact.id}`);
 
   return (
     <div className="space-y-4 max-w-[1600px]">
