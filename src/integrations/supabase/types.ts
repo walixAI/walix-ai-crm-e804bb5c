@@ -2154,33 +2154,36 @@ export type Database = {
       whatsapp_user_access: {
         Row: {
           created_at: string
+          display_name: string | null
           enabled: boolean
           id: string
           permission_level: Database["public"]["Enums"]["whatsapp_permission_level"]
           phone_e164: string
           tenant_id: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
+          display_name?: string | null
           enabled?: boolean
           id?: string
           permission_level?: Database["public"]["Enums"]["whatsapp_permission_level"]
           phone_e164: string
           tenant_id: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
+          display_name?: string | null
           enabled?: boolean
           id?: string
           permission_level?: Database["public"]["Enums"]["whatsapp_permission_level"]
           phone_e164?: string
           tenant_id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
