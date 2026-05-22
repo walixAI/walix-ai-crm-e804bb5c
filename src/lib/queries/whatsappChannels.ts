@@ -26,7 +26,8 @@ export interface WhatsappChannel {
 export interface WhatsappUserAccess {
   id: string;
   tenant_id: string;
-  user_id: string;
+  user_id: string | null;
+  display_name: string | null;
   phone_e164: string;
   enabled: boolean;
   permission_level: PermLevel;
@@ -146,17 +147,30 @@ export function useWhatsappUserAccess(tenantId: string | null | undefined) {
 export function useUpsertUserAccess(tenantId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { user_id: string; phone_e164: string; enabled: boolean; permission_level: PermLevel }) => {
-      const { data: existing } = await supabase.from("whatsapp_user_access")
-        .select("id").eq("tenant_id", tenantId).eq("user_id", input.user_id).maybeSingle();
-      if (existing) {
+    mutationFn: async (input: {
+      id?: string;
+      display_name: string;
+      phone_e164: string;
+      enabled: boolean;
+      permission_level: PermLevel;
+      user_id?: string | null;
+    }) => {
+      if (input.id) {
         const { error } = await supabase.from("whatsapp_user_access").update({
-          phone_e164: input.phone_e164, enabled: input.enabled, permission_level: input.permission_level,
-        }).eq("id", existing.id);
+          display_name: input.display_name,
+          phone_e164: input.phone_e164,
+          enabled: input.enabled,
+          permission_level: input.permission_level,
+        }).eq("id", input.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("whatsapp_user_access").insert({
-          tenant_id: tenantId, ...input,
+          tenant_id: tenantId,
+          display_name: input.display_name,
+          phone_e164: input.phone_e164,
+          enabled: input.enabled,
+          permission_level: input.permission_level,
+          user_id: input.user_id ?? null,
         });
         if (error) throw error;
       }
