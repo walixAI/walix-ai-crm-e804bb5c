@@ -43,6 +43,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Conversación no encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Sender name for preview prefix (so it muestra en la Bandeja de Entrada y en Contacto)
+    const { data: senderProfile } = await sb
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    const senderName = (senderProfile?.full_name || senderProfile?.email || "").trim();
+    const senderFirst = senderName ? senderName.split(/\s+/)[0] : "";
+    const previewWithSender = (txt: string) => (senderFirst ? `${senderFirst}: ${txt}` : txt);
+
     // Internal note: just store, don't send
     if (body.internal) {
       const { error: insErr } = await sb.from("messages").insert({
@@ -55,7 +65,7 @@ Deno.serve(async (req) => {
         metadata: { sent_by_user_id: userData.user.id },
       });
       if (insErr) throw insErr;
-      await sb.from("conversations").update({ preview: body.body, last_message_at: new Date().toISOString() }).eq("id", conv.id);
+      await sb.from("conversations").update({ preview: previewWithSender(body.body), last_message_at: new Date().toISOString() }).eq("id", conv.id);
       return new Response(JSON.stringify({ ok: true, internal: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -104,7 +114,7 @@ Deno.serve(async (req) => {
       metadata: { wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected", sent_by_user_id: userData.user.id },
     });
     if (insErr) throw insErr;
-    await sb.from("conversations").update({ preview: body.body, last_message_at: new Date().toISOString() }).eq("id", conv.id);
+    await sb.from("conversations").update({ preview: previewWithSender(body.body), last_message_at: new Date().toISOString() }).eq("id", conv.id);
 
     // Memoria de IA: doble evento para mensaje saliente (no para notas internas).
     if (!body.internal && conv.contact_id) {
