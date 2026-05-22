@@ -163,16 +163,18 @@ export function useUpsertUserAccess(tenantId: string) {
           permission_level: input.permission_level,
         }).eq("id", input.id);
         if (error) throw error;
+        return { id: input.id, created: false };
       } else {
-        const { error } = await supabase.from("whatsapp_user_access").insert({
+        const { data, error } = await supabase.from("whatsapp_user_access").insert({
           tenant_id: tenantId,
           display_name: input.display_name,
           phone_e164: input.phone_e164,
           enabled: input.enabled,
           permission_level: input.permission_level,
           user_id: input.user_id ?? null,
-        });
+        }).select("id").single();
         if (error) throw error;
+        return { id: data.id as string, created: true };
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-user-access", tenantId] }),
