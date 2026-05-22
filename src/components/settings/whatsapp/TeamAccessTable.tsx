@@ -63,10 +63,10 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
     if (!r.display_name.trim()) {
       return toast({ title: "Nombre requerido", variant: "destructive" });
     }
-    const normalized = toE164(r.phone);
-    if (!normalized.match(/^\+\d{8,15}$/)) {
-      return toast({ title: "Teléfono inválido", description: "Usa formato internacional, ej. +525512345678", variant: "destructive" });
+    if (!r.phone || !isValidPhoneNumber(r.phone)) {
+      return toast({ title: "Teléfono inválido", description: "Selecciona el país y escribe el número completo.", variant: "destructive" });
     }
+    const normalized = r.phone;
     try {
       await upsert.mutateAsync({
         id: r.id,
