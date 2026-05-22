@@ -15,6 +15,7 @@ import { ConnectChannelDialog } from "./ConnectChannelDialog";
 import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
 import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
+import { WebhookDiagnosticsPanel } from "./WebhookDiagnosticsPanel";
 import { relativeTime } from "@/lib/format/relativeTime";
 
 export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
@@ -141,6 +142,9 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
 
       {isTenantAdmin && teamCh && (
         <TeamAccessTable tenantId={tenantId} />
+      )}
+      {isTenantAdmin && (clientsCh || teamCh) && (
+        <WebhookDiagnosticsPanel tenantId={tenantId} />
       )}
       {isTenantAdmin && !teamCh && (
         <Card className="p-4 flex items-center gap-3 bg-muted/30">
