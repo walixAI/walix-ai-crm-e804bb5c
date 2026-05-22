@@ -1,106 +1,172 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
-import { useMembers } from "@/lib/queries/team";
-import { useWhatsappUserAccess, useUpsertUserAccess, type PermLevel } from "@/lib/queries/whatsappChannels";
+import { Plus, Save, Trash2 } from "lucide-react";
+import {
+  useWhatsappUserAccess,
+  useUpsertUserAccess,
+  useDeleteUserAccess,
+  type PermLevel,
+  type WhatsappUserAccess,
+} from "@/lib/queries/whatsappChannels";
 import { useToast } from "@/hooks/use-toast";
+import { toE164 } from "@/lib/phone";
 
-interface RowState {
+interface DraftRow {
+  id?: string;
+  display_name: string;
   phone: string;
-  enabled: boolean;
   level: PermLevel;
+  enabled: boolean;
   dirty: boolean;
 }
 
-const EMPTY_LIST: [] = [];
+function toDraft(a: WhatsappUserAccess): DraftRow {
+  return {
+    id: a.id,
+    display_name: a.display_name ?? "",
+    phone: a.phone_e164,
+    level: a.permission_level,
+    enabled: a.enabled,
+    dirty: false,
+  };
+}
 
 export function TeamAccessTable({ tenantId }: { tenantId: string }) {
-  const { data: membersData } = useMembers(tenantId);
   const { data: accessData } = useWhatsappUserAccess(tenantId);
-  const members = membersData ?? EMPTY_LIST;
-  const access = accessData ?? EMPTY_LIST;
   const upsert = useUpsertUserAccess(tenantId);
+  const remove = useDeleteUserAccess(tenantId);
   const { toast } = useToast();
-  const [rows, setRows] = useState<Record<string, RowState>>({});
+  const [newRows, setNewRows] = useState<DraftRow[]>([]);
+  const [edits, setEdits] = useState<Record<string, DraftRow>>({});
 
-  useEffect(() => {
-    const next: Record<string, RowState> = {};
-    members.forEach((m) => {
-      const a = access.find((x) => x.user_id === m.id);
-      next[m.id] = {
-        phone: a?.phone_e164 ?? "",
-        enabled: a?.enabled ?? false,
-        level: (a?.permission_level ?? "write_light") as PermLevel,
-        dirty: false,
-      };
-    });
-    setRows((current) => {
-      const currentKeys = Object.keys(current);
-      const nextKeys = Object.keys(next);
-      const hasChanged = currentKeys.length !== nextKeys.length || nextKeys.some((id) => {
-        const a = current[id];
-        const b = next[id];
-        return !a || a.phone !== b.phone || a.enabled !== b.enabled || a.level !== b.level;
-      });
-      return hasChanged ? next : current;
-    });
-  }, [members, access]);
+  const rows: DraftRow[] = [
+    ...(accessData ?? []).map((a) => edits[a.id] ?? toDraft(a)),
+    ...newRows,
+  ];
 
-  function update(id: string, patch: Partial<RowState>) {
-    setRows((r) => ({ ...r, [id]: { ...r[id], ...patch, dirty: true } }));
+  function patchExisting(id: string, base: WhatsappUserAccess, patch: Partial<DraftRow>) {
+    setEdits((e) => ({
+      ...e,
+      [id]: { ...(e[id] ?? toDraft(base)), ...patch, dirty: true },
+    }));
   }
 
-  async function save(userId: string) {
-    const r = rows[userId];
-    if (!r) return;
-    if (r.enabled && !r.phone.match(/^\+\d{8,15}$/)) {
-      return toast({ title: "Teléfono inválido", description: "Usa formato E.164: +525512345678", variant: "destructive" });
+  function patchNew(idx: number, patch: Partial<DraftRow>) {
+    setNewRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch, dirty: true } : r)));
+  }
+
+  async function save(r: DraftRow, isNew: boolean, idx?: number) {
+    if (!r.display_name.trim()) {
+      return toast({ title: "Nombre requerido", variant: "destructive" });
+    }
+    const normalized = toE164(r.phone);
+    if (!normalized.match(/^\+\d{8,15}$/)) {
+      return toast({ title: "Teléfono inválido", description: "Usa formato internacional, ej. +525512345678", variant: "destructive" });
     }
     try {
       await upsert.mutateAsync({
-        user_id: userId, phone_e164: r.phone, enabled: r.enabled, permission_level: r.level,
+        id: r.id,
+        display_name: r.display_name.trim(),
+        phone_e164: normalized,
+        enabled: r.enabled,
+        permission_level: r.level,
       });
-      toast({ title: "Acceso actualizado" });
+      if (isNew && idx !== undefined) {
+        setNewRows((rs) => rs.filter((_, i) => i !== idx));
+      } else if (r.id) {
+        setEdits((e) => {
+          const { [r.id!]: _, ...rest } = e;
+          return rest;
+        });
+      }
+      toast({ title: "Vendedor guardado" });
     } catch (e) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo guardar", variant: "destructive" });
     }
   }
 
-  const activeMembers = members.filter((m) => m.is_active);
+  async function handleDelete(id: string) {
+    try {
+      await remove.mutateAsync(id);
+      setEdits((e) => {
+        const { [id]: _, ...rest } = e;
+        return rest;
+      });
+      toast({ title: "Vendedor eliminado" });
+    } catch (e) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo eliminar", variant: "destructive" });
+    }
+  }
+
+  function addRow() {
+    setNewRows((rs) => [
+      ...rs,
+      { display_name: "", phone: "", level: "write_light", enabled: true, dirty: true },
+    ]);
+  }
 
   return (
     <Card className="p-6 space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Vendedores autorizados (canal Equipo)</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Define qué miembros pueden enviar comandos a Walix por WhatsApp y con qué permisos.
-          Los <b>sales_rep</b> solo verán y operarán sus propios contactos y oportunidades.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Vendedores autorizados (canal Equipo)</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Agrega cualquier teléfono de WhatsApp que pueda enviar comandos a Walix Bot.
+            No necesitan ser usuarios del CRM.
+          </p>
+        </div>
+        <Button size="sm" onClick={addRow}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Agregar vendedor
+        </Button>
       </div>
+
+      {rows.length === 0 && (
+        <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+          No hay vendedores autorizados. Agrega el primero con el botón de arriba.
+        </p>
+      )}
+
       <div className="space-y-2">
-        {activeMembers.length === 0 && (
-          <p className="text-sm text-muted-foreground">Aún no hay miembros activos.</p>
-        )}
-        {activeMembers.map((m) => {
-          const r = rows[m.id];
-          if (!r) return null;
+        {rows.map((r, idx) => {
+          const isNew = !r.id;
+          const existing = !isNew ? accessData?.find((a) => a.id === r.id) : undefined;
+          const newIdx = isNew ? newRows.indexOf(r) : -1;
           return (
-            <div key={m.id} className="grid gap-2 p-3 rounded-lg border border-border md:grid-cols-[1.4fr_1.4fr_1fr_auto_auto] items-center">
-              <div>
-                <div className="text-sm font-medium">{m.full_name ?? "—"}</div>
-                <div className="text-xs text-muted-foreground">{m.email}</div>
-              </div>
+            <div
+              key={r.id ?? `new-${idx}`}
+              className="grid gap-2 p-3 rounded-lg border border-border md:grid-cols-[1.4fr_1.4fr_1.2fr_auto_auto_auto] items-center"
+            >
+              <Input
+                value={r.display_name}
+                onChange={(e) =>
+                  isNew
+                    ? patchNew(newIdx, { display_name: e.target.value })
+                    : existing && patchExisting(r.id!, existing, { display_name: e.target.value })
+                }
+                placeholder="Nombre del vendedor"
+              />
               <Input
                 value={r.phone}
-                onChange={(e) => update(m.id, { phone: e.target.value })}
+                onChange={(e) =>
+                  isNew
+                    ? patchNew(newIdx, { phone: e.target.value })
+                    : existing && patchExisting(r.id!, existing, { phone: e.target.value })
+                }
                 placeholder="+525512345678"
                 className="font-mono text-xs"
               />
-              <Select value={r.level} onValueChange={(v) => update(m.id, { level: v as PermLevel })}>
+              <Select
+                value={r.level}
+                onValueChange={(v) =>
+                  isNew
+                    ? patchNew(newIdx, { level: v as PermLevel })
+                    : existing && patchExisting(r.id!, existing, { level: v as PermLevel })
+                }
+              >
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="read">Solo lectura</SelectItem>
@@ -108,9 +174,33 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
                   <SelectItem value="write_strong">Escritura fuerte (con confirmación)</SelectItem>
                 </SelectContent>
               </Select>
-              <Switch checked={r.enabled} onCheckedChange={(v) => update(m.id, { enabled: v })} />
-              <Button size="sm" variant={r.dirty ? "default" : "outline"} onClick={() => save(m.id)} disabled={!r.dirty || upsert.isPending}>
+              <Switch
+                checked={r.enabled}
+                onCheckedChange={(v) =>
+                  isNew
+                    ? patchNew(newIdx, { enabled: v })
+                    : existing && patchExisting(r.id!, existing, { enabled: v })
+                }
+              />
+              <Button
+                size="sm"
+                variant={r.dirty ? "default" : "outline"}
+                onClick={() => save(r, isNew, isNew ? newIdx : undefined)}
+                disabled={!r.dirty || upsert.isPending}
+              >
                 <Save className="h-3.5 w-3.5 mr-1" /> Guardar
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  if (isNew) setNewRows((rs) => rs.filter((_, i) => i !== newIdx));
+                  else if (r.id) handleDelete(r.id);
+                }}
+                disabled={remove.isPending}
+                aria-label="Eliminar"
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>
           );
