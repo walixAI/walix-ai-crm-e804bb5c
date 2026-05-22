@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { Plus, Save, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import {
   useWhatsappUserAccess,
   useUpsertUserAccess,
@@ -13,7 +13,7 @@ import {
   type WhatsappUserAccess,
 } from "@/lib/queries/whatsappChannels";
 import { useToast } from "@/hooks/use-toast";
-import { toE164 } from "@/lib/phone";
+import { PhoneInput, isValidPhoneNumber } from "@/components/ui/phone-input";
 
 interface DraftRow {
   id?: string;
@@ -149,16 +149,28 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
                 }
                 placeholder="Nombre del vendedor"
               />
-              <Input
-                value={r.phone}
-                onChange={(e) =>
-                  isNew
-                    ? patchNew(newIdx, { phone: e.target.value })
-                    : existing && patchExisting(r.id!, existing, { phone: e.target.value })
-                }
-                placeholder="+525512345678"
-                className="font-mono text-xs"
-              />
+              <div className="space-y-1">
+                <PhoneInput
+                  value={r.phone}
+                  onChange={(v) =>
+                    isNew
+                      ? patchNew(newIdx, { phone: v })
+                      : existing && patchExisting(r.id!, existing, { phone: v })
+                  }
+                  invalid={!!r.phone && !isValidPhoneNumber(r.phone)}
+                />
+                {r.phone ? (
+                  isValidPhoneNumber(r.phone) ? (
+                    <p className="text-[11px] text-success flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Número válido
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> Número incompleto o inválido
+                    </p>
+                  )
+                ) : null}
+              </div>
               <Select
                 value={r.level}
                 onValueChange={(v) =>
