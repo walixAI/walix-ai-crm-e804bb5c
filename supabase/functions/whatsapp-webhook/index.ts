@@ -117,13 +117,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { data: channel } = await sb
+        const { data: channels } = await sb
           .from("whatsapp_channels")
           .select("id, tenant_id, kind, access_token, phone_number_id, connected_at")
-          .eq("phone_number_id", phoneNumberId)
-          .maybeSingle();
+          .eq("phone_number_id", phoneNumberId);
 
-        if (!channel) {
+        if (!channels || channels.length === 0) {
           await sb.from("whatsapp_webhook_log").insert({
             kind,
             phone_number_id: phoneNumberId,
@@ -134,19 +133,20 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Stamp last webhook hit on channel + bitácora
+        // Stamp last webhook hit on all matching channels + bitácora (use first as reference)
+        const refChannel = channels[0];
         await sb.from("whatsapp_channels").update({
           last_webhook_at: new Date().toISOString(),
           last_webhook_payload: value,
-        }).eq("id", channel.id);
+        }).in("id", channels.map((c: any) => c.id));
         await sb.from("whatsapp_webhook_log").insert({
-          tenant_id: channel.tenant_id,
-          matched_channel_id: channel.id,
+          tenant_id: refChannel.tenant_id,
+          matched_channel_id: refChannel.id,
           kind,
           phone_number_id: phoneNumberId,
           payload: value,
           note: hasMessages
-            ? `inbound messages: ${value.messages.length}`
+            ? `inbound messages: ${value.messages.length} (channels=${channels.length})`
             : hasStatuses
               ? `status updates: ${value.statuses.length}`
               : "change without messages/statuses",
@@ -156,6 +156,28 @@ Deno.serve(async (req) => {
           const from = String(msg.from ?? "");
           const body = msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? "";
           if (!from || !body) continue;
+
+          // Routing: si hay múltiples canales (clients + team con el mismo número),
+          // el vendedor autorizado SIEMPRE gana. Si el remitente no está en
+          // whatsapp_user_access (o está deshabilitado), cae al canal clients.
+          let channel = channels[0];
+          if (channels.length > 1) {
+            const teamChannel = channels.find((c: any) => c.kind === "team");
+            const clientsChannel = channels.find((c: any) => c.kind === "clients");
+            let routeToTeam = false;
+            if (teamChannel) {
+              const variants = phoneMatchVariants(from);
+              const { data: vendorAccess } = await sb
+                .from("whatsapp_user_access")
+                .select("user_id, enabled")
+                .eq("tenant_id", teamChannel.tenant_id)
+                .in("phone_e164", variants)
+                .eq("enabled", true)
+                .maybeSingle();
+              if (vendorAccess) routeToTeam = true;
+            }
+            channel = routeToTeam ? teamChannel! : (clientsChannel ?? teamChannel ?? channels[0]);
+          }
 
           // Mark live connectivity: record latest inbound; auto-promote to connected if first ever
           {
