@@ -3,6 +3,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Phone input internal styles (overrides react-phone-number-input defaults) */
+.wx-phone-input .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: hsl(var(--foreground));
+  font-size: 0.875rem;
+}
+.wx-phone-input .PhoneInputInput::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+.wx-phone-input .PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 0.25rem;
+}
+.wx-phone-input .PhoneInputCountrySelect {
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+
 /* Walix.ai design system. All colors HSL. */
 
 @layer base {
