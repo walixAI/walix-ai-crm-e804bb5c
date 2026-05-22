@@ -61,20 +61,17 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
       tags,
     };
     try {
+      let savedId: string | undefined;
       if (editing && contact) {
         await update.mutateAsync({ id: contact.id, patch });
+        savedId = contact.id;
         toast.success("Contacto actualizado");
       } else {
-        await create.mutateAsync(patch as any);
+        savedId = await create.mutateAsync(patch as any);
         toast.success("Contacto creado");
       }
       onOpenChange(false);
-      if (openWA) {
-        const targetId = editing && contact ? contact.id : (await create.mutateAsync.length, undefined);
-        // If editing, we already know id; if creating, mutateAsync above returned it via lastResult.
-        const id = editing && contact ? contact.id : (create.data as string | undefined);
-        if (id) navigate(`/whatsapp?contactId=${id}`);
-      }
+      if (openWA && savedId) navigate(`/whatsapp?contactId=${savedId}`);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");
     }
