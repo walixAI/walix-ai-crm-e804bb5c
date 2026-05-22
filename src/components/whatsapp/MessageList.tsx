@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { MessageItem } from "@/lib/queries/whatsapp";
 import { MessageListSkeleton } from "@/components/walix/Skeletons";
+import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -18,15 +19,16 @@ function dateLabel(iso: string) {
   return d.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-function MessageBubble({ m }: { m: MessageItem }) {
+function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | undefined }) {
   const out = m.direction === "outbound";
+  const sender = out && m.sentByUserId ? resolveOwner(users, m.sentByUserId) : null;
   if (m.isInternalNote) {
     return (
       <div className="flex justify-center">
         <div className="max-w-[75%] bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 text-xs text-foreground">
           <div className="flex items-center gap-1.5 text-warning font-medium mb-0.5">
             <StickyNote className="h-3 w-3" />
-            Nota interna
+            Nota interna{sender ? ` · ${sender.name}` : ""}
           </div>
           <p className="whitespace-pre-wrap">{m.body}</p>
           <div className="text-[10px] text-muted-foreground mt-1 text-right">{formatTime(m.sentAt)}</div>
@@ -42,6 +44,17 @@ function MessageBubble({ m }: { m: MessageItem }) {
           out ? "bg-primary/10 text-foreground rounded-br-sm" : "bg-card border border-border rounded-bl-sm",
         )}
       >
+        {sender && (
+          <div className="flex items-center gap-1.5 mb-1">
+            <span
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold text-white"
+              style={{ backgroundColor: sender.color }}
+            >
+              {sender.initials}
+            </span>
+            <span className="text-[10px] font-medium text-muted-foreground">{sender.name}</span>
+          </div>
+        )}
         {m.type === "image" && m.mediaUrl && (
           <div className="mb-1 rounded-lg overflow-hidden bg-muted aspect-video flex items-center justify-center">
             <ImageIcon className="h-8 w-8 text-muted-foreground" />
@@ -77,6 +90,7 @@ function MessageBubble({ m }: { m: MessageItem }) {
 
 export function MessageList({ messages, loading }: { messages: MessageItem[]; loading?: boolean }) {
   const endRef = useRef<HTMLDivElement>(null);
+  const { data: users } = useTenantUsers();
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length]);
@@ -108,7 +122,7 @@ export function MessageList({ messages, loading }: { messages: MessageItem[]; lo
               </span>
             </div>
             {g.items.map((m) => (
-              <MessageBubble key={m.id} m={m} />
+              <MessageBubble key={m.id} m={m} users={users} />
             ))}
           </div>
         ))}

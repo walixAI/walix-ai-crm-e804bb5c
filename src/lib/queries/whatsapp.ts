@@ -50,6 +50,7 @@ export interface MessageItem {
   readAt: string | null;
   sentAt: string;
   metadata: any;
+  sentByUserId: string | null;
 }
 
 export interface MessageTemplate {
@@ -160,6 +161,7 @@ export function useMessages(conversationId: string | null) {
         readAt: m.read_at,
         sentAt: m.sent_at ?? m.created_at,
         metadata: m.metadata ?? null,
+        sentByUserId: m.metadata?.sent_by_user_id ?? null,
       }));
     },
   });
