@@ -19,7 +19,7 @@ interface Props {
   defaultExpectedPhone?: string;
 }
 
-type Phase = "form" | "waiting" | "success" | "timeout" | "wrong_sender";
+type Phase = "form" | "waiting" | "success" | "timeout" | "wrong_sender" | "no_webhook";
 
 const TIMEOUT_SECONDS = 120;
 const POLL_MS = 3000;
@@ -30,6 +30,7 @@ export function LiveTestDialog({ open, onClose, channelId, channelPhone, default
   const [phase, setPhase] = useState<Phase>("form");
   const [secondsLeft, setSecondsLeft] = useState(TIMEOUT_SECONDS);
   const [receivedFrom, setReceivedFrom] = useState<string | null>(null);
+  const [webhookHitAt, setWebhookHitAt] = useState<string | null>(null);
   const startedAtRef = useRef<string | null>(null);
   const timerRef = useRef<number | null>(null);
   const pollRef = useRef<number | null>(null);
@@ -75,9 +76,12 @@ export function LiveTestDialog({ open, onClose, channelId, channelPhone, default
     pollRef.current = window.setInterval(async () => {
       const { data } = await supabase
         .from("whatsapp_channels")
-        .select("last_inbound_at, last_inbound_from")
+        .select("last_inbound_at, last_inbound_from, last_webhook_at")
         .eq("id", channelId)
         .maybeSingle();
+      if (data?.last_webhook_at && startedAtRef.current && data.last_webhook_at > startedAtRef.current) {
+        setWebhookHitAt(data.last_webhook_at);
+      }
       if (!data?.last_inbound_at) return;
       if (startedAtRef.current && data.last_inbound_at > startedAtRef.current) {
         const got = normalize(data.last_inbound_from ?? "");
@@ -158,13 +162,29 @@ export function LiveTestDialog({ open, onClose, channelId, channelPhone, default
               <AlertTriangle className="h-5 w-5" />
               <span className="font-medium">No recibimos ningún mensaje en 2 minutos.</span>
             </div>
-            <p className="text-muted-foreground">Verifica en Meta Business Manager:</p>
-            <ul className="list-disc pl-5 text-muted-foreground space-y-0.5 text-xs">
-              <li>El Webhook URL está configurado y verificado.</li>
-              <li>El Verify Token coincide exactamente con el de Walix.</li>
-              <li>Está suscrito al campo <span className="font-mono">messages</span>.</li>
-              <li>El número no está en modo sandbox o requiere agregar tu número como tester.</li>
-            </ul>
+            {webhookHitAt ? (
+              <>
+                <p className="text-muted-foreground">
+                  Meta <b>sí</b> llamó al webhook (último hit: {new Date(webhookHitAt).toLocaleTimeString()}), pero no llegó un mensaje desde <span className="font-mono">{expected}</span>.
+                </p>
+                <ul className="list-disc pl-5 text-muted-foreground space-y-0.5 text-xs">
+                  <li>¿Enviaste el mensaje desde el número correcto?</li>
+                  <li>Revisa "Diagnóstico del webhook" en Ajustes → WhatsApp para ver el payload exacto.</li>
+                </ul>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground">
+                  <b>No llegó ningún hit</b> del webhook. Verifica en Meta App Dashboard:
+                </p>
+                <ul className="list-disc pl-5 text-muted-foreground space-y-0.5 text-xs">
+                  <li>WhatsApp → Configuration → Webhook URL verificada.</li>
+                  <li>En "Webhook fields" suscríbete a <span className="font-mono">messages</span>.</li>
+                  <li>WhatsApp → API Setup → tu número debe aparecer <b>Subscribed</b> a esta app.</li>
+                  <li>Si es número de prueba, el remitente debe estar en "Allowed recipients".</li>
+                </ul>
+              </>
+            )}
           </div>
         )}
 

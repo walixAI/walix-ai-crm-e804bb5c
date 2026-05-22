@@ -40,16 +40,36 @@ Deno.serve(async (req) => {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
+    const tokenMasked = token ? `${token.slice(0, 4)}…${token.slice(-4)}` : null;
+    console.log("webhook GET", { mode, tokenMasked });
     if (mode === "subscribe" && token) {
       // Global verify token (Embedded Signup / app-level webhook)
       const globalToken = Deno.env.get("META_VERIFY_TOKEN");
       if (globalToken && token === globalToken) {
+        await sb.from("whatsapp_webhook_log").insert({
+          kind: "verify",
+          payload: { mode, tokenMasked, match: "global" },
+          note: "GET handshake matched META_VERIFY_TOKEN",
+        });
         return new Response(challenge ?? "", { status: 200 });
       }
       // Legacy: per-channel verify_token
       const { data } = await sb.from("whatsapp_channels").select("id").eq("verify_token", token).maybeSingle();
-      if (data) return new Response(challenge ?? "", { status: 200 });
+      if (data) {
+        await sb.from("whatsapp_webhook_log").insert({
+          kind: "verify",
+          matched_channel_id: data.id,
+          payload: { mode, tokenMasked, match: "channel" },
+          note: "GET handshake matched per-channel verify_token",
+        });
+        return new Response(challenge ?? "", { status: 200 });
+      }
     }
+    await sb.from("whatsapp_webhook_log").insert({
+      kind: "verify",
+      payload: { mode, tokenMasked, match: "none" },
+      note: "GET handshake rejected (token mismatch)",
+    });
     return new Response("forbidden", { status: 403 });
   }
 
@@ -61,23 +81,75 @@ Deno.serve(async (req) => {
   try {
     payload = await req.json();
   } catch {
+    await sb.from("whatsapp_webhook_log").insert({
+      kind: "unknown",
+      note: "POST with invalid JSON body",
+    });
     return new Response("bad json", { status: 400 });
   }
 
+  console.log("webhook POST", JSON.stringify(payload).slice(0, 1000));
+
   try {
     const entries = payload?.entry ?? [];
+    if (entries.length === 0) {
+      await sb.from("whatsapp_webhook_log").insert({
+        kind: "unknown",
+        payload,
+        note: "POST without entries",
+      });
+    }
     for (const entry of entries) {
       for (const change of entry?.changes ?? []) {
         const value = change?.value;
         const phoneNumberId = value?.metadata?.phone_number_id;
-        if (!phoneNumberId) continue;
+        const hasMessages = Array.isArray(value?.messages) && value.messages.length > 0;
+        const hasStatuses = Array.isArray(value?.statuses) && value.statuses.length > 0;
+        const kind: "message" | "status" | "unknown" = hasMessages ? "message" : hasStatuses ? "status" : "unknown";
+
+        if (!phoneNumberId) {
+          await sb.from("whatsapp_webhook_log").insert({
+            kind,
+            payload: value ?? change,
+            note: "change without phone_number_id",
+          });
+          continue;
+        }
 
         const { data: channel } = await sb
           .from("whatsapp_channels")
           .select("id, tenant_id, kind, access_token, phone_number_id, connected_at")
           .eq("phone_number_id", phoneNumberId)
           .maybeSingle();
-        if (!channel) continue;
+
+        if (!channel) {
+          await sb.from("whatsapp_webhook_log").insert({
+            kind,
+            phone_number_id: phoneNumberId,
+            payload: value,
+            note: `No channel registered for phone_number_id=${phoneNumberId}`,
+          });
+          console.log("webhook no channel match", phoneNumberId);
+          continue;
+        }
+
+        // Stamp last webhook hit on channel + bitácora
+        await sb.from("whatsapp_channels").update({
+          last_webhook_at: new Date().toISOString(),
+          last_webhook_payload: value,
+        }).eq("id", channel.id);
+        await sb.from("whatsapp_webhook_log").insert({
+          tenant_id: channel.tenant_id,
+          matched_channel_id: channel.id,
+          kind,
+          phone_number_id: phoneNumberId,
+          payload: value,
+          note: hasMessages
+            ? `inbound messages: ${value.messages.length}`
+            : hasStatuses
+              ? `status updates: ${value.statuses.length}`
+              : "change without messages/statuses",
+        });
 
         for (const msg of value?.messages ?? []) {
           const from = String(msg.from ?? "");
