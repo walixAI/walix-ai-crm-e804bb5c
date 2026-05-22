@@ -59,13 +59,14 @@ Deno.serve(async (req) => {
     const greeting = access.display_name?.trim() ? `Hola ${access.display_name.trim()}, ` : "¡Hola! ";
 
     const message =
-      `${greeting}has sido invitado a usar *Walix Bot* del CRM *${tenantName}* por WhatsApp.\n\n` +
+      `${greeting}has sido invitado a conversar con el CRM de *${tenantName}* por WhatsApp.\n\n` +
       `Desde este chat podrás:\n` +
       `• Consultar tus contactos y oportunidades\n` +
       `• Crear notas y tareas con un mensaje\n` +
       `• Recibir recordatorios y briefings\n\n` +
-      `Para comenzar, responde con *Hola Walix* o pregunta algo como *¿Qué tareas tengo hoy?*\n\n` +
-      `Invitado por: ${inviterName}`;
+      `Para comenzar, responde con *Hola* o pregunta algo como *¿Qué tareas tengo hoy?*\n\n` +
+      `Invitado por: ${inviterName}\n\n` +
+      `_Mensaje enviado por Walix.ai_`;
 
     const to = toWaId(access.phone_e164);
     const res = await fetch(`${META_API}/${channel.phone_number_id}/messages`, {
