@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { toWaId } from "../_shared/phone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,12 +74,13 @@ Deno.serve(async (req) => {
       if (!phone) {
         return new Response(JSON.stringify({ error: "Contacto sin teléfono" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      const toNumber = toWaId(phone);
       const res = await fetch(`${META_API}/${channel.phone_number_id}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${channel.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          to: phone,
+          to: toNumber,
           type: "text",
           text: { body: body.body },
         }),

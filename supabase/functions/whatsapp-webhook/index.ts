@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { toE164, phoneMatchVariants } from "../_shared/phone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,21 +172,28 @@ Deno.serve(async (req) => {
           }
 
           if (channel.kind === "clients") {
-            // Upsert contact by phone for this tenant
+            // Match contact by any plausible phone format (e164, waId, raw),
+            // because Meta sends MX/AR numbers with a legacy mobile prefix.
+            const variants = phoneMatchVariants(from);
+            const canonical = toE164(from);
             const { data: existing } = await sb
               .from("contacts")
-              .select("id")
+              .select("id, phone")
               .eq("tenant_id", channel.tenant_id)
-              .eq("phone", from)
+              .in("phone", variants)
+              .limit(1)
               .maybeSingle();
             let contactId = existing?.id;
             if (!contactId) {
               const { data: created } = await sb
                 .from("contacts")
-                .insert({ tenant_id: channel.tenant_id, phone: from, name: from, source: "WhatsApp" })
+                .insert({ tenant_id: channel.tenant_id, phone: canonical, name: canonical, source: "WhatsApp" })
                 .select("id")
                 .single();
               contactId = created?.id;
+            } else if (existing && existing.phone !== canonical) {
+              // Heal legacy rows: store canonical going forward.
+              await sb.from("contacts").update({ phone: canonical }).eq("id", contactId);
             }
             if (!contactId) continue;
 

@@ -1,74 +1,49 @@
+## Objetivo
 
-## Diagnóstico
+Que el contacto entrante por WhatsApp matchee con el contacto correcto del CRM sin importar si el número está guardado con o sin el prefijo móvil de su país (MX "1", AR "9", BR "9"), y que el envío salga siempre en el formato que Meta espera.
 
-El canal `clients` está marcado como `connected` pero:
-- `last_inbound_at` y `last_inbound_from` siguen en `null`.
-- La edge function `whatsapp-webhook` no tiene **ningún** log de invocación.
+## Estrategia
 
-Conclusión: Meta no está llamando al webhook. La causa más probable, dado que la URL ya está verificada, es que **la WhatsApp Business Account (WABA) no está suscrita al campo `messages`** en tu app de Meta.
+Crear una utilidad única de normalización compartida (lado servidor en edge functions, y un espejo en el cliente para validación al guardar contactos). La utilidad produce dos valores:
 
-## Qué hacer en Meta (sin código)
+- `e164` — formato canónico para guardar y mostrar (sin prefijo móvil legado): `+525517278186`
+- `wa_id` — formato que Meta usa internamente para `wa_id` y para envío (con prefijo móvil donde aplica): `5215517278186`
 
-Pasos exactos para suscribir el webhook a `messages`:
+Guardamos **siempre el `e164` canónico** en `contacts.phone`. Al recibir o enviar, convertimos contra `wa_id`.
 
-1. Abre **developers.facebook.com → tu App** (la que tiene `App ID = META_APP_ID`).
-2. Menú lateral → **WhatsApp → Configuration** (Configuración).
-3. Baja a la sección **Webhook**. Verás Callback URL ya verificada.
-4. En **Webhook fields**, busca la fila `messages` y haz clic en **Subscribe** (o **Manage** y activa `messages`). Confirma que el switch quede en verde.
-5. (Importante para el número de prueba) Ve a **WhatsApp → API Setup**. Selecciona el número `+1 555 653 9892`. En la sección "Webhook" del propio número, asegúrate que aparezca **Subscribed** a tu app. Si no, dale **Subscribe**.
-6. Vuelve a enviar un WhatsApp desde tu `+52 1 5517278186` (ya está en la lista de "To") al número de prueba.
+## Reglas de normalización
 
-Si el paso 4 ya estaba hecho pero el 5 no, ese es el problema más común con números de prueba.
+```text
+MX (+52): si después de "52" hay 11 dígitos que empiezan en "1" → quitar ese "1"
+          al enviar a móvil → reinsertar "1" tras "52"
+AR (+54): si después de "54" hay "9" + 10 dígitos → quitar el "9" para canónico
+          al enviar a móvil → reinsertar "9" tras "54"
+BR (+55): líneas móviles llevan "9" delante del número local de 8 dígitos.
+          Mantener tal cual (ya forma parte del número local).
+Resto:    sin transformación.
+```
 
-## Cambios de código que añadiré para diagnóstico
+## Cambios
 
-Para que no tengas que adivinar la próxima vez:
+1. **`supabase/functions/_shared/phone.ts`** (nuevo): exporta `toE164(input)` y `toWaId(e164)`. Sin dependencias externas.
+2. **`src/lib/phone.ts`** (nuevo): mismo código portado al cliente, usado en formularios de contacto al crear/editar para guardar siempre en formato canónico.
+3. **`supabase/functions/whatsapp-webhook/index.ts`**:
+   - Al recibir un mensaje, calcular `const canonical = toE164(from)` y buscar contacto por `phone IN (canonical, "+"+from)` para cubrir contactos viejos que quedaron mal guardados.
+   - Al crear contacto nuevo, guardar `phone: canonical`.
+4. **`supabase/functions/whatsapp-send/index.ts`**:
+   - Antes de llamar a Meta, `to: toWaId(contact.phone)`.
+5. **Migración de datos** (opcional, recomendada): script SQL idempotente que normaliza `contacts.phone` existentes y fusiona duplicados detectados (por ejemplo "Erick Zendejas" + "Erick Zendejas 2"). Esto se ejecuta como migración revisable.
 
-1. **`whatsapp-webhook/index.ts`** — añadir logs estructurados al inicio y al final:
-   - Log de cada GET (verify handshake) con `mode`, `token` (enmascarado) y resultado.
-   - Log de cada POST con `entry.id`, `phone_number_id`, número de `messages` y `statuses`.
-   - Log explícito cuando no encuentra `channel` por `phone_number_id` (frecuente si el `phone_number_id` guardado no coincide con el que envía Meta).
-   - Guardar el último payload crudo en una columna nueva para inspección desde la UI.
+## Plan de prueba
 
-2. **Migración DB** — añadir a `whatsapp_channels`:
-   - `last_webhook_payload jsonb` (último cuerpo recibido, útil aunque no matchee).
-   - `last_webhook_at timestamptz`.
-   Y una tabla `whatsapp_webhook_log` (últimos 50 hits por tenant, TTL manual) con: `received_at`, `phone_number_id`, `matched_channel_id`, `payload`, `note`.
-
-3. **UI: `src/components/settings/whatsapp/WhatsappTab.tsx`** — nuevo panel "Diagnóstico del webhook" (collapsible) que muestre:
-   - Última verificación GET recibida (timestamp).
-   - Últimos 5 hits POST con timestamp, `phone_number_id`, si matcheó canal, y un botón "ver payload".
-   - Si en los últimos 5 minutos no hay ningún hit tras pulsar "Iniciar prueba", mostrar un banner amarillo con el checklist de Meta (los 6 pasos de arriba).
-
-4. **`LiveTestDialog.tsx`** — además de poll a `last_inbound_at`, polear `last_webhook_at`. Distinguir tres estados:
-   - "Sin hits del webhook" → problema de configuración en Meta.
-   - "Hit recibido pero `phone_number_id` no coincide" → el canal guardado tiene otro `phone_number_id`; mostrar cuál llegó vs cuál esperamos.
-   - "Hit recibido y matcheado pero `from` distinto" → ya lo tienes.
+1. Enviar mensaje desde **+52 55 1727 8186** (Erick) → debe seguir matcheando con el contacto existente, sin crear duplicado.
+2. Desde la ficha de **Toño Torres**, mandar un WhatsApp → verificar en `whatsapp-send` logs que el `to` enviado a Meta lleva el "1" tras el "52" y que Meta responde OK.
+3. Toño responde → debe matchear con su contacto, no crear uno nuevo.
+4. Limpiar el contacto "Erick Zendejas 2" duplicado (vía migración o manualmente).
 
 ## Detalles técnicos
 
-```text
-Tabla nueva:
-whatsapp_webhook_log(
-  id uuid pk, tenant_id uuid null, received_at timestamptz default now(),
-  phone_number_id text, matched_channel_id uuid null,
-  kind text check (kind in ('verify','message','status','unknown')),
-  payload jsonb, note text
-)
-RLS: SELECT solo a tenant_admin/owner del tenant; INSERT solo service role.
-Para verify (sin tenant): visible a platform staff únicamente.
-```
+- La utilidad es pura (sin red, sin DB), testeable. Agregar tests unitarios mínimos en `src/lib/phone.test.ts` cubriendo MX con/sin 1, AR con/sin 9, BR, US, y entradas con espacios/guiones/paréntesis.
+- No tocamos `contacts_ai_create` aún (usa su propio parser); queda fuera del alcance hasta validar lo anterior.
 
-El webhook escribirá un row por cada POST recibido (truncando `payload` a ~10KB) y por cada GET handshake.
-
-## Verificación
-
-Tras desplegar:
-1. Tú haces los pasos 1-6 de Meta y envías un WhatsApp.
-2. Yo consulto `whatsapp_webhook_log` para confirmar el hit y te digo exactamente qué llegó.
-3. Si llega y matchea, el `LiveTestDialog` pasará a "success" automáticamente.
-
-## Fuera de alcance
-
-- No tocaré el flujo de `whatsapp-embedded-signup` ni el envío saliente.
-- No cambiaré `phone_number_id` ni `access_token` del canal (eso se hace por re-conectar).
+¿Procedo con la implementación tal cual, o quieres que omita la migración de datos existentes y solo arregle el flujo a futuro?
