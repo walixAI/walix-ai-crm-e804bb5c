@@ -248,11 +248,12 @@ Deno.serve(async (req) => {
             ]);
           } else if (channel.kind === "team") {
             // Verify user authorization
+            const phoneVariants = phoneMatchVariants(from);
             const { data: access } = await sb
               .from("whatsapp_user_access")
               .select("user_id, enabled, permission_level")
               .eq("tenant_id", channel.tenant_id)
-              .eq("phone_e164", from)
+              .in("phone_e164", phoneVariants)
               .maybeSingle();
 
             if (!access || !access.enabled) {
