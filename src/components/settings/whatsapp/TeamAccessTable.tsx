@@ -14,6 +14,7 @@ import {
 } from "@/lib/queries/whatsappChannels";
 import { useToast } from "@/hooks/use-toast";
 import { PhoneInput, isValidPhoneNumber } from "@/components/ui/phone-input";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DraftRow {
   id?: string;
@@ -68,7 +69,7 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
     }
     const normalized = r.phone;
     try {
-      await upsert.mutateAsync({
+      const result = await upsert.mutateAsync({
         id: r.id,
         display_name: r.display_name.trim(),
         phone_e164: normalized,
@@ -84,6 +85,30 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
         });
       }
       toast({ title: "Vendedor guardado" });
+
+      // Enviar invitación automática solo en creación
+      if (result?.created && result.id) {
+        const { data: inv, error: invErr } = await supabase.functions.invoke("whatsapp-team-invite", {
+          body: { access_id: result.id },
+        });
+        if (invErr) {
+          toast({
+            title: "Vendedor agregado, pero no se envió la invitación",
+            description: invErr.message ?? "Revisa que el canal Equipo esté conectado.",
+            variant: "destructive",
+          });
+        } else if (inv?.skipped) {
+          toast({
+            title: "Vendedor agregado",
+            description: "Conecta el canal Equipo (Walix Bot) para enviar la invitación por WhatsApp.",
+          });
+        } else if (inv?.ok) {
+          toast({
+            title: "Invitación enviada por WhatsApp ✉️",
+            description: `Mensaje entregado a ${r.display_name.trim()}.`,
+          });
+        }
+      }
     } catch (e) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo guardar", variant: "destructive" });
     }
