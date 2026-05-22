@@ -2047,6 +2047,8 @@ export type Database = {
           last_error: string | null
           last_inbound_at: string | null
           last_inbound_from: string | null
+          last_webhook_at: string | null
+          last_webhook_payload: Json | null
           phone_number: string | null
           phone_number_id: string | null
           provider: string
@@ -2067,6 +2069,8 @@ export type Database = {
           last_error?: string | null
           last_inbound_at?: string | null
           last_inbound_from?: string | null
+          last_webhook_at?: string | null
+          last_webhook_payload?: Json | null
           phone_number?: string | null
           phone_number_id?: string | null
           provider?: string
@@ -2087,6 +2091,8 @@ export type Database = {
           last_error?: string | null
           last_inbound_at?: string | null
           last_inbound_from?: string | null
+          last_webhook_at?: string | null
+          last_webhook_payload?: Json | null
           phone_number?: string | null
           phone_number_id?: string | null
           provider?: string
@@ -2175,6 +2181,39 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_webhook_log: {
+        Row: {
+          id: string
+          kind: string
+          matched_channel_id: string | null
+          note: string | null
+          payload: Json | null
+          phone_number_id: string | null
+          received_at: string
+          tenant_id: string | null
+        }
+        Insert: {
+          id?: string
+          kind: string
+          matched_channel_id?: string | null
+          note?: string | null
+          payload?: Json | null
+          phone_number_id?: string | null
+          received_at?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          id?: string
+          kind?: string
+          matched_channel_id?: string | null
+          note?: string | null
+          payload?: Json | null
+          phone_number_id?: string | null
+          received_at?: string
+          tenant_id?: string | null
         }
         Relationships: []
       }
