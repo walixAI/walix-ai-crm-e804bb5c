@@ -155,9 +155,8 @@ export default function Contacts() {
     }
   };
 
-  const openWA = (phone: string) => {
-    const clean = phone.replace(/[^0-9]/g, "");
-    window.open(`https://wa.me/${clean}`, "_blank");
+  const openWA = (contactId: string) => {
+    navigate(`/whatsapp?contactId=${contactId}`);
   };
 
   const exportSelected = () => {
