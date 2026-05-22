@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toE164, toWaId } from "@/lib/phone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +51,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
     const patch = {
       name: name.trim(),
       last_name: lastName.trim() || null,
-      phone: phone.trim() || null,
+      phone: phone.trim() ? toE164(phone) : null,
       email: email.trim() || null,
       company: company.trim() || null,
       position: position.trim() || null,
@@ -66,8 +67,8 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
         toast.success("Contacto creado");
       }
       if (openWA) {
-        const clean = phone.replace(/[^0-9]/g, "");
-        if (clean) window.open(`https://wa.me/${clean}`, "_blank");
+        const wa = toWaId(phone);
+        if (wa) window.open(`https://wa.me/${wa}`, "_blank");
       }
       onOpenChange(false);
     } catch (e: any) {
