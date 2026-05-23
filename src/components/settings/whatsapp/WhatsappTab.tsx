@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
 import { ConnectChannelDialog } from "./ConnectChannelDialog";
-import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
 import { ByoWabaWizard } from "./ByoWabaWizard";
 import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
