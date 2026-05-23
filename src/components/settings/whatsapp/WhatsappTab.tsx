@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
 import { ConnectChannelDialog } from "./ConnectChannelDialog";
 import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
+import { ByoWabaWizard } from "./ByoWabaWizard";
 import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
 import { WebhookDiagnosticsPanel } from "./WebhookDiagnosticsPanel";
@@ -25,6 +26,7 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { data: channels = [] } = useWhatsappChannels(tenantId);
   const disconnect = useDisconnectChannel(tenantId);
   const [dialogKind, setDialogKind] = useState<ChannelKind | null>(null);
+  const [wizardKind, setWizardKind] = useState<ChannelKind | null>(null);
   const [testChannel, setTestChannel] = useState<WhatsappChannel | null>(null);
 
   const { data: templates = [] } = useQuery({
@@ -109,11 +111,13 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
               </Button>
             )}
             {isTenantAdmin && (
-              <EmbeddedSignupButton tenantId={tenantId} kind={kind} isReconnect={!!ch} />
+              <Button size="sm" onClick={() => setWizardKind(kind)}>
+                {ch ? "Reconectar" : "Conectar WhatsApp"}
+              </Button>
             )}
             {isTenantAdmin && (
-              <Button variant={ch ? "ghost" : "outline"} size="sm" onClick={() => setDialogKind(kind)} title="Conexión manual sin Facebook JSSDK">
-                {ch ? "Avanzado" : "Conexión manual"}
+              <Button variant="ghost" size="sm" onClick={() => setDialogKind(kind)} title="Modo avanzado: pega Phone Number ID + WABA ID + token manualmente">
+                Modo avanzado
               </Button>
             )}
           </div>
@@ -218,6 +222,15 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           tenantId={tenantId}
           kind={dialogKind}
           existing={dialogKind === "clients" ? clientsCh : teamCh}
+        />
+      )}
+
+      {wizardKind && (
+        <ByoWabaWizard
+          open
+          onClose={() => setWizardKind(null)}
+          tenantId={tenantId}
+          kind={wizardKind}
         />
       )}
 
