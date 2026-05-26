@@ -81,9 +81,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function launchEmbeddedSignup(): Promise<EmbeddedSignupResult> {
-  if (isPreviewHost()) {
-    throw new PreviewHostError();
-  }
   const cfg = await loadConfig();
   await loadFacebookSdk(cfg.appId, cfg.graphVersion);
 
