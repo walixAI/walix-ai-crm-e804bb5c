@@ -7,7 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { WBadge } from "@/components/walix/Badge";
-import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, AlertCircle } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, AlertCircle, Send, Unplug, Wand2, Settings2, ChevronDown, Zap } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
@@ -99,37 +108,86 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
               {ch?.last_error && <p className="text-xs text-destructive mt-1">{ch.last_error}</p>}
             </div>
           </div>
-          <div className="flex gap-2 shrink-0">
-            {ch && isTenantAdmin && (
-              <Button variant="outline" size="sm" onClick={() => setTestChannel(ch)}>
-                Probar en vivo
-              </Button>
-            )}
-            {ch && ch.status !== "disabled" && (
-              <Button variant="outline" size="sm" onClick={async () => { await disconnect.mutateAsync(ch.id); toast({ title: "Canal desconectado" }); }}>
-                Desconectar
-              </Button>
-            )}
-            {isTenantAdmin && (
-              <Button size="sm" onClick={() => setWizardKind(kind)}>
-                {ch ? "Reconectar" : "Conectar WhatsApp"}
-              </Button>
-            )}
-            {isTenantAdmin && (
-              <EmbeddedSignupButton
-                tenantId={tenantId}
-                kind={kind}
-                isReconnect={!!ch}
-                size="sm"
-                variant="outline"
-              />
-            )}
-            {isTenantAdmin && (
-              <Button variant="ghost" size="sm" onClick={() => setDialogKind(kind)} title="Modo avanzado: pega Phone Number ID + WABA ID + token manualmente">
-                Modo avanzado
-              </Button>
-            )}
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-2 shrink-0">
+              {ch && isTenantAdmin && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setTestChannel(ch)} aria-label="Probar en vivo">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Probar en vivo</TooltipContent>
+                </Tooltip>
+              )}
+              {ch && ch.status !== "disabled" && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                      onClick={async () => { await disconnect.mutateAsync(ch.id); toast({ title: "Canal desconectado" }); }}
+                      aria-label="Desconectar canal"
+                    >
+                      <Unplug className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Desconectar</TooltipContent>
+                </Tooltip>
+              )}
+              {isTenantAdmin && (
+                <div className="flex items-stretch rounded-md shadow-sm">
+                  <Button
+                    size="sm"
+                    onClick={() => setWizardKind(kind)}
+                    className="rounded-r-none border-r border-primary-foreground/20"
+                  >
+                    <Wand2 className="h-4 w-4 mr-2" />
+                    {ch ? "Reconectar" : "Conectar"}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        className="rounded-l-none px-2"
+                        aria-label="Más opciones de conexión"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel>Métodos de conexión</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setWizardKind(kind)} className="flex-col items-start gap-0.5 py-2">
+                        <div className="flex items-center gap-2 font-medium">
+                          <Wand2 className="h-4 w-4 text-primary" /> Asistente BYO-WABA
+                        </div>
+                        <span className="text-xs text-muted-foreground pl-6">Recomendado · selecciona tu número visualmente</span>
+                      </DropdownMenuItem>
+                      <div className="px-2 py-1.5">
+                        <EmbeddedSignupButton
+                          tenantId={tenantId}
+                          kind={kind}
+                          isReconnect={!!ch}
+                          size="sm"
+                          variant="outline"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1 px-1">Embedded Signup oficial de Meta</p>
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setDialogKind(kind)} className="flex-col items-start gap-0.5 py-2">
+                        <div className="flex items-center gap-2 font-medium">
+                          <Settings2 className="h-4 w-4 text-muted-foreground" /> Modo avanzado
+                        </div>
+                        <span className="text-xs text-muted-foreground pl-6">Pega Phone ID + WABA ID + token manualmente</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
+          </TooltipProvider>
         </div>
       </Card>
     );
