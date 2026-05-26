@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
 import { ConnectChannelDialog } from "./ConnectChannelDialog";
 import { ByoWabaWizard } from "./ByoWabaWizard";
+import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
 import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
 import { WebhookDiagnosticsPanel } from "./WebhookDiagnosticsPanel";
@@ -113,6 +114,15 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
               <Button size="sm" onClick={() => setWizardKind(kind)}>
                 {ch ? "Reconectar" : "Conectar WhatsApp"}
               </Button>
+            )}
+            {isTenantAdmin && (
+              <EmbeddedSignupButton
+                tenantId={tenantId}
+                kind={kind}
+                isReconnect={!!ch}
+                size="sm"
+                variant="outline"
+              />
             )}
             {isTenantAdmin && (
               <Button variant="ghost" size="sm" onClick={() => setDialogKind(kind)} title="Modo avanzado: pega Phone Number ID + WABA ID + token manualmente">
