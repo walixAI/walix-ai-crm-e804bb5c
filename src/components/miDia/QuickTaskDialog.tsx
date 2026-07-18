@@ -14,7 +14,7 @@ interface Props {
 
 export function QuickTaskDialog({ open, onOpenChange }: Props) {
   const [title, setTitle] = useState("");
-  const [kind, setKind] = useState("general");
+  const [kind, setKind] = useState("otro");
   const [due, setDue] = useState("");
   const create = useQuickCreateTask();
 
@@ -27,7 +27,7 @@ export function QuickTaskDialog({ open, onOpenChange }: Props) {
         dueAt: due ? new Date(due).toISOString() : new Date().toISOString(),
       });
       toast.success("Tarea registrada");
-      setTitle(""); setDue(""); setKind("general");
+      setTitle(""); setDue(""); setKind("otro");
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo registrar");
@@ -51,11 +51,11 @@ export function QuickTaskDialog({ open, onOpenChange }: Props) {
               <Select value={kind} onValueChange={setKind}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="quote">Cotizar</SelectItem>
-                  <SelectItem value="collect">Cobrar</SelectItem>
-                  <SelectItem value="service">Servicio</SelectItem>
-                  <SelectItem value="followup">Seguimiento</SelectItem>
+                  <SelectItem value="otro">General</SelectItem>
+                  <SelectItem value="cotizacion">Cotizar</SelectItem>
+                  <SelectItem value="cobro">Cobrar</SelectItem>
+                  <SelectItem value="servicio">Servicio</SelectItem>
+                  <SelectItem value="seguimiento">Seguimiento</SelectItem>
                 </SelectContent>
               </Select>
             </div>
