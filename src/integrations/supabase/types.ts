@@ -1176,8 +1176,12 @@ export type Database = {
       deals: {
         Row: {
           amount: number
+          amount_paid: number | null
           contact_id: string | null
           created_at: string
+          deal_type: string | null
+          equipment_brand: string | null
+          equipment_model: string | null
           expected_close_date: string | null
           id: string
           is_lost: boolean
@@ -1187,7 +1191,10 @@ export type Database = {
           name: string
           notes: string | null
           owner_id: string | null
+          payment_status: string | null
           probability: number
+          scheduled_at: string | null
+          service_type: string | null
           source: string
           stage_id: string | null
           stage_name: string | null
@@ -1196,8 +1203,12 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          amount_paid?: number | null
           contact_id?: string | null
           created_at?: string
+          deal_type?: string | null
+          equipment_brand?: string | null
+          equipment_model?: string | null
           expected_close_date?: string | null
           id?: string
           is_lost?: boolean
@@ -1207,7 +1218,10 @@ export type Database = {
           name: string
           notes?: string | null
           owner_id?: string | null
+          payment_status?: string | null
           probability?: number
+          scheduled_at?: string | null
+          service_type?: string | null
           source?: string
           stage_id?: string | null
           stage_name?: string | null
@@ -1216,8 +1230,12 @@ export type Database = {
         }
         Update: {
           amount?: number
+          amount_paid?: number | null
           contact_id?: string | null
           created_at?: string
+          deal_type?: string | null
+          equipment_brand?: string | null
+          equipment_model?: string | null
           expected_close_date?: string | null
           id?: string
           is_lost?: boolean
@@ -1227,7 +1245,10 @@ export type Database = {
           name?: string
           notes?: string | null
           owner_id?: string | null
+          payment_status?: string | null
           probability?: number
+          scheduled_at?: string | null
+          service_type?: string | null
           source?: string
           stage_id?: string | null
           stage_name?: string | null
@@ -1749,6 +1770,7 @@ export type Database = {
           signature: string | null
           tenant_id: string | null
           timezone: string
+          ui_prefs: Json | null
           updated_at: string
           wa_greeting: string | null
         }
@@ -1770,6 +1792,7 @@ export type Database = {
           signature?: string | null
           tenant_id?: string | null
           timezone?: string
+          ui_prefs?: Json | null
           updated_at?: string
           wa_greeting?: string | null
         }
@@ -1791,6 +1814,7 @@ export type Database = {
           signature?: string | null
           tenant_id?: string | null
           timezone?: string
+          ui_prefs?: Json | null
           updated_at?: string
           wa_greeting?: string | null
         }
@@ -1837,6 +1861,7 @@ export type Database = {
           deal_id: string | null
           due_at: string | null
           id: string
+          task_kind: string | null
           tenant_id: string
           title: string
           updated_at: string
@@ -1849,6 +1874,7 @@ export type Database = {
           deal_id?: string | null
           due_at?: string | null
           id?: string
+          task_kind?: string | null
           tenant_id: string
           title: string
           updated_at?: string
@@ -1861,6 +1887,7 @@ export type Database = {
           deal_id?: string | null
           due_at?: string | null
           id?: string
+          task_kind?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string
