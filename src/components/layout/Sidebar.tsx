@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot
+  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot, Sun
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,6 +30,7 @@ export function Sidebar() {
 
   const items = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/mi-dia", label: "Mi Día", icon: Sun, accent: true },
     { to: "/ai-inbox", label: "AI Inbox", icon: Sparkles, badge: aiCount > 0 ? aiCount : undefined, accent: true },
     { to: "/contacts", label: "Contactos", icon: Users },
     { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
