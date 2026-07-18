@@ -75,7 +75,7 @@ export function useMiDiaData() {
       }));
 
       const quote: JumboItem[] = deals
-        .filter((d: any) => (d.deal_type ?? "sale") === "sale" && /cotiz/i.test(d.stage_name ?? ""))
+        .filter((d: any) => (d.deal_type ?? "venta") === "venta" && /cotiz/i.test(d.stage_name ?? ""))
         .map((d: any) => ({
           id: d.id, kind: "deal_quote",
           title: d.name, subtitle: contactName(d.contact_id),
@@ -83,7 +83,7 @@ export function useMiDiaData() {
         }));
 
       const services: JumboItem[] = deals
-        .filter((d: any) => d.deal_type === "service" && d.scheduled_at &&
+        .filter((d: any) => d.deal_type === "servicio" && d.scheduled_at &&
           new Date(d.scheduled_at) <= endToday && new Date(d.scheduled_at) >= new Date(now.toDateString()))
         .map((d: any) => ({
           id: d.id, kind: "deal_service",
@@ -92,7 +92,7 @@ export function useMiDiaData() {
         }));
 
       const collect: JumboItem[] = deals
-        .filter((d: any) => d.payment_status === "pending" && d.expected_close_date &&
+        .filter((d: any) => d.payment_status === "pendiente" && d.expected_close_date &&
           new Date(d.expected_close_date) <= endToday)
         .map((d: any) => ({
           id: d.id, kind: "deal_collect",
