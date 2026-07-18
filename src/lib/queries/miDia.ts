@@ -146,7 +146,7 @@ export function useQuickCreateTask() {
         assignee_id: user.id,
         contact_id: input.contactId ?? null,
         deal_id: input.dealId ?? null,
-        task_kind: input.taskKind ?? "general",
+        task_kind: input.taskKind ?? "otro",
         completed: false,
       } as any);
       if (error) throw error;
