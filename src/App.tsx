@@ -34,6 +34,8 @@ const AIMetrics = lazy(() => import("@/pages/app/admin/AIMetrics"));
 const Marketplace = lazy(() => import("@/pages/app/Marketplace"));
 const Tasks = lazy(() => import("@/pages/app/Tasks"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
+const MiDia = lazy(() => import("@/pages/app/MiDia"));
+const WhatsappSim = lazy(() => import("@/pages/app/WhatsappSim"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 
@@ -70,6 +72,8 @@ const AppRoutes = () => {
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/mi-dia" element={<MiDia />} />
+        <Route path="/wa-sim" element={<WhatsappSim />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/contacts/:id" element={<ContactDetail />} />
         <Route path="/pipeline" element={<Pipeline />} />
