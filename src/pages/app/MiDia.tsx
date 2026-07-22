@@ -163,7 +163,11 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
             )}
             {i.contactId && (
               <Button variant="outline" size="sm" asChild>
-                <Link to={`/contacts/${i.contactId}`}>Ver</Link>
+                <Link to={
+                  i.kind === "task"
+                    ? `/contacts/${i.contactId}?focus=task&taskId=${i.id}`
+                    : `/contacts/${i.contactId}`
+                }>Ver</Link>
               </Button>
             )}
             {i.dealId && !i.contactId && (
