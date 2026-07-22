@@ -10,6 +10,8 @@ import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } fr
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
 import { useTenant } from "@/lib/queries/tenant";
 import { useToggleTask } from "@/lib/queries/tasks";
+import { RunRateCard } from "@/components/walix/RunRateCard";
+import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 
 export default function MiDia() {
   const { data, isLoading } = useMiDiaData();
@@ -63,6 +65,8 @@ export default function MiDia() {
 
         {!isLoading && (
           <>
+            <RunRateCard />
+            <ProfitabilityCard />
             <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
             <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
             <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
