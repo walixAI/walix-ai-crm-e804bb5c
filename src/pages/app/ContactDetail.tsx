@@ -17,6 +17,8 @@ import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
 import { ActivitiesTab } from "@/components/contacts/detail/ActivitiesTab";
 import { useContactActivity } from "@/lib/queries/contacts";
+import { useMyProfile } from "@/lib/queries/profile";
+import ContactDetailSimple from "./ContactDetailSimple";
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -24,6 +26,10 @@ export default function ContactDetail() {
   const { data: contact, isLoading } = useContact(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
+  const { data: profile } = useMyProfile();
+
+  const simpleMode = (profile as any)?.ui_prefs?.mode === "simple";
+  if (simpleMode) return <ContactDetailSimple />;
 
   if (isLoading) {
     return <div className="p-6"><ContactDetailSkeleton /></div>;

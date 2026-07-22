@@ -239,7 +239,7 @@ export default function Login() {
         });
         if (error) throw error;
         await waitForAuthContext(3000);
-        navigate("/dashboard");
+        navigate("/");
       }
     } catch (err: any) {
       const t = translateAuthError(err);
