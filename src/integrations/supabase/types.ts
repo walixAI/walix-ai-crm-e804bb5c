@@ -1366,6 +1366,117 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_categories: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          currency: string
+          deal_id: string | null
+          description: string | null
+          id: string
+          incurred_at: string
+          kind: string
+          owner_id: string | null
+          receipt_url: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          incurred_at?: string
+          kind: string
+          owner_id?: string | null
+          receipt_url?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          incurred_at?: string
+          kind?: string
+          owner_id?: string | null
+          receipt_url?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -1959,17 +2070,21 @@ export type Database = {
         Row: {
           brand_name: string | null
           brand_primary: string | null
+          count_business_days: boolean
           created_at: string
           currency: string
           id: string
           industry: string | null
           locale: string
           logo_url: string | null
+          monthly_goal_by_type: Json
+          monthly_goal_total: number
           mrr: number
           name: string
           nps: number | null
           organization_id: string
           plan: string
+          profit_thresholds: Json
           sales_channel: string | null
           status: string
           team_size: string | null
@@ -1980,17 +2095,21 @@ export type Database = {
         Insert: {
           brand_name?: string | null
           brand_primary?: string | null
+          count_business_days?: boolean
           created_at?: string
           currency?: string
           id?: string
           industry?: string | null
           locale?: string
           logo_url?: string | null
+          monthly_goal_by_type?: Json
+          monthly_goal_total?: number
           mrr?: number
           name: string
           nps?: number | null
           organization_id: string
           plan?: string
+          profit_thresholds?: Json
           sales_channel?: string | null
           status?: string
           team_size?: string | null
@@ -2001,17 +2120,21 @@ export type Database = {
         Update: {
           brand_name?: string | null
           brand_primary?: string | null
+          count_business_days?: boolean
           created_at?: string
           currency?: string
           id?: string
           industry?: string | null
           locale?: string
           logo_url?: string | null
+          monthly_goal_by_type?: Json
+          monthly_goal_total?: number
           mrr?: number
           name?: string
           nps?: number | null
           organization_id?: string
           plan?: string
+          profit_thresholds?: Json
           sales_channel?: string | null
           status?: string
           team_size?: string | null
