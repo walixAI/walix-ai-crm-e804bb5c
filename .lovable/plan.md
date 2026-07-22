@@ -1,84 +1,97 @@
 
-## Objetivo
+# Run Rate + Gastos y Rentabilidad
 
-Que el gestor (usuario en modo simple) opere todo el día desde **Mi Día → Contacto → Cerrar pendiente** sin perderse, con un perfil de contacto rediseñado en versión "Modo Fácil" cuando `ui_prefs.mode = 'simple'`.
+Dos funcionalidades nuevas, integradas en Mi Día, Pipeline e Inicio, configurables por Tenant.
 
-## 1. Login → Mi Día directo
+---
 
-`src/pages/app/RootRedirect.tsx` ya envía a `/mi-dia` cuando `ui_prefs.mode = 'simple'`. Confirmado en lectura.
+## 1. Run Rate del mes
 
-Ajuste: que `/login` al autenticar también respete el modo (hoy suele mandar a `/dashboard`). Redirigir siempre a `/` y dejar que `RootRedirect` decida. Un solo cambio pequeño en `Login.tsx`.
+Indicador visual (%) que compara lo vendido hasta hoy vs. lo que "deberías llevar" a esta altura del mes, y proyecta el cierre.
 
-## 2. Click en pendiente de Mi Día → Perfil del contacto
+### Cálculo
+- `meta_mes` = meta mensual del tenant (o del vendedor si aplica).
+- `dias_habiles_transcurridos` / `dias_habiles_totales` del mes.
+- `meta_esperada_hoy = meta_mes * (dias_habiles_transcurridos / dias_habiles_totales)`
+- `vendido_hoy` = suma de `deals.amount` con `is_won = true` y `updated_at` dentro del mes actual (filtrable por `deal_type`: venta, servicio, refacción/mantenimiento).
+- `run_rate_pct = vendido_hoy / meta_esperada_hoy * 100`
+- `proyeccion_cierre = vendido_hoy / dias_habiles_transcurridos * dias_habiles_totales`
 
-Hoy las tarjetas de Mi Día abren diálogos o el deal. Cambiar el comportamiento en modo simple:
+### Semáforo
+- Verde: ≥ 100%
+- Amarillo: 70–99%
+- Rojo: < 70%
 
-- **Cobros / Cotizar / Servicios / Seguimiento**: click → `/contacts/{contactId}?focus=task&taskId=…` (si viene de una tarea) o `?focus=deal&dealId=…`.
-- **Mis tareas**: click en la tarjeta → `/contacts/{contactId}?focus=task&taskId={id}`.
+### Dónde aparece
+- **Mi Día**: nueva tarjeta grande arriba (`RunRateCard`) con % en semáforo, meta, vendido, proyección de cierre, y 2–3 recomendaciones (basadas en pendientes: "Cierra las N cotizaciones abiertas por $X para llegar a la meta").
+- **Pipeline**: chip compacto en la fila de KPIs (junto a "Cierre este mes"), con hover que muestra el detalle.
+- **Inicio (Dashboard)**: KPI card resumido con enlace a Mi Día.
 
-El query param `focus` lo lee el nuevo perfil "Modo Fácil" para resaltar/abrir el pendiente correspondiente.
+### Configuración por Tenant
+Nueva pestaña **Metas** en Settings:
+- Meta mensual global (MXN).
+- Metas por tipo: `venta`, `servicio`, `refaccion`.
+- Toggle: "Contar solo días hábiles (L–V)" o todos los días.
 
-## 3. Perfil de contacto — "Modo Fácil"
+---
 
-Nueva vista `src/pages/app/ContactDetailSimple.tsx` (se usa cuando `ui_prefs.mode = 'simple'`; el perfil actual queda intacto para modo estándar). Layout de una sola columna, tipografía grande, foco en acciones:
+## 2. Módulo de Gastos y Rentabilidad
 
-```text
-┌─────────────────────────────────────────────┐
-│  ← Mi Día                                   │
-│                                             │
-│  [Avatar]  Nombre grande                    │
-│            Empresa · Teléfono               │
-│  [ WhatsApp ]  [ Llamar ]  [ Registrar ]    │
-├─────────────────────────────────────────────┤
-│  📋 QUÉ TIENES QUE HACER HOY  ← centro      │
-│  ┌───────────────────────────────────────┐  │
-│  │ ☐ Cobrar $18,500 · vence hoy          │  │
-│  │   [Marcar como pagado] [Reagendar]    │  │
-│  │ ☐ Enviar cotización refri Sub-Zero    │  │
-│  │   [Marcar hecha] [Reagendar]          │  │
-│  │ ☐ Llamar para confirmar visita        │  │
-│  │   [Registrar llamada] [Reagendar]     │  │
-│  └───────────────────────────────────────┘  │
-├─────────────────────────────────────────────┤
-│  💬 Últimos mensajes (3)                    │
-│  📝 Últimas notas (2)                       │
-└─────────────────────────────────────────────┘
-```
+Captura de gastos fijos y variables, con vínculo opcional a un deal.
 
-Componentes nuevos:
-- `src/components/contacts/simple/SimpleContactHeader.tsx` — avatar XL, botones jumbo WhatsApp / Llamar / Registrar actividad.
-- `src/components/contacts/simple/PendingList.tsx` — lista central de tareas + acciones rápidas de cierre.
-- `src/components/contacts/simple/CloseTaskDialog.tsx` — al pulsar "Marcar hecha" abre modal con 3 opciones: **Enviar WhatsApp** (abre `/whatsapp?contactId=…` y al volver marca hecha), **Registrar llamada** (nota + duración + resultado), **Solo marcar hecha** (nota opcional). Al confirmar: `toggleTask(completed=true)` + `createActivity({type: 'call'|'note'|'whatsapp'})`.
-- `src/components/contacts/simple/QuickTourPopover.tsx` — guía de 3 pasos (Header → Pendientes → Actividades) que se muestra la primera vez usando `localStorage` (`walix.simple.tour.contact.v1`). Botón "Ver de nuevo" en el header.
+### Datos
+Nueva tabla `expenses`:
+- `tenant_id`, `owner_id`
+- `kind`: `fijo` | `variable`
+- `category_id` → `expense_categories` (Telefonía, Renta, Refacciones, Viáticos, Impresiones… seedeadas y editables por el tenant)
+- `amount`, `currency` (MXN default)
+- `incurred_at` (fecha)
+- `deal_id` (opcional, para variables)
+- `description`, `receipt_url` (opcional)
 
-Ruteo: en `src/pages/app/ContactDetail.tsx` detectar `profile.ui_prefs.mode === 'simple'` y renderizar `ContactDetailSimple` en su lugar (o hacerlo en `App.tsx`).
+Nueva tabla `expense_categories`: `tenant_id`, `name`, `kind`, `icon`, `is_active`.
 
-## 4. Cerrar pendiente con evidencia
+RLS: sólo miembros del tenant; edición para admin/owner o dueño del gasto.
 
-Flujo canónico (usado por `CloseTaskDialog`):
+### Rentabilidad
+`rentabilidad_pct = (ventas_mes - gastos_mes) / ventas_mes * 100`
+Semáforo:
+- Verde: ≥ 20%
+- Amarillo: 10–19%
+- Naranja: 0–9%
+- Rojo: < 0%
 
-1. Usuario pulsa botón principal de una tarea.
-2. Modal pregunta **¿Cómo la resolviste?** → WhatsApp / Llamada / Otro.
-3. Si es WhatsApp: navega a `/whatsapp?contactId=…&pendingTaskId=…`; al enviar el mensaje, marcar tarea como hecha y crear `activity` tipo `whatsapp`.
-4. Si es Llamada: campos "Resultado" (contestó / no contestó / dejó mensaje) + nota → `activity` tipo `call` + `toggle task`.
-5. Si es Otro: nota libre + `toggle task`.
+### Dónde aparece
+- **Inicio (Dashboard)**: KPI card "Rentabilidad del mes" con % coloreado, ventas y gastos.
+- **Nueva página `/gastos`**: lista + filtros (mes, tipo, categoría, deal), botón "Nuevo gasto", totales por categoría, mini gráfico ventas vs gastos.
+- Enlace en Sidebar (modo estándar) y acción rápida en Mi Día.
 
-Reutiliza hooks existentes (`useToggleContactTask`, `useCreateContactActivity`), no toca esquema.
+### Configuración por Tenant
+Pestaña **Gastos** en Settings:
+- CRUD de categorías (fijas y variables).
+- Umbrales de semáforo de rentabilidad (opcional, con defaults).
 
-## 5. Fuera de alcance
+---
 
-- No se toca el perfil de contacto del modo estándar.
-- No se cambia lógica de pipeline, IA, ni edge functions.
-- No se agregan columnas nuevas a la BD.
+## Detalles técnicos
 
-## Archivos a tocar
+- **Migración**: añadir a `tenants`: `monthly_goal_total`, `monthly_goal_by_type jsonb`, `count_business_days boolean`, `profit_thresholds jsonb`. Crear `expenses` y `expense_categories` con GRANTs + RLS + trigger `updated_at`. Seed de categorías al crear tenant.
+- **Queries**: `src/lib/queries/runRate.ts` (meta, vendido, proyección, recomendaciones) y `src/lib/queries/expenses.ts` (CRUD + agregados mensuales).
+- **UI nueva**:
+  - `src/components/walix/RunRateCard.tsx` (jumbo para Mi Día)
+  - `src/components/walix/RunRateChip.tsx` (compacto para Pipeline/Dashboard)
+  - `src/components/walix/ProfitabilityCard.tsx`
+  - `src/pages/app/Expenses.tsx` + `ExpenseFormDialog`, `ExpenseList`, `CategoryChip`
+  - `src/components/settings/goals/GoalsTab.tsx`
+  - `src/components/settings/expenses/ExpenseCategoriesTab.tsx`
+- **Integración**: Mi Día muestra RunRateCard arriba, ProfitabilityCard debajo de los summary chips. Pipeline agrega el chip en `ForecastKpis`. Dashboard suma dos KpiCards. Sidebar añade "Gastos" y Settings dos pestañas nuevas.
+- **Recomendaciones**: heurísticas del cliente (no IA en esta fase) basadas en cotizaciones pendientes y deals en negociación cuya suma cubra el gap para llegar a meta.
 
-- `src/pages/Login.tsx` — redirigir a `/` post-login.
-- `src/pages/app/ContactDetail.tsx` — router condicional simple vs estándar.
-- `src/pages/app/MiDia.tsx` + tarjetas — navegar a `/contacts/{id}?focus=task&taskId=…`.
-- **Nuevos**: `src/pages/app/ContactDetailSimple.tsx`, `src/components/contacts/simple/*` (4 archivos listados arriba).
+---
 
-## Preguntas antes de implementar
+## Fuera de alcance en esta iteración
+- Metas por vendedor individual (solo global por tenant).
+- Reportes históricos de rentabilidad multi-mes (se agrega el mes actual).
+- Adjuntar recibos con OCR (solo URL manual).
 
-1. ¿El botón "Registrar llamada" debe pedir duración o basta con resultado + nota?
-2. Cuando el gestor cierra un cobro, ¿marcar también `deals.payment_status = 'pagado'` o solo la tarea?
+¿Apruebas y arranco?
