@@ -7,6 +7,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PipelineFilters, type PipelineFiltersValue } from "./PipelineFilters";
 import { ForecastKpis } from "./ForecastKpis";
+import { RunRateChip } from "@/components/walix/RunRateChip";
 import type { Pipeline } from "@/lib/queries/pipeline";
 
 interface Props {
@@ -120,6 +121,7 @@ export function PipelineHeader({
         closingDeltaPct={closingDeltaPct}
         activeCount={activeCount}
       />
+      <div className="mt-2"><RunRateChip /></div>
     </div>
   );
 }
