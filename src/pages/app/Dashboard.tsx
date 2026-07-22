@@ -26,6 +26,8 @@ import { KpiCardsSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons
 import { TaskCards } from "@/components/dashboard/TaskCards";
 import { MorningBriefing } from "@/components/walix/MorningBriefing";
 import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
+import { RunRateCard } from "@/components/walix/RunRateCard";
+import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
@@ -139,6 +141,11 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RunRateCard compact />
+        <ProfitabilityCard />
+      </div>
+
       {kpisLoading && !kpis ? (
         <KpiCardsSkeleton />
       ) : (
