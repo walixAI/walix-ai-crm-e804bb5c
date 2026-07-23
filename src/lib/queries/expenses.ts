@@ -25,6 +25,34 @@ export interface Expense {
   description: string | null;
   receipt_url: string | null;
   created_at: string;
+  status?: "draft" | "confirmed";
+  source?: "manual" | "recurring" | "rule" | "whatsapp";
+  rule_id?: string | null;
+  recurring_id?: string | null;
+}
+
+export interface RecurringExpense {
+  id: string;
+  tenant_id: string;
+  category_id: string | null;
+  amount: number;
+  day_of_month: number;
+  description: string | null;
+  is_active: boolean;
+}
+
+export type RuleType = "percent_of_deal" | "fixed_per_deal" | "percent_of_cost";
+
+export interface ExpenseRule {
+  id: string;
+  tenant_id: string;
+  category_id: string | null;
+  name: string;
+  rule_type: RuleType;
+  value: number;
+  deal_type_filter: "venta" | "servicio" | null;
+  auto_confirm: boolean;
+  is_active: boolean;
 }
 
 export function useExpenseCategories() {
