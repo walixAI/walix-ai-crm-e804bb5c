@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 const TONE = {
   green:  { bg: "bg-emerald-500/10", text: "text-emerald-600", label: "Saludable" },
-  yellow: { bg: "bg-amber-500/10",   text: "text-amber-600",   label: "Ajustada" },
+  yellow: { bg: "bg-amber-500/10",   text: "text-amber-600",   label: "En vigilancia" },
   orange: { bg: "bg-orange-500/10",  text: "text-orange-600",  label: "Al límite" },
   red:    { bg: "bg-red-500/10",     text: "text-red-600",     label: "En pérdida" },
 } as const;
