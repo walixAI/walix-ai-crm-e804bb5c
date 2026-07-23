@@ -352,6 +352,113 @@ export function formatMXN0(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
 
+// ================ Metas mensuales (historial por mes) ================
+
+export interface MonthlyGoal {
+  id: string;
+  tenant_id: string;
+  period_year: number;
+  period_month: number;
+  monthly_goal_total: number;
+  monthly_goal_by_type: { venta: number; servicio: number; refaccion: number };
+  count_business_days: boolean;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+function currentPeriodStart() {
+  const d = new Date();
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+export function isPastPeriod(year: number, month: number) {
+  const c = currentPeriodStart();
+  return year < c.year || (year === c.year && month < c.month);
+}
+
+/** Devuelve la meta vigente del mes indicado (la más reciente en el historial). */
+export function useMonthGoal(year: number, month: number) {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["month-goal", tenantId, year, month],
+    enabled: !!tenantId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<MonthlyGoal | null> => {
+      const { data, error } = await supabase
+        .from("tenant_monthly_goals" as any)
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .eq("period_year", year)
+        .eq("period_month", month)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) ?? null;
+    },
+  });
+}
+
+/** Historial completo (todas las versiones) del mes indicado, más reciente primero. */
+export function useMonthGoalHistory(year: number, month: number) {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["month-goal-history", tenantId, year, month],
+    enabled: !!tenantId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<MonthlyGoal[]> => {
+      const { data, error } = await supabase
+        .from("tenant_monthly_goals" as any)
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .eq("period_year", year)
+        .eq("period_month", month)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any) ?? [];
+    },
+  });
+}
+
+/** Guarda una nueva versión de meta para el mes dado (solo mes actual o futuros). */
+export function useSaveMonthGoal() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: {
+      year: number;
+      month: number;
+      monthly_goal_total: number;
+      monthly_goal_by_type: { venta: number; servicio: number; refaccion: number };
+      count_business_days: boolean;
+      note?: string | null;
+    }) => {
+      if (!tenantId) throw new Error("Sin tenant");
+      if (isPastPeriod(input.year, input.month)) {
+        throw new Error("No se pueden modificar metas de meses pasados");
+      }
+      const { error } = await supabase.from("tenant_monthly_goals" as any).insert({
+        tenant_id: tenantId,
+        period_year: input.year,
+        period_month: input.month,
+        monthly_goal_total: input.monthly_goal_total,
+        monthly_goal_by_type: input.monthly_goal_by_type,
+        count_business_days: input.count_business_days,
+        note: input.note ?? null,
+        created_by: user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ["month-goal"] });
+      qc.invalidateQueries({ queryKey: ["month-goal-history", tenantId, v.year, v.month] });
+      qc.invalidateQueries({ queryKey: ["run-rate"] });
+    },
+  });
+}
+
 // ================ Recurring expenses (fijos mensuales) ================
 
 export function useRecurringExpenses() {
