@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle2, ClipboardList, DollarSign, FileText, Plus, Sparkles, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -14,6 +14,12 @@ import { useTenant } from "@/lib/queries/tenant";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
+import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
+import { useMonthProfitability } from "@/lib/queries/expenses";
+import { cn } from "@/lib/utils";
+
+type ExpandKey = "runrate" | "profit" | "won" | null;
+type ColumnKey = "tasks" | "collect" | "quote" | "services";
 
 export default function MiDia() {
   const { data, isLoading } = useMiDiaData();
@@ -22,6 +28,22 @@ export default function MiDia() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const setMode = useSetSimpleMode();
   const toggleTask = useToggleTask();
+  const { data: rr } = useRunRate();
+  const { data: prof } = useMonthProfitability();
+  const [expanded, setExpanded] = useState<ExpandKey>(null);
+  const columnRefs = {
+    tasks: useRef<HTMLDivElement>(null),
+    collect: useRef<HTMLDivElement>(null),
+    quote: useRef<HTMLDivElement>(null),
+    services: useRef<HTMLDivElement>(null),
+  } as const;
+
+  const toggleExpand = (k: Exclude<ExpandKey, null>) =>
+    setExpanded(prev => (prev === k ? null : k));
+
+  const scrollToColumn = (k: ColumnKey) => {
+    columnRefs[k].current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -55,10 +77,10 @@ export default function MiDia() {
 
         {totals && (
           <div className="max-w-6xl mx-auto px-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <SummaryChip icon={ClipboardList} label="Tareas hoy" value={totals.tasks} tone="primary" />
-            <SummaryChip icon={DollarSign} label="Por cobrar" value={totals.collect} sub={`$${totals.collectAmount.toLocaleString("es-MX")}`} tone="accent" />
-            <SummaryChip icon={FileText} label="Por cotizar" value={totals.quote} tone="warning" />
-            <SummaryChip icon={Wrench} label="Servicios hoy" value={totals.services} tone="info" />
+            <SummaryChip icon={ClipboardList} label="Tareas hoy" value={totals.tasks} tone="primary" onClick={() => scrollToColumn("tasks")} />
+            <SummaryChip icon={DollarSign} label="Por cobrar" value={totals.collect} sub={`$${totals.collectAmount.toLocaleString("es-MX")}`} tone="accent" onClick={() => scrollToColumn("collect")} />
+            <SummaryChip icon={FileText} label="Por cotizar" value={totals.quote} tone="warning" onClick={() => scrollToColumn("quote")} />
+            <SummaryChip icon={Wrench} label="Servicios hoy" value={totals.services} tone="info" onClick={() => scrollToColumn("services")} />
           </div>
         )}
       </header>
@@ -68,20 +90,61 @@ export default function MiDia() {
 
         {!isLoading && (
           <>
-            <RunRateCard />
-            <ProfitabilityCard />
-            <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
-            <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
-            <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
+            {/* KPIs principales — click para desplegar detalle */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <KpiChip
+                icon={TrendingUp}
+                label="Run Rate del mes"
+                value={rr ? `${Math.round(rr.runRatePct)}%` : "—"}
+                sub={rr ? `Día ${rr.daysElapsed}/${rr.daysTotal}` : undefined}
+                tone={rr?.status === "green" ? "success" : rr?.status === "yellow" ? "warning" : rr?.status === "red" ? "danger" : "primary"}
+                active={expanded === "runrate"}
+                onClick={() => toggleExpand("runrate")}
+              />
+              <KpiChip
+                icon={PiggyBank}
+                label="Rentabilidad"
+                value={prof && prof.sales > 0 ? `${prof.pct.toFixed(1)}%` : "—"}
+                sub={prof ? `Utilidad ${formatMXN0(prof.profit)}` : undefined}
+                tone={prof?.status === "green" ? "success" : prof?.status === "yellow" ? "warning" : prof?.status === "orange" ? "warning" : prof?.status === "red" ? "danger" : "primary"}
+                active={expanded === "profit"}
+                onClick={() => toggleExpand("profit")}
+              />
+              <KpiChip
+                icon={Trophy}
+                label="Ventas ganadas"
+                value={rr ? formatMXN0(rr.sold) : "—"}
+                sub={rr && rr.monthGoal > 0 ? `Meta ${formatMXN0(rr.monthGoal)}` : "Sin meta"}
+                tone="success"
+                active={expanded === "won"}
+                onClick={() => toggleExpand("won")}
+              />
+            </div>
+
+            {expanded === "runrate" && <RunRateCard />}
+            {expanded === "profit" && <ProfitabilityCard />}
+            {expanded === "won" && rr && <WonDetailCard rr={rr} />}
+
+            <div ref={columnRefs.collect}>
+              <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
+            </div>
+            <div ref={columnRefs.quote}>
+              <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
+            </div>
+            <div ref={columnRefs.services}>
+              <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
+            </div>
             <JumboColumn title="Seguimiento" description="Clientes en negociación." icon={Sparkles} items={data?.followup ?? []} emptyText="Sin seguimientos activos." />
-            <JumboColumn
-              title="Mis tareas de hoy"
-              description="Pendientes tuyos para el día."
-              icon={ClipboardList}
-              items={data?.tasks ?? []}
-              emptyText="¡Estás al día!"
-              onToggle={(id) => toggleTask.mutate({ id, completed: true }, { onSuccess: () => toast.success("Tarea completada") })}
-            />
+            <div ref={columnRefs.tasks}>
+              <JumboColumn
+                title="Mis tareas de hoy"
+                description="Pendientes tuyos para el día."
+                icon={ClipboardList}
+                items={data?.tasks ?? []}
+                emptyText="¡Estás al día!"
+                onToggle={(id) => toggleTask.mutate({ id, completed: true }, { onSuccess: () => toast.success("Tarea completada") })}
+              />
+            </div>
           </>
         )}
       </main>
@@ -111,14 +174,18 @@ export default function MiDia() {
   );
 }
 
-function SummaryChip({ icon: Icon, label, value, sub, tone }: any) {
+function SummaryChip({ icon: Icon, label, value, sub, tone, onClick }: any) {
   const bg =
     tone === "primary" ? "bg-primary/10 text-primary" :
     tone === "accent"  ? "bg-emerald-500/10 text-emerald-600" :
     tone === "warning" ? "bg-amber-500/10 text-amber-600" :
                          "bg-sky-500/10 text-sky-600";
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99]"
+    >
       <div className={`h-12 w-12 rounded-xl grid place-items-center ${bg}`}>
         <Icon className="h-6 w-6" />
       </div>
@@ -127,7 +194,81 @@ function SummaryChip({ icon: Icon, label, value, sub, tone }: any) {
         <div className="text-sm text-muted-foreground">{label}</div>
         {sub && <div className="text-xs text-muted-foreground/80 mt-0.5">{sub}</div>}
       </div>
-    </div>
+    </button>
+  );
+}
+
+function KpiChip({
+  icon: Icon, label, value, sub, tone, active, onClick,
+}: {
+  icon: any; label: string; value: string; sub?: string;
+  tone: "primary" | "success" | "warning" | "danger";
+  active: boolean; onClick: () => void;
+}) {
+  const styles = {
+    primary: { bg: "bg-primary/10", text: "text-primary", ring: "ring-primary/40" },
+    success: { bg: "bg-emerald-500/10", text: "text-emerald-600", ring: "ring-emerald-500/40" },
+    warning: { bg: "bg-amber-500/10", text: "text-amber-600", ring: "ring-amber-500/40" },
+    danger:  { bg: "bg-red-500/10", text: "text-red-600", ring: "ring-red-500/40" },
+  }[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border-2 bg-card p-4 text-left transition hover:shadow-sm active:scale-[0.99]",
+        active ? `ring-2 ${styles.ring} border-transparent` : "border-border hover:border-primary/40",
+      )}
+    >
+      <div className={cn("h-14 w-14 rounded-2xl grid place-items-center shrink-0", styles.bg)}>
+        <Icon className={cn("h-7 w-7", styles.text)} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-muted-foreground">{label}</div>
+        <div className={cn("text-2xl font-bold leading-tight truncate", styles.text)}>{value}</div>
+        {sub && <div className="text-xs text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
+      </div>
+      <ChevronDown className={cn("h-5 w-5 text-muted-foreground shrink-0 transition-transform", active && "rotate-180")} />
+    </button>
+  );
+}
+
+function WonDetailCard({ rr }: { rr: NonNullable<ReturnType<typeof useRunRate>["data"]> }) {
+  const pctOfGoal = rr.monthGoal > 0 ? Math.round((rr.sold / rr.monthGoal) * 100) : 0;
+  const rows: Array<{ label: string; value: number }> = [
+    { label: "Ventas", value: rr.soldByType.venta },
+    { label: "Servicios", value: rr.soldByType.servicio },
+    { label: "Refacciones", value: rr.soldByType.refaccion },
+  ];
+  return (
+    <Card className="border-2">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-3 text-2xl">
+          <Trophy className="h-7 w-7 text-emerald-600" />
+          Ventas ganadas del mes
+          <span className="ml-auto text-emerald-600">{formatMXN0(rr.sold)}</span>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {rr.monthGoal > 0
+            ? `${pctOfGoal}% de la meta (${formatMXN0(rr.monthGoal)}) · Proyección ${formatMXN0(rr.projection)}`
+            : "Sin meta definida — configúrala para ver avance."}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {rows.map(r => (
+          <div key={r.label} className="flex items-center justify-between rounded-xl border border-border p-3">
+            <span className="text-base">{r.label}</span>
+            <span className="font-bold">{formatMXN0(r.value)}</span>
+          </div>
+        ))}
+        <div className="pt-2 flex justify-end">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/pipeline">Ver pipeline</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
