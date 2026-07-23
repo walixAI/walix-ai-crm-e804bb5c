@@ -96,6 +96,7 @@ export interface ExpenseFilters {
   month?: Date; // any date in the month
   kind?: "fijo" | "variable" | "all";
   categoryId?: string | null;
+  status?: "draft" | "confirmed" | "all";
 }
 
 export function useExpenses(filters: ExpenseFilters = {}) {
@@ -116,9 +117,66 @@ export function useExpenses(filters: ExpenseFilters = {}) {
         .order("incurred_at", { ascending: false });
       if (filters.kind && filters.kind !== "all") q = q.eq("kind", filters.kind);
       if (filters.categoryId) q = q.eq("category_id", filters.categoryId);
+      if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Expense[];
+    },
+  });
+}
+
+export function useDraftExpenses() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["expenses-drafts", tenantId],
+    enabled: !!tenantId,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expenses" as any)
+        .select("*")
+        .eq("status", "draft")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Expense[];
+    },
+  });
+}
+
+export function useConfirmExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; amount?: number }) => {
+      const patch: any = { status: "confirmed" };
+      if (typeof input.amount === "number") patch.amount = input.amount;
+      const { error } = await supabase.from("expenses" as any).update(patch).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
+    },
+  });
+}
+
+export function useConfirmAllDrafts() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async () => {
+      if (!tenantId) throw new Error("Sin tenant");
+      const { error } = await supabase
+        .from("expenses" as any)
+        .update({ status: "confirmed" } as any)
+        .eq("tenant_id", tenantId)
+        .eq("status", "draft");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
     },
   });
 }
