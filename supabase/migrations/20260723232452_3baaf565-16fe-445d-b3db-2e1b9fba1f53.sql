@@ -1,0 +1,2 @@
+INSERT INTO public.expenses (tenant_id, kind, category_id, amount, currency, incurred_at, description, status, source)
+VALUES ('6d0ad953-69a0-456a-a1e0-a0a19c5ce7e6', 'fijo', 'ff03f13f-c49a-4e28-96b3-80e83a5806d4', 338100, 'MXN', CURRENT_DATE, 'Ajuste nómina + aguinaldos (simulación rentabilidad en riesgo)', 'confirmed', 'manual');
