@@ -2203,6 +2203,53 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_monthly_goals: {
+        Row: {
+          count_business_days: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          monthly_goal_by_type: Json
+          monthly_goal_total: number
+          note: string | null
+          period_month: number
+          period_year: number
+          tenant_id: string
+        }
+        Insert: {
+          count_business_days?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monthly_goal_by_type?: Json
+          monthly_goal_total?: number
+          note?: string | null
+          period_month: number
+          period_year: number
+          tenant_id: string
+        }
+        Update: {
+          count_business_days?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monthly_goal_by_type?: Json
+          monthly_goal_total?: number
+          note?: string | null
+          period_month?: number
+          period_year?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_monthly_goals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           brand_name: string | null
