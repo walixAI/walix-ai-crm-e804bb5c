@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle2, ClipboardList, DollarSign, FileText, Plus, Sparkles, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -14,6 +14,12 @@ import { useTenant } from "@/lib/queries/tenant";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
+import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
+import { useMonthProfitability } from "@/lib/queries/expenses";
+import { cn } from "@/lib/utils";
+
+type ExpandKey = "runrate" | "profit" | "won" | null;
+type ColumnKey = "tasks" | "collect" | "quote" | "services";
 
 export default function MiDia() {
   const { data, isLoading } = useMiDiaData();
@@ -22,6 +28,22 @@ export default function MiDia() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const setMode = useSetSimpleMode();
   const toggleTask = useToggleTask();
+  const { data: rr } = useRunRate();
+  const { data: prof } = useMonthProfitability();
+  const [expanded, setExpanded] = useState<ExpandKey>(null);
+  const columnRefs = {
+    tasks: useRef<HTMLDivElement>(null),
+    collect: useRef<HTMLDivElement>(null),
+    quote: useRef<HTMLDivElement>(null),
+    services: useRef<HTMLDivElement>(null),
+  } as const;
+
+  const toggleExpand = (k: Exclude<ExpandKey, null>) =>
+    setExpanded(prev => (prev === k ? null : k));
+
+  const scrollToColumn = (k: ColumnKey) => {
+    columnRefs[k].current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -68,20 +90,61 @@ export default function MiDia() {
 
         {!isLoading && (
           <>
-            <RunRateCard />
-            <ProfitabilityCard />
-            <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
-            <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
-            <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
+            {/* KPIs principales — click para desplegar detalle */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <KpiChip
+                icon={TrendingUp}
+                label="Run Rate del mes"
+                value={rr ? `${Math.round(rr.runRatePct)}%` : "—"}
+                sub={rr ? `Día ${rr.daysElapsed}/${rr.daysTotal}` : undefined}
+                tone={rr?.status === "green" ? "success" : rr?.status === "yellow" ? "warning" : rr?.status === "red" ? "danger" : "primary"}
+                active={expanded === "runrate"}
+                onClick={() => toggleExpand("runrate")}
+              />
+              <KpiChip
+                icon={PiggyBank}
+                label="Rentabilidad"
+                value={prof && prof.sales > 0 ? `${prof.pct.toFixed(1)}%` : "—"}
+                sub={prof ? `Utilidad ${formatMXN0(prof.profit)}` : undefined}
+                tone={prof?.status === "green" ? "success" : prof?.status === "yellow" ? "warning" : prof?.status === "orange" ? "warning" : prof?.status === "red" ? "danger" : "primary"}
+                active={expanded === "profit"}
+                onClick={() => toggleExpand("profit")}
+              />
+              <KpiChip
+                icon={Trophy}
+                label="Ventas ganadas"
+                value={rr ? formatMXN0(rr.sold) : "—"}
+                sub={rr && rr.monthGoal > 0 ? `Meta ${formatMXN0(rr.monthGoal)}` : "Sin meta"}
+                tone="success"
+                active={expanded === "won"}
+                onClick={() => toggleExpand("won")}
+              />
+            </div>
+
+            {expanded === "runrate" && <RunRateCard />}
+            {expanded === "profit" && <ProfitabilityCard />}
+            {expanded === "won" && rr && <WonDetailCard rr={rr} />}
+
+            <div ref={columnRefs.collect}>
+              <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
+            </div>
+            <div ref={columnRefs.quote}>
+              <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
+            </div>
+            <div ref={columnRefs.services}>
+              <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
+            </div>
             <JumboColumn title="Seguimiento" description="Clientes en negociación." icon={Sparkles} items={data?.followup ?? []} emptyText="Sin seguimientos activos." />
-            <JumboColumn
-              title="Mis tareas de hoy"
-              description="Pendientes tuyos para el día."
-              icon={ClipboardList}
-              items={data?.tasks ?? []}
-              emptyText="¡Estás al día!"
-              onToggle={(id) => toggleTask.mutate({ id, completed: true }, { onSuccess: () => toast.success("Tarea completada") })}
-            />
+            <div ref={columnRefs.tasks}>
+              <JumboColumn
+                title="Mis tareas de hoy"
+                description="Pendientes tuyos para el día."
+                icon={ClipboardList}
+                items={data?.tasks ?? []}
+                emptyText="¡Estás al día!"
+                onToggle={(id) => toggleTask.mutate({ id, completed: true }, { onSuccess: () => toast.success("Tarea completada") })}
+              />
+            </div>
           </>
         )}
       </main>
