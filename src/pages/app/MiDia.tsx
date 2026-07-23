@@ -191,15 +191,15 @@ function SummaryChip({ icon: Icon, label, value, sub, tone, onClick }: any) {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99]"
+      className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99] min-w-0"
     >
-      <div className={`h-12 w-12 rounded-xl grid place-items-center ${bg}`}>
-        <Icon className="h-6 w-6" />
+      <div className={`h-11 w-11 rounded-xl grid place-items-center shrink-0 ${bg}`}>
+        <Icon className="h-5 w-5" />
       </div>
-      <div>
-        <div className="text-3xl font-bold leading-none">{value}</div>
-        <div className="text-sm text-muted-foreground">{label}</div>
-        {sub && <div className="text-xs text-muted-foreground/80 mt-0.5">{sub}</div>}
+      <div className="min-w-0">
+        <div className="text-2xl font-bold leading-none">{value}</div>
+        <div className="text-xs text-muted-foreground truncate">{label}</div>
+        {sub && <div className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
       </div>
     </button>
   );
@@ -224,19 +224,19 @@ function KpiChip({
       onClick={onClick}
       aria-expanded={active}
       className={cn(
-        "flex items-center gap-3 rounded-2xl border-2 bg-card p-4 text-left transition hover:shadow-sm active:scale-[0.99]",
+        "flex items-center gap-3 rounded-2xl border-2 bg-card p-3 text-left transition hover:shadow-sm active:scale-[0.99] min-w-0",
         active ? `ring-2 ${styles.ring} border-transparent` : "border-border hover:border-primary/40",
       )}
     >
-      <div className={cn("h-14 w-14 rounded-2xl grid place-items-center shrink-0", styles.bg)}>
-        <Icon className={cn("h-7 w-7", styles.text)} />
+      <div className={cn("h-11 w-11 rounded-xl grid place-items-center shrink-0", styles.bg)}>
+        <Icon className={cn("h-5 w-5", styles.text)} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className={cn("text-2xl font-bold leading-tight truncate", styles.text)}>{value}</div>
-        {sub && <div className="text-xs text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
+        <div className={cn("text-lg font-bold leading-tight truncate", styles.text)}>{value}</div>
+        <div className="text-xs text-muted-foreground truncate">{label}</div>
+        {sub && <div className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
       </div>
-      <ChevronDown className={cn("h-5 w-5 text-muted-foreground shrink-0 transition-transform", active && "rotate-180")} />
+      <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", active && "rotate-180")} />
     </button>
   );
 }
