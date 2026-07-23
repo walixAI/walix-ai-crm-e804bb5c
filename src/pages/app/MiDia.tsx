@@ -77,10 +77,10 @@ export default function MiDia() {
 
         {totals && (
           <div className="max-w-6xl mx-auto px-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <SummaryChip icon={ClipboardList} label="Tareas hoy" value={totals.tasks} tone="primary" />
-            <SummaryChip icon={DollarSign} label="Por cobrar" value={totals.collect} sub={`$${totals.collectAmount.toLocaleString("es-MX")}`} tone="accent" />
-            <SummaryChip icon={FileText} label="Por cotizar" value={totals.quote} tone="warning" />
-            <SummaryChip icon={Wrench} label="Servicios hoy" value={totals.services} tone="info" />
+            <SummaryChip icon={ClipboardList} label="Tareas hoy" value={totals.tasks} tone="primary" onClick={() => scrollToColumn("tasks")} />
+            <SummaryChip icon={DollarSign} label="Por cobrar" value={totals.collect} sub={`$${totals.collectAmount.toLocaleString("es-MX")}`} tone="accent" onClick={() => scrollToColumn("collect")} />
+            <SummaryChip icon={FileText} label="Por cotizar" value={totals.quote} tone="warning" onClick={() => scrollToColumn("quote")} />
+            <SummaryChip icon={Wrench} label="Servicios hoy" value={totals.services} tone="info" onClick={() => scrollToColumn("services")} />
           </div>
         )}
       </header>
@@ -174,14 +174,18 @@ export default function MiDia() {
   );
 }
 
-function SummaryChip({ icon: Icon, label, value, sub, tone }: any) {
+function SummaryChip({ icon: Icon, label, value, sub, tone, onClick }: any) {
   const bg =
     tone === "primary" ? "bg-primary/10 text-primary" :
     tone === "accent"  ? "bg-emerald-500/10 text-emerald-600" :
     tone === "warning" ? "bg-amber-500/10 text-amber-600" :
                          "bg-sky-500/10 text-sky-600";
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99]"
+    >
       <div className={`h-12 w-12 rounded-xl grid place-items-center ${bg}`}>
         <Icon className="h-6 w-6" />
       </div>
@@ -190,7 +194,81 @@ function SummaryChip({ icon: Icon, label, value, sub, tone }: any) {
         <div className="text-sm text-muted-foreground">{label}</div>
         {sub && <div className="text-xs text-muted-foreground/80 mt-0.5">{sub}</div>}
       </div>
-    </div>
+    </button>
+  );
+}
+
+function KpiChip({
+  icon: Icon, label, value, sub, tone, active, onClick,
+}: {
+  icon: any; label: string; value: string; sub?: string;
+  tone: "primary" | "success" | "warning" | "danger";
+  active: boolean; onClick: () => void;
+}) {
+  const styles = {
+    primary: { bg: "bg-primary/10", text: "text-primary", ring: "ring-primary/40" },
+    success: { bg: "bg-emerald-500/10", text: "text-emerald-600", ring: "ring-emerald-500/40" },
+    warning: { bg: "bg-amber-500/10", text: "text-amber-600", ring: "ring-amber-500/40" },
+    danger:  { bg: "bg-red-500/10", text: "text-red-600", ring: "ring-red-500/40" },
+  }[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border-2 bg-card p-4 text-left transition hover:shadow-sm active:scale-[0.99]",
+        active ? `ring-2 ${styles.ring} border-transparent` : "border-border hover:border-primary/40",
+      )}
+    >
+      <div className={cn("h-14 w-14 rounded-2xl grid place-items-center shrink-0", styles.bg)}>
+        <Icon className={cn("h-7 w-7", styles.text)} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-muted-foreground">{label}</div>
+        <div className={cn("text-2xl font-bold leading-tight truncate", styles.text)}>{value}</div>
+        {sub && <div className="text-xs text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
+      </div>
+      <ChevronDown className={cn("h-5 w-5 text-muted-foreground shrink-0 transition-transform", active && "rotate-180")} />
+    </button>
+  );
+}
+
+function WonDetailCard({ rr }: { rr: NonNullable<ReturnType<typeof useRunRate>["data"]> }) {
+  const pctOfGoal = rr.monthGoal > 0 ? Math.round((rr.sold / rr.monthGoal) * 100) : 0;
+  const rows: Array<{ label: string; value: number }> = [
+    { label: "Ventas", value: rr.soldByType.venta },
+    { label: "Servicios", value: rr.soldByType.servicio },
+    { label: "Refacciones", value: rr.soldByType.refaccion },
+  ];
+  return (
+    <Card className="border-2">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-3 text-2xl">
+          <Trophy className="h-7 w-7 text-emerald-600" />
+          Ventas ganadas del mes
+          <span className="ml-auto text-emerald-600">{formatMXN0(rr.sold)}</span>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {rr.monthGoal > 0
+            ? `${pctOfGoal}% de la meta (${formatMXN0(rr.monthGoal)}) · Proyección ${formatMXN0(rr.projection)}`
+            : "Sin meta definida — configúrala para ver avance."}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {rows.map(r => (
+          <div key={r.label} className="flex items-center justify-between rounded-xl border border-border p-3">
+            <span className="text-base">{r.label}</span>
+            <span className="font-bold">{formatMXN0(r.value)}</span>
+          </div>
+        ))}
+        <div className="pt-2 flex justify-end">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/pipeline">Ver pipeline</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
