@@ -23,7 +23,7 @@ export default function Expenses() {
   const [categoryId, setCategoryId] = useState<string>("all");
   const monthDate = useMemo(() => new Date(`${month}-01T00:00:00`), [month]);
   const { data: expenses = [], isLoading } = useExpenses({
-    month: monthDate, kind, categoryId: categoryId === "all" ? null : categoryId,
+    month: monthDate, kind, categoryId: categoryId === "all" ? null : categoryId, status: "confirmed",
   });
   const { data: cats = [] } = useExpenseCategories();
   const del = useDeleteExpense();
