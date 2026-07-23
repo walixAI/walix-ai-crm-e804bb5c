@@ -1178,6 +1178,7 @@ export type Database = {
           amount: number
           amount_paid: number | null
           contact_id: string | null
+          cost_amount: number | null
           created_at: string
           deal_type: string | null
           equipment_brand: string | null
@@ -1205,6 +1206,7 @@ export type Database = {
           amount?: number
           amount_paid?: number | null
           contact_id?: string | null
+          cost_amount?: number | null
           created_at?: string
           deal_type?: string | null
           equipment_brand?: string | null
@@ -1232,6 +1234,7 @@ export type Database = {
           amount?: number
           amount_paid?: number | null
           contact_id?: string | null
+          cost_amount?: number | null
           created_at?: string
           deal_type?: string | null
           equipment_brand?: string | null
@@ -1407,6 +1410,63 @@ export type Database = {
           },
         ]
       }
+      expense_rules: {
+        Row: {
+          auto_confirm: boolean
+          category_id: string | null
+          created_at: string
+          deal_type_filter: string | null
+          id: string
+          is_active: boolean
+          name: string
+          rule_type: string
+          tenant_id: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          auto_confirm?: boolean
+          category_id?: string | null
+          created_at?: string
+          deal_type_filter?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          rule_type: string
+          tenant_id: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          auto_confirm?: boolean
+          category_id?: string | null
+          created_at?: string
+          deal_type_filter?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          rule_type?: string
+          tenant_id?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number
@@ -1420,6 +1480,10 @@ export type Database = {
           kind: string
           owner_id: string | null
           receipt_url: string | null
+          recurring_id: string | null
+          rule_id: string | null
+          source: string
+          status: string
           tenant_id: string
           updated_at: string
         }
@@ -1435,6 +1499,10 @@ export type Database = {
           kind: string
           owner_id?: string | null
           receipt_url?: string | null
+          recurring_id?: string | null
+          rule_id?: string | null
+          source?: string
+          status?: string
           tenant_id: string
           updated_at?: string
         }
@@ -1450,6 +1518,10 @@ export type Database = {
           kind?: string
           owner_id?: string | null
           receipt_url?: string | null
+          recurring_id?: string | null
+          rule_id?: string | null
+          source?: string
+          status?: string
           tenant_id?: string
           updated_at?: string
         }
@@ -1466,6 +1538,20 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "expense_rules"
             referencedColumns: ["id"]
           },
           {
@@ -1932,6 +2018,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          day_of_month: number
+          description: string | null
+          id: string
+          is_active: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2431,6 +2568,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      generate_recurring_expenses: { Args: never; Returns: number }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
