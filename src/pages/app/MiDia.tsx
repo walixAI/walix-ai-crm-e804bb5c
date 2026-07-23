@@ -45,6 +45,17 @@ export default function MiDia() {
     columnRefs[k].current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const detailRef = useRef<HTMLDivElement>(null);
+  const handleKpiClick = (k: Exclude<ExpandKey, null>) => {
+    const willOpen = expanded !== k;
+    toggleExpand(k);
+    if (willOpen) {
+      requestAnimationFrame(() =>
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      );
+    }
+  };
+
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 12) return "Buenos días";
@@ -74,15 +85,6 @@ export default function MiDia() {
             </Button>
           </div>
         </div>
-
-        {totals && (
-          <div className="max-w-6xl mx-auto px-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <SummaryChip icon={ClipboardList} label="Tareas hoy" value={totals.tasks} tone="primary" onClick={() => scrollToColumn("tasks")} />
-            <SummaryChip icon={DollarSign} label="Por cobrar" value={totals.collect} sub={`$${totals.collectAmount.toLocaleString("es-MX")}`} tone="accent" onClick={() => scrollToColumn("collect")} />
-            <SummaryChip icon={FileText} label="Por cotizar" value={totals.quote} tone="warning" onClick={() => scrollToColumn("quote")} />
-            <SummaryChip icon={Wrench} label="Servicios hoy" value={totals.services} tone="info" onClick={() => scrollToColumn("services")} />
-          </div>
-        )}
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-6 space-y-6">
@@ -90,52 +92,57 @@ export default function MiDia() {
 
         {!isLoading && (
           <>
-            {/* KPIs principales — click para desplegar detalle */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Fila única de 6 tarjetas: 3 KPIs + 3 pendientes */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <KpiChip
                 icon={TrendingUp}
-                label="Run Rate del mes"
+                label="Run Rate"
                 value={rr ? `${Math.round(rr.runRatePct)}%` : "—"}
                 sub={rr ? `Día ${rr.daysElapsed}/${rr.daysTotal}` : undefined}
                 tone={rr?.status === "green" ? "success" : rr?.status === "yellow" ? "warning" : rr?.status === "red" ? "danger" : "primary"}
                 active={expanded === "runrate"}
-                onClick={() => toggleExpand("runrate")}
+                onClick={() => handleKpiClick("runrate")}
               />
               <KpiChip
                 icon={PiggyBank}
                 label="Rentabilidad"
                 value={prof && prof.sales > 0 ? `${prof.pct.toFixed(1)}%` : "—"}
-                sub={prof ? `Utilidad ${formatMXN0(prof.profit)}` : undefined}
+                sub={prof ? `${formatMXN0(prof.profit)}` : undefined}
                 tone={prof?.status === "green" ? "success" : prof?.status === "yellow" ? "warning" : prof?.status === "orange" ? "warning" : prof?.status === "red" ? "danger" : "primary"}
                 active={expanded === "profit"}
-                onClick={() => toggleExpand("profit")}
+                onClick={() => handleKpiClick("profit")}
               />
               <KpiChip
                 icon={Trophy}
                 label="Ventas ganadas"
                 value={rr ? formatMXN0(rr.sold) : "—"}
-                sub={rr && rr.monthGoal > 0 ? `Meta ${formatMXN0(rr.monthGoal)}` : "Sin meta"}
+                sub={rr && rr.monthGoal > 0 ? `de ${formatMXN0(rr.monthGoal)}` : "Sin meta"}
                 tone="success"
                 active={expanded === "won"}
-                onClick={() => toggleExpand("won")}
+                onClick={() => handleKpiClick("won")}
               />
+              <SummaryChip icon={ClipboardList} label="Tareas hoy" value={totals?.tasks ?? 0} tone="primary" onClick={() => scrollToColumn("tasks")} />
+              <SummaryChip icon={DollarSign} label="Por cobrar" value={totals?.collect ?? 0} sub={totals ? `$${totals.collectAmount.toLocaleString("es-MX")}` : undefined} tone="accent" onClick={() => scrollToColumn("collect")} />
+              <SummaryChip icon={FileText} label="Por cotizar" value={totals?.quote ?? 0} tone="warning" onClick={() => scrollToColumn("quote")} />
             </div>
 
-            {expanded === "runrate" && <RunRateCard />}
-            {expanded === "profit" && <ProfitabilityCard />}
-            {expanded === "won" && rr && <WonDetailCard rr={rr} />}
+            <div ref={detailRef} className="scroll-mt-28">
+              {expanded === "runrate" && <RunRateCard />}
+              {expanded === "profit" && <ProfitabilityCard />}
+              {expanded === "won" && rr && <WonDetailCard rr={rr} />}
+            </div>
 
-            <div ref={columnRefs.collect}>
+            <div ref={columnRefs.collect} className="scroll-mt-28">
               <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
             </div>
-            <div ref={columnRefs.quote}>
+            <div ref={columnRefs.quote} className="scroll-mt-28">
               <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
             </div>
-            <div ref={columnRefs.services}>
+            <div ref={columnRefs.services} className="scroll-mt-28">
               <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
             </div>
             <JumboColumn title="Seguimiento" description="Clientes en negociación." icon={Sparkles} items={data?.followup ?? []} emptyText="Sin seguimientos activos." />
-            <div ref={columnRefs.tasks}>
+            <div ref={columnRefs.tasks} className="scroll-mt-28">
               <JumboColumn
                 title="Mis tareas de hoy"
                 description="Pendientes tuyos para el día."
@@ -184,15 +191,15 @@ function SummaryChip({ icon: Icon, label, value, sub, tone, onClick }: any) {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99]"
+      className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.99] min-w-0"
     >
-      <div className={`h-12 w-12 rounded-xl grid place-items-center ${bg}`}>
-        <Icon className="h-6 w-6" />
+      <div className={`h-11 w-11 rounded-xl grid place-items-center shrink-0 ${bg}`}>
+        <Icon className="h-5 w-5" />
       </div>
-      <div>
-        <div className="text-3xl font-bold leading-none">{value}</div>
-        <div className="text-sm text-muted-foreground">{label}</div>
-        {sub && <div className="text-xs text-muted-foreground/80 mt-0.5">{sub}</div>}
+      <div className="min-w-0">
+        <div className="text-2xl font-bold leading-none">{value}</div>
+        <div className="text-xs text-muted-foreground truncate">{label}</div>
+        {sub && <div className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
       </div>
     </button>
   );
@@ -217,19 +224,19 @@ function KpiChip({
       onClick={onClick}
       aria-expanded={active}
       className={cn(
-        "flex items-center gap-3 rounded-2xl border-2 bg-card p-4 text-left transition hover:shadow-sm active:scale-[0.99]",
+        "flex items-center gap-3 rounded-2xl border-2 bg-card p-3 text-left transition hover:shadow-sm active:scale-[0.99] min-w-0",
         active ? `ring-2 ${styles.ring} border-transparent` : "border-border hover:border-primary/40",
       )}
     >
-      <div className={cn("h-14 w-14 rounded-2xl grid place-items-center shrink-0", styles.bg)}>
-        <Icon className={cn("h-7 w-7", styles.text)} />
+      <div className={cn("h-11 w-11 rounded-xl grid place-items-center shrink-0", styles.bg)}>
+        <Icon className={cn("h-5 w-5", styles.text)} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className={cn("text-2xl font-bold leading-tight truncate", styles.text)}>{value}</div>
-        {sub && <div className="text-xs text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
+        <div className={cn("text-lg font-bold leading-tight truncate", styles.text)}>{value}</div>
+        <div className="text-xs text-muted-foreground truncate">{label}</div>
+        {sub && <div className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">{sub}</div>}
       </div>
-      <ChevronDown className={cn("h-5 w-5 text-muted-foreground shrink-0 transition-transform", active && "rotate-180")} />
+      <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", active && "rotate-180")} />
     </button>
   );
 }
