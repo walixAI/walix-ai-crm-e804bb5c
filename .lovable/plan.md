@@ -1,97 +1,87 @@
 
-# Run Rate + Gastos y Rentabilidad
+## Gastos automáticos: plantillas + reglas por deal + captura rápida
 
-Dos funcionalidades nuevas, integradas en Mi Día, Pipeline e Inicio, configurables por Tenant.
-
----
-
-## 1. Run Rate del mes
-
-Indicador visual (%) que compara lo vendido hasta hoy vs. lo que "deberías llevar" a esta altura del mes, y proyecta el cierre.
-
-### Cálculo
-- `meta_mes` = meta mensual del tenant (o del vendedor si aplica).
-- `dias_habiles_transcurridos` / `dias_habiles_totales` del mes.
-- `meta_esperada_hoy = meta_mes * (dias_habiles_transcurridos / dias_habiles_totales)`
-- `vendido_hoy` = suma de `deals.amount` con `is_won = true` y `updated_at` dentro del mes actual (filtrable por `deal_type`: venta, servicio, refacción/mantenimiento).
-- `run_rate_pct = vendido_hoy / meta_esperada_hoy * 100`
-- `proyeccion_cierre = vendido_hoy / dias_habiles_transcurridos * dias_habiles_totales`
-
-### Semáforo
-- Verde: ≥ 100%
-- Amarillo: 70–99%
-- Rojo: < 70%
-
-### Dónde aparece
-- **Mi Día**: nueva tarjeta grande arriba (`RunRateCard`) con % en semáforo, meta, vendido, proyección de cierre, y 2–3 recomendaciones (basadas en pendientes: "Cierra las N cotizaciones abiertas por $X para llegar a la meta").
-- **Pipeline**: chip compacto en la fila de KPIs (junto a "Cierre este mes"), con hover que muestra el detalle.
-- **Inicio (Dashboard)**: KPI card resumido con enlace a Mi Día.
-
-### Configuración por Tenant
-Nueva pestaña **Metas** en Settings:
-- Meta mensual global (MXN).
-- Metas por tipo: `venta`, `servicio`, `refaccion`.
-- Toggle: "Contar solo días hábiles (L–V)" o todos los días.
+Objetivo: que el gestor casi no capture gastos manualmente. Se implementan las 3 capas (A + B + C) con el flujo híbrido que usan los negocios ágiles: **fijos se auto-confirman, variables quedan como borrador de 1 clic**.
 
 ---
 
-## 2. Módulo de Gastos y Rentabilidad
+### Pros y contras de cada capa
 
-Captura de gastos fijos y variables, con vínculo opcional a un deal.
+**A) Fijos recurrentes**
+- Pros: eliminas 80% de la captura repetitiva (renta, nómina, internet). Los montos son predecibles.
+- Contras: si algo cambia (aumentó la luz) y nadie edita, quedan datos viejos. Se mitiga permitiendo editar el monto del mes actual sin tocar la plantilla.
 
-### Datos
-Nueva tabla `expenses`:
-- `tenant_id`, `owner_id`
-- `kind`: `fijo` | `variable`
-- `category_id` → `expense_categories` (Telefonía, Renta, Refacciones, Viáticos, Impresiones… seedeadas y editables por el tenant)
-- `amount`, `currency` (MXN default)
-- `incurred_at` (fecha)
-- `deal_id` (opcional, para variables)
-- `description`, `receipt_url` (opcional)
+**B) Variables por deal ganado**
+- Pros: cada venta arrastra automáticamente su costo (comisión, refacciones, viáticos). La rentabilidad refleja realidad sin trabajo extra.
+- Contras: las reglas pueden no cubrir 100% del caso real (una refacción especial costó más). Se mitiga con borrador editable antes de confirmar.
 
-Nueva tabla `expense_categories`: `tenant_id`, `name`, `kind`, `icon`, `is_active`.
+**C) Captura ultra-rápida**
+- Pros: para lo imprevisto (gasolina extra, comida con cliente), 3 segundos desde WhatsApp o Mi Día.
+- Contras: requiere disciplina mínima. El recordatorio semanal ayuda.
 
-RLS: sólo miembros del tenant; edición para admin/owner o dueño del gasto.
+### Cómo lo hacen los negocios ágiles (recomendación)
 
-### Rentabilidad
-`rentabilidad_pct = (ventas_mes - gastos_mes) / ventas_mes * 100`
-Semáforo:
-- Verde: ≥ 20%
-- Amarillo: 10–19%
-- Naranja: 0–9%
-- Rojo: < 0%
+**Híbrido con borradores para variables:**
+- Fijos → auto-confirmados el día 1 del mes. Predecibles, casi no fallan.
+- Variables por deal → generan **borrador** cuando el deal pasa a ganado. Aparecen en un panel "Por confirmar" en el DealDrawer y en Gastos. El gestor da 1 clic para aprobar o ajusta el monto.
+- Manuales rápidos → botón flotante + comando WhatsApp.
 
-### Dónde aparece
-- **Inicio (Dashboard)**: KPI card "Rentabilidad del mes" con % coloreado, ventas y gastos.
-- **Nueva página `/gastos`**: lista + filtros (mes, tipo, categoría, deal), botón "Nuevo gasto", totales por categoría, mini gráfico ventas vs gastos.
-- Enlace en Sidebar (modo estándar) y acción rápida en Mi Día.
+Este patrón es el que usan herramientas tipo QuickBooks/Xero: nadie recuerda capturar, el sistema propone, el humano solo aprueba diferencias.
 
-### Configuración por Tenant
-Pestaña **Gastos** en Settings:
-- CRUD de categorías (fijas y variables).
-- Umbrales de semáforo de rentabilidad (opcional, con defaults).
+### Reglas por tipo de deal (tu duda sobre mantenimiento vs venta)
+
+Cada categoría de gasto variable tendrá una **regla con filtro por tipo de deal**:
+
+- **Mantenimiento/servicio** → plantilla fija sugerida (ej. Refacciones $800 + Viáticos $300 + Comisión 5%). Editable al confirmar.
+- **Venta de refacción** → costo de compra en % (ej. 60% del precio de venta) + Envío $200.
+- **Venta nueva** → Comisión vendedor % + costo del equipo (capturado al crear el deal en un nuevo campo opcional `cost_amount`).
+
+Cada regla tiene: categoría, tipo de aplicación (`%_deal` | `monto_fijo` | `%_desde_costo`), valor, y filtro `deal_type` (venta/servicio/refaccion/todos). Todo editable por tenant en Configuración → Gastos → Reglas.
 
 ---
 
-## Detalles técnicos
+### Cambios en datos (migración)
 
-- **Migración**: añadir a `tenants`: `monthly_goal_total`, `monthly_goal_by_type jsonb`, `count_business_days boolean`, `profit_thresholds jsonb`. Crear `expenses` y `expense_categories` con GRANTs + RLS + trigger `updated_at`. Seed de categorías al crear tenant.
-- **Queries**: `src/lib/queries/runRate.ts` (meta, vendido, proyección, recomendaciones) y `src/lib/queries/expenses.ts` (CRUD + agregados mensuales).
-- **UI nueva**:
-  - `src/components/walix/RunRateCard.tsx` (jumbo para Mi Día)
-  - `src/components/walix/RunRateChip.tsx` (compacto para Pipeline/Dashboard)
-  - `src/components/walix/ProfitabilityCard.tsx`
-  - `src/pages/app/Expenses.tsx` + `ExpenseFormDialog`, `ExpenseList`, `CategoryChip`
-  - `src/components/settings/goals/GoalsTab.tsx`
-  - `src/components/settings/expenses/ExpenseCategoriesTab.tsx`
-- **Integración**: Mi Día muestra RunRateCard arriba, ProfitabilityCard debajo de los summary chips. Pipeline agrega el chip en `ForecastKpis`. Dashboard suma dos KpiCards. Sidebar añade "Gastos" y Settings dos pestañas nuevas.
-- **Recomendaciones**: heurísticas del cliente (no IA en esta fase) basadas en cotizaciones pendientes y deals en negociación cuya suma cubra el gap para llegar a meta.
+- **Nueva tabla `recurring_expenses`**: `tenant_id`, `category_id`, `amount`, `day_of_month` (1-28), `description`, `is_active`, timestamps.
+- **Nueva tabla `expense_rules`**: `tenant_id`, `category_id`, `name`, `rule_type` (`percent_of_deal` | `fixed_per_deal` | `percent_of_cost`), `value` (numeric), `deal_type_filter` (text nullable: null=todos), `auto_confirm` (bool, default false), `is_active`, timestamps.
+- **`expenses`** gana columnas: `status` (`draft` | `confirmed`, default `confirmed`), `source` (`manual` | `recurring` | `rule` | `whatsapp`, default `manual`), `rule_id` (fk nullable), `recurring_id` (fk nullable). Los gastos actuales quedan como `confirmed` + `manual`.
+- **`deals`** gana columna opcional `cost_amount` (numeric, para venta de equipo con costo directo).
+- Todas con GRANTs, RLS igual que las existentes, y triggers de `updated_at`.
+
+### Jobs y triggers
+
+- **Cron mensual día 1 07:00**: función `generate_recurring_expenses()` recorre `recurring_expenses` activos por tenant y crea `expenses` con `source='recurring'`, `status='confirmed'`, `incurred_at` = día del mes definido, evitando duplicados por (tenant, recurring_id, mes).
+- **Trigger en `deals`** al pasar a `is_won=true`: función `generate_deal_expense_drafts()` evalúa `expense_rules` activas cuyo `deal_type_filter` case, calcula monto y crea `expenses` con `source='rule'`, `status='draft'`, `deal_id` ligado.
+- Solo cuentan gastos `status='confirmed'` en la rentabilidad; los borradores se muestran aparte como "pendientes de confirmar".
+
+### UI
+
+- **`src/pages/app/Expenses.tsx`**: nueva sección arriba "Por confirmar" (X borradores, botón "Confirmar todos" + lista con editar/aprobar/descartar). Toggle para incluir/excluir borradores en totales.
+- **DealDrawer** (`src/components/pipeline/DealDrawer.tsx`): panel "Gastos de este deal" mostrando reales + borradores generados por reglas, con botón "Confirmar" inline. Al crear/editar deal, campo opcional "Costo del producto".
+- **Configuración → Gastos** (`ExpenseCategoriesTab.tsx`): 3 sub-pestañas
+  - Categorías (ya existe)
+  - **Fijos mensuales** — CRUD de `recurring_expenses` con preview "el próximo mes se generarán $X"
+  - **Reglas por venta** — CRUD de `expense_rules` con selector de tipo de deal y explicación en lenguaje natural ("Por cada servicio, agrega $800 de Refacciones")
+- **Mi Día** (`MiDia.tsx`): botón flotante "+ Gasto rápido" (FAB abajo-derecha) que abre `ExpenseFormDialog`. Chip en RunRateCard si hay borradores pendientes.
+- **Recordatorio semanal viernes**: si no hay gastos manuales en la semana, banner en Mi Día "¿Tuviste gastos esta semana? Regístralos en 1 clic".
+
+### WhatsApp: comando "gasto"
+
+- En `whatsapp-ai-command/index.ts`, nueva intención `create_expense`. El vendedor autorizado escribe `gasto 450 gasolina` o `gasto 1200 refacciones para deal Juan Pérez`. El bot parsea monto + categoría (fuzzy match con `expense_categories`) + deal opcional, crea el gasto y responde "✅ Registrado: $450 Gasolina (variable)".
+- Categoría no encontrada → pide confirmar cuál usar con quick reply.
+
+### Queries y hooks
+
+- **`src/lib/queries/expenses.ts`** amplía: `useRecurringExpenses`, `useUpsertRecurring`, `useDeleteRecurring`, `useExpenseRules`, `useUpsertRule`, `useDeleteRule`, `useDraftExpenses`, `useConfirmExpense`, `useConfirmAllDrafts`.
+- `useMonthProfitability` filtra por `status='confirmed'` y expone `pendingDrafts` count.
+
+### Fuera de alcance esta iteración
+- Aprobación multi-nivel (jefe aprueba gastos de vendedor).
+- OCR de tickets fotográficos.
+- Presupuesto por categoría con alertas.
+- Split de un gasto entre varios deals.
+- Recurrencias no mensuales (trimestral, anual).
 
 ---
 
-## Fuera de alcance en esta iteración
-- Metas por vendedor individual (solo global por tenant).
-- Reportes históricos de rentabilidad multi-mes (se agrega el mes actual).
-- Adjuntar recibos con OCR (solo URL manual).
-
-¿Apruebas y arranco?
+¿Apruebas y arranco con la migración + UI + trigger + cron + comando WhatsApp?
