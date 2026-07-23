@@ -198,6 +198,7 @@ export function useMonthProfitability() {
           .gte("updated_at", from.toISOString())
           .lte("updated_at", new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59).toISOString()),
         supabase.from("expenses" as any).select("amount")
+          .eq("status", "confirmed")
           .gte("incurred_at", from.toISOString().slice(0, 10))
           .lte("incurred_at", to.toISOString().slice(0, 10)),
         supabase.from("tenants").select("profit_thresholds").eq("id", tenantId!).maybeSingle(),
@@ -212,7 +213,13 @@ export function useMonthProfitability() {
       if (pct >= th.green) status = "green";
       else if (pct >= th.yellow) status = "yellow";
       else if (pct >= th.orange) status = "orange";
-      return { sales, expenses, profit, pct, status, thresholds: th };
+
+      // count pending drafts for banner
+      const { count: pendingDrafts } = await supabase
+        .from("expenses" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "draft");
+      return { sales, expenses, profit, pct, status, thresholds: th, pendingDrafts: pendingDrafts ?? 0 };
     },
   });
 }
