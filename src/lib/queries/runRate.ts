@@ -56,14 +56,27 @@ export function useRunRate() {
         .eq("id", tenantId!)
         .maybeSingle();
 
-      const monthGoal = Number((tenant as any)?.monthly_goal_total ?? 0);
-      const goalByTypeRaw = ((tenant as any)?.monthly_goal_by_type ?? {}) as any;
+      // Meta vigente del mes en curso: última versión guardada en tenant_monthly_goals;
+      // si no hay, cae a los defaults legacy en tenants.
+      const { data: monthlyGoal } = await supabase
+        .from("tenant_monthly_goals" as any)
+        .select("monthly_goal_total, monthly_goal_by_type, count_business_days")
+        .eq("tenant_id", tenantId!)
+        .eq("period_year", now.getFullYear())
+        .eq("period_month", now.getMonth() + 1)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const src: any = monthlyGoal ?? tenant ?? {};
+      const monthGoal = Number(src.monthly_goal_total ?? 0);
+      const goalByTypeRaw = (src.monthly_goal_by_type ?? {}) as any;
       const goalByType = {
         venta: Number(goalByTypeRaw.venta ?? 0),
         servicio: Number(goalByTypeRaw.servicio ?? 0),
         refaccion: Number(goalByTypeRaw.refaccion ?? 0),
       };
-      const countBusinessDays = (tenant as any)?.count_business_days ?? true;
+      const countBusinessDays = src.count_business_days ?? true;
 
       const daysTotal = countBusinessDays
         ? countBizDays(monthStart, monthEnd)
