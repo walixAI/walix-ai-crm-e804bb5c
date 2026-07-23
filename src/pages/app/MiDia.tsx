@@ -2,12 +2,14 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle2, ClipboardList, DollarSign, FileText, Plus, Sparkles, Wrench, MessageCircle, Settings2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, DollarSign, FileText, Plus, Sparkles, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } from "@/lib/queries/miDia";
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
+import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { useTenant } from "@/lib/queries/tenant";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
@@ -17,6 +19,7 @@ export default function MiDia() {
   const { data, isLoading } = useMiDiaData();
   const { data: tenant } = useTenant();
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);
+  const [expenseOpen, setExpenseOpen] = useState(false);
   const setMode = useSetSimpleMode();
   const toggleTask = useToggleTask();
 
@@ -85,13 +88,25 @@ export default function MiDia() {
 
       {/* FAB */}
       <div className="fixed bottom-6 right-6 z-40">
-        <Button size="lg" className="h-16 rounded-full shadow-2xl px-8 text-lg gap-3"
-          onClick={() => setDialogOpen({ kind: "task" })}>
-          <Plus className="h-6 w-6" /> Registrar
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="lg" className="h-16 rounded-full shadow-2xl px-8 text-lg gap-3">
+              <Plus className="h-6 w-6" /> Registrar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-56">
+            <DropdownMenuItem onClick={() => setDialogOpen({ kind: "task" })} className="py-3 text-base">
+              <ClipboardList className="h-5 w-5 mr-2" /> Tarea rápida
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setExpenseOpen(true)} className="py-3 text-base">
+              <Receipt className="h-5 w-5 mr-2" /> Gasto rápido
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <QuickTaskDialog open={!!dialogOpen} onOpenChange={(o) => !o && setDialogOpen(null)} />
+      <ExpenseFormDialog open={expenseOpen} onOpenChange={setExpenseOpen} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +7,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { useAllExpenseCategories, useUpsertCategory, useDeleteCategory, type ExpenseCategory } from "@/lib/queries/expenses";
 import { toast } from "sonner";
+import { RecurringExpensesTab } from "./RecurringExpensesTab";
+import { ExpenseRulesTab } from "./ExpenseRulesTab";
 
 export function ExpenseCategoriesTab() {
+  return (
+    <Tabs defaultValue="recurring" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="recurring">Fijos mensuales</TabsTrigger>
+        <TabsTrigger value="rules">Reglas por venta</TabsTrigger>
+        <TabsTrigger value="categories">Categorías</TabsTrigger>
+      </TabsList>
+      <TabsContent value="recurring"><RecurringExpensesTab /></TabsContent>
+      <TabsContent value="rules"><ExpenseRulesTab /></TabsContent>
+      <TabsContent value="categories"><CategoriesTab /></TabsContent>
+    </Tabs>
+  );
+}
+
+function CategoriesTab() {
   const { data: cats = [], isLoading } = useAllExpenseCategories();
   const upsert = useUpsertCategory();
   const del = useDeleteCategory();

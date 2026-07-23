@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Filter } from "lucide-react";
+import { Plus, Trash2, Filter, Zap, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useExpenses, useExpenseCategories, useDeleteExpense, formatMXN0 } from "@/lib/queries/expenses";
+import {
+  useExpenses, useExpenseCategories, useDeleteExpense, formatMXN0,
+  useDraftExpenses, useConfirmExpense, useConfirmAllDrafts,
+} from "@/lib/queries/expenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { format } from "date-fns";
@@ -20,10 +23,13 @@ export default function Expenses() {
   const [categoryId, setCategoryId] = useState<string>("all");
   const monthDate = useMemo(() => new Date(`${month}-01T00:00:00`), [month]);
   const { data: expenses = [], isLoading } = useExpenses({
-    month: monthDate, kind, categoryId: categoryId === "all" ? null : categoryId,
+    month: monthDate, kind, categoryId: categoryId === "all" ? null : categoryId, status: "confirmed",
   });
   const { data: cats = [] } = useExpenseCategories();
   const del = useDeleteExpense();
+  const { data: drafts = [] } = useDraftExpenses();
+  const confirmOne = useConfirmExpense();
+  const confirmAll = useConfirmAllDrafts();
 
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalsByCat = useMemo(() => {
@@ -52,6 +58,42 @@ export default function Expenses() {
       </div>
 
       <ProfitabilityCard />
+
+      {drafts.length > 0 && (
+        <Card className="border-amber-500/60 bg-amber-500/5">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-600" />
+              {drafts.length} gasto{drafts.length === 1 ? "" : "s"} por confirmar
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={async () => {
+              try { await confirmAll.mutateAsync(); toast.success("Todos confirmados"); }
+              catch (e: any) { toast.error(e.message); }
+            }}><Check className="h-4 w-4 mr-1" /> Confirmar todos</Button>
+          </CardHeader>
+          <CardContent className="divide-y">
+            {drafts.map(d => (
+              <div key={d.id} className="flex items-center gap-3 py-2.5">
+                <div className="w-20 text-xs text-muted-foreground">{format(new Date(d.incurred_at), "dd MMM", { locale: es })}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{catName(d.category_id)}</div>
+                  {d.description && <div className="text-xs text-muted-foreground truncate">{d.description}</div>}
+                </div>
+                <div className="text-right font-bold w-28">{formatMXN0(Number(d.amount))}</div>
+                <Button size="sm" onClick={async () => {
+                  try { await confirmOne.mutateAsync({ id: d.id }); toast.success("Confirmado"); }
+                  catch (e: any) { toast.error(e.message); }
+                }}><Check className="h-4 w-4 mr-1" /> Confirmar</Button>
+                <Button size="icon" variant="ghost" onClick={async () => {
+                  if (!confirm("¿Descartar este gasto borrador?")) return;
+                  try { await del.mutateAsync(d.id); toast.success("Descartado"); }
+                  catch (e: any) { toast.error(e.message); }
+                }}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">

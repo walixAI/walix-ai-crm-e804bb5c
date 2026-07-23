@@ -25,6 +25,34 @@ export interface Expense {
   description: string | null;
   receipt_url: string | null;
   created_at: string;
+  status?: "draft" | "confirmed";
+  source?: "manual" | "recurring" | "rule" | "whatsapp";
+  rule_id?: string | null;
+  recurring_id?: string | null;
+}
+
+export interface RecurringExpense {
+  id: string;
+  tenant_id: string;
+  category_id: string | null;
+  amount: number;
+  day_of_month: number;
+  description: string | null;
+  is_active: boolean;
+}
+
+export type RuleType = "percent_of_deal" | "fixed_per_deal" | "percent_of_cost";
+
+export interface ExpenseRule {
+  id: string;
+  tenant_id: string;
+  category_id: string | null;
+  name: string;
+  rule_type: RuleType;
+  value: number;
+  deal_type_filter: "venta" | "servicio" | null;
+  auto_confirm: boolean;
+  is_active: boolean;
 }
 
 export function useExpenseCategories() {
@@ -68,6 +96,7 @@ export interface ExpenseFilters {
   month?: Date; // any date in the month
   kind?: "fijo" | "variable" | "all";
   categoryId?: string | null;
+  status?: "draft" | "confirmed" | "all";
 }
 
 export function useExpenses(filters: ExpenseFilters = {}) {
@@ -88,9 +117,66 @@ export function useExpenses(filters: ExpenseFilters = {}) {
         .order("incurred_at", { ascending: false });
       if (filters.kind && filters.kind !== "all") q = q.eq("kind", filters.kind);
       if (filters.categoryId) q = q.eq("category_id", filters.categoryId);
+      if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Expense[];
+    },
+  });
+}
+
+export function useDraftExpenses() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["expenses-drafts", tenantId],
+    enabled: !!tenantId,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expenses" as any)
+        .select("*")
+        .eq("status", "draft")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Expense[];
+    },
+  });
+}
+
+export function useConfirmExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; amount?: number }) => {
+      const patch: any = { status: "confirmed" };
+      if (typeof input.amount === "number") patch.amount = input.amount;
+      const { error } = await supabase.from("expenses" as any).update(patch).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
+    },
+  });
+}
+
+export function useConfirmAllDrafts() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async () => {
+      if (!tenantId) throw new Error("Sin tenant");
+      const { error } = await supabase
+        .from("expenses" as any)
+        .update({ status: "confirmed" } as any)
+        .eq("tenant_id", tenantId)
+        .eq("status", "draft");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
     },
   });
 }
@@ -112,6 +198,7 @@ export function useMonthProfitability() {
           .gte("updated_at", from.toISOString())
           .lte("updated_at", new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59).toISOString()),
         supabase.from("expenses" as any).select("amount")
+          .eq("status", "confirmed")
           .gte("incurred_at", from.toISOString().slice(0, 10))
           .lte("incurred_at", to.toISOString().slice(0, 10)),
         supabase.from("tenants").select("profit_thresholds").eq("id", tenantId!).maybeSingle(),
@@ -126,7 +213,13 @@ export function useMonthProfitability() {
       if (pct >= th.green) status = "green";
       else if (pct >= th.yellow) status = "yellow";
       else if (pct >= th.orange) status = "orange";
-      return { sales, expenses, profit, pct, status, thresholds: th };
+
+      // count pending drafts for banner
+      const { count: pendingDrafts } = await supabase
+        .from("expenses" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "draft");
+      return { sales, expenses, profit, pct, status, thresholds: th, pendingDrafts: pendingDrafts ?? 0 };
     },
   });
 }
@@ -257,4 +350,113 @@ export function useTenantGoals() {
 
 export function formatMXN0(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+}
+
+// ================ Recurring expenses (fijos mensuales) ================
+
+export function useRecurringExpenses() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["recurring-expenses", tenantId],
+    enabled: !!tenantId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recurring_expenses" as any)
+        .select("*")
+        .order("day_of_month", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as RecurringExpense[];
+    },
+  });
+}
+
+export function useUpsertRecurring() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async (input: Partial<RecurringExpense> & { amount: number; day_of_month: number; category_id: string | null }) => {
+      if (!tenantId) throw new Error("Sin tenant");
+      if (input.id) {
+        const { error } = await supabase.from("recurring_expenses" as any).update({
+          amount: input.amount, day_of_month: input.day_of_month,
+          category_id: input.category_id, description: input.description ?? null,
+          is_active: input.is_active ?? true,
+        } as any).eq("id", input.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("recurring_expenses" as any).insert({
+          tenant_id: tenantId,
+          amount: input.amount, day_of_month: input.day_of_month,
+          category_id: input.category_id, description: input.description ?? null,
+        } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+  });
+}
+
+export function useDeleteRecurring() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("recurring_expenses" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+  });
+}
+
+// ================ Expense rules (por deal ganado) ================
+
+export function useExpenseRules() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["expense-rules", tenantId],
+    enabled: !!tenantId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expense_rules" as any)
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpenseRule[];
+    },
+  });
+}
+
+export function useUpsertRule() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async (input: Partial<ExpenseRule> & { name: string; rule_type: RuleType; value: number; category_id: string | null }) => {
+      if (!tenantId) throw new Error("Sin tenant");
+      const payload: any = {
+        name: input.name, rule_type: input.rule_type, value: input.value,
+        category_id: input.category_id, deal_type_filter: input.deal_type_filter ?? null,
+        auto_confirm: input.auto_confirm ?? false, is_active: input.is_active ?? true,
+      };
+      if (input.id) {
+        const { error } = await supabase.from("expense_rules" as any).update(payload).eq("id", input.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("expense_rules" as any).insert({ tenant_id: tenantId, ...payload });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expense-rules"] }),
+  });
+}
+
+export function useDeleteRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("expense_rules" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expense-rules"] }),
+  });
 }
