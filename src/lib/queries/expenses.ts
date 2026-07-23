@@ -351,3 +351,112 @@ export function useTenantGoals() {
 export function formatMXN0(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
+
+// ================ Recurring expenses (fijos mensuales) ================
+
+export function useRecurringExpenses() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["recurring-expenses", tenantId],
+    enabled: !!tenantId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recurring_expenses" as any)
+        .select("*")
+        .order("day_of_month", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as RecurringExpense[];
+    },
+  });
+}
+
+export function useUpsertRecurring() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async (input: Partial<RecurringExpense> & { amount: number; day_of_month: number; category_id: string | null }) => {
+      if (!tenantId) throw new Error("Sin tenant");
+      if (input.id) {
+        const { error } = await supabase.from("recurring_expenses" as any).update({
+          amount: input.amount, day_of_month: input.day_of_month,
+          category_id: input.category_id, description: input.description ?? null,
+          is_active: input.is_active ?? true,
+        } as any).eq("id", input.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("recurring_expenses" as any).insert({
+          tenant_id: tenantId,
+          amount: input.amount, day_of_month: input.day_of_month,
+          category_id: input.category_id, description: input.description ?? null,
+        } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+  });
+}
+
+export function useDeleteRecurring() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("recurring_expenses" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+  });
+}
+
+// ================ Expense rules (por deal ganado) ================
+
+export function useExpenseRules() {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["expense-rules", tenantId],
+    enabled: !!tenantId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expense_rules" as any)
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpenseRule[];
+    },
+  });
+}
+
+export function useUpsertRule() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async (input: Partial<ExpenseRule> & { name: string; rule_type: RuleType; value: number; category_id: string | null }) => {
+      if (!tenantId) throw new Error("Sin tenant");
+      const payload: any = {
+        name: input.name, rule_type: input.rule_type, value: input.value,
+        category_id: input.category_id, deal_type_filter: input.deal_type_filter ?? null,
+        auto_confirm: input.auto_confirm ?? false, is_active: input.is_active ?? true,
+      };
+      if (input.id) {
+        const { error } = await supabase.from("expense_rules" as any).update(payload).eq("id", input.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("expense_rules" as any).insert({ tenant_id: tenantId, ...payload });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expense-rules"] }),
+  });
+}
+
+export function useDeleteRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("expense_rules" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expense-rules"] }),
+  });
+}
