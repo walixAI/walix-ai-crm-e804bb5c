@@ -1,43 +1,90 @@
-# Nueva capacidad nativa: Ajustar meta del mes
+# Metas granulares por agente + Run Rate y rentabilidad individual
 
-Hoy el Copiloto solo puede **leer** la meta (`get_monthly_goal`). Vamos a añadir la capacidad de **modificarla** desde el chat, con las mismas reglas de seguridad que ya tiene la pantalla Configuración → Metas.
+Extendemos el modelo actual de `tenant_monthly_goals` (hoy solo global) para soportar metas por **tipo de deal**, **pipeline** y **categoría/producto propio**, con reparto por porcentaje entre los vendedores elegidos. Encima construimos vistas de Run Rate y rentabilidad por usuario, tablero de equipo y ranking.
 
-## Qué hará
+## 1. Modelo de datos (backend)
 
-Cuando el admin diga cosas como *"ajusta la meta de este mes a 480,000"* o *"pon 500 mil de meta para agosto"*, el Copiloto:
+**Nuevo catálogo de productos/servicios propios del tenant**
+- `product_categories`: `id`, `tenant_id`, `name`, `is_active`, `position`.
+- Opcional en `deals`: `product_category_id` (nullable, para poder atribuir un deal a una categoría cuando aplique).
 
-1. Confirmará el mes, el monto total y (opcional) el desglose por tipo (venta / servicio / refacción).
-2. Pedirá confirmación explícita antes de guardar ("¿Confirmas ajustar la meta de julio 2026 a $480,000?").
-3. Registrará la nueva meta y devolverá el resumen actualizado.
+**Metas por dimensión (reemplaza gradualmente el uso plano de `tenant_monthly_goals`)**
+- `monthly_goals`
+  - `tenant_id`, `period_year`, `period_month`, `amount`, `currency`
+  - `dimension`: `global` | `deal_type` | `pipeline` | `product_category`
+  - `dimension_value` (texto para `deal_type`, uuid para pipeline/category, null para global)
+  - Único por (tenant, año, mes, dimension, dimension_value)
+  - Misma protección de meses pasados que hoy (`tenant_monthly_goals_no_past`).
+- `monthly_goal_assignments`
+  - `goal_id` → `monthly_goals.id`
+  - `user_id`
+  - `share_percent` (0–100) y `amount` calculado
+  - Suma de `share_percent` por `goal_id` debe = 100 (validación en trigger).
+- `monthly_goal_history` (auditoría de cambios del mes en curso, igual que hoy).
 
-Reglas de negocio (ya vigentes en BD, sólo las respetamos):
-- Solo `tenant_owner` / `tenant_admin` / `org_owner` pueden ajustarla (RLS ya lo aplica).
-- No se pueden modificar metas de meses pasados (trigger existente `tenant_monthly_goals_no_past` ya lo bloquea).
-- Cada cambio queda en el historial (tabla ya guarda cada versión con `created_by` y `created_at`).
+**Ejecución (para Run Rate / rentabilidad individual)**
+- Vista `deals_won_by_user_month`: suma `amount` y `cost_amount` de deals ganados por `owner_id`, mes, `deal_type`, `pipeline_id`, `product_category_id`.
+- Vista `expenses_by_owner_month`: gastos con `owner_id` + gastos ligados a deals ganados del vendedor (`expenses.deal_id`).
+- Función `get_user_run_rate(tenant, user, year, month)` y `get_user_profitability(...)` para reutilizar en Mi Día y tablero.
 
-## Cambios
+## 2. UI de configuración de metas (Admin)
 
-**Backend — `supabase/functions/ai-copilot/index.ts`**
-- Nueva tool `set_monthly_goal` con parámetros: `year?`, `month?`, `total`, `by_type?` (`{venta, servicio, refaccion}`), `note?`.
-- Executor: inserta en `tenant_monthly_goals` usando el cliente con JWT del usuario (RLS filtra a admins). Devuelve error legible si el usuario no es admin o si el mes es pasado.
-- System prompt: añadir regla — "para `set_monthly_goal` siempre confirma monto y mes con el usuario antes de ejecutar; nunca la llames en el primer turno".
+Pantalla **Configuración → Metas** rediseñada:
 
-**Builder — `supabase/functions/copilot-builder/index.ts`**
-- Añadir `set_monthly_goal` a `PRIMITIVES` con riesgo `write` para que aparezca como bloque disponible al componer recetas.
+```text
+┌───────────────────────────────────────────────────────────┐
+│ Meta de Julio 2026                              [+ Meta]  │
+├───────────────────────────────────────────────────────────┤
+│ Global .......................... $480,000  [editar]     │
+│ Por tipo de deal                                          │
+│   • Venta ....................... $300,000               │
+│   • Mantenimiento ............... $120,000               │
+│   • Refacciones ................. $ 60,000               │
+│ Por pipeline                                              │
+│   • Ventas Sub-Zero ............. $250,000               │
+│ Por categoría/producto                                    │
+│   • Refrigerador 36" ............ $180,000               │
+└───────────────────────────────────────────────────────────┘
+```
 
-**UI — `src/components/settings/copilot/CopilotCapabilitiesTab.tsx`**
-- Añadir la nueva primitiva a `NATIVE_CAPABILITIES` con etiqueta "Ajustar meta del mes" y descripción, marcada como `Ejecuta`.
+Al crear/editar una meta:
+1. Elegir **dimensión** (global / deal_type / pipeline / product_category) y el valor.
+2. Capturar **monto total**.
+3. **Reparto entre agentes**: seleccionar vendedores → por defecto `share_percent` sugerido con **ponderado histórico** (ventas ganadas de los últimos 3 meses en esa dimensión). El admin puede ajustar a mano cada %; la UI valida que sume 100 y muestra el monto por vendedor en vivo.
+4. Guardado bloqueado en meses pasados (misma regla actual).
+
+Cátalogo de **Productos/Categorías** se administra en la misma sección (CRUD sencillo).
+
+## 3. Run Rate y rentabilidad por vendedor
+
+**Mi Día (vendedor)**
+- La tarjeta actual de Run Rate ahora muestra dos filas: **Mi Run Rate** (contra la suma de sus asignaciones del mes) y **Run Rate del equipo** (colapsado).
+- Nueva tarjeta compacta **Mi rentabilidad**: margen = (mis ventas ganadas − gastos atribuidos a mis deals) / mis ventas ganadas. Mismos semáforos que la actual (verde/amarillo/rojo).
+
+**Tablero de equipo (admin) — nueva ruta `/equipo`**
+- Tabla por vendedor con: meta asignada, ganado, run rate %, pronóstico fin de mes, gastos atribuidos, margen %, # deals abiertos, # deals ganados.
+- Filtro por dimensión (todas / tipo / pipeline / categoría) para ver el desglose.
+- Ranking ordenable por avance de meta y por margen.
+
+## 4. Copiloto
+
+Nuevas primitivas nativas para el catálogo de capacidades (ya que existe la infraestructura de `copilot_capabilities`):
+- `get_user_run_rate` (lectura, propia por defecto; admin puede scope=tenant).
+- `get_user_profitability` (lectura, misma regla).
+- `set_monthly_goal_assignment` (ejecución, admin, confirmación obligatoria) para ajustar el % de un vendedor por voz/chat.
+
+## 5. Migración de lo existente
+
+- `tenant_monthly_goals` actual queda como `dimension='global'` en `monthly_goals` (copiamos los registros y dejamos el trigger de historial).
+- El código de `GoalsTab`, `RunRateCard`, `ProfitabilityCard` y `MiDia` se actualiza para leer del nuevo modelo, con fallback si un tenant aún no configuró desgloses.
 
 ## Detalles técnicos
 
-- Si el usuario no especifica mes/año, se asume el mes en curso.
-- `by_type` es opcional; si no se envía, se guarda `{venta:0, servicio:0, refaccion:0}`.
-- Errores mapeados:
-  - `check_violation` del trigger → *"No se puede modificar la meta de un mes pasado."*
-  - RLS/permiso → *"Solo administradores del tenant pueden ajustar la meta."*
-- No se requiere migración; la tabla y sus políticas ya existen.
+- **SQL**: nuevas tablas con `GRANT` a `authenticated`/`service_role` y RLS por `tenant_id` + `has_role` (`tenant_admin`/`tenant_owner` para escribir metas; vendedor puede leer sus asignaciones).
+- **Validación de %**: trigger `AFTER INSERT/UPDATE/DELETE` en `monthly_goal_assignments` que recalcula la suma por `goal_id` y lanza excepción si ≠ 100 al confirmar (permite estados intermedios usando una bandera `is_draft` en `monthly_goals`).
+- **Ponderado histórico**: función `suggest_goal_split(goal_id, user_ids[])` que devuelve `share_percent` sugerido usando ventas ganadas de los 3 meses previos en esa dimensión; si no hay historia, partes iguales.
+- **Rentabilidad por vendedor**: usa `expenses.deal_id` (ya existe) + `expenses.owner_id` para gastos no ligados a deal.
+- **Meses pasados**: reutilizamos `tenant_monthly_goals_no_past` adaptado al nuevo `monthly_goals`; asignaciones heredan la misma regla.
+- **Frontend**: nuevos componentes `GoalBuilderDialog`, `GoalSplitEditor`, `TeamDashboard`, más `useUserRunRate`/`useUserProfitability` hooks. Sin cambios en el diseño global.
 
-## Fuera de alcance
-
-- UI dedicada para historial de cambios (ya vive en Configuración → Metas).
-- Ejecutar el cambio sin confirmación humana.
+¿Avanzo con esto o quieres ajustar algún punto (por ejemplo, empezar solo con `deal_type` y dejar `product_category` para una fase 2)?

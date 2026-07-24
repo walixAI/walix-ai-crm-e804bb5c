@@ -1319,6 +1319,7 @@ export type Database = {
           owner_id: string | null
           payment_status: string | null
           probability: number
+          product_category_id: string | null
           scheduled_at: string | null
           service_type: string | null
           source: string
@@ -1347,6 +1348,7 @@ export type Database = {
           owner_id?: string | null
           payment_status?: string | null
           probability?: number
+          product_category_id?: string | null
           scheduled_at?: string | null
           service_type?: string | null
           source?: string
@@ -1375,6 +1377,7 @@ export type Database = {
           owner_id?: string | null
           payment_status?: string | null
           probability?: number
+          product_category_id?: string | null
           scheduled_at?: string | null
           service_type?: string | null
           source?: string
@@ -1389,6 +1392,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_product_category_id_fkey"
+            columns: ["product_category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
             referencedColumns: ["id"]
           },
           {
@@ -1826,6 +1836,146 @@ export type Database = {
           },
         ]
       }
+      monthly_goal_assignments: {
+        Row: {
+          amount: number
+          created_at: string
+          goal_id: string
+          id: string
+          share_percent: number
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          goal_id: string
+          id?: string
+          share_percent?: number
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          goal_id?: string
+          id?: string
+          share_percent?: number
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_goal_assignments_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_goal_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_goal_history: {
+        Row: {
+          action: string
+          after_data: Json | null
+          before_data: Json | null
+          changed_by: string | null
+          created_at: string
+          goal_id: string | null
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          after_data?: Json | null
+          before_data?: Json | null
+          changed_by?: string | null
+          created_at?: string
+          goal_id?: string | null
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          changed_by?: string | null
+          created_at?: string
+          goal_id?: string | null
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      monthly_goals: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          dimension: string
+          dimension_value_text: string | null
+          dimension_value_uuid: string | null
+          id: string
+          is_draft: boolean
+          notes: string | null
+          period_month: number
+          period_year: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          dimension: string
+          dimension_value_text?: string | null
+          dimension_value_uuid?: string | null
+          id?: string
+          is_draft?: boolean
+          notes?: string | null
+          period_month: number
+          period_year: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          dimension?: string
+          dimension_value_text?: string | null
+          dimension_value_uuid?: string | null
+          id?: string
+          is_draft?: boolean
+          notes?: string | null
+          period_month?: number
+          period_year?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_goals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -2072,6 +2222,44 @@ export type Database = {
           plan?: string
         }
         Relationships: []
+      }
+      product_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -2750,6 +2938,35 @@ export type Database = {
         Returns: number
       }
       generate_recurring_expenses: { Args: never; Returns: number }
+      get_user_profitability: {
+        Args: {
+          _month: number
+          _tenant_id: string
+          _user_id: string
+          _year: number
+        }
+        Returns: {
+          expenses: number
+          margin_amount: number
+          margin_pct: number
+          revenue: number
+        }[]
+      }
+      get_user_run_rate: {
+        Args: {
+          _month: number
+          _tenant_id: string
+          _user_id: string
+          _year: number
+        }
+        Returns: {
+          assigned_goal: number
+          forecast_pct: number
+          open_amount: number
+          run_rate_pct: number
+          won_amount: number
+        }[]
+      }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -2792,6 +3009,19 @@ export type Database = {
       seed_default_ai_agents: {
         Args: { _tenant_id: string }
         Returns: undefined
+      }
+      suggest_goal_split: {
+        Args: {
+          _dimension: string
+          _dimension_value_text: string
+          _dimension_value_uuid: string
+          _tenant_id: string
+          _user_ids: string[]
+        }
+        Returns: {
+          share_percent: number
+          user_id: string
+        }[]
       }
       tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
       trial_days_left: { Args: { _tenant_id: string }; Returns: number }
