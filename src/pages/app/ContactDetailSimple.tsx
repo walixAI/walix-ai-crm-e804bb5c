@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { MessageCircle, StickyNote } from "lucide-react";
+import { ChevronDown, ChevronUp, History, MessageCircle, StickyNote } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useContact, useContactActivity } from "@/lib/queries/contacts";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
 import { relativeTime } from "@/lib/format/relativeTime";
@@ -27,47 +29,54 @@ export default function ContactDetailSimple() {
   const focusTaskId = params.get("focus") === "task" ? params.get("taskId") : null;
   const openWA = () => navigate(`/whatsapp?contactId=${contact.id}`);
 
-  const recentNotes = activity.filter((a) => a.type === "note").slice(0, 3);
-  const recentMsgs = activity.filter((a) => a.type === "wa_sent" || a.type === "wa_received").slice(0, 3);
+  const recent = activity
+    .filter((a) => a.type === "note" || a.type === "wa_sent" || a.type === "wa_received")
+    .slice(0, 6);
+  const [showHistory, setShowHistory] = useState(false);
 
   return (
     <div className="min-h-screen bg-background -mx-4 md:-mx-6 -my-6 pb-16">
       <SimpleContactHeader contact={contact} onWhatsApp={openWA} onHelp={tour.show} />
 
-      <main className="max-w-4xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-6 py-6 space-y-4">
         <PendingList contactId={contact.id} focusTaskId={focusTaskId} />
 
-        {recentMsgs.length > 0 && (
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <MessageCircle className="h-5 w-5 text-success" />
-              <h3 className="text-lg font-bold">Últimos mensajes</h3>
-            </div>
-            <ul className="space-y-2">
-              {recentMsgs.map((m) => (
-                <li key={m.id} className="text-sm border border-border rounded-lg p-3 bg-muted/30">
-                  <div className="whitespace-pre-wrap break-words">{m.description}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{relativeTime(m.timestamp)}</div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {recentNotes.length > 0 && (
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <StickyNote className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-bold">Últimas notas</h3>
-            </div>
-            <ul className="space-y-2">
-              {recentNotes.map((n) => (
-                <li key={n.id} className="text-sm border border-border rounded-lg p-3 bg-muted/30">
-                  <div className="whitespace-pre-wrap break-words">{n.description}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{n.agent} · {relativeTime(n.timestamp)}</div>
-                </li>
-              ))}
-            </ul>
+        {recent.length > 0 && (
+          <section className="rounded-2xl border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setShowHistory((s) => !s)}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/40 rounded-2xl transition-colors"
+            >
+              <History className="h-5 w-5 text-muted-foreground" />
+              <div className="flex-1">
+                <h3 className="text-base font-semibold">Historial reciente</h3>
+                <p className="text-xs text-muted-foreground">
+                  {showHistory ? "Ocultar" : `Ver los últimos ${recent.length} mensajes y notas`}
+                </p>
+              </div>
+              {showHistory ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </button>
+            {showHistory && (
+              <ul className="px-5 pb-5 space-y-2">
+                {recent.map((a) => {
+                  const isNote = a.type === "note";
+                  const Icon = isNote ? StickyNote : MessageCircle;
+                  const iconColor = isNote ? "text-primary" : "text-success";
+                  return (
+                    <li key={a.id} className="text-sm border border-border rounded-lg p-3 bg-muted/30 flex gap-3">
+                      <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="whitespace-pre-wrap break-words">{a.description}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {isNote && a.agent ? `${a.agent} · ` : ""}{relativeTime(a.timestamp)}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
         )}
       </main>

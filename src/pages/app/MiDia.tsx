@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle2, ChevronDown, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -346,59 +346,72 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
         {items.length === 0 && (
           <div className="text-center text-muted-foreground py-6 text-lg">{emptyText}</div>
         )}
-        {items.map(i => (
-          <div key={`${i.kind}-${i.id}`}
-            className={`flex items-center gap-4 rounded-xl border p-4 hover:bg-muted/40 transition-colors
-              ${i.overdue ? "border-destructive/60 bg-destructive/5" : "border-border"}`}>
-            {onToggle && i.kind === "task" && (
-              <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0"
-                onClick={() => onToggle(i.id)}>
-                <CheckCircle2 className="h-7 w-7" />
-              </Button>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="text-lg font-semibold truncate">{i.title}</div>
-              {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
-              {i.dueAt && (
-                <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
-                  {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}
-                  {format(new Date(i.dueAt), "PPp", { locale: es })}
+        {items.map(i => {
+          const href =
+            i.contactId
+              ? (i.kind === "task"
+                  ? `/contacts/${i.contactId}?focus=task&taskId=${i.id}`
+                  : `/contacts/${i.contactId}`)
+              : i.dealId
+              ? "/pipeline"
+              : null;
+          return (
+            <div key={`${i.kind}-${i.id}`}
+              className={`flex items-center gap-4 rounded-xl border p-4 transition-colors
+                ${i.overdue ? "border-destructive/60 bg-destructive/5" : "border-border"}
+                ${href ? "hover:bg-muted/60 hover:border-primary/40 cursor-pointer" : "hover:bg-muted/40"}`}>
+              {onToggle && i.kind === "task" && (
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onToggle(i.id); }}>
+                  <CheckCircle2 className="h-7 w-7" />
+                </Button>
+              )}
+              {href ? (
+                <Link to={href} className="flex-1 min-w-0 flex items-center gap-3 group">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-lg font-semibold truncate group-hover:text-primary">{i.title}</div>
+                    {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
+                    {i.dueAt && (
+                      <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                        {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}
+                        {format(new Date(i.dueAt), "PPp", { locale: es })}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 group-hover:text-primary group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              ) : (
+                <div className="flex-1 min-w-0">
+                  <div className="text-lg font-semibold truncate">{i.title}</div>
+                  {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
+                  {i.dueAt && (
+                    <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                      {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}
+                      {format(new Date(i.dueAt), "PPp", { locale: es })}
+                    </div>
+                  )}
+                </div>
+              )}
+              {i.amount != null && (
+                <div className="text-right shrink-0">
+                  <div className="text-xl font-bold">${i.amount.toLocaleString("es-MX")}</div>
+                </div>
+              )}
+              {i.kind === "deal_collect" && onRegisterPayment && (
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" onClick={() => onRegisterPayment(i)} className="gap-1">
+                    <DollarSign className="h-4 w-4" /> Cobrar
+                  </Button>
+                  {onRescheduleCollect && (
+                    <Button size="sm" variant="outline" onClick={() => onRescheduleCollect(i)}>
+                      Seguir cobrando
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
-            {i.amount != null && (
-              <div className="text-right">
-                <div className="text-xl font-bold">${i.amount.toLocaleString("es-MX")}</div>
-              </div>
-            )}
-            {i.kind === "deal_collect" && onRegisterPayment && (
-              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                <Button size="sm" onClick={() => onRegisterPayment(i)} className="gap-1">
-                  <DollarSign className="h-4 w-4" /> Cobrar
-                </Button>
-                {onRescheduleCollect && (
-                  <Button size="sm" variant="outline" onClick={() => onRescheduleCollect(i)}>
-                    Seguir cobrando
-                  </Button>
-                )}
-              </div>
-            )}
-            {i.contactId && i.kind !== "deal_collect" && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to={
-                  i.kind === "task"
-                    ? `/contacts/${i.contactId}?focus=task&taskId=${i.id}`
-                    : `/contacts/${i.contactId}`
-                }>Ver</Link>
-              </Button>
-            )}
-            {i.dealId && !i.contactId && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/pipeline">Ver</Link>
-              </Button>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
