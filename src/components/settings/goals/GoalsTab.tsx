@@ -12,6 +12,8 @@ import {
   useMonthGoal, useMonthGoalHistory, useSaveMonthGoal, isPastPeriod, formatMXN0,
 } from "@/lib/queries/expenses";
 import { toast } from "sonner";
+import { AdvancedGoalsCard } from "./AdvancedGoalsCard";
+import { ProductCategoriesCard } from "./ProductCategoriesCard";
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -237,6 +239,9 @@ export function GoalsTab() {
           </div>
         </CardContent>
       </Card>
+
+      <AdvancedGoalsCard />
+      <ProductCategoriesCard />
     </div>
   );
 }
