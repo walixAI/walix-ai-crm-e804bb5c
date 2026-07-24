@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuthStore } from "@/store/auth";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/store/auth";
@@ -129,6 +130,24 @@ async function waitForAuthContext(timeoutMs = 3000) {
     const { user, contextLoading } = useAuthStore.getState();
     if (user && !contextLoading) return;
     await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+async function resolveHomeRoute(): Promise<string> {
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return "/dashboard";
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("ui_prefs, onboarded")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile && (profile as any).onboarded === false) return "/onboarding";
+    const mode = (profile as any)?.ui_prefs?.mode;
+    return mode === "simple" ? "/mi-dia" : "/dashboard";
+  } catch {
+    return "/dashboard";
   }
 }
 
