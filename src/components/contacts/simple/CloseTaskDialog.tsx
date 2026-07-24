@@ -126,24 +126,39 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
 
   async function submitCall() {
     if (!task) return;
-    if (!note.trim()) {
-      toast.warning("Escribe una nota corta con el próximo paso");
-      return;
-    }
     const resultLabel =
       callResult === "answered" ? "Contestó" :
       callResult === "no_answer" ? "No contestó" : "Buzón de voz";
+    const needsReschedule = callResult !== "answered";
+    if (callResult === "answered" && !note.trim()) {
+      toast.warning("Escribe una nota corta con el próximo paso");
+      return;
+    }
+    if (needsReschedule && !reschedWhen) {
+      toast.warning("Selecciona cuándo reintentar");
+      return;
+    }
     try {
+      const noteText = note.trim() || (needsReschedule ? "Sin contacto — se reagenda" : "");
       await createActivity.mutateAsync({
         type: "call",
-        description: `${resultLabel} — ${task.title}\n${note}`,
-        metadata: { call_result: callResult, task_id: task.id },
+        description: `${resultLabel} — ${task.title}\n${noteText}`,
+        metadata: { call_result: callResult, task_id: task.id, rescheduled: needsReschedule },
       });
-      await toggle.mutateAsync({
-        id: task.id, completed: true, via: "call",
-        note: `${resultLabel} — ${note.slice(0, 160)}`,
-      });
-      toast.success("Llamada registrada y tarea cerrada");
+      if (needsReschedule) {
+        await reschedule.mutateAsync({
+          id: task.id,
+          dueAt: fromLocalInput(reschedWhen),
+          reason: reschedReason || `${resultLabel} — reintentar`,
+        });
+        toast.success(`Llamada registrada · Reagendada ${new Date(fromLocalInput(reschedWhen)).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`);
+      } else {
+        await toggle.mutateAsync({
+          id: task.id, completed: true, via: "call",
+          note: `${resultLabel} — ${note.slice(0, 160)}`,
+        });
+        toast.success("Llamada registrada y tarea cerrada");
+      }
       onOpenChange(false); reset();
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo cerrar");
@@ -173,14 +188,15 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
   }
 
   async function submitReschedule() {
-    if (!task || !suggestion) return;
+    if (!task) return;
+    if (!reschedWhen) { toast.warning("Selecciona fecha y hora"); return; }
     try {
       await reschedule.mutateAsync({
         id: task.id,
-        dueAt: suggestion.date.toISOString(),
-        reason: reschedReason || suggestion.reason,
+        dueAt: fromLocalInput(reschedWhen),
+        reason: reschedReason || suggestion?.reason || "Reagendado",
       });
-      toast.success(`Reagendada · ${suggestion.date.toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`);
+      toast.success(`Reagendada · ${new Date(fromLocalInput(reschedWhen)).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`);
       onOpenChange(false); reset();
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo reagendar");
