@@ -8,6 +8,27 @@ import { toast } from "sonner";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import { NewCapabilityWizard } from "./NewCapabilityWizard";
 
+// Catálogo nativo del Copiloto (debe coincidir con supabase/functions/ai-copilot y copilot-builder).
+const NATIVE_CAPABILITIES: { id: string; label: string; risk: "read" | "write"; description: string }[] = [
+  { id: "search_contacts", label: "Buscar contactos", risk: "read", description: "Busca contactos por nombre, teléfono o email." },
+  { id: "get_contact_context", label: "Leer contexto de contacto", risk: "read", description: "Resumen IA, hechos clave y últimos eventos de un contacto." },
+  { id: "get_pipeline_status", label: "Consultar pipeline", risk: "read", description: "KPIs del pipeline: abiertos, ganados, perdidos y monto en curso." },
+  { id: "get_my_tasks", label: "Consultar pendientes", risk: "read", description: "Lista tus tareas o las del tenant si eres admin." },
+  { id: "get_my_suggestions", label: "Sugerencias proactivas", risk: "read", description: "Devuelve las sugerencias generadas por los agentes IA." },
+  { id: "get_my_deals", label: "Consultar oportunidades", risk: "read", description: "Deals abiertos, filtrables por cierre en el mes." },
+  { id: "get_profitability", label: "Consultar rentabilidad", risk: "read", description: "Margen del mes vs. gastos e ingresos." },
+  { id: "get_run_rate", label: "Consultar run-rate", risk: "read", description: "Proyección de cierre de mes vs. meta." },
+  { id: "get_expenses_summary", label: "Consultar gastos", risk: "read", description: "Totales de gastos fijos y variables del periodo." },
+  { id: "get_monthly_goal", label: "Consultar meta del mes", risk: "read", description: "Meta vigente y su historial." },
+  { id: "get_team_performance", label: "Consultar equipo", risk: "read", description: "Rendimiento por vendedor del mes en curso." },
+  { id: "create_contact", label: "Crear contacto", risk: "write", description: "Da de alta un nuevo contacto en el CRM." },
+  { id: "create_deal", label: "Crear oportunidad", risk: "write", description: "Crea un deal en el pipeline activo." },
+  { id: "move_deal_stage", label: "Mover deal de etapa", risk: "write", description: "Cambia el stage de una oportunidad." },
+  { id: "add_note", label: "Agregar nota", risk: "write", description: "Registra una nota en un contacto o deal." },
+  { id: "create_task", label: "Crear tarea", risk: "write", description: "Programa un pendiente con fecha y responsable." },
+  { id: "prepare_whatsapp_message", label: "Preparar WhatsApp", risk: "write", description: "Redacta un borrador de mensaje — nunca envía sin confirmar." },
+];
+
 interface Capability {
   id: string;
   name: string;
