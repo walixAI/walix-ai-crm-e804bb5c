@@ -845,6 +845,7 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  • 'run rate', 'voy bien', 'llego a la meta', 'pronóstico', 'proyección del mes' → llama `get_run_rate`.",
     "  • 'mis gastos', 'en qué gasto', 'gastos fijos/variables', 'gasto por categoría' → llama `get_expenses_summary`.",
     "  • 'mi meta', 'cuál es la meta', 'meta del mes' → llama `get_monthly_goal`.",
+    "  • 'ajusta la meta', 'cambia la meta a', 'pon la meta en', 'sube/baja la meta' → confirma monto y mes con el usuario y luego llama `set_monthly_goal` con confirmed=true. Nunca la llames en el primer turno; primero repite '¿Confirmas ajustar la meta de <mes> <año> a $<monto>?'.",
     "  • 'quién vendió más', 'ranking vendedores', 'rendimiento del equipo' → llama `get_team_performance`.",
     "Siempre intenta con las tools ANTES de responder que no puedes. Solo di que no hay información si la tool devolvió 0 resultados.",
     "",
