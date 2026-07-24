@@ -196,10 +196,14 @@ const CRM_TOOLS = [
     type: "function",
     function: {
       name: "get_my_deals",
-      description: "Devuelve los deals abiertos asignados al usuario actual, ordenados por monto.",
+      description: "Devuelve deals abiertos. scope='mine' solo los del usuario; scope='tenant' TODOS los del negocio (usar cuando el usuario sea admin/owner o pregunte por 'oportunidades del mes', 'del equipo', 'del negocio'). Default: 'tenant' si el usuario es admin/owner, 'mine' en otro caso.",
       parameters: {
         type: "object",
-        properties: { limit: { type: "number", default: 10 } },
+        properties: {
+          limit: { type: "number", default: 20 },
+          scope: { type: "string", enum: ["mine", "tenant"] },
+          closing_this_month: { type: "boolean", description: "Si true, filtra por expected_close_date dentro del mes actual." },
+        },
         additionalProperties: false,
       },
     },
@@ -527,16 +531,35 @@ async function executeTool(
 
       case "get_my_deals": {
         const limit = Math.min(50, Number(args.limit ?? 10));
-        const { data, error } = await sb.from("deals")
-          .select("id, name, amount, stage_name, contact_id, updated_at")
+        // Detectar si el usuario es admin/owner para default de scope
+        const { data: rolesRows } = await sb.from("user_roles")
+          .select("role").eq("user_id", userId);
+        const isAdmin = (rolesRows ?? []).some((r: any) =>
+          ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"].includes(r.role));
+        const scope = args.scope ?? (isAdmin ? "tenant" : "mine");
+        let q = sb.from("deals")
+          .select("id, name, amount, stage_name, contact_id, owner_id, expected_close_date, updated_at")
           .eq("tenant_id", tenantId)
-          .eq("owner_id", userId)
           .eq("is_won", false)
-          .eq("is_lost", false)
-          .order("amount", { ascending: false })
-          .limit(limit);
+          .eq("is_lost", false);
+        if (scope === "mine") q = q.eq("owner_id", userId);
+        if (args.closing_this_month) {
+          const now = new Date();
+          const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+          const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+          q = q.gte("expected_close_date", first).lte("expected_close_date", last);
+        }
+        const { data, error } = await q.order("amount", { ascending: false }).limit(limit);
         if (error) return { ok: false, error: error.message };
-        return { ok: true, count: (data ?? []).length, deals: data ?? [] };
+        const deals = data ?? [];
+        const ownerIds = [...new Set(deals.map((d: any) => d.owner_id).filter(Boolean))];
+        const owners = ownerIds.length
+          ? (await sb.from("profiles").select("id, full_name, email").in("id", ownerIds)).data ?? []
+          : [];
+        const oMap = new Map(owners.map((o: any) => [o.id, o.full_name ?? o.email]));
+        const enriched = deals.map((d: any) => ({ ...d, owner_name: d.owner_id ? oMap.get(d.owner_id) ?? null : null }));
+        const totalAmount = enriched.reduce((s: number, d: any) => s + Number(d.amount ?? 0), 0);
+        return { ok: true, scope, count: enriched.length, total_amount: totalAmount, deals: enriched };
       }
 
       case "get_profitability":
