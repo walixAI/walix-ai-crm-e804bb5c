@@ -462,15 +462,6 @@ export function CopilotDrawer() {
                   <Plus className="h-3 w-3" /> Nueva
                 </Button>
               )}
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={closeDrawer}
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
