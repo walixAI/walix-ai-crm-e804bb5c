@@ -60,16 +60,21 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
         <p className="text-sm leading-relaxed">
           {top?.text ?? `Sin sugerencias activas para ${contact.name} por ahora.`}
         </p>
+        {(() => {
+          const isCallCta = top?.action === "task";
+          return (
         <div className="flex flex-wrap gap-2 mt-3">
           <Button onClick={handlePrimary} size="sm" className="bg-success hover:bg-success/90 text-success-foreground h-8">
-            {top?.action === "task"
+            {isCallCta
               ? <Phone className="h-3.5 w-3.5" />
               : <Send className="h-3.5 w-3.5" />}
             {top?.cta ?? "Enviar por WhatsApp"}
           </Button>
-          <Button variant="outline" size="sm" className="h-8" onClick={handleScheduleCall}>
-            <Phone className="h-3.5 w-3.5" /> Agendar llamada
-          </Button>
+          {!isCallCta && (
+            <Button variant="outline" size="sm" className="h-8" onClick={handleScheduleCall}>
+              <Phone className="h-3.5 w-3.5" /> Agendar llamada
+            </Button>
+          )}
           {suggestions.length > 1 && (
             <Button
               variant="ghost"
@@ -81,6 +86,8 @@ export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
             </Button>
           )}
         </div>
+          );
+        })()}
       </div>
 
       {/* Últimos eventos */}
