@@ -1,87 +1,66 @@
 
-## Gastos automáticos: plantillas + reglas por deal + captura rápida
+# Cierre inteligente de pendientes
 
-Objetivo: que el gestor casi no capture gastos manualmente. Se implementan las 3 capas (A + B + C) con el flujo híbrido que usan los negocios ágiles: **fijos se auto-confirman, variables quedan como borrador de 1 clic**.
+Hoy en Mi Día un pendiente se cierra con un simple click en el ícono de check, sin verificar si realmente hubo contacto con el cliente. El objetivo es que "hecho" signifique **hecho de verdad**: hubo WhatsApp/email/llamada relacionado, o el usuario dejó evidencia explícita.
 
----
+## Cómo se resuelve cada tipo de pendiente
 
-### Pros y contras de cada capa
+Al pulsar "Marcar hecha" se abre un diálogo que **detecta automáticamente el canal** según el tipo de tarea (`task_kind`) y sugiere la acción más adecuada. No se cierra la tarea hasta que exista evidencia válida — con una excepción: llamadas (checkbox manual, no medibles).
 
-**A) Fijos recurrentes**
-- Pros: eliminas 80% de la captura repetitiva (renta, nómina, internet). Los montos son predecibles.
-- Contras: si algo cambia (aumentó la luz) y nadie edita, quedan datos viejos. Se mitiga permitiendo editar el monto del mes actual sin tocar la plantilla.
+**Reglas por canal:**
 
-**B) Variables por deal ganado**
-- Pros: cada venta arrastra automáticamente su costo (comisión, refacciones, viáticos). La rentabilidad refleja realidad sin trabajo extra.
-- Contras: las reglas pueden no cubrir 100% del caso real (una refacción especial costó más). Se mitiga con borrador editable antes de confirmar.
+| Tipo pendiente | Cómo se cierra automáticamente | Fallback manual |
+|---|---|---|
+| WhatsApp (seguimiento, cobro, reactivación) | Se abre el composer con un **borrador contextual** ("Hola Ana, sigo pendiente de tu decisión sobre…"). Al enviarse, si el texto contiene ≥1 palabra clave relacionada al pendiente, se cierra sola. | "No pude contactar" → pide motivo + reagenda |
+| Email (cobro, propuesta) | Igual que WhatsApp: borrador prellenado, envío desde Walix cierra la tarea si el asunto/cuerpo contiene keywords del pendiente. | "No pude contactar" |
+| Llamada | **Checkbox visible obligatorio** con resultado (Contestó / No contestó / Buzón) + nota corta obligatoria de 1 línea con el próximo paso. | — |
+| Otro (visita, tarea interna) | Nota obligatoria describiendo qué pasó. | — |
 
-**C) Captura ultra-rápida**
-- Pros: para lo imprevisto (gasolina extra, comida con cliente), 3 segundos desde WhatsApp o Mi Día.
-- Contras: requiere disciplina mínima. El recordatorio semanal ayuda.
+**Validación de "texto relacionado" para WhatsApp/email:** se extraen keywords del título del pendiente (ej. "Reactivar contacto Silva Catering" → `["silva", "catering", "reactivar"]` o para "Cobrar deal X" → `["pago", "cobro", "factura", nombre del deal]`) y el mensaje enviado debe contener al menos una. Si no, se muestra advertencia: *"Este mensaje no parece relacionado al pendiente. ¿Quieres cerrar la tarea de todos modos?"* con opción de "Editar mensaje" o "Sí, cerrar".
 
-### Cómo lo hacen los negocios ágiles (recomendación)
+## Reagendar inteligente cuando no se resuelve
 
-**Híbrido con borradores para variables:**
-- Fijos → auto-confirmados el día 1 del mes. Predecibles, casi no fallan.
-- Variables por deal → generan **borrador** cuando el deal pasa a ganado. Aparecen en un panel "Por confirmar" en el DealDrawer y en Gastos. El gestor da 1 clic para aprobar o ajusta el monto.
-- Manuales rápidos → botón flotante + comando WhatsApp.
+Si el usuario elige "No contestó / No respondió / Reagendar", el sistema propone la **fecha más pertinente** según contexto:
 
-Este patrón es el que usan herramientas tipo QuickBooks/Xero: nadie recuerda capturar, el sistema propone, el humano solo aprueba diferencias.
+- **Cierre de mes cercano** (últimos 3 días hábiles del mes) + deal con `expected_close_date` este mes → **reintentar hoy en 2 horas**.
+- **Deal en etapa "Negociación" o "Propuesta"** con `probability ≥ 70` → **mañana temprano** (9:00 hora local).
+- **Deal en "Seguimiento"** o probabilidad media → **en 2 días**.
+- **Contacto frío / sin deal activo** → **en 5 días**.
+- **Cobro vencido** → **mañana mismo**, prioridad alta.
 
-### Reglas por tipo de deal (tu duda sobre mantenimiento vs venta)
+El usuario ve la sugerencia con 1 tap ("Reagendar mañana 9:00 ✓") y puede sobrescribir con un date picker.
 
-Cada categoría de gasto variable tendrá una **regla con filtro por tipo de deal**:
+## Detección automática de fondo (sin tocar el botón)
 
-- **Mantenimiento/servicio** → plantilla fija sugerida (ej. Refacciones $800 + Viáticos $300 + Comisión 5%). Editable al confirmar.
-- **Venta de refacción** → costo de compra en % (ej. 60% del precio de venta) + Envío $200.
-- **Venta nueva** → Comisión vendedor % + costo del equipo (capturado al crear el deal en un nuevo campo opcional `cost_amount`).
+Un mecanismo pasivo cierra pendientes sin acción del usuario cuando:
 
-Cada regla tiene: categoría, tipo de aplicación (`%_deal` | `monto_fijo` | `%_desde_costo`), valor, y filtro `deal_type` (venta/servicio/refaccion/todos). Todo editable por tenant en Configuración → Gastos → Reglas.
+- Se envía un WhatsApp desde Walix al contacto vinculado a la tarea **con texto relacionado** al pendiente (mismas keywords) **dentro de las 24 h siguientes** a la creación de la tarea → la tarea se marca `completed` automáticamente y aparece toast en Mi Día: *"Cerré 'Reactivar Silva Catering' porque enviaste WhatsApp"*.
+- Se registra una llamada o email con el contacto vinculado en las mismas condiciones → igual auto-cierre.
 
----
+Esto se hace del lado de la app (React Query invalidation + un hook que corre al enviar un mensaje/registrar actividad), no requiere edge function nueva.
 
-### Cambios en datos (migración)
+## Feed de evidencia en el perfil del contacto
 
-- **Nueva tabla `recurring_expenses`**: `tenant_id`, `category_id`, `amount`, `day_of_month` (1-28), `description`, `is_active`, timestamps.
-- **Nueva tabla `expense_rules`**: `tenant_id`, `category_id`, `name`, `rule_type` (`percent_of_deal` | `fixed_per_deal` | `percent_of_cost`), `value` (numeric), `deal_type_filter` (text nullable: null=todos), `auto_confirm` (bool, default false), `is_active`, timestamps.
-- **`expenses`** gana columnas: `status` (`draft` | `confirmed`, default `confirmed`), `source` (`manual` | `recurring` | `rule` | `whatsapp`, default `manual`), `rule_id` (fk nullable), `recurring_id` (fk nullable). Los gastos actuales quedan como `confirmed` + `manual`.
-- **`deals`** gana columna opcional `cost_amount` (numeric, para venta de equipo con costo directo).
-- Todas con GRANTs, RLS igual que las existentes, y triggers de `updated_at`.
+En `PendingList` cada tarea completada muestra un pequeño resumen bajo el título: *"Cerrada por WhatsApp · 18 jul, 10:30"* o *"Llamada — No contestó — Reagendada"*. Así el gestor y el gerente pueden auditar qué realmente ocurrió.
 
-### Jobs y triggers
+## Cambios técnicos
 
-- **Cron mensual día 1 07:00**: función `generate_recurring_expenses()` recorre `recurring_expenses` activos por tenant y crea `expenses` con `source='recurring'`, `status='confirmed'`, `incurred_at` = día del mes definido, evitando duplicados por (tenant, recurring_id, mes).
-- **Trigger en `deals`** al pasar a `is_won=true`: función `generate_deal_expense_drafts()` evalúa `expense_rules` activas cuyo `deal_type_filter` case, calcula monto y crea `expenses` con `source='rule'`, `status='draft'`, `deal_id` ligado.
-- Solo cuentan gastos `status='confirmed'` en la rentabilidad; los borradores se muestran aparte como "pendientes de confirmar".
+- **`CloseTaskDialog.tsx`**: reescrito para
+  - Detectar canal sugerido a partir de `task.task_kind` (ya existe el campo).
+  - Componer borrador de mensaje contextual (helper nuevo `buildDraftMessage(task, contact)`).
+  - Validar keywords antes de cerrar cuando canal = WhatsApp/email.
+  - Ofrecer bloque "Reagendar" con sugerencia calculada por `suggestReschedule(task, deal)`.
+- **`src/lib/tasks/closure.ts`** (nuevo): utilidades puras
+  - `extractKeywords(title)` — quita stopwords, devuelve tokens.
+  - `messageMatchesTask(text, task, contact)` — booleano.
+  - `suggestReschedule(task, deal, today)` — devuelve `{ date, reason }`.
+- **`src/lib/queries/tasks.ts`**: nueva mutación `useRescheduleTask({ id, dueAt, reason })` que además crea una `activity` de tipo `note` con la razón.
+- **`src/components/whatsapp/Composer.tsx`** / hook de envío: al enviar un mensaje, invocar `autoCloseRelatedTasks(contactId, text)` que consulta tareas abiertas del contacto y cierra las que hagan match por keywords.
+- **`PendingList.tsx`** / `JumboColumn` en Mi Día: al cliquear el check en un pendiente que no sea llamada/otro, abre directamente `CloseTaskDialog` en modo canal detectado (ya lo hace en `PendingList`; falta hacerlo también en Mi Día — hoy Mi Día usa `onToggle` directo sin diálogo).
+- **`tasks` schema**: agregar columnas opcionales `closed_via text` (`whatsapp` | `email` | `call` | `manual` | `auto`), `closed_note text`, `closed_at timestamptz`. Migración con GRANTs correspondientes.
 
-### UI
+## Fuera de alcance (para una fase siguiente)
 
-- **`src/pages/app/Expenses.tsx`**: nueva sección arriba "Por confirmar" (X borradores, botón "Confirmar todos" + lista con editar/aprobar/descartar). Toggle para incluir/excluir borradores en totales.
-- **DealDrawer** (`src/components/pipeline/DealDrawer.tsx`): panel "Gastos de este deal" mostrando reales + borradores generados por reglas, con botón "Confirmar" inline. Al crear/editar deal, campo opcional "Costo del producto".
-- **Configuración → Gastos** (`ExpenseCategoriesTab.tsx`): 3 sub-pestañas
-  - Categorías (ya existe)
-  - **Fijos mensuales** — CRUD de `recurring_expenses` con preview "el próximo mes se generarán $X"
-  - **Reglas por venta** — CRUD de `expense_rules` con selector de tipo de deal y explicación en lenguaje natural ("Por cada servicio, agrega $800 de Refacciones")
-- **Mi Día** (`MiDia.tsx`): botón flotante "+ Gasto rápido" (FAB abajo-derecha) que abre `ExpenseFormDialog`. Chip en RunRateCard si hay borradores pendientes.
-- **Recordatorio semanal viernes**: si no hay gastos manuales en la semana, banner en Mi Día "¿Tuviste gastos esta semana? Regístralos en 1 clic".
-
-### WhatsApp: comando "gasto"
-
-- En `whatsapp-ai-command/index.ts`, nueva intención `create_expense`. El vendedor autorizado escribe `gasto 450 gasolina` o `gasto 1200 refacciones para deal Juan Pérez`. El bot parsea monto + categoría (fuzzy match con `expense_categories`) + deal opcional, crea el gasto y responde "✅ Registrado: $450 Gasolina (variable)".
-- Categoría no encontrada → pide confirmar cuál usar con quick reply.
-
-### Queries y hooks
-
-- **`src/lib/queries/expenses.ts`** amplía: `useRecurringExpenses`, `useUpsertRecurring`, `useDeleteRecurring`, `useExpenseRules`, `useUpsertRule`, `useDeleteRule`, `useDraftExpenses`, `useConfirmExpense`, `useConfirmAllDrafts`.
-- `useMonthProfitability` filtra por `status='confirmed'` y expone `pendingDrafts` count.
-
-### Fuera de alcance esta iteración
-- Aprobación multi-nivel (jefe aprueba gastos de vendedor).
-- OCR de tickets fotográficos.
-- Presupuesto por categoría con alertas.
-- Split de un gasto entre varios deals.
-- Recurrencias no mensuales (trimestral, anual).
-
----
-
-¿Apruebas y arranco con la migración + UI + trigger + cron + comando WhatsApp?
+- Integración con marcador telefónico nativo.
+- Confirmación por respuesta del cliente ("se cierra cuando el cliente contesta"). Por ahora WhatsApp cuenta como hecho al enviar; el status de "esperando respuesta" queda para después.
+- Aprendizaje por AI de qué reagenda funciona mejor (podemos alimentar `ai_outcome_feedback` con estos cierres para que el Aprendiz lo capture, pero sin cambios de UI).
