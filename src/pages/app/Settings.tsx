@@ -15,6 +15,7 @@ import { MyAIProfileTab } from "@/components/settings/me/MyAIProfileTab";
 import { GoalsTab } from "@/components/settings/goals/GoalsTab";
 import { ExpenseCategoriesTab } from "@/components/settings/expenses/ExpenseCategoriesTab";
 import { CopilotCapabilitiesTab } from "@/components/settings/copilot/CopilotCapabilitiesTab";
+import { WidgetsTab } from "@/components/settings/widgets/WidgetsTab";
 import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
 
 const TABS = [
@@ -24,6 +25,7 @@ const TABS = [
   { id: "contacts", label: "Contactos" },
   { id: "goals", label: "Metas" },
   { id: "expenses", label: "Gastos" },
+  { id: "widgets", label: "Tarjetas" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "modules", label: "Módulos" },
   { id: "agents", label: "Agentes IA" },
@@ -95,6 +97,7 @@ export default function Settings() {
         <TabsContent value="contacts"><ContactsSettingsTab /></TabsContent>
         <TabsContent value="goals"><GoalsTab /></TabsContent>
         <TabsContent value="expenses"><ExpenseCategoriesTab /></TabsContent>
+        <TabsContent value="widgets"><WidgetsTab /></TabsContent>
         <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="modules"><ModulesTab /></TabsContent>
         <TabsContent value="agents"><AgentsTab tenantId={tenantId} /></TabsContent>
