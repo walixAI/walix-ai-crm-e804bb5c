@@ -204,6 +204,69 @@ const CRM_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_profitability",
+      description: "Rentabilidad del tenant en un mes: ventas ganadas, gastos confirmados (fijos + variables), utilidad y margen %. Úsala para 'rentabilidad', 'margen', 'utilidad', 'cuánto gané', 'cuánto gasté vs vendí'.",
+      parameters: {
+        type: "object",
+        properties: {
+          year: { type: "number", description: "Año (default: mes actual)" },
+          month: { type: "number", description: "Mes 1-12 (default: mes actual)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_run_rate",
+      description: "Run Rate del mes en curso: ventas ganadas MTD, ritmo diario, proyección fin de mes y % vs meta. Úsala para 'run rate', 'voy bien', 'llego a la meta', 'pronóstico del mes'.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_expenses_summary",
+      description: "Resumen de gastos del tenant en un mes agrupados por categoría y por tipo (fijo/variable). Úsala para 'mis gastos', 'en qué gasto', 'cuánto llevo de gastos'.",
+      parameters: {
+        type: "object",
+        properties: {
+          year: { type: "number" },
+          month: { type: "number" },
+          status: { type: "string", enum: ["confirmed", "draft", "all"], default: "confirmed" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_monthly_goal",
+      description: "Devuelve la meta mensual del tenant (total y por tipo de deal) para el mes indicado o el mes actual.",
+      parameters: {
+        type: "object",
+        properties: { year: { type: "number" }, month: { type: "number" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_team_performance",
+      description: "Rendimiento del equipo del tenant en el mes: deals ganados y monto por vendedor (owner).",
+      parameters: {
+        type: "object",
+        properties: { year: { type: "number" }, month: { type: "number" } },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────
