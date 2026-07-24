@@ -8,6 +8,27 @@ import { toast } from "sonner";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import { NewCapabilityWizard } from "./NewCapabilityWizard";
 
+// Catálogo nativo del Copiloto (debe coincidir con supabase/functions/ai-copilot y copilot-builder).
+const NATIVE_CAPABILITIES: { id: string; label: string; risk: "read" | "write"; description: string }[] = [
+  { id: "search_contacts", label: "Buscar contactos", risk: "read", description: "Busca contactos por nombre, teléfono o email." },
+  { id: "get_contact_context", label: "Leer contexto de contacto", risk: "read", description: "Resumen IA, hechos clave y últimos eventos de un contacto." },
+  { id: "get_pipeline_status", label: "Consultar pipeline", risk: "read", description: "KPIs del pipeline: abiertos, ganados, perdidos y monto en curso." },
+  { id: "get_my_tasks", label: "Consultar pendientes", risk: "read", description: "Lista tus tareas o las del tenant si eres admin." },
+  { id: "get_my_suggestions", label: "Sugerencias proactivas", risk: "read", description: "Devuelve las sugerencias generadas por los agentes IA." },
+  { id: "get_my_deals", label: "Consultar oportunidades", risk: "read", description: "Deals abiertos, filtrables por cierre en el mes." },
+  { id: "get_profitability", label: "Consultar rentabilidad", risk: "read", description: "Margen del mes vs. gastos e ingresos." },
+  { id: "get_run_rate", label: "Consultar run-rate", risk: "read", description: "Proyección de cierre de mes vs. meta." },
+  { id: "get_expenses_summary", label: "Consultar gastos", risk: "read", description: "Totales de gastos fijos y variables del periodo." },
+  { id: "get_monthly_goal", label: "Consultar meta del mes", risk: "read", description: "Meta vigente y su historial." },
+  { id: "get_team_performance", label: "Consultar equipo", risk: "read", description: "Rendimiento por vendedor del mes en curso." },
+  { id: "create_contact", label: "Crear contacto", risk: "write", description: "Da de alta un nuevo contacto en el CRM." },
+  { id: "create_deal", label: "Crear oportunidad", risk: "write", description: "Crea un deal en el pipeline activo." },
+  { id: "move_deal_stage", label: "Mover deal de etapa", risk: "write", description: "Cambia el stage de una oportunidad." },
+  { id: "add_note", label: "Agregar nota", risk: "write", description: "Registra una nota en un contacto o deal." },
+  { id: "create_task", label: "Crear tarea", risk: "write", description: "Programa un pendiente con fecha y responsable." },
+  { id: "prepare_whatsapp_message", label: "Preparar WhatsApp", risk: "write", description: "Redacta un borrador de mensaje — nunca envía sin confirmar." },
+];
+
 interface Capability {
   id: string;
   name: string;
@@ -73,6 +94,40 @@ export function CopilotCapabilitiesTab() {
         </Button>
       </div>
 
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold">Capacidades nativas del Copiloto</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Estas son las primitivas incluidas por defecto. Están siempre disponibles y son los bloques con los que se componen las capacidades personalizadas.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {NATIVE_CAPABILITIES.map((c) => (
+            <Card key={c.id} className="p-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium">{c.label}</span>
+                <Badge
+                  variant={c.risk === "write" ? "default" : "secondary"}
+                  className="text-[10px] uppercase"
+                >
+                  {c.risk === "write" ? "Ejecuta" : "Solo lee"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
+              <p className="text-[10px] text-muted-foreground font-mono mt-1 opacity-70">{c.id}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold">Capacidades personalizadas de este tenant</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Recetas creadas con Walix Builder que combinan las primitivas anteriores.
+          </p>
+        </div>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : items.length === 0 ? (
@@ -130,6 +185,7 @@ export function CopilotCapabilitiesTab() {
           ))}
         </div>
       )}
+      </section>
 
       <NewCapabilityWizard
         open={wizardOpen}
