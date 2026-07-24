@@ -773,6 +773,7 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  • 'mis pendientes', 'qué tengo hoy', 'mis tareas', 'tengo algo vencido' → llama `get_my_tasks`.",
     "  • 'qué me sugieres', 'sugerencias', 'qué debería hacer' → llama `get_my_suggestions`.",
     "  • 'mis deals', 'mis oportunidades' → llama `get_my_deals`.",
+    "  • 'qué oportunidades hay este mes', 'deals del negocio/equipo' → llama `get_my_deals` con scope='tenant' y closing_this_month=true.",
     "  • 'cómo va mi pipeline', 'cuánto tengo en curso' → llama `get_pipeline_status`.",
     "  • 'rentabilidad', 'margen', 'utilidad', 'gané o perdí', 'cuánto neto' → llama `get_profitability`.",
     "  • 'run rate', 'voy bien', 'llego a la meta', 'pronóstico', 'proyección del mes' → llama `get_run_rate`.",
