@@ -263,6 +263,36 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "set_monthly_goal",
+      description:
+        "Ajusta la meta mensual del tenant. Solo tenant_owner/tenant_admin/org_owner. No permite meses pasados. Antes de llamarla, SIEMPRE confirma con el usuario mes/año y monto total en pesos.",
+      parameters: {
+        type: "object",
+        properties: {
+          year: { type: "number", description: "Año de la meta (default: año actual)" },
+          month: { type: "number", description: "Mes 1-12 (default: mes actual)" },
+          total: { type: "number", description: "Monto total de la meta en la moneda del tenant" },
+          by_type: {
+            type: "object",
+            description: "Desglose opcional por tipo de deal",
+            properties: {
+              venta: { type: "number" },
+              servicio: { type: "number" },
+              refaccion: { type: "number" },
+            },
+            additionalProperties: false,
+          },
+          note: { type: "string", description: "Nota corta sobre por qué se ajusta" },
+          confirmed: { type: "boolean", description: "Debe ser true — el usuario ya confirmó explícitamente el cambio." },
+        },
+        required: ["total", "confirmed"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_team_performance",
       description: "Rendimiento del equipo del tenant en el mes: deals ganados y monto por vendedor (owner).",
       parameters: {
@@ -618,6 +648,42 @@ async function executeTool(
           return { ok: true, year, month, source: "tenant_default", ...(t ?? {}) };
         }
 
+        if (name === "set_monthly_goal") {
+          if (args.confirmed !== true) {
+            return { ok: false, error: "Falta confirmación del usuario. Pregunta y confirma monto y mes antes de reintentar con confirmed=true." };
+          }
+          const total = Number(args.total);
+          if (!Number.isFinite(total) || total < 0) {
+            return { ok: false, error: "Monto inválido." };
+          }
+          const bt = args.by_type ?? {};
+          const by_type = {
+            venta: Number(bt.venta ?? 0),
+            servicio: Number(bt.servicio ?? 0),
+            refaccion: Number(bt.refaccion ?? 0),
+          };
+          const { data: inserted, error } = await sb.from("tenant_monthly_goals").insert({
+            tenant_id: tenantId,
+            period_year: year,
+            period_month: month,
+            monthly_goal_total: total,
+            monthly_goal_by_type: by_type,
+            note: args.note ?? null,
+            created_by: userId,
+          }).select("id, period_year, period_month, monthly_goal_total, monthly_goal_by_type").single();
+          if (error) {
+            const msg = String(error.message ?? "");
+            if (msg.includes("metas de meses pasados") || error.code === "23514") {
+              return { ok: false, error: "No se puede modificar la meta de un mes pasado." };
+            }
+            if (msg.toLowerCase().includes("row-level security") || error.code === "42501") {
+              return { ok: false, error: "Solo administradores del tenant pueden ajustar la meta." };
+            }
+            return { ok: false, error: msg };
+          }
+          return { ok: true, updated: inserted };
+        }
+
         // Gastos del periodo
         const statusFilter = String(args.status ?? "confirmed");
         let expQ = sb.from("expenses")
@@ -779,6 +845,7 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  • 'run rate', 'voy bien', 'llego a la meta', 'pronóstico', 'proyección del mes' → llama `get_run_rate`.",
     "  • 'mis gastos', 'en qué gasto', 'gastos fijos/variables', 'gasto por categoría' → llama `get_expenses_summary`.",
     "  • 'mi meta', 'cuál es la meta', 'meta del mes' → llama `get_monthly_goal`.",
+    "  • 'ajusta la meta', 'cambia la meta a', 'pon la meta en', 'sube/baja la meta' → confirma monto y mes con el usuario y luego llama `set_monthly_goal` con confirmed=true. Nunca la llames en el primer turno; primero repite '¿Confirmas ajustar la meta de <mes> <año> a $<monto>?'.",
     "  • 'quién vendió más', 'ranking vendedores', 'rendimiento del equipo' → llama `get_team_performance`.",
     "Siempre intenta con las tools ANTES de responder que no puedes. Solo di que no hay información si la tool devolvió 0 resultados.",
     "",

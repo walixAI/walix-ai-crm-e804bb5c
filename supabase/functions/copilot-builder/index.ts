@@ -35,6 +35,7 @@ const PRIMITIVES = [
   { id: "add_note", label: "Agregar nota", risk: "write" },
   { id: "create_task", label: "Crear tarea / pendiente", risk: "write" },
   { id: "prepare_whatsapp_message", label: "Preparar borrador de WhatsApp", risk: "write" },
+  { id: "set_monthly_goal", label: "Ajustar meta del mes", risk: "write" },
 ];
 
 const SYSTEM_PROMPT = `Eres "Walix Builder", el arquitecto de capacidades del Copiloto Walix.
