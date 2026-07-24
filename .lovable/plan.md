@@ -1,90 +1,86 @@
-# Metas granulares por agente + Run Rate y rentabilidad individual
 
-Extendemos el modelo actual de `tenant_monthly_goals` (hoy solo global) para soportar metas por **tipo de deal**, **pipeline** y **categoría/producto propio**, con reparto por porcentaje entre los vendedores elegidos. Encima construimos vistas de Run Rate y rentabilidad por usuario, tablero de equipo y ranking.
+# Tarjetas configurables (Dashboard + Mi Día)
 
-## 1. Modelo de datos (backend)
+Sistema unificado de "widgets" que aplica a las dos pantallas. El admin define un layout base por rol, y cada usuario puede ocultar/reordenar (sin eliminar las obligatorias). Se entrega en 3 fases.
 
-**Nuevo catálogo de productos/servicios propios del tenant**
-- `product_categories`: `id`, `tenant_id`, `name`, `is_active`, `position`.
-- Opcional en `deals`: `product_category_id` (nullable, para poder atribuir un deal a una categoría cuando aplique).
+## Modelo de datos (una sola vez, base de las 3 fases)
 
-**Metas por dimensión (reemplaza gradualmente el uso plano de `tenant_monthly_goals`)**
-- `monthly_goals`
-  - `tenant_id`, `period_year`, `period_month`, `amount`, `currency`
-  - `dimension`: `global` | `deal_type` | `pipeline` | `product_category`
-  - `dimension_value` (texto para `deal_type`, uuid para pipeline/category, null para global)
-  - Único por (tenant, año, mes, dimension, dimension_value)
-  - Misma protección de meses pasados que hoy (`tenant_monthly_goals_no_past`).
-- `monthly_goal_assignments`
-  - `goal_id` → `monthly_goals.id`
-  - `user_id`
-  - `share_percent` (0–100) y `amount` calculado
-  - Suma de `share_percent` por `goal_id` debe = 100 (validación en trigger).
-- `monthly_goal_history` (auditoría de cambios del mes en curso, igual que hoy).
+Tablas nuevas:
 
-**Ejecución (para Run Rate / rentabilidad individual)**
-- Vista `deals_won_by_user_month`: suma `amount` y `cost_amount` de deals ganados por `owner_id`, mes, `deal_type`, `pipeline_id`, `product_category_id`.
-- Vista `expenses_by_owner_month`: gastos con `owner_id` + gastos ligados a deals ganados del vendedor (`expenses.deal_id`).
-- Función `get_user_run_rate(tenant, user, year, month)` y `get_user_profitability(...)` para reutilizar en Mi Día y tablero.
+- `dashboard_widgets`: catálogo de widgets nativos y personalizados del tenant.
+  - `id`, `tenant_id` (null = nativo global), `key` (slug único por tenant), `title`, `description`
+  - `surface` enum: `dashboard` | `mi_dia` | `both`
+  - `kind` enum: `native` | `custom_metric`
+  - `native_key` (para nativos: `run_rate`, `profitability`, `won_sales`, `tasks_today`, etc.)
+  - `config` jsonb (para custom: métrica, dimensión, filtros, visualización)
+  - `min_role` enum: `user` | `admin` | `owner`  (quién puede ver)
+  - `is_active`, `is_mandatory` (usuario no puede ocultarla), `created_by`
+- `dashboard_layouts`: layout por scope.
+  - `id`, `tenant_id`, `scope` (`tenant_default` | `role:<rol>` | `user:<uuid>`), `surface`, `items` jsonb `[{widget_id, position, hidden?}]`
 
-## 2. UI de configuración de metas (Admin)
+Resolución del layout en runtime (cascada):
+`user override → role default → tenant default → catálogo nativo`.
 
-Pantalla **Configuración → Metas** rediseñada:
+RLS: admins escriben catálogo y defaults de tenant/rol; cada usuario escribe solo su propio scope `user:<uuid>`.
 
-```text
-┌───────────────────────────────────────────────────────────┐
-│ Meta de Julio 2026                              [+ Meta]  │
-├───────────────────────────────────────────────────────────┤
-│ Global .......................... $480,000  [editar]     │
-│ Por tipo de deal                                          │
-│   • Venta ....................... $300,000               │
-│   • Mantenimiento ............... $120,000               │
-│   • Refacciones ................. $ 60,000               │
-│ Por pipeline                                              │
-│   • Ventas Sub-Zero ............. $250,000               │
-│ Por categoría/producto                                    │
-│   • Refrigerador 36" ............ $180,000               │
-└───────────────────────────────────────────────────────────┘
-```
+## Fase 1 — Activar/desactivar y reordenar (MVP)
 
-Al crear/editar una meta:
-1. Elegir **dimensión** (global / deal_type / pipeline / product_category) y el valor.
-2. Capturar **monto total**.
-3. **Reparto entre agentes**: seleccionar vendedores → por defecto `share_percent` sugerido con **ponderado histórico** (ventas ganadas de los últimos 3 meses en esa dimensión). El admin puede ajustar a mano cada %; la UI valida que sume 100 y muestra el monto por vendedor en vivo.
-4. Guardado bloqueado en meses pasados (misma regla actual).
+Alcance: catálogo fijo de widgets nativos ya existentes en la app.
 
-Cátalogo de **Productos/Categorías** se administra en la misma sección (CRUD sencillo).
+Widgets nativos catalogados:
+- Dashboard: KPIs actuales, Run Rate, Rentabilidad, AI widgets (Pipeline Health, Opportunities, Risks, Executive Summary, Weekly Report), gráficas de reportes.
+- Mi Día: Tareas hoy, Por cobrar, Por cotizar, Servicios hoy, Seguimientos, Run Rate resumido, Rentabilidad resumida, Ventas ganadas.
 
-## 3. Run Rate y rentabilidad por vendedor
+UI:
+- Configuración → nueva pestaña **"Tarjetas"** (visible para admin/owner):
+  - Dos sub-tabs: Dashboard | Mi Día.
+  - Lista drag-and-drop de widgets con toggle activo/oculto y switch "obligatoria" (solo admin).
+  - Botón "Guardar como default del tenant" o "Guardar para rol X".
+- Botón discreto **"Personalizar"** en la esquina superior de Dashboard y Mi Día:
+  - Abre un sheet con la misma lista drag-and-drop pero limitada al scope `user:<uuid>`.
+  - No permite ocultar widgets marcados como obligatorios.
+  - Botón "Restablecer al default".
 
-**Mi Día (vendedor)**
-- La tarjeta actual de Run Rate ahora muestra dos filas: **Mi Run Rate** (contra la suma de sus asignaciones del mes) y **Run Rate del equipo** (colapsado).
-- Nueva tarjeta compacta **Mi rentabilidad**: margen = (mis ventas ganadas − gastos atribuidos a mis deals) / mis ventas ganadas. Mismos semáforos que la actual (verde/amarillo/rojo).
+Refactor mínimo:
+- `Dashboard.tsx` y `MiDia.tsx` pasan a renderizar `<WidgetRenderer widgetKey=... />` iterando el layout resuelto.
+- Nuevo hook `useResolvedLayout(surface)` con la cascada.
 
-**Tablero de equipo (admin) — nueva ruta `/equipo`**
-- Tabla por vendedor con: meta asignada, ganado, run rate %, pronóstico fin de mes, gastos atribuidos, margen %, # deals abiertos, # deals ganados.
-- Filtro por dimensión (todas / tipo / pipeline / categoría) para ver el desglose.
-- Ranking ordenable por avance de meta y por margen.
+## Fase 2 — Crear tarjetas simples con asistente
 
-## 4. Copiloto
+Wizard "Nueva tarjeta" en Configuración → Tarjetas → botón "+ Crear tarjeta".
 
-Nuevas primitivas nativas para el catálogo de capacidades (ya que existe la infraestructura de `copilot_capabilities`):
-- `get_user_run_rate` (lectura, propia por defecto; admin puede scope=tenant).
-- `get_user_profitability` (lectura, misma regla).
-- `set_monthly_goal_assignment` (ejecución, admin, confirmación obligatoria) para ajustar el % de un vendedor por voz/chat.
+Pasos del wizard:
+1. **Métrica**: Ventas ganadas | Meta del mes | Run Rate | Gastos | Rentabilidad | Tareas | Deals abiertos | Contactos nuevos.
+2. **Dimensión** (opcional): global | por vendedor | por pipeline | por categoría | por tipo de deal.
+3. **Comparación** (opcional): vs meta | vs mes anterior | vs mismo mes año pasado.
+4. **Periodo**: hoy | esta semana | este mes | mes actual vs anterior.
+5. **Visualización**: KPI grande | KPI + progreso | lista top N | barra | mini gráfica.
+6. **Filtros**: por owner, por pipeline, por categoría, por estado.
+7. **Publicación**: superficie (Dashboard/Mi Día/ambas), scope (tenant/rol/usuario), visibilidad mínima por rol.
 
-## 5. Migración de lo existente
+Se guarda en `dashboard_widgets.kind='custom_metric'` con `config` jsonb. El `WidgetRenderer` incluye un `<CustomMetricWidget config={...} />` que consulta primitivas seguras server-side (misma capa que hoy usa Run Rate/Rentabilidad).
 
-- `tenant_monthly_goals` actual queda como `dimension='global'` en `monthly_goals` (copiamos los registros y dejamos el trigger de historial).
-- El código de `GoalsTab`, `RunRateCard`, `ProfitabilityCard` y `MiDia` se actualiza para leer del nuevo modelo, con fallback si un tenant aún no configuró desgloses.
+Ejemplo del enunciado del usuario ("Tarjeta RunRate cruzando ventas vs metas") se cubre eligiendo: métrica=Ventas ganadas, comparación=vs meta, periodo=este mes, visualización=KPI + progreso.
+
+## Fase 3 — Builder conversacional ("Walix Builder para tarjetas")
+
+Extiende el patrón ya existente en `copilot-builder`:
+- Nueva edge function `dashboard-widget-builder`.
+- El admin describe la tarjeta en lenguaje natural ("muéstrame ventas vs meta por vendedor este mes").
+- La función entrevista al admin (dimensión, periodo, filtros, visualización, scope, roles) y produce el mismo JSON `config` de la Fase 2.
+- Antes de activarla se muestra vista previa con datos reales.
+- Solo puede combinar primitivas del catálogo seguro (nada de SQL libre) para respetar RLS y tenant isolation.
+
+Punto de entrada: mismo botón "+ Crear tarjeta" con dos opciones: "Con asistente guiado" (Fase 2) o "Describir en lenguaje natural" (Fase 3).
 
 ## Detalles técnicos
 
-- **SQL**: nuevas tablas con `GRANT` a `authenticated`/`service_role` y RLS por `tenant_id` + `has_role` (`tenant_admin`/`tenant_owner` para escribir metas; vendedor puede leer sus asignaciones).
-- **Validación de %**: trigger `AFTER INSERT/UPDATE/DELETE` en `monthly_goal_assignments` que recalcula la suma por `goal_id` y lanza excepción si ≠ 100 al confirmar (permite estados intermedios usando una bandera `is_draft` en `monthly_goals`).
-- **Ponderado histórico**: función `suggest_goal_split(goal_id, user_ids[])` que devuelve `share_percent` sugerido usando ventas ganadas de los 3 meses previos en esa dimensión; si no hay historia, partes iguales.
-- **Rentabilidad por vendedor**: usa `expenses.deal_id` (ya existe) + `expenses.owner_id` para gastos no ligados a deal.
-- **Meses pasados**: reutilizamos `tenant_monthly_goals_no_past` adaptado al nuevo `monthly_goals`; asignaciones heredan la misma regla.
-- **Frontend**: nuevos componentes `GoalBuilderDialog`, `GoalSplitEditor`, `TeamDashboard`, más `useUserRunRate`/`useUserProfitability` hooks. Sin cambios en el diseño global.
+- Reutilizar `RunRateCard`, `ProfitabilityCard`, `RunRateChip`, `DashboardAiSection`, `TaskCards`, `MorningBriefing`, etc. envolviéndolos en un registry `WIDGET_REGISTRY: Record<nativeKey, ComponentType>`.
+- `dnd-kit` (ya disponible) para el drag-and-drop.
+- Guardar `ui_prefs.dashboard_layout` y `ui_prefs.mi_dia_layout` en `profiles` como shortcut del scope `user:<uuid>` (evita joins extra en el render).
+- Migración incluye `GRANT`s + policies + trigger de `updated_at`; seed inicial del catálogo nativo con los widgets actuales.
+- Copilot: agregar primitivas `list_dashboard_widgets`, `toggle_widget`, `reorder_widgets` para que el admin también configure por chat (opcional, al final de Fase 1).
 
-¿Avanzo con esto o quieres ajustar algún punto (por ejemplo, empezar solo con `deal_type` y dejar `product_category` para una fase 2)?
+## Entregable de esta iteración
+
+Aprobar el plan completo. Ejecución sugerida: Fase 1 primero (2-3 pasos de código: migración + registry + UI de configuración + botón Personalizar), luego Fase 2, luego Fase 3.
