@@ -45,10 +45,16 @@ export default function Whatsapp() {
   useEffect(() => {
     const convParam = searchParams.get("conversationId");
     const contactParam = searchParams.get("contactId");
+    const draftParam = searchParams.get("draft");
+    if (draftParam) {
+      setDraft(draftParam);
+      setAiDraftActive(true);
+    }
     if (convParam) {
       setActiveId(convParam);
       const next = new URLSearchParams(searchParams);
       next.delete("conversationId");
+      next.delete("draft");
       setSearchParams(next, { replace: true });
       return;
     }
@@ -58,6 +64,7 @@ export default function Whatsapp() {
         setActiveId(existing.id);
         const next = new URLSearchParams(searchParams);
         next.delete("contactId");
+        next.delete("draft");
         setSearchParams(next, { replace: true });
         return;
       }
@@ -78,9 +85,15 @@ export default function Whatsapp() {
         setActiveId(created.id);
         const next = new URLSearchParams(searchParams);
         next.delete("contactId");
+        next.delete("draft");
         setSearchParams(next, { replace: true });
       })();
       return;
+    }
+    if (draftParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("draft");
+      setSearchParams(next, { replace: true });
     }
     if (!activeId && conversations.length) setActiveId(conversations[0].id);
   }, [conversations, searchParams, user?.id]); // eslint-disable-line

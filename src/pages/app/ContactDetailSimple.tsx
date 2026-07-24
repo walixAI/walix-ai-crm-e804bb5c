@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronUp, History, MessageCircle, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContact, useContactActivity } from "@/lib/queries/contacts";
+import { useContactTasks } from "@/lib/queries/contacts";
+import { buildDraftMessage } from "@/lib/tasks/closure";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { SimpleContactHeader } from "@/components/contacts/simple/SimpleContactHeader";
@@ -15,6 +17,7 @@ export default function ContactDetailSimple() {
   const navigate = useNavigate();
   const { data: contact, isLoading } = useContact(id);
   const { data: activity = [] } = useContactActivity(id);
+  const { data: tasks = [] } = useContactTasks(id);
   const tour = useContactSimpleTour();
 
   if (isLoading) return <div className="p-6"><ContactDetailSkeleton /></div>;
@@ -27,7 +30,23 @@ export default function ContactDetailSimple() {
   }
 
   const focusTaskId = params.get("focus") === "task" ? params.get("taskId") : null;
-  const openWA = () => navigate(`/whatsapp?contactId=${contact.id}`);
+  const pending = tasks.filter((t) => !t.completed);
+  const primaryTask =
+    (focusTaskId && pending.find((t) => t.id === focusTaskId)) ||
+    pending[0] ||
+    null;
+  const openWA = () => {
+    const params = new URLSearchParams({ contactId: contact.id });
+    if (primaryTask) {
+      const draft = buildDraftMessage(
+        { title: primaryTask.title, task_kind: primaryTask.taskKind ?? null },
+        { firstName: contact.name },
+        null,
+      );
+      if (draft) params.set("draft", draft);
+    }
+    navigate(`/whatsapp?${params.toString()}`);
+  };
 
   const recent = activity
     .filter((a) => a.type === "note" || a.type === "wa_sent" || a.type === "wa_received")
