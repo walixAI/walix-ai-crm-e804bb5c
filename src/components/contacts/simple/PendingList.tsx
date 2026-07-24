@@ -14,7 +14,7 @@ interface Props {
 
 export function PendingList({ contactId, focusTaskId }: Props) {
   const { data: tasks = [] } = useContactTasks(contactId);
-  const [closing, setClosing] = useState<{ id: string; title: string } | null>(null);
+  const [closing, setClosing] = useState<{ id: string; title: string; taskKind: string | null; dueAt: string | null } | null>(null);
   const [newOpen, setNewOpen] = useState(false);
 
   const pending = useMemo(
@@ -67,7 +67,7 @@ export function PendingList({ contactId, focusTaskId }: Props) {
               <Button
                 size="lg"
                 className="h-12 text-base shrink-0"
-                onClick={() => setClosing({ id: t.id, title: t.title })}
+                onClick={() => setClosing({ id: t.id, title: t.title, taskKind: t.taskKind ?? null, dueAt: t.dueAt })}
               >
                 <CheckCircle2 className="mr-2 h-5 w-5" /> Marcar hecha
               </Button>
