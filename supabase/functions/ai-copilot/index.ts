@@ -165,6 +165,45 @@ const CRM_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_my_tasks",
+      description: "Devuelve tareas del usuario actual (pendientes por defecto). Úsala cuando el usuario pregunte por 'mis pendientes', 'mis tareas', 'qué tengo hoy', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          view: { type: "string", enum: ["today", "overdue", "upcoming", "all_open"], description: "today = vencen hoy; overdue = vencidas; upcoming = próximas 7 días; all_open = todas sin completar. Default: today+overdue combinado." },
+          limit: { type: "number", description: "Máx 50", default: 20 },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_my_suggestions",
+      description: "Devuelve las sugerencias proactivas activas para el usuario actual (no descartadas).",
+      parameters: {
+        type: "object",
+        properties: { limit: { type: "number", default: 10 } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_my_deals",
+      description: "Devuelve los deals abiertos asignados al usuario actual, ordenados por monto.",
+      parameters: {
+        type: "object",
+        properties: { limit: { type: "number", default: 10 } },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────
