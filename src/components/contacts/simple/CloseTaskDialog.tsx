@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -18,6 +19,7 @@ import { useRescheduleTask } from "@/lib/queries/tasks";
 import {
   suggestedChannel, buildDraftMessage, messageMatchesTask, suggestReschedule,
 } from "@/lib/tasks/closure";
+import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
 
 type Method = "whatsapp" | "call" | "other";
 type CallResult = "answered" | "no_answer" | "voicemail";
@@ -51,6 +53,7 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
   const [ackNoMatch, setAckNoMatch] = useState(false);
   const [sending, setSending] = useState(false);
   const [reschedReason, setReschedReason] = useState<string>("");
+  const [reschedWhen, setReschedWhen] = useState<string>("");
   const navigate = useNavigate();
   const { user } = useAuth();
   const toggle = useToggleContactTask(contactId);
@@ -72,6 +75,7 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
     setAckNoMatch(false);
     setCallResult("answered");
     setReschedReason(suggestion?.reason ?? "");
+    setReschedWhen(suggestion ? toLocalInput(suggestion.date) : "");
     setMessage(buildDraftMessage(
       { title: task.title, task_kind: task.taskKind },
       contact ?? null,
