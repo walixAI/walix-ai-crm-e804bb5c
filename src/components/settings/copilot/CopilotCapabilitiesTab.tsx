@@ -27,6 +27,7 @@ const NATIVE_CAPABILITIES: { id: string; label: string; risk: "read" | "write"; 
   { id: "add_note", label: "Agregar nota", risk: "write", description: "Registra una nota en un contacto o deal." },
   { id: "create_task", label: "Crear tarea", risk: "write", description: "Programa un pendiente con fecha y responsable." },
   { id: "prepare_whatsapp_message", label: "Preparar WhatsApp", risk: "write", description: "Redacta un borrador de mensaje — nunca envía sin confirmar." },
+  { id: "set_monthly_goal", label: "Ajustar meta del mes", risk: "write", description: "Cambia la meta mensual del tenant. Solo admins; nunca meses pasados; siempre confirma antes de guardar." },
 ];
 
 interface Capability {
