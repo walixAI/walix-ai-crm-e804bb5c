@@ -276,12 +276,23 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
                     ))}
                   </RadioGroup>
                 </div>
-                <div className="space-y-2">
-                  <Label>Nota corta con el próximo paso <span className="text-destructive">*</span></Label>
-                  <Textarea value={note} onChange={(e) => setNote(e.target.value)}
-                    placeholder="Ej. Va a pagar el viernes / pide llamar la próxima semana"
-                    rows={2} className="text-base" />
-                </div>
+                {callResult === "answered" ? (
+                  <div className="space-y-2">
+                    <Label>Nota corta con el próximo paso <span className="text-destructive">*</span></Label>
+                    <Textarea value={note} onChange={(e) => setNote(e.target.value)}
+                      placeholder="Ej. Va a pagar el viernes / pide llamar la próxima semana"
+                      rows={2} className="text-base" />
+                  </div>
+                ) : (
+                  <RescheduleInline
+                    when={reschedWhen}
+                    onWhen={setReschedWhen}
+                    reason={reschedReason}
+                    onReason={setReschedReason}
+                    suggestion={suggestion}
+                    headline={callResult === "no_answer" ? "No contestó — te sugiero reintentar" : "Buzón de voz — te sugiero reintentar"}
+                  />
+                )}
               </div>
             )}
 
@@ -296,23 +307,16 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
           </>
         )}
 
-        {mode === "reschedule" && suggestion && (
+        {mode === "reschedule" && (
           <div className="space-y-3 pt-2">
-            <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4">
-              <div className="text-sm text-muted-foreground">Sugerencia</div>
-              <div className="text-lg font-bold mt-0.5">
-                {suggestion.date.toLocaleString("es-MX", {
-                  weekday: "short", day: "2-digit", month: "short",
-                  hour: "2-digit", minute: "2-digit",
-                })}
-              </div>
-              <div className="text-sm text-primary mt-1">{suggestion.reason}</div>
-            </div>
-            <div className="space-y-2">
-              <Label>Motivo (opcional)</Label>
-              <Textarea value={reschedReason} onChange={(e) => setReschedReason(e.target.value)}
-                placeholder="Ej. Cliente pidió llamar el viernes" rows={2} className="text-base" />
-            </div>
+            <RescheduleInline
+              when={reschedWhen}
+              onWhen={setReschedWhen}
+              reason={reschedReason}
+              onReason={setReschedReason}
+              suggestion={suggestion}
+              headline="Sugerencia inteligente"
+            />
           </div>
         )}
 
