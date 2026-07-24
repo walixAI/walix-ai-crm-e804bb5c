@@ -374,7 +374,10 @@ async function buildSystemPrompt(
 ): Promise<string> {
   const nowMx = new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" });
 
-  const [{ data: profile }, { data: roles }, { data: pipeline }, { data: suggestions }] = await Promise.all([
+  const [{ data: tenant }, { data: profile }, { data: roles }, { data: pipeline }, { data: suggestions }] = await Promise.all([
+    sb.from("tenants")
+      .select("name, brand_name, industry, team_size, sales_channel, plan, currency, timezone, locale, monthly_goal_total, monthly_goal_by_type, whatsapp_phone")
+      .eq("id", tenantId).maybeSingle(),
     sb.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
     sb.from("user_roles").select("role").eq("user_id", userId),
     sb.from("pipelines").select("id, name").eq("tenant_id", tenantId)
@@ -406,6 +409,18 @@ async function buildSystemPrompt(
     "Hablas español, eres directo, conciso y orientado a acción.",
     "",
     `Hora local (CDMX): ${nowMx}`,
+    tenant ? [
+      `Empresa (tenant): "${tenant.brand_name ?? tenant.name}"`,
+      tenant.industry ? `  Industria: ${tenant.industry}` : "",
+      tenant.sales_channel ? `  Canal de ventas: ${tenant.sales_channel}` : "",
+      tenant.team_size ? `  Tamaño de equipo: ${tenant.team_size}` : "",
+      `  Plan: ${tenant.plan} | Moneda: ${tenant.currency} | Zona: ${tenant.timezone} | Locale: ${tenant.locale}`,
+      tenant.whatsapp_phone ? `  WhatsApp Business: ${tenant.whatsapp_phone}` : "",
+      Number(tenant.monthly_goal_total) > 0
+        ? `  Meta mensual: ${tenant.currency} ${Number(tenant.monthly_goal_total).toLocaleString("es-MX")} (desglose: ${JSON.stringify(tenant.monthly_goal_by_type)})`
+        : "",
+    ].filter(Boolean).join("\n") : "Empresa (tenant): sin datos",
+    "",
     `Usuario: ${profile?.full_name ?? profile?.email ?? "Operador"} | Roles: ${(roles ?? []).map((r: any) => r.role).join(", ") || "ninguno"}`,
     pipeline ? `Pipeline activo: "${pipeline.name}" — etapas: ${stages.map(s => s.name).join(" → ")}` : "Pipeline: sin configurar",
     "",
@@ -416,6 +431,8 @@ async function buildSystemPrompt(
     "",
     suggestions?.length ? `Top sugerencias proactivas pendientes:
 ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).join("\n")}` : "",
+    "",
+    "Usa siempre el nombre y contexto de la empresa cuando respondas o redactes mensajes. No hables como asistente genérico.",
     "",
     "REGLA DE ORO INVIOLABLE:",
     "Cuando el usuario pida enviar un WhatsApp, NUNCA llames otra cosa que no sea `prepare_whatsapp_message`.",
