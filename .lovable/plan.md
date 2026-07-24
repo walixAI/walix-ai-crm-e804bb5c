@@ -1,66 +1,150 @@
+## Flujo del "Copilot Builder" — crear capacidades por prompt
 
-# Cierre inteligente de pendientes
+El admin abre **Configuración → Copiloto → botón "+ Nueva capacidad"**. Se despliega un chat lateral con Walix Builder (un asistente separado, con permisos solo de leer el catálogo y escribir en `copilot_capabilities`). No es el mismo Copiloto que usan los vendedores.
 
-Hoy en Mi Día un pendiente se cierra con un simple click en el ícono de check, sin verificar si realmente hubo contacto con el cliente. El objetivo es que "hecho" signifique **hecho de verdad**: hubo WhatsApp/email/llamada relacionado, o el usuario dejó evidencia explícita.
+### Ejemplo real completo — paso a paso
 
-## Cómo se resuelve cada tipo de pendiente
+**Admin escribe:**
+> "Quiero que cuando le pida al Copiloto 'registra la venta de un refri X a Juan', me cree el deal como ganado, agregue una nota con el modelo y me programe una tarea de instalación en 3 días."
 
-Al pulsar "Marcar hecha" se abre un diálogo que **detecta automáticamente el canal** según el tipo de tarea (`task_kind`) y sugiere la acción más adecuada. No se cierra la tarea hasta que exista evidencia válida — con una excepción: llamadas (checkbox manual, no medibles).
+**Walix Builder responde con un análisis visual:**
 
-**Reglas por canal:**
+```
+Voy a componer esta capacidad con 3 acciones que ya tengo:
 
-| Tipo pendiente | Cómo se cierra automáticamente | Fallback manual |
-|---|---|---|
-| WhatsApp (seguimiento, cobro, reactivación) | Se abre el composer con un **borrador contextual** ("Hola Ana, sigo pendiente de tu decisión sobre…"). Al enviarse, si el texto contiene ≥1 palabra clave relacionada al pendiente, se cierra sola. | "No pude contactar" → pide motivo + reagenda |
-| Email (cobro, propuesta) | Igual que WhatsApp: borrador prellenado, envío desde Walix cierra la tarea si el asunto/cuerpo contiene keywords del pendiente. | "No pude contactar" |
-| Llamada | **Checkbox visible obligatorio** con resultado (Contestó / No contestó / Buzón) + nota corta obligatoria de 1 línea con el próximo paso. | — |
-| Otro (visita, tarea interna) | Nota obligatoria describiendo qué pasó. | — |
+┌─ Paso 1 ─────────────────────────────────
+│ Crear deal (create_deal)
+│   • Contacto: el que menciones ("Juan")
+│   • Monto: el que digas
+│   • Estado: Ganado
+├─ Paso 2 ─────────────────────────────────
+│ Agregar nota (add_note)
+│   • Contenido: el modelo del refri
+│   • Vinculada al deal recién creado
+├─ Paso 3 ─────────────────────────────────
+│ Crear tarea (create_task)
+│   • Título: "Instalación de <modelo>"
+│   • Fecha: hoy + 3 días
+│   • Asignada al mismo vendedor
+└──────────────────────────────────────────
 
-**Validación de "texto relacionado" para WhatsApp/email:** se extraen keywords del título del pendiente (ej. "Reactivar contacto Silva Catering" → `["silva", "catering", "reactivar"]` o para "Cobrar deal X" → `["pago", "cobro", "factura", nombre del deal]`) y el mensaje enviado debe contener al menos una. Si no, se muestra advertencia: *"Este mensaje no parece relacionado al pendiente. ¿Quieres cerrar la tarea de todos modos?"* con opción de "Editar mensaje" o "Sí, cerrar".
+¿Está bien así o quieres ajustar algún paso?
+```
 
-## Reagendar inteligente cuando no se resuelve
+**Admin:** "Sí, y agrega que también mande el mensaje de agradecimiento por WhatsApp."
 
-Si el usuario elige "No contestó / No respondió / Reagendar", el sistema propone la **fecha más pertinente** según contexto:
+**Walix:** "Perfecto, agrego un paso 4 con `prepare_whatsapp_message` — un borrador de agradecimiento personalizado. ¿Envío el mensaje automático o solo dejo el borrador para que el vendedor lo revise antes?"
 
-- **Cierre de mes cercano** (últimos 3 días hábiles del mes) + deal con `expected_close_date` este mes → **reintentar hoy en 2 horas**.
-- **Deal en etapa "Negociación" o "Propuesta"** con `probability ≥ 70` → **mañana temprano** (9:00 hora local).
-- **Deal en "Seguimiento"** o probabilidad media → **en 2 días**.
-- **Contacto frío / sin deal activo** → **en 5 días**.
-- **Cobro vencido** → **mañana mismo**, prioridad alta.
+**Admin:** "Solo el borrador."
 
-El usuario ve la sugerencia con 1 tap ("Reagendar mañana 9:00 ✓") y puede sobrescribir con un date picker.
+Walix ajusta el diagrama y pasa a las preguntas de seguridad.
 
-## Detección automática de fondo (sin tocar el botón)
+### Preguntas de seguridad guiadas (una por una)
 
-Un mecanismo pasivo cierra pendientes sin acción del usuario cuando:
+Walix las hace conversacionalmente, no como un formulario:
 
-- Se envía un WhatsApp desde Walix al contacto vinculado a la tarea **con texto relacionado** al pendiente (mismas keywords) **dentro de las 24 h siguientes** a la creación de la tarea → la tarea se marca `completed` automáticamente y aparece toast en Mi Día: *"Cerré 'Reactivar Silva Catering' porque enviaste WhatsApp"*.
-- Se registra una llamada o email con el contacto vinculado en las mismas condiciones → igual auto-cierre.
+1. **"¿Quién puede usar esta capacidad?"**  
+   Opciones-chips: Todos / Solo vendedores / Solo gerentes / Escoger usuarios específicos.
 
-Esto se hace del lado de la app (React Query invalidation + un hook que corre al enviar un mensaje/registrar actividad), no requiere edge function nueva.
+2. **"¿Desde dónde? ¿La app o también WhatsApp?"**  
+   Web / WhatsApp / Ambos.
 
-## Feed de evidencia en el perfil del contacto
+3. **"¿Quieres que el Copiloto pida confirmación antes de ejecutar?"**  
+   Recomendado sí para escrituras. Walix sugiere el default según el riesgo detectado.
 
-En `PendingList` cada tarea completada muestra un pequeño resumen bajo el título: *"Cerrada por WhatsApp · 18 jul, 10:30"* o *"Llamada — No contestó — Reagendada"*. Así el gestor y el gerente pueden auditar qué realmente ocurrió.
+4. **"¿Algún límite de uso?"**  
+   Sin límite / Máximo N veces por día por usuario.
 
-## Cambios técnicos
+5. **"¿Nombre corto para esta capacidad?"**  
+   Sugerencia autogenerada: "Registrar venta con instalación". El admin puede editarlo.
 
-- **`CloseTaskDialog.tsx`**: reescrito para
-  - Detectar canal sugerido a partir de `task.task_kind` (ya existe el campo).
-  - Componer borrador de mensaje contextual (helper nuevo `buildDraftMessage(task, contact)`).
-  - Validar keywords antes de cerrar cuando canal = WhatsApp/email.
-  - Ofrecer bloque "Reagendar" con sugerencia calculada por `suggestReschedule(task, deal)`.
-- **`src/lib/tasks/closure.ts`** (nuevo): utilidades puras
-  - `extractKeywords(title)` — quita stopwords, devuelve tokens.
-  - `messageMatchesTask(text, task, contact)` — booleano.
-  - `suggestReschedule(task, deal, today)` — devuelve `{ date, reason }`.
-- **`src/lib/queries/tasks.ts`**: nueva mutación `useRescheduleTask({ id, dueAt, reason })` que además crea una `activity` de tipo `note` con la razón.
-- **`src/components/whatsapp/Composer.tsx`** / hook de envío: al enviar un mensaje, invocar `autoCloseRelatedTasks(contactId, text)` que consulta tareas abiertas del contacto y cierra las que hagan match por keywords.
-- **`PendingList.tsx`** / `JumboColumn` en Mi Día: al cliquear el check en un pendiente que no sea llamada/otro, abre directamente `CloseTaskDialog` en modo canal detectado (ya lo hace en `PendingList`; falta hacerlo también en Mi Día — hoy Mi Día usa `onToggle` directo sin diálogo).
-- **`tasks` schema**: agregar columnas opcionales `closed_via text` (`whatsapp` | `email` | `call` | `manual` | `auto`), `closed_note text`, `closed_at timestamptz`. Migración con GRANTs correspondientes.
+6. **"Dame 2-3 frases de ejemplo con las que un vendedor la dispararía."**  
+   Se usan para reforzar el system prompt y para mostrar en la lista de "cómo se usa".
 
-## Fuera de alcance (para una fase siguiente)
+### Preview y prueba antes de activar
 
-- Integración con marcador telefónico nativo.
-- Confirmación por respuesta del cliente ("se cierra cuando el cliente contesta"). Por ahora WhatsApp cuenta como hecho al enviar; el status de "esperando respuesta" queda para después.
-- Aprendizaje por AI de qué reagenda funciona mejor (podemos alimentar `ai_outcome_feedback` con estos cierres para que el Aprendiz lo capture, pero sin cambios de UI).
+Después de las preguntas, Walix muestra:
+
+```
+Resumen de la nueva capacidad
+─────────────────────────────
+Nombre: Registrar venta con instalación
+Acciones: 4 pasos encadenados
+Quién puede: Vendedores y Gerentes
+Canal: Web + WhatsApp
+Confirmación: Sí, antes de ejecutar
+Límite: Sin límite
+Frases de disparo:
+  • "registra la venta de X a Y"
+  • "cerré venta de un refri X con Y"
+  • "vendí un refri modelo Z a Y"
+
+[ Probar ahora (dry run) ]   [ Activar ]   [ Guardar borrador ]
+```
+
+**"Probar ahora"** ejecuta la receta en modo simulación contra datos reales, pero **sin persistir nada**: muestra el deal que se hubiera creado, la nota, la tarea y el borrador de WhatsApp. El admin ve el resultado real antes de activar.
+
+Si algo no le gusta, dice: *"Cambia el paso 3, mejor a 5 días"* → Walix ajusta y vuelve a mostrar el preview.
+
+### Casos donde Walix pide más info
+
+- **Ambigüedad:** *"Cuando digo 'cliente', ¿te refieres al contacto ya existente o creo uno nuevo si no lo encuentra?"*
+- **Riesgo detectado:** *"Esta capacidad puede cerrar deals ganados. Recomiendo activar confirmación. ¿Confirmas?"*
+- **Primitiva faltante:** *"'Enviar factura CFDI' no está en mis acciones. ¿Quieres que registre esto como solicitud para que el equipo lo agregue, y sigo con el resto de los pasos?"*
+- **Alcance de datos:** *"¿Esta capacidad debe poder mover deals de otros vendedores, o solo los propios del usuario?"*
+
+### Casos donde Walix rechaza y explica
+
+- **Cadena muy larga:** *"Esta receta tendría 8 pasos encadenados. Por seguridad limito a 5. ¿Quieres partirla en dos capacidades separadas?"*
+- **Acción destructiva:** *"'Eliminar contactos masivamente' es de alto riesgo y no está disponible para configuración por chat. Regístralo como solicitud."*
+- **Fuera del negocio:** *"Esto no parece relacionado con tu operación de CRM. ¿Puedes darme más contexto?"*
+
+### Qué pasa técnicamente al presionar "Activar"
+
+1. Se inserta una fila en `copilot_capabilities` con:
+   - `kind = 'recipe'`
+   - `recipe_json` = definición JSON de los 4 pasos.
+   - `scope_type`, `scope_ids`, `channels`, `require_confirmation`, `daily_limit`.
+   - `trigger_phrases[]` para reforzar el prompt.
+2. Se refresca el catálogo del tenant → aparece inmediatamente en la lista principal.
+3. La próxima vez que un vendedor autorizado chatee con el Copiloto, esa receta ya está en las tools disponibles y el modelo la puede llamar.
+4. Cada ejecución de la receta queda registrada paso por paso en `copilot_action_log`.
+
+### Editar, duplicar, desactivar
+
+Desde la lista principal, cada capacidad (nativa o receta) tiene menú `⋯`:
+- **Editar** → reabre el chat del Builder con el contexto cargado.
+- **Duplicar** → crea una copia con otro nombre para adaptar.
+- **Desactivar temporalmente** → sin borrarla.
+- **Ver historial de uso** → cuándo se usó, quién, resultados.
+- **Eliminar** → solo si nadie la ha usado en 30 días, o con confirmación fuerte.
+
+### Estructura técnica
+
+**Edge function nueva:** `copilot-builder`
+- System prompt separado: "Eres el arquitecto de capacidades del Copiloto. Solo compones recetas a partir del catálogo de primitivas. No ejecutas acciones del CRM."
+- Tools propias: `list_available_primitives`, `validate_recipe`, `save_capability`, `run_dry_run`.
+- Usa el mismo AI Gateway que el resto (`google/gemini-3.6-flash`).
+
+**Componente frontend nuevo:** `src/pages/app/settings/copilot/NewCapabilityChat.tsx`
+- Chat con AI Elements (`Conversation`, `Message`, `PromptInput`, `Tool` para mostrar la receta compuesta).
+- Preview interactivo que renderiza el JSON de la receta como diagrama de pasos.
+- Botones "Probar" y "Activar" fuera del composer.
+
+**Motor de ejecución:** en `ai-copilot/index.ts`, si la tool llamada tiene `kind='recipe'`, se corre el orquestador de pasos: valida permisos por paso, ejecuta secuencialmente, corta al primer error, devuelve al modelo un resumen consolidado. Soporta `dry_run=true` para el modo prueba.
+
+### Fuera de alcance de este plan
+
+- Editor visual drag-and-drop (por ahora solo chat).
+- Recetas condicionales (`si X entonces Y sino Z`) — solo secuenciales.
+- Recetas que llamen a otras recetas (anidamiento) — por seguridad.
+- Marketplace de recetas entre tenants.
+
+## Verificación
+
+1. Admin crea la receta "Registrar venta con instalación" por chat → responde 6 preguntas → prueba en dry run → activa.
+2. Vendedor autorizado dice "cerré venta de Sub-Zero 36 a Luis por 85000" → Copiloto pide confirmación con el preview → vendedor dice "sí" → se crean deal, nota, tarea y borrador de WhatsApp en cadena.
+3. Otro vendedor sin permisos intenta lo mismo → bloqueado con mensaje claro.
+4. Admin edita la receta desde el menú `⋯` → cambia el plazo de la tarea → guarda → siguiente ejecución usa el nuevo valor.
+5. Admin pide "integrar con QuickBooks" → Walix Builder detecta primitiva faltante, guarda como solicitud, aparece en el panel "Solicitudes pendientes".
+6. Auditar `copilot_action_log`: cada paso de la receta queda registrado.
