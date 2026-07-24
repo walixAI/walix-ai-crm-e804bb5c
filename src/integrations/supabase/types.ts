@@ -1262,6 +1262,112 @@ export type Database = {
           },
         ]
       }
+      dashboard_layouts: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          scope: string
+          surface: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items?: Json
+          scope: string
+          surface: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          scope?: string
+          surface?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_layouts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dashboard_widgets: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          default_position: number
+          description: string | null
+          id: string
+          is_active: boolean
+          is_mandatory: boolean
+          key: string
+          kind: string
+          min_role: string
+          name: string
+          native_key: string | null
+          surface: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          default_position?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_mandatory?: boolean
+          key: string
+          kind: string
+          min_role?: string
+          name: string
+          native_key?: string | null
+          surface: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          default_position?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_mandatory?: boolean
+          key?: string
+          kind?: string
+          min_role?: string
+          name?: string
+          native_key?: string | null
+          surface?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_widgets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_stage_history: {
         Row: {
           changed_at: string

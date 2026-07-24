@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -20,6 +21,8 @@ import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
 import { cn } from "@/lib/utils";
+import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
+import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 
 type ExpandKey = "runrate" | "profit" | "won" | null;
 type ColumnKey = "tasks" | "collect" | "quote" | "services";
@@ -37,6 +40,7 @@ export default function MiDia() {
   const { data: rr } = useRunRate();
   const { data: prof } = useMonthProfitability();
   const [expanded, setExpanded] = useState<ExpandKey>(null);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const columnRefs = {
     tasks: useRef<HTMLDivElement>(null),
     collect: useRef<HTMLDivElement>(null),
@@ -85,6 +89,10 @@ export default function MiDia() {
             <Button variant="outline" size="lg" asChild>
               <Link to="/whatsapp"><MessageCircle className="mr-2 h-5 w-5" /> WhatsApp</Link>
             </Button>
+            <Button variant="ghost" size="icon" title="Personalizar mi vista"
+              onClick={() => setCustomizeOpen(true)}>
+              <SlidersHorizontal className="h-5 w-5" />
+            </Button>
             <Button variant="ghost" size="icon" title="Volver al modo estándar"
               onClick={async () => { await setMode.mutateAsync(false); window.location.href = "/dashboard"; }}>
               <Settings2 className="h-5 w-5" />
@@ -97,8 +105,8 @@ export default function MiDia() {
         {isLoading && <div className="text-center text-muted-foreground py-12">Cargando tu día…</div>}
 
         {!isLoading && (
-          <>
-            {/* Fila única de 6 tarjetas: 3 KPIs + 3 pendientes */}
+          <LayoutRenderer surface="mi_dia" alwaysVisible={["midia.kpi_row"]}>
+            <Widget k="midia.kpi_row">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <KpiChip
                 icon={TrendingUp}
@@ -131,13 +139,17 @@ export default function MiDia() {
               <SummaryChip icon={DollarSign} label="Por cobrar" value={totals?.collect ?? 0} sub={totals ? `$${totals.collectAmount.toLocaleString("es-MX")}` : undefined} tone="accent" onClick={() => scrollToColumn("collect")} />
               <SummaryChip icon={FileText} label="Por cotizar" value={totals?.quote ?? 0} tone="warning" onClick={() => scrollToColumn("quote")} />
             </div>
+            </Widget>
 
+            <Widget k="midia.detail_expanded">
             <div ref={detailRef} className="scroll-mt-28">
               {expanded === "runrate" && <RunRateCard />}
               {expanded === "profit" && <ProfitabilityCard />}
               {expanded === "won" && rr && <WonDetailCard rr={rr} />}
             </div>
+            </Widget>
 
+            <Widget k="midia.collect">
             <div ref={columnRefs.collect} className="scroll-mt-28">
               <JumboColumn
                 title="Cobrar hoy"
@@ -149,13 +161,21 @@ export default function MiDia() {
                 onRescheduleCollect={(i) => setReschedDeal({ id: i.dealId!, title: i.title, currentDate: i.dueAt })}
               />
             </div>
+            </Widget>
+            <Widget k="midia.quote">
             <div ref={columnRefs.quote} className="scroll-mt-28">
               <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
             </div>
+            </Widget>
+            <Widget k="midia.services">
             <div ref={columnRefs.services} className="scroll-mt-28">
               <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
             </div>
+            </Widget>
+            <Widget k="midia.followup">
             <JumboColumn title="Seguimiento" description="Clientes en negociación." icon={Sparkles} items={data?.followup ?? []} emptyText="Sin seguimientos activos." />
+            </Widget>
+            <Widget k="midia.tasks">
             <div ref={columnRefs.tasks} className="scroll-mt-28">
               <JumboColumn
                 title="Mis tareas de hoy"
@@ -175,7 +195,8 @@ export default function MiDia() {
                 }}
               />
             </div>
-          </>
+            </Widget>
+          </LayoutRenderer>
         )}
       </main>
 
@@ -218,6 +239,7 @@ export default function MiDia() {
         onOpenChange={(o) => !o && setReschedDeal(null)}
         deal={reschedDeal}
       />
+      <CustomizeSheet open={customizeOpen} onOpenChange={setCustomizeOpen} surface="mi_dia" scope="user" />
     </div>
   );
 }

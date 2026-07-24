@@ -14,7 +14,7 @@ import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
   Sparkles, AlertTriangle, X, Clock,
-  MoveRight, FileText, StickyNote, CheckCircle2,
+  MoveRight, FileText, StickyNote, CheckCircle2, SlidersHorizontal,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -28,6 +28,8 @@ import { MorningBriefing } from "@/components/walix/MorningBriefing";
 import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
+import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
+import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
@@ -61,6 +63,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const send = useCopilot((s) => s.send);
   const [showAlert, setShowAlert] = useState(true);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
   const { data: activity = [], isLoading: activityLoading } = useRecentActivity(10);
@@ -100,12 +103,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      {/* Morning briefing (auto-hides for the day on close) */}
-      <MorningBriefing />
+      <LayoutRenderer surface="dashboard">
+        <Widget k="dash.morning_briefing">
+          <MorningBriefing />
+        </Widget>
 
-      {/* Risk alert */}
-      {showAlert && atRiskDealsCount > 0 && (
-        <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
+        <Widget k="dash.risk_alert">
+          {showAlert && atRiskDealsCount > 0 ? (
+            <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
           <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
           <div className="flex-1 text-foreground">
             <strong>{atRiskDealsCount} oportunidades</strong> llevan más de 10 días sin actividad.{" "}
@@ -120,36 +125,48 @@ export default function Dashboard() {
           >
             <X className="h-4 w-4" />
           </button>
-        </div>
-      )}
+            </div>
+          ) : null}
+        </Widget>
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <Widget k="dash.header">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             {getGreeting()}, {name} 👋
           </h1>
           <p className="text-sm text-muted-foreground capitalize mt-1">{today}</p>
         </div>
-        <Button
-          onClick={() => send("Dame el resumen del día: pipeline, leads calientes, oportunidades en riesgo y conversaciones pendientes.")}
-          className="bg-gradient-brand hover:opacity-90 text-primary-foreground shadow-glow gap-2"
-        >
-          <Sparkles className="h-4 w-4" />
-          Resumen del día
-        </Button>
-      </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCustomizeOpen(true)} className="gap-2">
+                <SlidersHorizontal className="h-4 w-4" /> Personalizar
+              </Button>
+              <Button
+                onClick={() => send("Dame el resumen del día: pipeline, leads calientes, oportunidades en riesgo y conversaciones pendientes.")}
+                className="bg-gradient-brand hover:opacity-90 text-primary-foreground shadow-glow gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Resumen del día
+              </Button>
+            </div>
+          </div>
+        </Widget>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <RunRateCard compact />
-        <ProfitabilityCard />
-      </div>
+        <Widget k="dash.run_rate">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <RunRateCard compact />
+          </div>
+        </Widget>
 
-      {kpisLoading && !kpis ? (
-        <KpiCardsSkeleton />
-      ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Widget k="dash.profitability">
+          <ProfitabilityCard />
+        </Widget>
+
+        <Widget k="dash.kpi_cards">
+          {kpisLoading && !kpis ? (
+            <KpiCardsSkeleton />
+          ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiData.map((k) => {
           const Icon = k.icon;
           const TrendIcon = k.trend === "up" ? ArrowUpRight : ArrowDownRight;
@@ -181,19 +198,20 @@ export default function Dashboard() {
             </div>
           );
         })}
-      </div>
-      )}
+          </div>
+          )}
+        </Widget>
 
-      {/* AI Intelligence section: health, opportunities, risks, summary, weekly report */}
-      <DashboardAiSection />
+        <Widget k="dash.ai_section">
+          <DashboardAiSection />
+        </Widget>
 
-      {/* Tareas vencidas + próximas */}
-      <TaskCards />
+        <Widget k="dash.task_cards">
+          <TaskCards />
+        </Widget>
 
-      {/* Row 2: Activity (2/3) + AI Insights (1/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card shadow-card">
+        <Widget k="dash.activity">
+          <div className="rounded-xl border border-border bg-card shadow-card">
           <div className="flex items-center justify-between p-5 border-b border-border">
             <div>
               <h3 className="font-semibold">Actividad Reciente</h3>
@@ -246,14 +264,14 @@ export default function Dashboard() {
               </>
             )}
           </div>
-        </div>
+          </div>
+        </Widget>
 
-        {/* Proactive briefing (powered by ai_proactive_suggestions) */}
-        <ProactiveBriefing />
-      </div>
+        <Widget k="dash.proactive_briefing">
+          <ProactiveBriefing />
+        </Widget>
 
-      {/* Row 3: Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Widget k="dash.pipeline_chart">
         {/* Pipeline by stage */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
@@ -303,8 +321,9 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+        </Widget>
 
-        {/* Oportunidades cerradas timeline */}
+        <Widget k="dash.deals_closed">
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -361,7 +380,10 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
+        </Widget>
+      </LayoutRenderer>
+
+      <CustomizeSheet open={customizeOpen} onOpenChange={setCustomizeOpen} surface="dashboard" scope="user" />
     </div>
   );
 }
