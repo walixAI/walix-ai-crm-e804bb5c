@@ -378,7 +378,7 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
                 </Button>
                 {onRescheduleCollect && (
                   <Button size="sm" variant="outline" onClick={() => onRescheduleCollect(i)}>
-                    Reagendar
+                    Seguir cobrando
                   </Button>
                 )}
               </div>

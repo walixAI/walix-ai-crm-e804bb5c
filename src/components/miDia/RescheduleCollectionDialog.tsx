@@ -58,7 +58,7 @@ export function RescheduleCollectionDialog({ open, onOpenChange, deal }: Props) 
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
-            <CalendarClock className="h-6 w-6 text-primary" /> Reagendar cobro
+            <CalendarClock className="h-6 w-6 text-primary" /> Seguir cobrando
           </DialogTitle>
         </DialogHeader>
         {deal && <p className="text-sm text-muted-foreground -mt-2">{deal.title}</p>}
@@ -88,7 +88,7 @@ export function RescheduleCollectionDialog({ open, onOpenChange, deal }: Props) 
           <Button variant="outline" size="lg" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button size="lg" onClick={submit} disabled={reschedule.isPending || !when}>
             <CalendarClock className="mr-1 h-4 w-4" />
-            {reschedule.isPending ? "Guardando…" : "Reagendar"}
+            {reschedule.isPending ? "Guardando…" : "Guardar seguimiento"}
           </Button>
         </DialogFooter>
       </DialogContent>
