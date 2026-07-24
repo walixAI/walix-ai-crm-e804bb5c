@@ -16,6 +16,8 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/app/Dashboard";
 import Contacts from "@/pages/app/Contacts";
 import NotFound from "@/pages/NotFound";
+import RootRedirect from "@/pages/app/RootRedirect";
+import { useAuth } from "@/hooks/useAuth";
 
 // Lazy: rutas pesadas
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
@@ -58,13 +60,20 @@ function RouteFallback() {
   );
 }
 
+function LandingOrHome() {
+  const { user, loading } = useAuth();
+  if (loading) return <RouteFallback />;
+  if (user) return <RootRedirect />;
+  return <Landing />;
+}
+
 const AppRoutes = () => {
   useInitAuth();
   return (
     <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
       <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<LandingOrHome />} />
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/privacy" element={<Privacy />} />
