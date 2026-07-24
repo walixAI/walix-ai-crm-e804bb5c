@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -18,6 +19,7 @@ import { useRescheduleTask } from "@/lib/queries/tasks";
 import {
   suggestedChannel, buildDraftMessage, messageMatchesTask, suggestReschedule,
 } from "@/lib/tasks/closure";
+import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
 
 type Method = "whatsapp" | "call" | "other";
 type CallResult = "answered" | "no_answer" | "voicemail";
@@ -51,6 +53,7 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
   const [ackNoMatch, setAckNoMatch] = useState(false);
   const [sending, setSending] = useState(false);
   const [reschedReason, setReschedReason] = useState<string>("");
+  const [reschedWhen, setReschedWhen] = useState<string>("");
   const navigate = useNavigate();
   const { user } = useAuth();
   const toggle = useToggleContactTask(contactId);
@@ -72,6 +75,7 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
     setAckNoMatch(false);
     setCallResult("answered");
     setReschedReason(suggestion?.reason ?? "");
+    setReschedWhen(suggestion ? toLocalInput(suggestion.date) : "");
     setMessage(buildDraftMessage(
       { title: task.title, task_kind: task.taskKind },
       contact ?? null,
@@ -122,24 +126,39 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
 
   async function submitCall() {
     if (!task) return;
-    if (!note.trim()) {
-      toast.warning("Escribe una nota corta con el próximo paso");
-      return;
-    }
     const resultLabel =
       callResult === "answered" ? "Contestó" :
       callResult === "no_answer" ? "No contestó" : "Buzón de voz";
+    const needsReschedule = callResult !== "answered";
+    if (callResult === "answered" && !note.trim()) {
+      toast.warning("Escribe una nota corta con el próximo paso");
+      return;
+    }
+    if (needsReschedule && !reschedWhen) {
+      toast.warning("Selecciona cuándo reintentar");
+      return;
+    }
     try {
+      const noteText = note.trim() || (needsReschedule ? "Sin contacto — se reagenda" : "");
       await createActivity.mutateAsync({
         type: "call",
-        description: `${resultLabel} — ${task.title}\n${note}`,
-        metadata: { call_result: callResult, task_id: task.id },
+        description: `${resultLabel} — ${task.title}\n${noteText}`,
+        metadata: { call_result: callResult, task_id: task.id, rescheduled: needsReschedule },
       });
-      await toggle.mutateAsync({
-        id: task.id, completed: true, via: "call",
-        note: `${resultLabel} — ${note.slice(0, 160)}`,
-      });
-      toast.success("Llamada registrada y tarea cerrada");
+      if (needsReschedule) {
+        await reschedule.mutateAsync({
+          id: task.id,
+          dueAt: fromLocalInput(reschedWhen),
+          reason: reschedReason || `${resultLabel} — reintentar`,
+        });
+        toast.success(`Llamada registrada · Reagendada ${new Date(fromLocalInput(reschedWhen)).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`);
+      } else {
+        await toggle.mutateAsync({
+          id: task.id, completed: true, via: "call",
+          note: `${resultLabel} — ${note.slice(0, 160)}`,
+        });
+        toast.success("Llamada registrada y tarea cerrada");
+      }
       onOpenChange(false); reset();
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo cerrar");
@@ -169,14 +188,15 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
   }
 
   async function submitReschedule() {
-    if (!task || !suggestion) return;
+    if (!task) return;
+    if (!reschedWhen) { toast.warning("Selecciona fecha y hora"); return; }
     try {
       await reschedule.mutateAsync({
         id: task.id,
-        dueAt: suggestion.date.toISOString(),
-        reason: reschedReason || suggestion.reason,
+        dueAt: fromLocalInput(reschedWhen),
+        reason: reschedReason || suggestion?.reason || "Reagendado",
       });
-      toast.success(`Reagendada · ${suggestion.date.toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`);
+      toast.success(`Reagendada · ${new Date(fromLocalInput(reschedWhen)).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`);
       onOpenChange(false); reset();
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo reagendar");
@@ -256,12 +276,23 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
                     ))}
                   </RadioGroup>
                 </div>
-                <div className="space-y-2">
-                  <Label>Nota corta con el próximo paso <span className="text-destructive">*</span></Label>
-                  <Textarea value={note} onChange={(e) => setNote(e.target.value)}
-                    placeholder="Ej. Va a pagar el viernes / pide llamar la próxima semana"
-                    rows={2} className="text-base" />
-                </div>
+                {callResult === "answered" ? (
+                  <div className="space-y-2">
+                    <Label>Nota corta con el próximo paso <span className="text-destructive">*</span></Label>
+                    <Textarea value={note} onChange={(e) => setNote(e.target.value)}
+                      placeholder="Ej. Va a pagar el viernes / pide llamar la próxima semana"
+                      rows={2} className="text-base" />
+                  </div>
+                ) : (
+                  <RescheduleInline
+                    when={reschedWhen}
+                    onWhen={setReschedWhen}
+                    reason={reschedReason}
+                    onReason={setReschedReason}
+                    suggestion={suggestion}
+                    headline={callResult === "no_answer" ? "No contestó — te sugiero reintentar" : "Buzón de voz — te sugiero reintentar"}
+                  />
+                )}
               </div>
             )}
 
@@ -276,23 +307,16 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
           </>
         )}
 
-        {mode === "reschedule" && suggestion && (
+        {mode === "reschedule" && (
           <div className="space-y-3 pt-2">
-            <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4">
-              <div className="text-sm text-muted-foreground">Sugerencia</div>
-              <div className="text-lg font-bold mt-0.5">
-                {suggestion.date.toLocaleString("es-MX", {
-                  weekday: "short", day: "2-digit", month: "short",
-                  hour: "2-digit", minute: "2-digit",
-                })}
-              </div>
-              <div className="text-sm text-primary mt-1">{suggestion.reason}</div>
-            </div>
-            <div className="space-y-2">
-              <Label>Motivo (opcional)</Label>
-              <Textarea value={reschedReason} onChange={(e) => setReschedReason(e.target.value)}
-                placeholder="Ej. Cliente pidió llamar el viernes" rows={2} className="text-base" />
-            </div>
+            <RescheduleInline
+              when={reschedWhen}
+              onWhen={setReschedWhen}
+              reason={reschedReason}
+              onReason={setReschedReason}
+              suggestion={suggestion}
+              headline="Sugerencia inteligente"
+            />
           </div>
         )}
 
@@ -305,8 +329,10 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
             </Button>
           )}
           {mode === "resolve" && method === "call" && (
-            <Button size="lg" onClick={submitCall} disabled={toggle.isPending || createActivity.isPending}>
-              Registrar llamada
+            <Button size="lg" onClick={submitCall} disabled={toggle.isPending || createActivity.isPending || reschedule.isPending}>
+              {callResult === "answered" ? "Registrar llamada" : (
+                <><CalendarClock className="mr-1 h-4 w-4" /> Registrar y reagendar</>
+              )}
             </Button>
           )}
           {mode === "resolve" && method === "other" && (
@@ -373,4 +399,58 @@ async function ensureConversation(contactId: string, userId: string | null) {
     .single();
   if (error) throw error;
   return created;
+}
+
+// ─────────────── Reschedule inline block ───────────────
+function RescheduleInline({
+  when, onWhen, reason, onReason, suggestion, headline,
+}: {
+  when: string;
+  onWhen: (v: string) => void;
+  reason: string;
+  onReason: (v: string) => void;
+  suggestion: { date: Date; reason: string } | null;
+  headline: string;
+}) {
+  const quicks = [
+    { label: "En 2 h", mins: 120 },
+    { label: "Mañana 9 am", tomorrowHour: 9 },
+    { label: "En 3 días", days: 3, hour: 10 },
+  ];
+  return (
+    <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <CalendarClock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-sm font-semibold text-primary">{headline}</div>
+          {suggestion && (
+            <div className="text-xs text-muted-foreground mt-0.5">{suggestion.reason}</div>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {quicks.map((q) => (
+          <Button key={q.label} type="button" variant="outline" size="sm"
+            onClick={() => {
+              const d = new Date();
+              if (q.mins) d.setMinutes(d.getMinutes() + q.mins);
+              else if (q.tomorrowHour != null) { d.setDate(d.getDate() + 1); d.setHours(q.tomorrowHour, 0, 0, 0); }
+              else if (q.days) { d.setDate(d.getDate() + q.days); d.setHours(q.hour ?? 10, 0, 0, 0); }
+              onWhen(toLocalInput(d));
+            }}>
+            {q.label}
+          </Button>
+        ))}
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Cuándo reintentar</Label>
+        <Input type="datetime-local" value={when} onChange={(e) => onWhen(e.target.value)} className="h-11 text-base" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Motivo (opcional)</Label>
+        <Textarea rows={2} value={reason} onChange={(e) => onReason(e.target.value)}
+          placeholder="Ej. Cliente pidió llamar el viernes" className="text-base" />
+      </div>
+    </div>
+  );
 }
