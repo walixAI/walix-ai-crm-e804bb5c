@@ -263,6 +263,36 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "set_monthly_goal",
+      description:
+        "Ajusta la meta mensual del tenant. Solo tenant_owner/tenant_admin/org_owner. No permite meses pasados. Antes de llamarla, SIEMPRE confirma con el usuario mes/año y monto total en pesos.",
+      parameters: {
+        type: "object",
+        properties: {
+          year: { type: "number", description: "Año de la meta (default: año actual)" },
+          month: { type: "number", description: "Mes 1-12 (default: mes actual)" },
+          total: { type: "number", description: "Monto total de la meta en la moneda del tenant" },
+          by_type: {
+            type: "object",
+            description: "Desglose opcional por tipo de deal",
+            properties: {
+              venta: { type: "number" },
+              servicio: { type: "number" },
+              refaccion: { type: "number" },
+            },
+            additionalProperties: false,
+          },
+          note: { type: "string", description: "Nota corta sobre por qué se ajusta" },
+          confirmed: { type: "boolean", description: "Debe ser true — el usuario ya confirmó explícitamente el cambio." },
+        },
+        required: ["total", "confirmed"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_team_performance",
       description: "Rendimiento del equipo del tenant en el mes: deals ganados y monto por vendedor (owner).",
       parameters: {
