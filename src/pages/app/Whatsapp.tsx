@@ -45,6 +45,14 @@ export default function Whatsapp() {
   useEffect(() => {
     const convParam = searchParams.get("conversationId");
     const contactParam = searchParams.get("contactId");
+    const draftParam = searchParams.get("draft");
+    if (draftParam) {
+      setDraft(draftParam);
+      setAiDraftActive(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("draft");
+      setSearchParams(next, { replace: true });
+    }
     if (convParam) {
       setActiveId(convParam);
       const next = new URLSearchParams(searchParams);
