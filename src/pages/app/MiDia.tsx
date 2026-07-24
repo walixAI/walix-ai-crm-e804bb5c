@@ -11,6 +11,8 @@ import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } fr
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
+import { RegisterPaymentDialog } from "@/components/miDia/RegisterPaymentDialog";
+import { RescheduleCollectionDialog } from "@/components/miDia/RescheduleCollectionDialog";
 import { useTenant } from "@/lib/queries/tenant";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
@@ -28,6 +30,8 @@ export default function MiDia() {
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [closingTask, setClosingTask] = useState<{ id: string; title: string; contactId: string; taskKind: string | null; dueAt: string | null } | null>(null);
+  const [payingDeal, setPayingDeal] = useState<{ id: string; title: string; amount: number } | null>(null);
+  const [reschedDeal, setReschedDeal] = useState<{ id: string; title: string; currentDate?: string | null } | null>(null);
   const setMode = useSetSimpleMode();
   const toggleTask = useToggleTask();
   const { data: rr } = useRunRate();
@@ -135,7 +139,15 @@ export default function MiDia() {
             </div>
 
             <div ref={columnRefs.collect} className="scroll-mt-28">
-              <JumboColumn title="Cobrar hoy" description="Deals con pago pendiente que vencen hoy o antes." icon={DollarSign} items={data?.collect ?? []} emptyText="No hay cobros programados." />
+              <JumboColumn
+                title="Cobrar hoy"
+                description="Deals con pago pendiente que vencen hoy o antes."
+                icon={DollarSign}
+                items={data?.collect ?? []}
+                emptyText="No hay cobros programados."
+                onRegisterPayment={(i) => setPayingDeal({ id: i.dealId!, title: i.title, amount: Number(i.amount ?? 0) })}
+                onRescheduleCollect={(i) => setReschedDeal({ id: i.dealId!, title: i.title, currentDate: i.dueAt })}
+              />
             </div>
             <div ref={columnRefs.quote} className="scroll-mt-28">
               <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
@@ -196,6 +208,16 @@ export default function MiDia() {
           task={{ id: closingTask.id, title: closingTask.title, taskKind: closingTask.taskKind, dueAt: closingTask.dueAt }}
         />
       )}
+      <RegisterPaymentDialog
+        open={!!payingDeal}
+        onOpenChange={(o) => !o && setPayingDeal(null)}
+        deal={payingDeal}
+      />
+      <RescheduleCollectionDialog
+        open={!!reschedDeal}
+        onOpenChange={(o) => !o && setReschedDeal(null)}
+        deal={reschedDeal}
+      />
     </div>
   );
 }
@@ -305,9 +327,11 @@ interface JumboColumnProps {
   items: JumboItem[];
   emptyText: string;
   onToggle?: (id: string) => void;
+  onRegisterPayment?: (item: JumboItem) => void;
+  onRescheduleCollect?: (item: JumboItem) => void;
 }
 
-function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggle }: JumboColumnProps) {
+function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggle, onRegisterPayment, onRescheduleCollect }: JumboColumnProps) {
   return (
     <Card className="border-2">
       <CardHeader className="pb-3">
@@ -347,7 +371,19 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
                 <div className="text-xl font-bold">${i.amount.toLocaleString("es-MX")}</div>
               </div>
             )}
-            {i.contactId && (
+            {i.kind === "deal_collect" && onRegisterPayment && (
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <Button size="sm" onClick={() => onRegisterPayment(i)} className="gap-1">
+                  <DollarSign className="h-4 w-4" /> Cobrar
+                </Button>
+                {onRescheduleCollect && (
+                  <Button size="sm" variant="outline" onClick={() => onRescheduleCollect(i)}>
+                    Reagendar
+                  </Button>
+                )}
+              </div>
+            )}
+            {i.contactId && i.kind !== "deal_collect" && (
               <Button variant="outline" size="sm" asChild>
                 <Link to={
                   i.kind === "task"
