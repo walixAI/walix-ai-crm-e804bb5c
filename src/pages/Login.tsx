@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuthStore } from "@/store/auth";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/store/auth";
