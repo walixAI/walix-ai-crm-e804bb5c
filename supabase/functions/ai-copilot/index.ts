@@ -392,6 +392,90 @@ async function executeTool(
         };
       }
 
+      case "get_my_tasks": {
+        const view = String(args.view ?? "today_overdue");
+        const limit = Math.min(50, Number(args.limit ?? 20));
+        const nowIso = new Date().toISOString();
+        const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+        const in7 = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+
+        let q = sb.from("tasks")
+          .select("id, title, due_at, task_kind, completed, contact_id, deal_id")
+          .eq("tenant_id", tenantId)
+          .eq("assignee_id", userId)
+          .eq("completed", false);
+
+        if (view === "today") {
+          q = q.gte("due_at", startOfDay.toISOString()).lte("due_at", endOfDay.toISOString());
+        } else if (view === "overdue") {
+          q = q.lt("due_at", nowIso);
+        } else if (view === "upcoming") {
+          q = q.gte("due_at", nowIso).lte("due_at", in7);
+        } else if (view === "all_open") {
+          // no extra filter
+        } else {
+          // default: today + overdue (todo lo que vence hoy o antes)
+          q = q.lte("due_at", endOfDay.toISOString());
+        }
+
+        const { data, error } = await q.order("due_at", { ascending: true, nullsFirst: false }).limit(limit);
+        if (error) return { ok: false, error: error.message };
+        const tasks = data ?? [];
+
+        // enriquecer con nombre de contacto/deal
+        const contactIds = [...new Set(tasks.map((t: any) => t.contact_id).filter(Boolean))];
+        const dealIds = [...new Set(tasks.map((t: any) => t.deal_id).filter(Boolean))];
+        const [contactsRes, dealsRes] = await Promise.all([
+          contactIds.length
+            ? sb.from("contacts").select("id, name").in("id", contactIds)
+            : Promise.resolve({ data: [] as any[] }),
+          dealIds.length
+            ? sb.from("deals").select("id, name").in("id", dealIds)
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
+        const contactMap = new Map((contactsRes.data ?? []).map((c: any) => [c.id, c.name]));
+        const dealMap = new Map((dealsRes.data ?? []).map((d: any) => [d.id, d.name]));
+        const enriched = tasks.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          due_at: t.due_at,
+          task_kind: t.task_kind,
+          contact_name: t.contact_id ? contactMap.get(t.contact_id) ?? null : null,
+          deal_name: t.deal_id ? dealMap.get(t.deal_id) ?? null : null,
+          is_overdue: t.due_at ? new Date(t.due_at) < new Date() : false,
+        }));
+        return { ok: true, view, count: enriched.length, tasks: enriched };
+      }
+
+      case "get_my_suggestions": {
+        const limit = Math.min(20, Number(args.limit ?? 10));
+        const { data, error } = await sb.from("ai_proactive_suggestions")
+          .select("id, suggestion_text, priority, entity_type, entity_id, action_type, created_at")
+          .eq("tenant_id", tenantId)
+          .eq("dismissed", false)
+          .or(`target_user_id.eq.${userId},target_user_id.is.null`)
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, count: (data ?? []).length, suggestions: data ?? [] };
+      }
+
+      case "get_my_deals": {
+        const limit = Math.min(50, Number(args.limit ?? 10));
+        const { data, error } = await sb.from("deals")
+          .select("id, name, amount, stage_name, contact_id, updated_at")
+          .eq("tenant_id", tenantId)
+          .eq("owner_id", userId)
+          .eq("is_won", false)
+          .eq("is_lost", false)
+          .order("amount", { ascending: false })
+          .limit(limit);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, count: (data ?? []).length, deals: data ?? [] };
+      }
+
       default:
         return { ok: false, error: `Tool desconocida: ${name}` };
     }
