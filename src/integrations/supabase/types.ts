@@ -1137,6 +1137,131 @@ export type Database = {
           },
         ]
       }
+      copilot_action_log: {
+        Row: {
+          capability_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input: Json | null
+          output: Json | null
+          status: string
+          step_index: number | null
+          step_name: string | null
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          capability_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          status?: string
+          step_index?: number | null
+          step_name?: string | null
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          capability_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          status?: string
+          step_index?: number | null
+          step_name?: string | null
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_action_log_capability_id_fkey"
+            columns: ["capability_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_capabilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_action_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copilot_capabilities: {
+        Row: {
+          channels: string[]
+          created_at: string
+          created_by: string | null
+          daily_limit: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          recipe_json: Json
+          require_confirmation: boolean
+          scope_roles: string[]
+          scope_type: string
+          scope_user_ids: string[]
+          tenant_id: string
+          trigger_phrases: string[]
+          updated_at: string
+        }
+        Insert: {
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name: string
+          recipe_json?: Json
+          require_confirmation?: boolean
+          scope_roles?: string[]
+          scope_type?: string
+          scope_user_ids?: string[]
+          tenant_id: string
+          trigger_phrases?: string[]
+          updated_at?: string
+        }
+        Update: {
+          channels?: string[]
+          created_at?: string
+          created_by?: string | null
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name?: string
+          recipe_json?: Json
+          require_confirmation?: boolean
+          scope_roles?: string[]
+          scope_type?: string
+          scope_user_ids?: string[]
+          tenant_id?: string
+          trigger_phrases?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_capabilities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_stage_history: {
         Row: {
           changed_at: string
