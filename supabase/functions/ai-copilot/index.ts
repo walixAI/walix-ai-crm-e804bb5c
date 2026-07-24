@@ -539,6 +539,126 @@ async function executeTool(
         return { ok: true, count: (data ?? []).length, deals: data ?? [] };
       }
 
+      case "get_profitability":
+      case "get_expenses_summary":
+      case "get_monthly_goal":
+      case "get_run_rate":
+      case "get_team_performance": {
+        const now = new Date();
+        const year = Number(args.year ?? now.getFullYear());
+        const month = Number(args.month ?? (now.getMonth() + 1));
+        const first = new Date(year, month - 1, 1);
+        const last = new Date(year, month, 0);
+        const firstIso = first.toISOString().slice(0, 10);
+        const lastIso = last.toISOString().slice(0, 10);
+
+        // Ventas ganadas del mes (por fecha de cierre esperada o actualización si is_won)
+        const wonDeals = await sb.from("deals")
+          .select("id, name, amount, deal_type, owner_id, updated_at, expected_close_date")
+          .eq("tenant_id", tenantId).eq("is_won", true)
+          .gte("updated_at", first.toISOString())
+          .lte("updated_at", new Date(last.getTime() + 86400000 - 1).toISOString());
+        const won = wonDeals.data ?? [];
+        const revenue = won.reduce((s: number, d: any) => s + Number(d.amount ?? 0), 0);
+
+        if (name === "get_team_performance") {
+          const byOwner = new Map<string, { count: number; amount: number }>();
+          for (const d of won) {
+            const k = d.owner_id ?? "sin_asignar";
+            const cur = byOwner.get(k) ?? { count: 0, amount: 0 };
+            cur.count++; cur.amount += Number(d.amount ?? 0);
+            byOwner.set(k, cur);
+          }
+          const ownerIds = [...byOwner.keys()].filter((k) => k !== "sin_asignar");
+          const owners = ownerIds.length
+            ? (await sb.from("profiles").select("id, full_name, email").in("id", ownerIds)).data ?? []
+            : [];
+          const map = new Map(owners.map((o: any) => [o.id, o.full_name ?? o.email]));
+          const rows = [...byOwner.entries()]
+            .map(([id, v]) => ({ owner_id: id, owner_name: map.get(id) ?? "Sin asignar", ...v }))
+            .sort((a, b) => b.amount - a.amount);
+          return { ok: true, year, month, team: rows, total_amount: revenue, total_deals: won.length };
+        }
+
+        if (name === "get_monthly_goal") {
+          const { data: goal } = await sb.from("tenant_monthly_goals")
+            .select("monthly_goal_total, monthly_goal_by_type, count_business_days, note")
+            .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month).maybeSingle();
+          if (goal) return { ok: true, year, month, source: "monthly_override", ...goal };
+          const { data: t } = await sb.from("tenants")
+            .select("monthly_goal_total, monthly_goal_by_type").eq("id", tenantId).maybeSingle();
+          return { ok: true, year, month, source: "tenant_default", ...(t ?? {}) };
+        }
+
+        // Gastos del periodo
+        const statusFilter = String(args.status ?? "confirmed");
+        let expQ = sb.from("expenses")
+          .select("id, amount, kind, category_id, status, description, incurred_at")
+          .eq("tenant_id", tenantId)
+          .gte("incurred_at", firstIso).lte("incurred_at", lastIso);
+        if (statusFilter !== "all") expQ = expQ.eq("status", statusFilter);
+        const { data: exps } = await expQ;
+        const expenses = exps ?? [];
+        const totalExp = expenses.reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
+        const fixed = expenses.filter((e: any) => e.kind === "fijo").reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
+        const variable = totalExp - fixed;
+
+        if (name === "get_expenses_summary") {
+          const catIds = [...new Set(expenses.map((e: any) => e.category_id).filter(Boolean))];
+          const cats = catIds.length
+            ? (await sb.from("expense_categories").select("id, name").in("id", catIds)).data ?? []
+            : [];
+          const catMap = new Map(cats.map((c: any) => [c.id, c.name]));
+          const byCat = new Map<string, number>();
+          for (const e of expenses) {
+            const k = catMap.get(e.category_id) ?? "Sin categoría";
+            byCat.set(k, (byCat.get(k) ?? 0) + Number(e.amount ?? 0));
+          }
+          const rows = [...byCat.entries()]
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((a, b) => b.amount - a.amount);
+          return {
+            ok: true, year, month, status: statusFilter,
+            total: totalExp, fijo: fixed, variable, by_category: rows, count: expenses.length,
+          };
+        }
+
+        if (name === "get_profitability") {
+          const profit = revenue - totalExp;
+          const margin = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : 0;
+          const status = margin >= 25 ? "saludable" : margin >= 10 ? "en_vigilancia" : "en_riesgo";
+          return {
+            ok: true, year, month,
+            revenue, expenses_total: totalExp, expenses_fijo: fixed, expenses_variable: variable,
+            profit, margin_percent: margin, status,
+            deals_won: won.length,
+          };
+        }
+
+        // get_run_rate (siempre mes actual)
+        const today = new Date();
+        const dayOfMonth = today.getDate();
+        const daysInMonth = last.getDate();
+        const { data: goalRow } = await sb.from("tenant_monthly_goals")
+          .select("monthly_goal_total")
+          .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month).maybeSingle();
+        let goalTotal = Number(goalRow?.monthly_goal_total ?? 0);
+        if (!goalTotal) {
+          const { data: t } = await sb.from("tenants").select("monthly_goal_total").eq("id", tenantId).maybeSingle();
+          goalTotal = Number(t?.monthly_goal_total ?? 0);
+        }
+        const daily = dayOfMonth > 0 ? revenue / dayOfMonth : 0;
+        const projected = Math.round(daily * daysInMonth);
+        const percentVsGoal = goalTotal > 0 ? Math.round((projected / goalTotal) * 1000) / 10 : 0;
+        const status2 = percentVsGoal >= 100 ? "en_ruta" : percentVsGoal >= 80 ? "cerca" : percentVsGoal >= 60 ? "riesgo" : "critico";
+        return {
+          ok: true, year, month, day_of_month: dayOfMonth, days_in_month: daysInMonth,
+          revenue_mtd: revenue, daily_avg: Math.round(daily),
+          projected_month_end: projected, goal_total: goalTotal,
+          percent_vs_goal: percentVsGoal, status: status2, deals_won: won.length,
+        };
+      }
+
       default:
         return { ok: false, error: `Tool desconocida: ${name}` };
     }
