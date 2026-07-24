@@ -648,6 +648,42 @@ async function executeTool(
           return { ok: true, year, month, source: "tenant_default", ...(t ?? {}) };
         }
 
+        if (name === "set_monthly_goal") {
+          if (args.confirmed !== true) {
+            return { ok: false, error: "Falta confirmación del usuario. Pregunta y confirma monto y mes antes de reintentar con confirmed=true." };
+          }
+          const total = Number(args.total);
+          if (!Number.isFinite(total) || total < 0) {
+            return { ok: false, error: "Monto inválido." };
+          }
+          const bt = args.by_type ?? {};
+          const by_type = {
+            venta: Number(bt.venta ?? 0),
+            servicio: Number(bt.servicio ?? 0),
+            refaccion: Number(bt.refaccion ?? 0),
+          };
+          const { data: inserted, error } = await sb.from("tenant_monthly_goals").insert({
+            tenant_id: tenantId,
+            period_year: year,
+            period_month: month,
+            monthly_goal_total: total,
+            monthly_goal_by_type: by_type,
+            note: args.note ?? null,
+            created_by: userId,
+          }).select("id, period_year, period_month, monthly_goal_total, monthly_goal_by_type").single();
+          if (error) {
+            const msg = String(error.message ?? "");
+            if (msg.includes("metas de meses pasados") || error.code === "23514") {
+              return { ok: false, error: "No se puede modificar la meta de un mes pasado." };
+            }
+            if (msg.toLowerCase().includes("row-level security") || error.code === "42501") {
+              return { ok: false, error: "Solo administradores del tenant pueden ajustar la meta." };
+            }
+            return { ok: false, error: msg };
+          }
+          return { ok: true, updated: inserted };
+        }
+
         // Gastos del periodo
         const statusFilter = String(args.status ?? "confirmed");
         let expQ = sb.from("expenses")
