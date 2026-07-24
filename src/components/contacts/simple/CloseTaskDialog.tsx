@@ -305,8 +305,10 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
             </Button>
           )}
           {mode === "resolve" && method === "call" && (
-            <Button size="lg" onClick={submitCall} disabled={toggle.isPending || createActivity.isPending}>
-              Registrar llamada
+            <Button size="lg" onClick={submitCall} disabled={toggle.isPending || createActivity.isPending || reschedule.isPending}>
+              {callResult === "answered" ? "Registrar llamada" : (
+                <><CalendarClock className="mr-1 h-4 w-4" /> Registrar y reagendar</>
+              )}
             </Button>
           )}
           {mode === "resolve" && method === "other" && (
