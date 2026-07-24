@@ -132,6 +132,24 @@ async function waitForAuthContext(timeoutMs = 3000) {
   }
 }
 
+async function resolveHomeRoute(): Promise<string> {
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return "/dashboard";
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("ui_prefs, onboarded")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile && (profile as any).onboarded === false) return "/onboarding";
+    const mode = (profile as any)?.ui_prefs?.mode;
+    return mode === "simple" ? "/mi-dia" : "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
+}
+
 function RequirementRow({ ok, label }: { ok: boolean; label: string }) {
   return (
     <li className="flex items-center gap-2 text-xs">
@@ -239,7 +257,8 @@ export default function Login() {
         });
         if (error) throw error;
         await waitForAuthContext(3000);
-        navigate("/");
+        const home = await resolveHomeRoute();
+        navigate(home, { replace: true });
       }
     } catch (err: any) {
       const t = translateAuthError(err);
