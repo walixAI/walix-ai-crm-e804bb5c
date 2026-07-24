@@ -94,6 +94,40 @@ export function CopilotCapabilitiesTab() {
         </Button>
       </div>
 
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold">Capacidades nativas del Copiloto</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Estas son las primitivas incluidas por defecto. Están siempre disponibles y son los bloques con los que se componen las capacidades personalizadas.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {NATIVE_CAPABILITIES.map((c) => (
+            <Card key={c.id} className="p-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium">{c.label}</span>
+                <Badge
+                  variant={c.risk === "write" ? "default" : "secondary"}
+                  className="text-[10px] uppercase"
+                >
+                  {c.risk === "write" ? "Ejecuta" : "Solo lee"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
+              <p className="text-[10px] text-muted-foreground font-mono mt-1 opacity-70">{c.id}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold">Capacidades personalizadas de este tenant</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Recetas creadas con Walix Builder que combinan las primitivas anteriores.
+          </p>
+        </div>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : items.length === 0 ? (
@@ -151,6 +185,7 @@ export function CopilotCapabilitiesTab() {
           ))}
         </div>
       )}
+      </section>
 
       <NewCapabilityWizard
         open={wizardOpen}
