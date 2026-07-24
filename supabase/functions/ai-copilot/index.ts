@@ -175,6 +175,7 @@ const CRM_TOOLS = [
         properties: {
           view: { type: "string", enum: ["today", "overdue", "upcoming", "all_open"], description: "today = vencen hoy; overdue = vencidas; upcoming = próximas 7 días; all_open = todas sin completar. Default: today+overdue combinado." },
           limit: { type: "number", description: "Máx 50", default: 20 },
+          scope: { type: "string", enum: ["mine", "tenant"], description: "'mine'=solo del usuario; 'tenant'=todo el equipo. Default: 'tenant' si es admin/owner, 'mine' en otro caso." },
         },
         additionalProperties: false,
       },
@@ -470,8 +471,12 @@ async function executeTool(
         let q = sb.from("tasks")
           .select("id, title, due_at, task_kind, completed, contact_id, deal_id")
           .eq("tenant_id", tenantId)
-          .eq("assignee_id", userId)
           .eq("completed", false);
+        const { data: rolesRowsT } = await sb.from("user_roles").select("role").eq("user_id", userId);
+        const isAdminT = (rolesRowsT ?? []).some((r: any) =>
+          ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"].includes(r.role));
+        const scopeT = args.scope ?? (isAdminT ? "tenant" : "mine");
+        if (scopeT === "mine") q = q.eq("assignee_id", userId);
 
         if (view === "today") {
           q = q.gte("due_at", startOfDay.toISOString()).lte("due_at", endOfDay.toISOString());
