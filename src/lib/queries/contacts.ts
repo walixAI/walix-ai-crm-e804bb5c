@@ -502,6 +502,10 @@ export interface ContactTaskRow {
   assigneeId: string | null;
   dealId: string | null;
   createdAt: string;
+  taskKind: string | null;
+  closedVia: string | null;
+  closedNote: string | null;
+  closedAt: string | null;
 }
 
 export function useContactTasks(contactId: string | undefined) {
@@ -525,6 +529,10 @@ export function useContactTasks(contactId: string | undefined) {
         assigneeId: t.assignee_id,
         dealId: t.deal_id,
         createdAt: t.created_at,
+        taskKind: t.task_kind ?? null,
+        closedVia: t.closed_via ?? null,
+        closedNote: t.closed_note ?? null,
+        closedAt: t.closed_at ?? null,
       }));
     },
   });
@@ -533,10 +541,26 @@ export function useContactTasks(contactId: string | undefined) {
 export function useToggleContactTask(contactId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+    mutationFn: async ({
+      id, completed, via, note,
+    }: {
+      id: string; completed: boolean;
+      via?: "whatsapp" | "email" | "call" | "manual" | "auto" | "other";
+      note?: string;
+    }) => {
+      const patch: any = { completed };
+      if (completed) {
+        patch.closed_via = via ?? "manual";
+        patch.closed_note = note ?? null;
+        patch.closed_at = new Date().toISOString();
+      } else {
+        patch.closed_via = null;
+        patch.closed_note = null;
+        patch.closed_at = null;
+      }
       const { error } = await supabase
         .from("tasks")
-        .update({ completed })
+        .update(patch)
         .eq("id", id);
       if (error) throw error;
     },
@@ -544,6 +568,7 @@ export function useToggleContactTask(contactId: string | undefined) {
       qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
       qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["mi-dia"] });
     },
   });
 }

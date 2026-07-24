@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } from "@/lib/queries/miDia";
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
+import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
 import { useTenant } from "@/lib/queries/tenant";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
@@ -26,6 +27,7 @@ export default function MiDia() {
   const { data: tenant } = useTenant();
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [closingTask, setClosingTask] = useState<{ id: string; title: string; contactId: string; taskKind: string | null; dueAt: string | null } | null>(null);
   const setMode = useSetSimpleMode();
   const toggleTask = useToggleTask();
   const { data: rr } = useRunRate();
@@ -149,7 +151,16 @@ export default function MiDia() {
                 icon={ClipboardList}
                 items={data?.tasks ?? []}
                 emptyText="¡Estás al día!"
-                onToggle={(id) => toggleTask.mutate({ id, completed: true }, { onSuccess: () => toast.success("Tarea completada") })}
+                onToggle={(id) => {
+                  const it = (data?.tasks ?? []).find((x) => x.id === id);
+                  if (!it) return;
+                  if (it.contactId) {
+                    setClosingTask({ id: it.id, title: it.title, contactId: it.contactId, taskKind: it.taskKind ?? null, dueAt: it.dueAt ?? null });
+                  } else {
+                    // Tarea sin contacto asociado: cierre manual directo.
+                    toggleTask.mutate({ id, completed: true, via: "manual" }, { onSuccess: () => toast.success("Tarea completada") });
+                  }
+                }}
               />
             </div>
           </>
@@ -177,6 +188,14 @@ export default function MiDia() {
 
       <QuickTaskDialog open={!!dialogOpen} onOpenChange={(o) => !o && setDialogOpen(null)} />
       <ExpenseFormDialog open={expenseOpen} onOpenChange={setExpenseOpen} />
+      {closingTask && (
+        <CloseTaskDialog
+          open={!!closingTask}
+          onOpenChange={(o) => !o && setClosingTask(null)}
+          contactId={closingTask.contactId}
+          task={{ id: closingTask.id, title: closingTask.title, taskKind: closingTask.taskKind, dueAt: closingTask.dueAt }}
+        />
+      )}
     </div>
   );
 }

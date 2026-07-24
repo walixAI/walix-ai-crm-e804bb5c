@@ -71,10 +71,22 @@ export function useTasks(opts: { view?: TaskView; mineOnly?: boolean } = {}) {
 export function useToggleTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+    mutationFn: async ({
+      id, completed, via, note,
+    }: { id: string; completed: boolean; via?: "whatsapp" | "email" | "call" | "manual" | "auto" | "other"; note?: string }) => {
+      const patch: any = { completed };
+      if (completed) {
+        patch.closed_via = via ?? "manual";
+        patch.closed_note = note ?? null;
+        patch.closed_at = new Date().toISOString();
+      } else {
+        patch.closed_via = null;
+        patch.closed_note = null;
+        patch.closed_at = null;
+      }
       const { data, error } = await supabase
         .from("tasks")
-        .update({ completed })
+        .update(patch)
         .eq("id", id)
         .select("contact_id, deal_id, title")
         .maybeSingle();
@@ -89,6 +101,7 @@ export function useToggleTask() {
           void aiMemory.logEvent(target.type, target.id, "task_completed", {
             task_id: id,
             title: data.title,
+            via: via ?? "manual",
           });
         }
       }
@@ -97,6 +110,7 @@ export function useToggleTask() {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["contact-tasks"] });
       qc.invalidateQueries({ queryKey: ["contact-activity"] });
+      qc.invalidateQueries({ queryKey: ["mi-dia"] });
     },
   });
 }
@@ -119,10 +133,31 @@ export function useDeleteTask() {
 export function useRescheduleTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, dueAt }: { id: string; dueAt: string | null }) => {
+    mutationFn: async ({ id, dueAt, reason }: { id: string; dueAt: string | null; reason?: string }) => {
+      const { data: row, error: qErr } = await supabase
+        .from("tasks").select("tenant_id, contact_id, deal_id, title").eq("id", id).maybeSingle();
+      if (qErr) throw qErr;
       const { error } = await supabase.from("tasks").update({ due_at: dueAt }).eq("id", id);
       if (error) throw error;
+      if (reason && row?.contact_id && row?.tenant_id) {
+        const { data: auth } = await supabase.auth.getUser();
+        await (supabase as any).from("activities").insert({
+          tenant_id: row.tenant_id,
+          contact_id: row.contact_id,
+          deal_id: row.deal_id ?? null,
+          agent_id: auth.user?.id ?? null,
+          type: "note",
+          description: `Reagendé "${row.title}" — ${reason}`,
+          occurred_at: new Date().toISOString(),
+          metadata: { task_id: id, reschedule: true, new_due_at: dueAt },
+        });
+      }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["contact-tasks"] });
+      qc.invalidateQueries({ queryKey: ["contact-activity"] });
+      qc.invalidateQueries({ queryKey: ["mi-dia"] });
+    },
   });
 }

@@ -13,6 +13,7 @@ export interface JumboItem {
   overdue?: boolean;
   contactId?: string | null;
   dealId?: string | null;
+  taskKind?: string | null;
 }
 
 function isOverdue(d: string | null | undefined) {
@@ -72,6 +73,7 @@ export function useMiDiaData() {
         overdue: isOverdue(t.due_at),
         contactId: t.contact_id,
         dealId: t.deal_id,
+        taskKind: t.task_kind ?? null,
       }));
 
       const quote: JumboItem[] = deals

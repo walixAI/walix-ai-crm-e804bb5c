@@ -2103,6 +2103,9 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          closed_at: string | null
+          closed_note: string | null
+          closed_via: string | null
           completed: boolean
           contact_id: string | null
           created_at: string
@@ -2116,6 +2119,9 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          closed_at?: string | null
+          closed_note?: string | null
+          closed_via?: string | null
           completed?: boolean
           contact_id?: string | null
           created_at?: string
@@ -2129,6 +2135,9 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          closed_at?: string | null
+          closed_note?: string | null
+          closed_via?: string | null
           completed?: boolean
           contact_id?: string | null
           created_at?: string

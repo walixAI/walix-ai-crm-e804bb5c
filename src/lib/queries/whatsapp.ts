@@ -216,6 +216,16 @@ export function useSendMessage() {
             length: vars.body.length,
           });
         });
+        // Auto-cierre de tareas relacionadas al contacto de la conversación.
+        (async () => {
+          try {
+            const { autoCloseTasksAfterMessage } = await import("@/lib/tasks/autoClose");
+            await autoCloseTasksAfterMessage({ conversationId: vars.conversationId, text: vars.body });
+            qc.invalidateQueries({ queryKey: ["tasks"] });
+            qc.invalidateQueries({ queryKey: ["contact-tasks"] });
+            qc.invalidateQueries({ queryKey: ["mi-dia"] });
+          } catch { /* silent */ }
+        })();
       }
     },
   });
