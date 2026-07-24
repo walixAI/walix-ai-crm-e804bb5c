@@ -257,7 +257,8 @@ export default function Login() {
         });
         if (error) throw error;
         await waitForAuthContext(3000);
-        navigate("/");
+        const home = await resolveHomeRoute();
+        navigate(home, { replace: true });
       }
     } catch (err: any) {
       const t = translateAuthError(err);
