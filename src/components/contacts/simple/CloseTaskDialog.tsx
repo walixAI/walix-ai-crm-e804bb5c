@@ -376,3 +376,57 @@ async function ensureConversation(contactId: string, userId: string | null) {
   if (error) throw error;
   return created;
 }
+
+// ─────────────── Reschedule inline block ───────────────
+function RescheduleInline({
+  when, onWhen, reason, onReason, suggestion, headline,
+}: {
+  when: string;
+  onWhen: (v: string) => void;
+  reason: string;
+  onReason: (v: string) => void;
+  suggestion: { date: Date; reason: string } | null;
+  headline: string;
+}) {
+  const quicks = [
+    { label: "En 2 h", mins: 120 },
+    { label: "Mañana 9 am", tomorrowHour: 9 },
+    { label: "En 3 días", days: 3, hour: 10 },
+  ];
+  return (
+    <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <CalendarClock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-sm font-semibold text-primary">{headline}</div>
+          {suggestion && (
+            <div className="text-xs text-muted-foreground mt-0.5">{suggestion.reason}</div>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {quicks.map((q) => (
+          <Button key={q.label} type="button" variant="outline" size="sm"
+            onClick={() => {
+              const d = new Date();
+              if (q.mins) d.setMinutes(d.getMinutes() + q.mins);
+              else if (q.tomorrowHour != null) { d.setDate(d.getDate() + 1); d.setHours(q.tomorrowHour, 0, 0, 0); }
+              else if (q.days) { d.setDate(d.getDate() + q.days); d.setHours(q.hour ?? 10, 0, 0, 0); }
+              onWhen(toLocalInput(d));
+            }}>
+            {q.label}
+          </Button>
+        ))}
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Cuándo reintentar</Label>
+        <Input type="datetime-local" value={when} onChange={(e) => onWhen(e.target.value)} className="h-11 text-base" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Motivo (opcional)</Label>
+        <Textarea rows={2} value={reason} onChange={(e) => onReason(e.target.value)}
+          placeholder="Ej. Cliente pidió llamar el viernes" className="text-base" />
+      </div>
+    </div>
+  );
+}
