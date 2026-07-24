@@ -211,9 +211,7 @@ export default function Dashboard() {
         </Widget>
 
         <Widget k="dash.activity">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card shadow-card">
+          <div className="rounded-xl border border-border bg-card shadow-card">
           <div className="flex items-center justify-between p-5 border-b border-border">
             <div>
               <h3 className="font-semibold">Actividad Reciente</h3>
@@ -266,13 +264,14 @@ export default function Dashboard() {
               </>
             )}
           </div>
-        </div>
-            <ProactiveBriefing />
           </div>
         </Widget>
 
+        <Widget k="dash.proactive_briefing">
+          <ProactiveBriefing />
+        </Widget>
+
         <Widget k="dash.pipeline_chart">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Pipeline by stage */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
@@ -322,6 +321,9 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+        </Widget>
+
+        <Widget k="dash.deals_closed">
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -378,7 +380,6 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-          </div>
         </Widget>
       </LayoutRenderer>
 
