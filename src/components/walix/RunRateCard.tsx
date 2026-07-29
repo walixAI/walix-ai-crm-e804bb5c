@@ -1,8 +1,10 @@
-import { TrendingUp, Target, Lightbulb } from "lucide-react";
+import { useState } from "react";
+import { TrendingUp, Target, Lightbulb, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
+import { useRunRateBySeller } from "@/lib/queries/dashboardExtras";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -12,8 +14,10 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; ring: string; la
   red:    { bg: "bg-red-500/10",     text: "text-red-600",     ring: "ring-red-500/30",     label: "En riesgo" },
 };
 
-export function RunRateCard({ compact = false }: { compact?: boolean }) {
+export function RunRateCard({ compact = false, showSellers = false }: { compact?: boolean; showSellers?: boolean }) {
   const { data, isLoading } = useRunRate();
+  const [open, setOpen] = useState(false);
+  const { data: sellers = [] } = useRunRateBySeller();
   if (isLoading || !data) return null;
   const c = STATUS_COLORS[data.status];
 
@@ -79,6 +83,51 @@ export function RunRateCard({ compact = false }: { compact?: boolean }) {
                 <li key={i} className="flex gap-2"><span className="text-primary">•</span><span>{r}</span></li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {showSellers && (
+          <div className="border-t border-border pt-3">
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" /> Detalle por vendedor ({sellers.length})
+              </span>
+              {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            {open && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                  <span className="font-semibold">Global del mes</span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-muted-foreground">{formatMXN0(data.sold)} / {formatMXN0(data.monthGoal)}</span>
+                    <span className={cn("font-bold", c.text)}>{Math.round(data.runRatePct)}%</span>
+                  </span>
+                </div>
+                {sellers.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic px-1">Sin vendedores con meta asignada este mes.</p>
+                )}
+                {sellers.map((s) => {
+                  const tone = s.runRatePct >= 100 ? "text-emerald-600" : s.runRatePct >= 70 ? "text-amber-600" : "text-red-600";
+                  return (
+                    <div key={s.userId} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium truncate">{s.name}</span>
+                        <span className="flex items-center gap-3 shrink-0">
+                          <span className="text-muted-foreground">
+                            {formatMXN0(s.won)}{s.assignedGoal > 0 ? ` / ${formatMXN0(s.assignedGoal)}` : ""}
+                          </span>
+                          <span className={cn("font-bold", tone)}>{Math.round(s.runRatePct)}%</span>
+                        </span>
+                      </div>
+                      <Progress value={Math.min(100, s.runRatePct)} className="h-1.5" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
