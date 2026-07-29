@@ -27,7 +27,6 @@ import { ActivityReportCard } from "@/components/dashboard/ActivityReportCard";
 import { DealsListDialog } from "@/components/dashboard/DealsListDialog";
 import { ChartFilters, rangeParams, type RangeValue } from "@/components/dashboard/ChartFilters";
 import { MorningBriefing } from "@/components/walix/MorningBriefing";
-import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
@@ -361,6 +360,7 @@ export default function Dashboard() {
         deals={staleDeals.map((d) => ({
           id: d.id, name: d.name, amount: d.amount,
           stageName: d.stageName, ownerName: d.ownerName,
+          contactId: d.contactId,
           extra: `Última actividad ${new Date(d.updatedAt).toLocaleDateString("es-MX")}`,
         }))}
       />
