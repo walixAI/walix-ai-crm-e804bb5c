@@ -50,14 +50,25 @@ export function DashboardAiSection() {
   const { data: overdueDeals = [] } = useOverdueDeals();
   const [listDialog, setListDialog] = useState<{ title: string; description?: string; deals: DealListItem[] } | null>(null);
 
+  /** Resolve the contact behind a deal so navigation lands on the person. */
+  const contactOfDeal = (dealId: string): string | null => {
+    const all = [...closingSoon, ...staleDeals, ...overdueDeals];
+    return all.find((d) => d.id === dealId)?.contactId ?? null;
+  };
+
+  const goToDeal = (dealId: string) => {
+    const cid = contactOfDeal(dealId);
+    navigate(cid ? `/contacts/${cid}?dealId=${dealId}` : `/pipeline?dealId=${dealId}`);
+  };
+
   const handleCitation = (kind: string, id: string) => {
-    if (kind === "deal" || kind === "oportunidad") navigate(`/pipeline?dealId=${id}`);
+    if (kind === "deal" || kind === "oportunidad") goToDeal(id);
     else if (kind === "contact") navigate(`/contacts/${id}`);
     else if (kind === "convo" || kind === "conversation") navigate(`/whatsapp?conversationId=${id}`);
   };
 
   const openEntity = (type: RiskWidget["entityType"], id?: string) => {
-    if (type === "deal") navigate(id ? `/pipeline?dealId=${id}` : "/pipeline");
+    if (type === "deal") { if (id) goToDeal(id); else navigate("/pipeline"); }
     else if (type === "conversation") navigate(id ? `/whatsapp?conversationId=${id}` : "/whatsapp");
     else if (type === "contact") navigate(id ? `/contacts/${id}` : "/contacts");
     else navigate("/pipeline");
