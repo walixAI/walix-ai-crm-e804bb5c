@@ -1,20 +1,19 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCopilot } from "@/store/copilot";
 import {
-  useDashboardKpis, useRecentActivity,
+  useDashboardKpis,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
+import {
+  usePipelineBreakdown, useStaleDeals,
+} from "@/lib/queries/dashboardExtras";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
-  Sparkles, AlertTriangle, X, Clock,
-  MoveRight, FileText, StickyNote, CheckCircle2, SlidersHorizontal,
+  Sparkles, AlertTriangle, X, SlidersHorizontal,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -22,22 +21,17 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { DashboardAiSection } from "@/components/walix/DashboardAiSection";
-import { KpiCardsSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
+import { KpiCardsSkeleton } from "@/components/walix/Skeletons";
 import { TaskCards } from "@/components/dashboard/TaskCards";
+import { ActivityReportCard } from "@/components/dashboard/ActivityReportCard";
+import { DealsListDialog } from "@/components/dashboard/DealsListDialog";
+import { ChartFilters, RANGE_DAYS, type RangePreset } from "@/components/dashboard/ChartFilters";
 import { MorningBriefing } from "@/components/walix/MorningBriefing";
 import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
-
-const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
-  deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
-  wa_sent: { icon: FileText, color: "text-accent bg-accent/10" },
-  wa_received: { icon: FileText, color: "text-success bg-success/10" },
-  note: { icon: StickyNote, color: "text-warning bg-warning/10" },
-  task: { icon: CheckCircle2, color: "text-success bg-success/10" },
-};
 
 function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -64,19 +58,34 @@ export default function Dashboard() {
   const send = useCopilot((s) => s.send);
   const [showAlert, setShowAlert] = useState(true);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [staleOpen, setStaleOpen] = useState(false);
+  const [stagePipeline, setStagePipeline] = useState("all");
+  const [stageRange, setStageRange] = useState<RangePreset>("90d");
+  const [closedPipeline, setClosedPipeline] = useState("all");
+  const [closedRange, setClosedRange] = useState<RangePreset>("30d");
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
-  const { data: activity = [], isLoading: activityLoading } = useRecentActivity(10);
   // Legacy hardcoded suggestions replaced by ProactiveBriefing (uses ai_proactive_suggestions).
-  const { data: pipelineByStage = [] } = usePipelineByStage();
-  const { data: dealsTimeline = [] } = useDealsClosedTimeline(30);
+  const { data: pipelineByStage = [] } = usePipelineByStage(stagePipeline, RANGE_DAYS[stageRange]);
+  const { data: dealsTimeline = [] } = useDealsClosedTimeline(RANGE_DAYS[closedRange], closedPipeline);
+  const { data: breakdown = [] } = usePipelineBreakdown();
+  const { data: staleDeals = [] } = useStaleDeals(10);
 
-  const atRiskDealsCount = kpis?.staleDeals ?? 0;
+  const atRiskDealsCount = staleDeals.length;
+  const totalActive = breakdown.reduce((s, b) => s + b.activeCount, 0);
   const kpiData = [
-    { label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN", delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet },
-    { label: "Oportunidades Activas", value: String(kpis?.activeDeals ?? 0), suffix: "abiertas", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
-    { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare },
-    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp },
+    {
+      label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN",
+      delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet,
+      breakdown: breakdown.map((b) => ({ label: b.pipelineName, value: formatMXN(b.value) })),
+    },
+    {
+      label: "Oportunidades Activas", value: String(totalActive || kpis?.activeDeals || 0), suffix: "abiertas",
+      delta: String(atRiskDealsCount), trend: "down" as const, hint: "sin actividad", icon: Target,
+      breakdown: breakdown.map((b) => ({ label: b.pipelineName, value: `${b.activeCount}` })),
+    },
+    { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare, breakdown: [] },
+    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp, breakdown: [] },
   ];
 
   const { data: profile } = useQuery({
@@ -91,11 +100,15 @@ export default function Dashboard() {
       return data;
     },
   });
-  const displayName =
+  const prettify = (v: string) =>
+    v.replace(/[._-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+  const rawName =
     profile?.full_name ??
     (user?.user_metadata?.full_name as string | undefined) ??
-    user?.email?.split("@")[0] ??
+    user?.email ??
     "ahí";
+  // Never show an email address in the greeting.
+  const displayName = rawName.includes("@") ? prettify(rawName.split("@")[0]) : rawName;
   const name = displayName.split(" ")[0];
   const today = new Date().toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long",
@@ -114,9 +127,9 @@ export default function Dashboard() {
           <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
           <div className="flex-1 text-foreground">
             <strong>{atRiskDealsCount} oportunidades</strong> llevan más de 10 días sin actividad.{" "}
-            <a href="/pipeline" className="font-medium text-warning underline-offset-2 hover:underline">
+            <button onClick={() => setStaleOpen(true)} className="font-medium text-warning underline-offset-2 hover:underline">
               Ver oportunidades →
-            </a>
+            </button>
           </div>
           <button
             onClick={() => setShowAlert(false)}
@@ -153,13 +166,10 @@ export default function Dashboard() {
         </Widget>
 
         <Widget k="dash.run_rate">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <RunRateCard compact />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <RunRateCard compact showSellers />
+            <ProfitabilityCard />
           </div>
-        </Widget>
-
-        <Widget k="dash.profitability">
-          <ProfitabilityCard />
         </Widget>
 
         <Widget k="dash.kpi_cards">
@@ -195,6 +205,16 @@ export default function Dashboard() {
                 </span>
                 <span className="text-muted-foreground">{k.hint}</span>
               </div>
+              {k.breakdown.length > 0 && (
+                <div className="mt-3 pt-2 border-t border-border space-y-1">
+                  {k.breakdown.map((b) => (
+                    <div key={b.label} className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground truncate">{b.label}</span>
+                      <span className="font-semibold">{b.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -211,60 +231,7 @@ export default function Dashboard() {
         </Widget>
 
         <Widget k="dash.activity">
-          <div className="rounded-xl border border-border bg-card shadow-card">
-          <div className="flex items-center justify-between p-5 border-b border-border">
-            <div>
-              <h3 className="font-semibold">Actividad Reciente</h3>
-              <p className="text-xs text-muted-foreground">Últimas acciones de tu equipo</p>
-            </div>
-            <Button variant="ghost" size="sm" className="text-primary">Ver todo</Button>
-          </div>
-          <div className="divide-y divide-border">
-            {activityLoading && activity.length === 0 ? (
-              <ListRowsSkeleton rows={5} />
-            ) : (
-              <>
-              {activity.map((a) => {
-              const meta = activityIcon[a.type] ?? activityIcon.note;
-              const ActIcon = meta.icon;
-              return (
-                <div key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/50 transition-colors">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-gradient-brand text-primary-foreground text-xs font-semibold">
-                      {a.contactName ? a.contactName.split(" ").map(s => s[0]).slice(0, 2).join("") : "•"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 text-sm">
-                    <p className="truncate">
-                      <span className="text-muted-foreground">{a.description}</span>
-                      {a.contactName && (
-                        <>
-                          {" · "}
-                          {a.contactId ? (
-                            <Link to={`/contacts/${a.contactId}`} className="font-medium text-foreground hover:text-primary">
-                              {a.contactName}
-                            </Link>
-                          ) : <span className="font-medium text-foreground">{a.contactName}</span>}
-                        </>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                      <Clock className="h-3 w-3" /> {relativeTime(a.occurredAt)}
-                    </div>
-                  </div>
-                  <div className={cn("h-7 w-7 grid place-items-center rounded-lg shrink-0", meta.color)}>
-                    <ActIcon className="h-3.5 w-3.5" />
-                  </div>
-                </div>
-              );
-            })}
-            {activity.length === 0 && (
-              <div className="px-5 py-8 text-center text-sm text-muted-foreground">Sin actividad reciente.</div>
-            )}
-              </>
-            )}
-          </div>
-          </div>
+          <ActivityReportCard />
         </Widget>
 
         <Widget k="dash.proactive_briefing">
@@ -279,6 +246,10 @@ export default function Dashboard() {
               <h3 className="font-semibold">Pipeline por Etapa</h3>
               <p className="text-xs text-muted-foreground">Valor MXN acumulado</p>
             </div>
+            <ChartFilters
+              pipelineId={stagePipeline} onPipeline={setStagePipeline}
+              range={stageRange} onRange={setStageRange}
+            />
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -328,11 +299,12 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-semibold">Oportunidades cerradas</h3>
-              <p className="text-xs text-muted-foreground">Últimos 30 días</p>
+              <p className="text-xs text-muted-foreground">Ganadas en el periodo seleccionado</p>
             </div>
-            <span className="text-xs font-semibold text-success inline-flex items-center gap-0.5">
-              <ArrowUpRight className="h-3 w-3" /> +18%
-            </span>
+            <ChartFilters
+              pipelineId={closedPipeline} onPipeline={setClosedPipeline}
+              range={closedRange} onRange={setClosedRange}
+            />
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -382,6 +354,18 @@ export default function Dashboard() {
         </div>
         </Widget>
       </LayoutRenderer>
+
+      <DealsListDialog
+        open={staleOpen}
+        onOpenChange={setStaleOpen}
+        title="Oportunidades sin actividad"
+        description="Más de 10 días sin movimiento"
+        deals={staleDeals.map((d) => ({
+          id: d.id, name: d.name, amount: d.amount,
+          stageName: d.stageName, ownerName: d.ownerName,
+          extra: `Última actividad ${new Date(d.updatedAt).toLocaleDateString("es-MX")}`,
+        }))}
+      />
 
       <CustomizeSheet open={customizeOpen} onOpenChange={setCustomizeOpen} surface="dashboard" scope="user" />
     </div>

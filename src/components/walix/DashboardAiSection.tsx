@@ -13,6 +13,8 @@ import {
 import { AiSectionSkeleton } from "@/components/walix/Skeletons";
 import { renderCitations, formatMXN } from "@/lib/ai/citations";
 import { usePipelineHealthScore } from "@/lib/queries/dashboard";
+import { useClosingSoon, useStaleDeals, useOverdueDeals } from "@/lib/queries/dashboardExtras";
+import { DealsListDialog, type DealListItem } from "@/components/dashboard/DealsListDialog";
 import type { HealthStatus } from "@/lib/pipelineHealth";
 
 const REPORT_CACHE_KEY = "walix.weeklyReport.v1";
@@ -43,6 +45,10 @@ export function DashboardAiSection() {
   const [loading, setLoading] = useState(true);
   const [reportOpen, setReportOpen] = useState(false);
   const { data: health } = usePipelineHealthScore();
+  const { data: closingSoon = [] } = useClosingSoon();
+  const { data: staleDeals = [] } = useStaleDeals(10);
+  const { data: overdueDeals = [] } = useOverdueDeals();
+  const [listDialog, setListDialog] = useState<{ title: string; description?: string; deals: DealListItem[] } | null>(null);
 
   const handleCitation = (kind: string, id: string) => {
     if (kind === "deal" || kind === "oportunidad") navigate(`/pipeline?dealId=${id}`);
@@ -55,6 +61,23 @@ export function DashboardAiSection() {
     else if (type === "conversation") navigate(id ? `/whatsapp?conversationId=${id}` : "/whatsapp");
     else if (type === "contact") navigate(id ? `/contacts/${id}` : "/contacts");
     else navigate("/pipeline");
+  };
+
+  const openRisk = (r: RiskWidget) => {
+    if (r.entityId) { openEntity(r.entityType, r.entityId); return; }
+    const text = `${r.title} ${r.detail}`.toLowerCase();
+    if (r.entityType === "conversation") { navigate("/whatsapp"); return; }
+    const useOverdue = /vencid|fecha|cierre|atrasad/.test(text);
+    const source = useOverdue ? overdueDeals : staleDeals;
+    setListDialog({
+      title: r.title,
+      description: r.detail,
+      deals: source.map((d) => ({
+        id: d.id, name: d.name, amount: d.amount,
+        stageName: d.stageName, ownerName: d.ownerName,
+        extra: useOverdue && d.expectedCloseDate ? `Cierre ${d.expectedCloseDate}` : undefined,
+      })),
+    });
   };
 
   const load = async (forceRefreshReport = false) => {
@@ -158,31 +181,53 @@ export function DashboardAiSection() {
           </div>
         </div>
 
-        {/* Opportunities */}
+        {/* Opportunities — real data: deals in the stage right before "Ganado" */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="h-4 w-4 text-accent" />
-            <h3 className="font-semibold text-sm">Próximas a cerrar</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-accent" />
+              <h3 className="font-semibold text-sm">Próximas a cerrar</h3>
+            </div>
+            {closingSoon.length > 0 && (
+              <button
+                onClick={() => setListDialog({
+                  title: "Próximas a cerrar",
+                  description: "Etapa previa a Ganado en todos los pipelines",
+                  deals: closingSoon.map((d) => ({
+                    id: d.id, name: d.name, amount: d.amount,
+                    stageName: `${d.pipelineName} · ${d.stageName}`, ownerName: d.ownerName,
+                    extra: d.expectedCloseDate ? `Cierre ${d.expectedCloseDate}` : undefined,
+                  })),
+                })}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Ver todas ({closingSoon.length})
+              </button>
+            )}
           </div>
-          {data.opportunities.length === 0 ? (
+          {closingSoon.length === 0 ? (
             <div className="text-xs text-muted-foreground italic py-4 text-center">
-              Sin oportunidades destacadas.
+              Sin oportunidades en la etapa previa a Ganado.
             </div>
           ) : (
             <div className="space-y-2">
-              {data.opportunities.slice(0, 4).map((o, i) => (
+              {closingSoon.slice(0, 3).map((o) => (
                 <button
-                  key={i}
-                  onClick={() => navigate(`/pipeline?dealId=${o.dealId}`)}
+                  key={o.id}
+                  onClick={() => navigate(`/pipeline?dealId=${o.id}`)}
                   className="w-full text-left group rounded-lg border border-border hover:border-primary/40 hover:bg-primary/5 p-2.5 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <span className="text-xs font-semibold text-foreground truncate flex-1">{o.name}</span>
                     <span className="text-[11px] font-bold text-primary shrink-0">{formatMXN(o.amount)}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground line-clamp-1">{o.reason}</p>
+                  <p className="text-[11px] text-muted-foreground line-clamp-1">
+                    {o.pipelineName} · {o.stageName} · {o.ownerName}
+                  </p>
                   <div className="mt-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-accent font-medium truncate">→ {o.nextAction}</span>
+                    <span className="text-[10px] text-accent font-medium truncate">
+                      {o.expectedCloseDate ? `Cierre estimado ${o.expectedCloseDate}` : "Sin fecha de cierre"}
+                    </span>
                     <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
                   </div>
                 </button>
@@ -206,7 +251,7 @@ export function DashboardAiSection() {
               {data.risks.slice(0, 4).map((r, i) => (
                 <button
                   key={i}
-                  onClick={() => openEntity(r.entityType, r.entityId)}
+                  onClick={() => openRisk(r)}
                   className="w-full text-left group rounded-lg border border-border hover:border-warning/40 hover:bg-warning/5 p-2.5 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
@@ -282,6 +327,14 @@ export function DashboardAiSection() {
           Mostrando datos de demostración: el servicio IA no respondió.
         </div>
       )}
+
+      <DealsListDialog
+        open={!!listDialog}
+        onOpenChange={(v) => !v && setListDialog(null)}
+        title={listDialog?.title ?? ""}
+        description={listDialog?.description}
+        deals={listDialog?.deals ?? []}
+      />
     </div>
   );
 }

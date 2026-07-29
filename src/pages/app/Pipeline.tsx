@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { KanbanSkeleton, TableSkeleton } from "@/components/walix/Skeletons";
 import { KanbanBoard } from "@/components/pipeline/KanbanBoard";
@@ -83,6 +84,21 @@ export default function Pipeline() {
   const [taskDeal, setTaskDeal] = useState<PipelineDeal | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+
+  // Deep-link: /pipeline?dealId=<uuid> opens the deal drawer (from Dashboard widgets).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepDealId = searchParams.get("dealId");
+  useEffect(() => {
+    if (!deepDealId || deals.length === 0) return;
+    const d = deals.find((x) => x.id === deepDealId);
+    if (d) {
+      setOpenDeal(d);
+      const next = new URLSearchParams(searchParams);
+      next.delete("dealId");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepDealId, deals.length]);
 
   const lostStage = stages.find((s) => s.isLost) ?? null;
 

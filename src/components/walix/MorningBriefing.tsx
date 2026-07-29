@@ -25,10 +25,15 @@ export function MorningBriefing() {
 
   const top = suggestions.slice(0, 3);
   const more = suggestions.length - top.length;
-  const name =
-    (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ??
-    user?.email?.split("@")[0] ??
+  const rawName =
+    (user?.user_metadata?.full_name as string | undefined) ??
+    user?.email ??
     "ahí";
+  // Never render a raw email address in the greeting.
+  const name = (rawName.includes("@")
+    ? rawName.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())
+    : rawName
+  ).split(" ")[0];
 
   function close() {
     try { localStorage.setItem(STORAGE_KEY, todayKey()); } catch { /* ignore */ }
