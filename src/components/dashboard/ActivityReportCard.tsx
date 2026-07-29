@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { Clock, Download, FileText, StickyNote, CheckCircle2, MoveRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -176,7 +175,6 @@ export function ActivityReportCard() {
           </span>
         </div>
       )}
-      <div className="sr-only"><Link to="/tasks">Tareas</Link></div>
     </div>
   );
 }
