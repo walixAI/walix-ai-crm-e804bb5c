@@ -236,10 +236,6 @@ export default function Dashboard() {
           <ActivityReportCard />
         </Widget>
 
-        <Widget k="dash.proactive_briefing">
-          <ProactiveBriefing />
-        </Widget>
-
         <Widget k="dash.pipeline_chart">
         {/* Pipeline by stage */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
