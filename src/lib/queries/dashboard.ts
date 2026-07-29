@@ -110,16 +110,25 @@ export function useDashboardAiSuggestions() {
   });
 }
 
-export function usePipelineByStage(pipelineId: string = "all", days: number | null = null) {
+export function usePipelineByStage(
+  pipelineId: string = "all",
+  days: number | null = null,
+  from?: string,
+  to?: string,
+) {
   return useQuery({
-    queryKey: ["pipeline-by-stage", pipelineId, days],
+    queryKey: ["pipeline-by-stage", pipelineId, days, from, to],
     queryFn: async () => {
       let sq = supabase.from("pipeline_stages").select("id,name,position,pipeline_id").order("position");
       if (pipelineId !== "all") sq = sq.eq("pipeline_id", pipelineId);
       const { data: stages, error: e1 } = await sq;
       if (e1) throw e1;
       let dq = supabase.from("deals").select("amount,stage_id,is_won,is_lost,updated_at");
-      if (days) {
+      if (from && to) {
+        dq = dq
+          .gte("updated_at", new Date(`${from}T00:00:00`).toISOString())
+          .lte("updated_at", new Date(`${to}T23:59:59`).toISOString());
+      } else if (days) {
         const since = new Date(Date.now() - days * 86400000);
         since.setHours(0, 0, 0, 0);
         dq = dq.gte("updated_at", since.toISOString());
@@ -136,12 +145,18 @@ export function usePipelineByStage(pipelineId: string = "all", days: number | nu
   });
 }
 
-export function useDealsClosedTimeline(days = 30, pipelineId: string = "all") {
+export function useDealsClosedTimeline(
+  days = 30,
+  pipelineId: string = "all",
+  from?: string,
+  to?: string,
+) {
   return useQuery({
-    queryKey: ["deals-closed-timeline", days, pipelineId],
+    queryKey: ["deals-closed-timeline", days, pipelineId, from, to],
     queryFn: async () => {
-      const since = new Date(Date.now() - days * 86400000);
+      const since = from ? new Date(`${from}T00:00:00`) : new Date(Date.now() - days * 86400000);
       since.setHours(0,0,0,0);
+      const until = to ? new Date(`${to}T23:59:59`) : null;
       let stageIds: Set<string> | null = null;
       if (pipelineId !== "all") {
         const { data: st } = await supabase
@@ -151,10 +166,14 @@ export function useDealsClosedTimeline(days = 30, pipelineId: string = "all") {
       const { data: raw, error } = await supabase
         .from("deals").select("amount,updated_at,is_won,stage_id")
         .eq("is_won", true).gte("updated_at", since.toISOString());
+      if (until) {
+        // filtered client-side below to keep the query builder simple
+      }
       if (error) throw error;
-      const data = stageIds
+      let data = stageIds
         ? (raw ?? []).filter((d: any) => d.stage_id && stageIds!.has(d.stage_id))
         : (raw ?? []);
+      if (until) data = data.filter((d: any) => new Date(d.updated_at) <= until);
       const buckets = new Map<string, number>();
       for (let i = 0; i < days; i++) {
         const d = new Date(since); d.setDate(since.getDate() + i);
