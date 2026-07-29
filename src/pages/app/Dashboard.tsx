@@ -1,20 +1,20 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCopilot } from "@/store/copilot";
 import {
-  useDashboardKpis, useRecentActivity,
+  useDashboardKpis,
   usePipelineByStage, useDealsClosedTimeline,
 } from "@/lib/queries/dashboard";
+import {
+  usePipelineBreakdown, useStaleDeals,
+} from "@/lib/queries/dashboardExtras";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { relativeTime } from "@/lib/format/relativeTime";
 import {
   Wallet, Target, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownRight,
-  Sparkles, AlertTriangle, X, Clock,
-  MoveRight, FileText, StickyNote, CheckCircle2, SlidersHorizontal,
+  Sparkles, AlertTriangle, X, SlidersHorizontal,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -22,22 +22,17 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { DashboardAiSection } from "@/components/walix/DashboardAiSection";
-import { KpiCardsSkeleton, ListRowsSkeleton } from "@/components/walix/Skeletons";
+import { KpiCardsSkeleton } from "@/components/walix/Skeletons";
 import { TaskCards } from "@/components/dashboard/TaskCards";
+import { ActivityReportCard } from "@/components/dashboard/ActivityReportCard";
+import { DealsListDialog } from "@/components/dashboard/DealsListDialog";
+import { ChartFilters, RANGE_DAYS, type RangePreset } from "@/components/dashboard/ChartFilters";
 import { MorningBriefing } from "@/components/walix/MorningBriefing";
 import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
-
-const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
-  deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
-  wa_sent: { icon: FileText, color: "text-accent bg-accent/10" },
-  wa_received: { icon: FileText, color: "text-success bg-success/10" },
-  note: { icon: StickyNote, color: "text-warning bg-warning/10" },
-  task: { icon: CheckCircle2, color: "text-success bg-success/10" },
-};
 
 function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -61,22 +56,38 @@ const stageColors = [
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const send = useCopilot((s) => s.send);
   const [showAlert, setShowAlert] = useState(true);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [staleOpen, setStaleOpen] = useState(false);
+  const [stagePipeline, setStagePipeline] = useState("all");
+  const [stageRange, setStageRange] = useState<RangePreset>("90d");
+  const [closedPipeline, setClosedPipeline] = useState("all");
+  const [closedRange, setClosedRange] = useState<RangePreset>("30d");
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
-  const { data: activity = [], isLoading: activityLoading } = useRecentActivity(10);
   // Legacy hardcoded suggestions replaced by ProactiveBriefing (uses ai_proactive_suggestions).
-  const { data: pipelineByStage = [] } = usePipelineByStage();
-  const { data: dealsTimeline = [] } = useDealsClosedTimeline(30);
+  const { data: pipelineByStage = [] } = usePipelineByStage(stagePipeline, RANGE_DAYS[stageRange]);
+  const { data: dealsTimeline = [] } = useDealsClosedTimeline(RANGE_DAYS[closedRange], closedPipeline);
+  const { data: breakdown = [] } = usePipelineBreakdown();
+  const { data: staleDeals = [] } = useStaleDeals(10);
 
-  const atRiskDealsCount = kpis?.staleDeals ?? 0;
+  const atRiskDealsCount = staleDeals.length;
+  const totalActive = breakdown.reduce((s, b) => s + b.activeCount, 0);
   const kpiData = [
-    { label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN", delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet },
-    { label: "Oportunidades Activas", value: String(kpis?.activeDeals ?? 0), suffix: "abiertas", delta: String(kpis?.staleDeals ?? 0), trend: "down" as const, hint: "sin actividad", icon: Target },
-    { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare },
-    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp },
+    {
+      label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN",
+      delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet,
+      breakdown: breakdown.map((b) => ({ label: b.pipelineName, value: formatMXN(b.value) })),
+    },
+    {
+      label: "Oportunidades Activas", value: String(totalActive || kpis?.activeDeals || 0), suffix: "abiertas",
+      delta: String(atRiskDealsCount), trend: "down" as const, hint: "sin actividad", icon: Target,
+      breakdown: breakdown.map((b) => ({ label: b.pipelineName, value: `${b.activeCount}` })),
+    },
+    { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare, breakdown: [] },
+    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp, breakdown: [] },
   ];
 
   const { data: profile } = useQuery({
@@ -91,11 +102,15 @@ export default function Dashboard() {
       return data;
     },
   });
-  const displayName =
+  const prettify = (v: string) =>
+    v.replace(/[._-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+  const rawName =
     profile?.full_name ??
     (user?.user_metadata?.full_name as string | undefined) ??
-    user?.email?.split("@")[0] ??
+    user?.email ??
     "ahí";
+  // Never show an email address in the greeting.
+  const displayName = rawName.includes("@") ? prettify(rawName.split("@")[0]) : rawName;
   const name = displayName.split(" ")[0];
   const today = new Date().toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long",
