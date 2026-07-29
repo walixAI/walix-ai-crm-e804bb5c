@@ -166,9 +166,6 @@ export function useDealsClosedTimeline(
       const { data: raw, error } = await supabase
         .from("deals").select("amount,updated_at,is_won,stage_id")
         .eq("is_won", true).gte("updated_at", since.toISOString());
-      if (until) {
-        // filtered client-side below to keep the query builder simple
-      }
       if (error) throw error;
       let data = stageIds
         ? (raw ?? []).filter((d: any) => d.stage_id && stageIds!.has(d.stage_id))
