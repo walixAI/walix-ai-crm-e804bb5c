@@ -14,7 +14,6 @@ import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
 import { RegisterPaymentDialog } from "@/components/miDia/RegisterPaymentDialog";
 import { RescheduleCollectionDialog } from "@/components/miDia/RescheduleCollectionDialog";
-import { useTenant } from "@/lib/queries/tenant";
 import { useMyProfile } from "@/lib/queries/profile";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
@@ -30,7 +29,6 @@ type ColumnKey = "tasks" | "collect" | "quote" | "services";
 
 export default function MiDia() {
   const { data, isLoading } = useMiDiaData();
-  const { data: tenant } = useTenant();
   const { data: profile } = useMyProfile();
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);
   const [expenseOpen, setExpenseOpen] = useState(false);
