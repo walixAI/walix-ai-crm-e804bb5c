@@ -214,7 +214,7 @@ export function DashboardAiSection() {
               {closingSoon.slice(0, 3).map((o) => (
                 <button
                   key={o.id}
-                  onClick={() => navigate(o.contactId ? `/contacts/${o.contactId}` : `/pipeline?dealId=${o.id}`)}
+                  onClick={() => navigate(o.contactId ? `/contacts/${o.contactId}?dealId=${o.id}` : `/pipeline?dealId=${o.id}`)}
                   className="w-full text-left group rounded-lg border border-border hover:border-primary/40 hover:bg-primary/5 p-2.5 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">

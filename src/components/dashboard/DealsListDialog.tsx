@@ -48,7 +48,7 @@ export function DealsListDialog({
                 key={d.id}
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(d.contactId ? `/contacts/${d.contactId}` : `/pipeline?dealId=${d.id}`);
+                  navigate(d.contactId ? `/contacts/${d.contactId}?dealId=${d.id}` : `/pipeline?dealId=${d.id}`);
                 }}
                 className="w-full text-left rounded-lg border border-border p-3 hover:border-primary/40 hover:bg-primary/5 transition-colors group"
               >

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sparkles, MessageCircle, KanbanSquare, StickyNote, CheckCircle2, Send, Phone, RefreshCw, Users, Mail } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/format/relativeTime";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
-import { useContactSuggestions } from "@/lib/queries/contacts";
+import { useContactSuggestions, useContactDeals } from "@/lib/queries/contacts";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,27 @@ const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
 interface Props { contact: ContactRow; onWhatsApp: () => void; activity: ActivityRow[] }
 
 export function SummaryTab({ contact, onWhatsApp, activity }: Props) {
-  const { data: suggestions, source } = useContactSuggestions(contact.id);
+  const { data: aiSuggestions, source } = useContactSuggestions(contact.id);
+  const [searchParams] = useSearchParams();
+  const focusDealId = searchParams.get("dealId");
+  const { data: contactDeals = [] } = useContactDeals(contact.id);
+
+  // When the user arrives from a dashboard widget with a specific deal in context,
+  // pin that deal's suggestion on top so the async AI result never replaces it.
+  const suggestions = useMemo(() => {
+    if (!focusDealId) return aiSuggestions;
+    const deal = contactDeals.find((d) => d.id === focusDealId);
+    if (!deal) return aiSuggestions;
+    const pinned = {
+      id: `focus-${deal.id}`,
+      text: `Estás aquí por la oportunidad "${deal.name}". Confirma el siguiente paso con ${contact.name?.split(" ")[0] ?? contact.name} para avanzarla al cierre.`,
+      cta: "Escribir por WhatsApp",
+      action: "whatsapp" as const,
+      priority: 1000,
+    };
+    return [pinned, ...aiSuggestions.filter((s) => s.id !== pinned.id)];
+  }, [focusDealId, contactDeals, aiSuggestions, contact.name]);
+
   const [index, setIndex] = useState(0);
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState<string | undefined>(undefined);
