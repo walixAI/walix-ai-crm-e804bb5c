@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
 
 export interface ExpenseCategory {
   id: string;
@@ -565,5 +567,77 @@ export function useDeleteRule() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["expense-rules"] }),
+  });
+}
+export interface ExpenseBreakdown {
+  fijo: number;
+  variable: number;
+  total: number;
+  bySeller: { userId: string | null; name: string; amount: number }[];
+  scopedToMe: boolean;
+}
+
+/**
+ * Breakdown of the current month's confirmed expenses.
+ * Admins/managers see fixed vs variable and the split per seller;
+ * a sales rep only sees their own expenses.
+ */
+export function useMonthExpenseBreakdown() {
+  const { data: tenantId } = useTenantId();
+  const { user } = useAuth();
+  const { isTenantAdmin, isManager, isPlatform } = usePermissions();
+  const { data: users } = useTenantUsers();
+  const canSeeTeam = isTenantAdmin || isManager || isPlatform;
+
+  return useQuery({
+    queryKey: ["month-expense-breakdown", tenantId, user?.id, canSeeTeam, users?.length ?? 0],
+    enabled: !!tenantId && !!user?.id,
+    staleTime: 60_000,
+    queryFn: async (): Promise<ExpenseBreakdown> => {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+      const { data, error } = await supabase
+        .from("expenses" as any)
+        .select("amount,kind,owner_id,deal_id")
+        .eq("status", "confirmed")
+        .gte("incurred_at", from)
+        .lte("incurred_at", to);
+      if (error) throw error;
+      const rows = ((data as any[]) ?? []);
+
+      // Resolve owner through the linked deal when the expense has no owner.
+      const dealIds = Array.from(new Set(rows.map((r) => r.deal_id).filter(Boolean)));
+      const dealOwner = new Map<string, string | null>();
+      if (dealIds.length) {
+        const { data: deals } = await supabase.from("deals").select("id,owner_id").in("id", dealIds as string[]);
+        (deals ?? []).forEach((d: any) => dealOwner.set(d.id, d.owner_id ?? null));
+      }
+
+      const ownerOf = (r: any): string | null =>
+        r.owner_id ?? (r.deal_id ? dealOwner.get(r.deal_id) ?? null : null);
+
+      const scoped = canSeeTeam ? rows : rows.filter((r) => ownerOf(r) === user!.id);
+
+      let fijo = 0, variable = 0;
+      const perSeller = new Map<string | null, number>();
+      for (const r of scoped) {
+        const amt = Number(r.amount ?? 0);
+        if (r.kind === "fijo") fijo += amt; else variable += amt;
+        const oid = ownerOf(r);
+        perSeller.set(oid, (perSeller.get(oid) ?? 0) + amt);
+      }
+
+      const bySeller = Array.from(perSeller.entries())
+        .map(([userId, amount]) => ({
+          userId,
+          name: userId ? (users?.find((u) => u.id === userId)?.name ?? "Usuario") : "Sin asignar / general",
+          amount,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      return { fijo, variable, total: fijo + variable, bySeller, scopedToMe: !canSeeTeam };
+    },
   });
 }

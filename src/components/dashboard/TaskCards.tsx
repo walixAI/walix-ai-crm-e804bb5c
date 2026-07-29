@@ -11,8 +11,9 @@ export function TaskCards() {
   const { data: upcoming = [] } = useTasks({ view: "upcoming" });
 
   const open = (t: TaskRow) => {
-    if (t.dealId) navigate(`/pipeline?dealId=${t.dealId}#tareas`);
-    else if (t.contactId) navigate(`/contacts/${t.contactId}?focus=tasks`);
+    // Siempre priorizamos la persona: el gestor trabaja sobre el contacto.
+    if (t.contactId) navigate(`/contacts/${t.contactId}?focus=tasks`);
+    else if (t.dealId) navigate(`/pipeline?dealId=${t.dealId}#tareas`);
     else navigate("/tasks?view=overdue");
   };
 

@@ -74,7 +74,7 @@ export function DashboardAiSection() {
       description: r.detail,
       deals: source.map((d) => ({
         id: d.id, name: d.name, amount: d.amount,
-        stageName: d.stageName, ownerName: d.ownerName,
+        stageName: d.stageName, ownerName: d.ownerName, contactId: d.contactId,
         extra: useOverdue && d.expectedCloseDate ? `Cierre ${d.expectedCloseDate}` : undefined,
       })),
     });
@@ -195,7 +195,7 @@ export function DashboardAiSection() {
                   description: "Etapa previa a Ganado en todos los pipelines",
                   deals: closingSoon.map((d) => ({
                     id: d.id, name: d.name, amount: d.amount,
-                    stageName: `${d.pipelineName} · ${d.stageName}`, ownerName: d.ownerName,
+                    stageName: `${d.pipelineName} · ${d.stageName}`, ownerName: d.ownerName, contactId: d.contactId,
                     extra: d.expectedCloseDate ? `Cierre ${d.expectedCloseDate}` : undefined,
                   })),
                 })}
@@ -214,7 +214,7 @@ export function DashboardAiSection() {
               {closingSoon.slice(0, 3).map((o) => (
                 <button
                   key={o.id}
-                  onClick={() => navigate(`/pipeline?dealId=${o.id}`)}
+                  onClick={() => navigate(o.contactId ? `/contacts/${o.contactId}` : `/pipeline?dealId=${o.id}`)}
                   className="w-full text-left group rounded-lg border border-border hover:border-primary/40 hover:bg-primary/5 p-2.5 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">

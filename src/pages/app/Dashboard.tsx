@@ -25,7 +25,7 @@ import { KpiCardsSkeleton } from "@/components/walix/Skeletons";
 import { TaskCards } from "@/components/dashboard/TaskCards";
 import { ActivityReportCard } from "@/components/dashboard/ActivityReportCard";
 import { DealsListDialog } from "@/components/dashboard/DealsListDialog";
-import { ChartFilters, RANGE_DAYS, type RangePreset } from "@/components/dashboard/ChartFilters";
+import { ChartFilters, rangeParams, type RangeValue } from "@/components/dashboard/ChartFilters";
 import { MorningBriefing } from "@/components/walix/MorningBriefing";
 import { ProactiveBriefing } from "@/components/walix/ProactiveBriefing";
 import { RunRateCard } from "@/components/walix/RunRateCard";
@@ -60,14 +60,16 @@ export default function Dashboard() {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [staleOpen, setStaleOpen] = useState(false);
   const [stagePipeline, setStagePipeline] = useState("all");
-  const [stageRange, setStageRange] = useState<RangePreset>("90d");
+  const [stageRange, setStageRange] = useState<RangeValue>({ preset: "90d" });
   const [closedPipeline, setClosedPipeline] = useState("all");
-  const [closedRange, setClosedRange] = useState<RangePreset>("30d");
+  const [closedRange, setClosedRange] = useState<RangeValue>({ preset: "30d" });
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
   // Legacy hardcoded suggestions replaced by ProactiveBriefing (uses ai_proactive_suggestions).
-  const { data: pipelineByStage = [] } = usePipelineByStage(stagePipeline, RANGE_DAYS[stageRange]);
-  const { data: dealsTimeline = [] } = useDealsClosedTimeline(RANGE_DAYS[closedRange], closedPipeline);
+  const stageP = rangeParams(stageRange);
+  const closedP = rangeParams(closedRange);
+  const { data: pipelineByStage = [] } = usePipelineByStage(stagePipeline, stageP.days, stageP.from, stageP.to);
+  const { data: dealsTimeline = [] } = useDealsClosedTimeline(closedP.days, closedPipeline, closedP.from, closedP.to);
   const { data: breakdown = [] } = usePipelineBreakdown();
   const { data: staleDeals = [] } = useStaleDeals(10);
 

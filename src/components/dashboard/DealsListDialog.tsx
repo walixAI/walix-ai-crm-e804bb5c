@@ -10,6 +10,7 @@ export interface DealListItem {
   stageName?: string;
   ownerName?: string;
   extra?: string;
+  contactId?: string | null;
 }
 
 function mxn(n: number) {
@@ -45,7 +46,10 @@ export function DealsListDialog({
             {deals.map((d) => (
               <button
                 key={d.id}
-                onClick={() => { onOpenChange(false); navigate(`/pipeline?dealId=${d.id}`); }}
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate(d.contactId ? `/contacts/${d.contactId}` : `/pipeline?dealId=${d.id}`);
+                }}
                 className="w-full text-left rounded-lg border border-border p-3 hover:border-primary/40 hover:bg-primary/5 transition-colors group"
               >
                 <div className="flex items-center justify-between gap-3">

@@ -115,6 +115,7 @@ export function useClosingSoon() {
 export interface SimpleDeal {
   id: string; name: string; amount: number; stageName: string;
   ownerName: string; updatedAt: string; expectedCloseDate: string | null;
+  contactId: string | null;
 }
 
 /** Active deals without activity for more than `days` days. */
@@ -129,7 +130,7 @@ export function useStaleDeals(days = 10) {
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
       const { data, error } = await supabase
         .from("deals")
-        .select("id,name,amount,stage_name,owner_id,updated_at,expected_close_date,is_won,is_lost")
+        .select("id,name,amount,stage_name,owner_id,updated_at,expected_close_date,is_won,is_lost,contact_id")
         .eq("is_won", false).eq("is_lost", false)
         .lt("updated_at", cutoff)
         .order("updated_at", { ascending: true });
@@ -140,6 +141,7 @@ export function useStaleDeals(days = 10) {
         ownerName: resolveOwner(users, d.owner_id).name,
         updatedAt: d.updated_at,
         expectedCloseDate: d.expected_close_date ?? null,
+        contactId: d.contact_id ?? null,
       }));
     },
   });
@@ -157,7 +159,7 @@ export function useOverdueDeals() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("deals")
-        .select("id,name,amount,stage_name,owner_id,updated_at,expected_close_date")
+        .select("id,name,amount,stage_name,owner_id,updated_at,expected_close_date,contact_id")
         .eq("is_won", false).eq("is_lost", false)
         .lt("expected_close_date", today)
         .order("expected_close_date", { ascending: true });
@@ -168,6 +170,7 @@ export function useOverdueDeals() {
         ownerName: resolveOwner(users, d.owner_id).name,
         updatedAt: d.updated_at,
         expectedCloseDate: d.expected_close_date ?? null,
+        contactId: d.contact_id ?? null,
       }));
     },
   });
