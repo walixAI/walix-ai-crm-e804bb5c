@@ -15,6 +15,7 @@ import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
 import { RegisterPaymentDialog } from "@/components/miDia/RegisterPaymentDialog";
 import { RescheduleCollectionDialog } from "@/components/miDia/RescheduleCollectionDialog";
 import { useTenant } from "@/lib/queries/tenant";
+import { useMyProfile } from "@/lib/queries/profile";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
@@ -30,6 +31,7 @@ type ColumnKey = "tasks" | "collect" | "quote" | "services";
 export default function MiDia() {
   const { data, isLoading } = useMiDiaData();
   const { data: tenant } = useTenant();
+  const { data: profile } = useMyProfile();
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [closingTask, setClosingTask] = useState<{ id: string; title: string; contactId: string; taskKind: string | null; dueAt: string | null } | null>(null);
@@ -73,6 +75,14 @@ export default function MiDia() {
     return "Buenas noches";
   }, []);
 
+  const userName = useMemo(() => {
+    const full = profile?.full_name?.trim();
+    if (full) return full.split(" ")[0];
+    const email = profile?.email ?? "";
+    const local = email.split("@")[0];
+    return local ? local.charAt(0).toUpperCase() + local.slice(1) : "";
+  }, [profile]);
+
   const totals = data?.totals;
 
   return (
@@ -82,7 +92,7 @@ export default function MiDia() {
           <div>
             <div className="text-sm text-muted-foreground">{format(new Date(), "EEEE d 'de' MMMM", { locale: es })}</div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              {greeting} <span className="text-primary">{tenant?.brandName ?? "en Walix"}</span>
+              {greeting}{userName ? "," : ""} <span className="text-primary">{userName || "bienvenido"}</span> 👋
             </h1>
           </div>
           <div className="flex items-center gap-2">
