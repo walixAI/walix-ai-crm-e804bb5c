@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useCopilot } from "@/store/copilot";
@@ -56,7 +55,6 @@ const stageColors = [
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const send = useCopilot((s) => s.send);
   const [showAlert, setShowAlert] = useState(true);
   const [customizeOpen, setCustomizeOpen] = useState(false);
