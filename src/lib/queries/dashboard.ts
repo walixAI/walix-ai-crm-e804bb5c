@@ -110,15 +110,21 @@ export function useDashboardAiSuggestions() {
   });
 }
 
-export function usePipelineByStage() {
+export function usePipelineByStage(pipelineId: string = "all", days: number | null = null) {
   return useQuery({
-    queryKey: ["pipeline-by-stage"],
+    queryKey: ["pipeline-by-stage", pipelineId, days],
     queryFn: async () => {
-      const { data: stages, error: e1 } = await supabase
-        .from("pipeline_stages").select("id,name,position").order("position");
+      let sq = supabase.from("pipeline_stages").select("id,name,position,pipeline_id").order("position");
+      if (pipelineId !== "all") sq = sq.eq("pipeline_id", pipelineId);
+      const { data: stages, error: e1 } = await sq;
       if (e1) throw e1;
-      const { data: deals, error: e2 } = await supabase
-        .from("deals").select("amount,stage_id,is_won,is_lost");
+      let dq = supabase.from("deals").select("amount,stage_id,is_won,is_lost,updated_at");
+      if (days) {
+        const since = new Date(Date.now() - days * 86400000);
+        since.setHours(0, 0, 0, 0);
+        dq = dq.gte("updated_at", since.toISOString());
+      }
+      const { data: deals, error: e2 } = await dq;
       if (e2) throw e2;
       return (stages ?? []).map(s => ({
         stage: s.name,
@@ -130,16 +136,25 @@ export function usePipelineByStage() {
   });
 }
 
-export function useDealsClosedTimeline(days = 30) {
+export function useDealsClosedTimeline(days = 30, pipelineId: string = "all") {
   return useQuery({
-    queryKey: ["deals-closed-timeline", days],
+    queryKey: ["deals-closed-timeline", days, pipelineId],
     queryFn: async () => {
       const since = new Date(Date.now() - days * 86400000);
       since.setHours(0,0,0,0);
-      const { data, error } = await supabase
-        .from("deals").select("amount,updated_at,is_won")
+      let stageIds: Set<string> | null = null;
+      if (pipelineId !== "all") {
+        const { data: st } = await supabase
+          .from("pipeline_stages").select("id").eq("pipeline_id", pipelineId);
+        stageIds = new Set((st ?? []).map((s: any) => s.id));
+      }
+      const { data: raw, error } = await supabase
+        .from("deals").select("amount,updated_at,is_won,stage_id")
         .eq("is_won", true).gte("updated_at", since.toISOString());
       if (error) throw error;
+      const data = stageIds
+        ? (raw ?? []).filter((d: any) => d.stage_id && stageIds!.has(d.stage_id))
+        : (raw ?? []);
       const buckets = new Map<string, number>();
       for (let i = 0; i < days; i++) {
         const d = new Date(since); d.setDate(since.getDate() + i);
