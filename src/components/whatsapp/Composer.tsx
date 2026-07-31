@@ -24,12 +24,17 @@ interface Props {
    */
   aiDraftActive?: boolean;
   onClearAiDraft?: () => void;
+  /** Resalta "Sugerir respuesta" porque el cliente escribió y falta responder. */
+  suggestHint?: boolean;
+  /** Aviso sobre la ventana de 24 h / costo del mensaje. */
+  windowNotice?: { tone: "open" | "closing" | "closed"; text: string } | null;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
   onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
+  suggestHint, windowNotice,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -84,12 +89,41 @@ export function Composer({
 
   return (
     <div className="border-t border-border bg-card">
+      {/* Aviso de ventana de 24 h */}
+      {windowNotice && (
+        <div
+          className={cn(
+            "px-3 py-1.5 text-[11px] font-medium border-b flex items-center gap-1.5",
+            windowNotice.tone === "open" && "bg-success/10 text-success border-success/20",
+            windowNotice.tone === "closing" && "bg-warning/10 text-warning border-warning/20",
+            windowNotice.tone === "closed" && "bg-muted text-muted-foreground border-border",
+          )}
+        >
+          {windowNotice.tone === "closed" ? "💳" : "✅"} {windowNotice.text}
+        </div>
+      )}
       {/* AI bar */}
       <div className="bg-primary/5 border-b border-primary/10 px-3 py-2 flex items-center gap-2 flex-wrap">
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 hover:bg-primary/10" onClick={onAiSuggest} disabled={aiLoading}>
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Sugerir respuesta
-        </Button>
+        <span className="relative flex">
+          {suggestHint && !aiLoading && (
+            <span className="absolute inset-0 rounded-md bg-primary/30 animate-ping pointer-events-none" />
+          )}
+          <Button
+            size="sm"
+            variant={suggestHint ? "default" : "ghost"}
+            className={cn("h-7 text-xs gap-1.5 relative", !suggestHint && "hover:bg-primary/10")}
+            onClick={onAiSuggest}
+            disabled={aiLoading}
+          >
+            <Sparkles className={cn("h-3.5 w-3.5", suggestHint ? "" : "text-primary")} />
+            Sugerir respuesta
+          </Button>
+        </span>
+        {suggestHint && !aiLoading && (
+          <span className="text-[11px] text-primary font-medium">
+            ← Haz clic para que la IA redacte; tú la revisas y decides enviarla.
+          </span>
+        )}
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 hover:bg-primary/10" onClick={onAiSummarize} disabled={aiLoading}>
           <FileText className="h-3.5 w-3.5 text-primary" />
           Resumir
