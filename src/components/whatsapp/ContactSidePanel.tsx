@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Plus, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,10 @@ export function ContactSidePanel({ conv, notesDraft, onNotesChange, onSaveNotes,
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Contacto</h3>
             <div className="border border-border rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-3">
+              <Link
+                to={`/contacts/${conv.contactId}`}
+                className="flex items-center gap-3 group rounded-md -m-1 p-1 hover:bg-muted/50 transition"
+              >
                 <div
                   className="h-10 w-10 rounded-full text-white text-xs font-semibold flex items-center justify-center"
                   style={{ background: conv.avatarColor }}
@@ -67,12 +70,15 @@ export function ContactSidePanel({ conv, notesDraft, onNotesChange, onSaveNotes,
                   {conv.initials}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{conv.contactName}</p>
+                  <p className="text-sm font-medium truncate group-hover:text-primary group-hover:underline transition">
+                    {conv.contactName}
+                  </p>
                   {conv.contactCompany && (
                     <p className="text-xs text-muted-foreground truncate">{conv.contactCompany}</p>
                   )}
                 </div>
-              </div>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </Link>
               <div className="text-xs text-muted-foreground">{conv.contactPhone}</div>
               <div className="text-xs">
                 Estado: <span className="font-medium">{conv.contactStatus}</span>
@@ -96,13 +102,20 @@ export function ContactSidePanel({ conv, notesDraft, onNotesChange, onSaveNotes,
                 <p className="text-xs text-muted-foreground">Sin deals aún</p>
               )}
               {(deals ?? []).map((d) => (
-                <div key={d.id} className="border border-border rounded-lg p-2.5">
+                <Link
+                  key={d.id}
+                  to={`/contacts/${conv.contactId}?dealId=${d.id}`}
+                  className="block border border-border rounded-lg p-2.5 transition hover:border-primary/40 hover:bg-muted/40 cursor-pointer"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium truncate">{d.name}</p>
-                    <span className="text-xs font-semibold text-primary">{fmt(d.amount)}</span>
+                    <span className="text-xs font-semibold text-primary shrink-0">{fmt(d.amount)}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{d.stage}</p>
-                </div>
+                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                    <p className="text-[11px] text-muted-foreground truncate">{d.stage}</p>
+                    <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                  </div>
+                </Link>
               ))}
               <Button variant="outline" size="sm" className="w-full h-8 text-xs" onClick={onLinkDeal}>
                 <Plus className="h-3 w-3 mr-1" />

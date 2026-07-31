@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { MessageCircle, Search, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { MessageCircle, Search, Loader2, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function ConversationList({ conversations, activeId, onSelect, myUserId, loading }: Props) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const term = q.trim();
@@ -123,7 +125,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
           {filtered.map((c) => {
             const active = c.id === activeId;
             return (
-              <li key={c.id}>
+              <li key={c.id} className="relative group">
                 <button
                   onClick={() => onSelect(c.id)}
                   className={cn(
@@ -166,6 +168,19 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                     </div>
                   </div>
                 </button>
+                {c.contactId && (
+                  <button
+                    type="button"
+                    title="Ver contacto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/contacts/${c.contactId}`);
+                    }}
+                    className="absolute right-2 top-2 h-7 w-7 rounded-md grid place-items-center text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground transition"
+                  >
+                    <User className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </li>
             );
           })}
