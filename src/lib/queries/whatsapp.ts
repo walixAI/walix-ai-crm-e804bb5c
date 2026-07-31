@@ -30,6 +30,8 @@ export interface ConversationItem {
   preview: string;
   unread: number;
   lastAt: string | null;
+  /** Fecha del último mensaje entrante (para la ventana de 24 h de Meta). */
+  lastInboundAt: string | null;
   status: ConversationStatus;
   assigneeId: string | null;
   assigneeName: string;
@@ -95,6 +97,18 @@ export function useConversations() {
         `)
         .order("last_message_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
+      // Último mensaje entrante por conversación (ventana de 24 h de WhatsApp).
+      const lastInbound: Record<string, string> = {};
+      const { data: inbound } = await supabase
+        .from("messages")
+        .select("conversation_id, sent_at")
+        .eq("direction", "inbound")
+        .order("sent_at", { ascending: false })
+        .limit(1000);
+      for (const m of inbound ?? []) {
+        const cid = (m as any).conversation_id as string;
+        if (!lastInbound[cid]) lastInbound[cid] = (m as any).sent_at;
+      }
       return (data ?? []).map((c: any) => {
         const contact = c.contacts ?? {};
         const fullName = [contact.name, contact.last_name].filter(Boolean).join(" ") || "Contacto";
@@ -111,6 +125,7 @@ export function useConversations() {
           preview: c.preview ?? "(sin mensajes)",
           unread: c.unread_count ?? 0,
           lastAt: c.last_message_at ?? c.updated_at ?? c.created_at,
+          lastInboundAt: lastInbound[c.id] ?? null,
           status: (c.status ?? "Nuevo") as ConversationStatus,
           assigneeId: c.assignee_id,
           assigneeName: owner.name,

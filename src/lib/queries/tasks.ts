@@ -50,7 +50,7 @@ export function useTasks(opts: { view?: TaskView; mineOnly?: boolean } = {}) {
       }
       const nowIso = new Date().toISOString();
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
-      const in7 = new Date(); in7.setDate(in7.getDate() + 30);
+      const in7 = new Date(); in7.setDate(in7.getDate() + 7);
       if (view === "today") q = q.eq("completed", false).gte("due_at", nowIso).lte("due_at", endOfDay.toISOString());
       else if (view === "upcoming") q = q.eq("completed", false).gte("due_at", nowIso).lte("due_at", in7.toISOString());
       else if (view === "overdue") q = q.eq("completed", false).lt("due_at", nowIso);

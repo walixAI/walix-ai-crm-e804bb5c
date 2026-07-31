@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 import { useMessageSearch } from "@/lib/queries/whatsapp";
+import { getServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import { ConversationListSkeleton } from "@/components/walix/Skeletons";
 
 type Tab = "all" | "mine" | "unassigned" | "resolved";
@@ -124,6 +125,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
         <ul className="divide-y divide-border">
           {filtered.map((c) => {
             const active = c.id === activeId;
+            const win = getServiceWindow(c.lastInboundAt);
             return (
               <li key={c.id} className="relative group">
                 <button
@@ -160,6 +162,17 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{c.preview}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <StatusBadge status={c.status} />
+                      <span
+                        title={win.description}
+                        className={cn(
+                          "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border",
+                          win.tone === "open" && "bg-success/10 text-success border-success/30",
+                          win.tone === "closing" && "bg-warning/10 text-warning border-warning/30",
+                          win.tone === "closed" && "bg-muted text-muted-foreground border-border",
+                        )}
+                      >
+                        {win.shortLabel}
+                      </span>
                       {c.unread > 0 && (
                         <span className="ml-auto text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
                           {c.unread}

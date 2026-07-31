@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, ChevronLeft } from "lucide-react";
@@ -20,6 +20,7 @@ import { TemplatesDialog } from "@/components/whatsapp/TemplatesDialog";
 import { LinkDealDialog } from "@/components/whatsapp/LinkDealDialog";
 import { AiSummaryDialog } from "@/components/whatsapp/AiSummaryDialog";
 import { useWhatsappAi } from "@/lib/queries/whatsappAi";
+import { getServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
@@ -125,9 +126,6 @@ export default function Whatsapp() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const aiMutation = useWhatsappAi();
   const { data: sellers = [] } = useTenantUsers();
-  // Track per-session conversations that already received an auto-draft so we
-  // don't re-spend credits when the user toggles back and forth.
-  const autoDraftedRef = useRef<Set<string>>(new Set());
 
   // load tenant id once
   useEffect(() => {
@@ -246,35 +244,11 @@ export default function Whatsapp() {
     }
   };
 
-  // Auto-draft IA: cuando se abre una conversación cuyo último mensaje es
-  // entrante y aún no se respondió, generamos un borrador automáticamente.
-  // El vendedor todavía tiene que leerlo, editarlo y presionar Enviar.
-  useEffect(() => {
-    if (!activeConv || !messages.length) return;
-    if (autoDraftedRef.current.has(activeConv.id)) return;
-    if (draft.trim()) return;
-    const last = messages[messages.length - 1];
-    if (!last || last.direction !== "inbound") return;
-    const ageH = (Date.now() - new Date(last.sentAt).getTime()) / 3_600_000;
-    if (ageH > 24 * 7) return;
-
-    autoDraftedRef.current.add(activeConv.id);
-    (async () => {
-      try {
-        const text = await aiMutation.mutateAsync({
-          mode: "suggest_reply",
-          conversationId: activeConv.id,
-          contactName: activeConv.contactName,
-          contactCompany: activeConv.contactCompany,
-        });
-        if (!draft.trim()) {
-          setDraft(text);
-          setAiDraftActive(true);
-          toast({ title: "Borrador IA listo", description: "Revisa y edita antes de enviar." });
-        }
-      } catch (_) { /* opportunistic, ignore */ }
-    })();
-  }, [activeConv?.id, messages.length]); // eslint-disable-line
+  // Nunca generamos ni enviamos nada automáticamente: solo señalamos al usuario
+  // que conviene pedir una sugerencia cuando el cliente escribió y falta responder.
+  const lastMsg = messages[messages.length - 1] ?? null;
+  const needsReply = !!activeConv && !!lastMsg && lastMsg.direction === "inbound" && !draft.trim();
+  const serviceWindow = activeConv ? getServiceWindow(activeConv.lastInboundAt) : null;
 
   // Mobile flow: when a conv is selected, hide the list
   const showList = !isMobile || !activeId;
@@ -361,6 +335,12 @@ export default function Whatsapp() {
                   onAiPrompt={runAiPrompt}
                   aiLoading={aiMutation.isPending}
                   aiDraftActive={aiDraftActive}
+                  suggestHint={needsReply}
+                  windowNotice={
+                    serviceWindow
+                      ? { tone: serviceWindow.tone, text: serviceWindow.description }
+                      : null
+                  }
                   onClearAiDraft={() => { setDraft(""); setAiDraftActive(false); }}
                 />
               </>
