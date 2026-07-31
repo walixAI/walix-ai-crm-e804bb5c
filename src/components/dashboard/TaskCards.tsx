@@ -62,7 +62,7 @@ export function TaskCards() {
       <section className="rounded-xl border border-border bg-card shadow-card p-4">
         <header className="flex items-center justify-between mb-2">
           <h3 className="font-semibold flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" /> Próximas tareas (7d)
+            <Calendar className="h-4 w-4 text-primary" /> Próximas tareas (30d)
             <span className="text-xs font-normal text-muted-foreground">({upcoming.length})</span>
           </h3>
           <button onClick={() => navigate("/tasks?view=upcoming")} className="text-xs text-primary inline-flex items-center gap-1">
