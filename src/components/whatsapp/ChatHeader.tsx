@@ -32,7 +32,7 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
           {conv.initials}
         </div>
         <div className="min-w-0">
-          <p className="font-semibold text-sm truncate group-hover:text-primary transition">{conv.contactName}</p>
+          <p className="font-semibold text-sm truncate group-hover:text-primary group-hover:underline transition">{conv.contactName}</p>
           <p className="text-xs text-muted-foreground truncate">{conv.contactPhone}</p>
         </div>
       </Link>
