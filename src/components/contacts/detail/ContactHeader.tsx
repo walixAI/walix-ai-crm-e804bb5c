@@ -67,7 +67,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
               align="start"
               trigger={
                 <button className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border hover:opacity-80", statusBadgeClass[contact.status])}>
-                  {contact.status}
+                  {lifecycleLabel[contact.status]}
                 </button>
               }
             />

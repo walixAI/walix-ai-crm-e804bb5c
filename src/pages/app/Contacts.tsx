@@ -283,7 +283,7 @@ export default function Contacts() {
                 </div>
                 {/* Status */}
                 <div className="lg:col-span-2">
-                  <label className="text-xs font-medium text-muted-foreground mb-2 block">Status del lead</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-2 block">Ciclo de vida</label>
                   <div className="flex flex-wrap gap-1.5">
                     {STATUSES.map(s => {
                       const active = selectedStatuses.includes(s);
@@ -291,7 +291,7 @@ export default function Contacts() {
                         <button key={s} onClick={() => setSelectedStatuses(active ? selectedStatuses.filter(x => x !== s) : [...selectedStatuses, s])}
                           className={cn("px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
                             active ? "bg-primary text-primary-foreground border-primary" : cn("bg-card hover:bg-muted", statusBadgeClass[s]))}>
-                          {s}
+                          {lifecycleLabel[s]}
                         </button>
                       );
                     })}
@@ -392,7 +392,7 @@ export default function Contacts() {
                       </td>
                       <td className="px-3 py-2.5 text-muted-foreground">{c.company}</td>
                       <td className="px-3 py-2.5">
-                        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border", statusBadgeClass[c.status])}>{c.status}</span>
+                        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border", statusBadgeClass[c.status])}>{lifecycleLabel[c.status]}</span>
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
@@ -457,7 +457,7 @@ export default function Contacts() {
                   <Avatar className="h-16 w-16 mb-3"><AvatarFallback style={{ background: c.avatarColor, color: "white" }} className="text-lg font-semibold">{c.name[0]}{c.lastName?.[0]}</AvatarFallback></Avatar>
                   <div className="font-semibold">{c.name} {c.lastName}</div>
                   <div className="text-xs text-muted-foreground mb-2">{c.company}</div>
-                  <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border mb-3", statusBadgeClass[c.status])}>{c.status}</span>
+                  <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border mb-3", statusBadgeClass[c.status])}>{lifecycleLabel[c.status]}</span>
                   <div className="font-mono text-xs text-muted-foreground mb-3">{c.phone}</div>
                   <div className="flex gap-2 w-full">
                     <Button size="sm" className="flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => openWA(c.id)}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</Button>
