@@ -115,8 +115,28 @@ export function ContactSidePanel({
               <p className="text-[10px] text-muted-foreground mt-2">
                 La IA nunca envía nada sin tu clic.
               </p>
-              {windowText && (
-                <p className="text-[11px] text-muted-foreground mt-2 border-t border-border pt-2">{windowText}</p>
+              {serviceWindow && (
+                <div
+                  className={cn(
+                    "mt-2 border-t pt-2 flex items-start gap-1.5 text-[11px] font-medium",
+                    serviceWindow.charging
+                      ? "text-destructive border-destructive/20"
+                      : serviceWindow.tone === "closing"
+                        ? "text-warning border-warning/20"
+                        : "text-success border-success/20",
+                  )}
+                >
+                  {serviceWindow.charging ? (
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  ) : (
+                    <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  )}
+                  <span>
+                    {serviceWindow.charging
+                      ? "Meta cobrará el próximo mensaje. Usa una plantilla aprobada."
+                      : serviceWindow.remainingLabel}
+                  </span>
+                </div>
               )}
             </section>
           )}
