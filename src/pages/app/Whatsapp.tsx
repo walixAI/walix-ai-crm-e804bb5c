@@ -365,7 +365,7 @@ export default function Whatsapp() {
               onAiSuggest={runAiSuggest}
               onOpenTemplates={() => setTemplatesOpen(true)}
               aiLoading={aiMutation.isPending}
-              windowText={serviceWindow?.description ?? null}
+              serviceWindow={serviceWindow}
             />
           )}
         </main>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Search, Loader2, User } from "lucide-react";
+import { MessageCircle, Search, Loader2, User, Clock, CreditCard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -165,13 +165,23 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                       <span
                         title={win.description}
                         className={cn(
-                          "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border",
-                          win.tone === "open" && "bg-success/10 text-success border-success/30",
-                          win.tone === "closing" && "bg-warning/10 text-warning border-warning/30",
-                          win.tone === "closed" && "bg-muted text-muted-foreground border-border",
+                          "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border",
+                          win.charging && "bg-destructive/10 text-destructive border-destructive/40",
+                          !win.charging && win.tone === "open" && "bg-success/10 text-success border-success/30",
+                          !win.charging && win.tone === "closing" && "bg-warning/10 text-warning border-warning/30",
                         )}
                       >
-                        {win.shortLabel}
+                        {win.charging ? (
+                          <>
+                            <CreditCard className="h-3 w-3" />
+                            Con costo
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="h-3 w-3" />
+                            {win.shortLabel}
+                          </>
+                        )}
                       </span>
                       {c.unread > 0 && (
                         <span className="ml-auto text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center">

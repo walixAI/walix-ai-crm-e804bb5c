@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ExternalLink, Plus, ChevronRight, Sparkles, Clock, FileText } from "lucide-react";
+import { ExternalLink, Plus, ChevronRight, Sparkles, Clock, FileText, AlertTriangle, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
 import type { Guidance } from "@/lib/whatsapp/guidance";
+import type { ServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 
 function fmt(n: number) {
@@ -32,12 +33,12 @@ interface Props {
   onAiSuggest?: () => void;
   onOpenTemplates?: () => void;
   aiLoading?: boolean;
-  windowText?: string | null;
+  serviceWindow?: ServiceWindow | null;
 }
 
 export function ContactSidePanel({
   conv, notesDraft, onNotesChange, onSaveNotes, onLinkDeal,
-  guidance, onAiSuggest, onOpenTemplates, aiLoading, windowText,
+  guidance, onAiSuggest, onOpenTemplates, aiLoading, serviceWindow,
 }: Props) {
   const { data: deals } = useContactDeals(conv.contactId);
   const { data: activity = [] } = useContactActivity(conv.contactId);
@@ -114,8 +115,28 @@ export function ContactSidePanel({
               <p className="text-[10px] text-muted-foreground mt-2">
                 La IA nunca envía nada sin tu clic.
               </p>
-              {windowText && (
-                <p className="text-[11px] text-muted-foreground mt-2 border-t border-border pt-2">{windowText}</p>
+              {serviceWindow && (
+                <div
+                  className={cn(
+                    "mt-2 border-t pt-2 flex items-start gap-1.5 text-[11px] font-medium",
+                    serviceWindow.charging
+                      ? "text-destructive border-destructive/20"
+                      : serviceWindow.tone === "closing"
+                        ? "text-warning border-warning/20"
+                        : "text-success border-success/20",
+                  )}
+                >
+                  {serviceWindow.charging ? (
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  ) : (
+                    <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  )}
+                  <span>
+                    {serviceWindow.charging
+                      ? "Meta cobrará el próximo mensaje. Usa una plantilla aprobada."
+                      : serviceWindow.remainingLabel}
+                  </span>
+                </div>
               )}
             </section>
           )}
