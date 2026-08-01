@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ExternalLink, Plus, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { ExternalLink, Plus, ChevronRight, Sparkles, Clock, FileText } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
+import type { Guidance } from "@/lib/whatsapp/guidance";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 
 function fmt(n: number) {
@@ -26,16 +27,17 @@ interface Props {
   onNotesChange: (v: string) => void;
   onSaveNotes: () => void;
   onLinkDeal: () => void;
-  /** El cliente escribió y aún no hay respuesta redactada. */
-  needsReply?: boolean;
+  /** Guía contextual: qué debe hacer el usuario ahora. */
+  guidance?: Guidance | null;
   onAiSuggest?: () => void;
+  onOpenTemplates?: () => void;
   aiLoading?: boolean;
   windowText?: string | null;
 }
 
 export function ContactSidePanel({
   conv, notesDraft, onNotesChange, onSaveNotes, onLinkDeal,
-  needsReply, onAiSuggest, aiLoading, windowText,
+  guidance, onAiSuggest, onOpenTemplates, aiLoading, windowText,
 }: Props) {
   const { data: deals } = useContactDeals(conv.contactId);
   const { data: activity = [] } = useContactActivity(conv.contactId);
@@ -65,46 +67,58 @@ export function ContactSidePanel({
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-5">
           {/* Guía: qué hacer ahora */}
-          <section
-            className={cn(
-              "rounded-lg border p-3",
-              needsReply ? "border-primary/40 bg-primary/5" : "border-border bg-muted/30",
-            )}
-          >
-            <h3 className="text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              {needsReply ? (
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+          {guidance && (
+            <section
+              className={cn(
+                "rounded-lg border p-3",
+                guidance.state === "awaiting_reply" && "border-primary/40 bg-primary/5",
+                guidance.state === "follow_up" && "border-border bg-muted/40",
+                guidance.state === "needs_template" && "border-warning/40 bg-warning/5",
               )}
-              Qué hacer ahora
-            </h3>
-            {needsReply ? (
-              <>
-                <ol className="text-[11px] text-muted-foreground space-y-1 list-decimal pl-4">
-                  <li>Haz clic en <span className="font-medium text-foreground">“Sugerir respuesta”</span>.</li>
-                  <li>Revisa y edita el borrador que redacta la IA.</li>
-                  <li>Presiona enviar cuando estés conforme.</li>
-                </ol>
+            >
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                Qué hacer ahora
+              </h3>
+              <p className="text-xs font-semibold flex items-center gap-1.5 mb-2">
+                {guidance.state === "awaiting_reply" && <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                {guidance.state === "follow_up" && <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
+                {guidance.state === "needs_template" && <FileText className="h-3.5 w-3.5 text-warning" />}
+                {guidance.title}
+              </p>
+              <ol className="text-[11px] text-muted-foreground space-y-1 list-decimal pl-4">
+                {guidance.steps.map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ol>
+              <Button
+                size="sm"
+                variant={guidance.state === "awaiting_reply" ? "default" : "outline"}
+                className="w-full h-8 text-xs mt-2 gap-1.5"
+                onClick={onAiSuggest}
+                disabled={aiLoading}
+              >
+                <Sparkles className="h-3 w-3" />
+                {aiLoading ? "Redactando…" : guidance.ctaLabel}
+              </Button>
+              {guidance.showTemplates && (
                 <Button
                   size="sm"
-                  className="w-full h-8 text-xs mt-2 gap-1.5"
-                  onClick={onAiSuggest}
-                  disabled={aiLoading}
+                  variant="ghost"
+                  className="w-full h-8 text-xs mt-1.5 gap-1.5"
+                  onClick={onOpenTemplates}
                 >
-                  <Sparkles className="h-3 w-3" />
-                  {aiLoading ? "Redactando…" : "Sugerir respuesta"}
+                  <FileText className="h-3 w-3" />
+                  Usar plantilla aprobada
                 </Button>
-              </>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">
-                No hay mensajes pendientes de responder. La IA nunca envía nada sin tu clic.
+              )}
+              <p className="text-[10px] text-muted-foreground mt-2">
+                La IA nunca envía nada sin tu clic.
               </p>
-            )}
-            {windowText && (
-              <p className="text-[11px] text-muted-foreground mt-2 border-t border-border pt-2">{windowText}</p>
-            )}
-          </section>
+              {windowText && (
+                <p className="text-[11px] text-muted-foreground mt-2 border-t border-border pt-2">{windowText}</p>
+              )}
+            </section>
+          )}
 
           {/* Contact card */}
           <section>
