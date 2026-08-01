@@ -119,7 +119,7 @@ export function useConversations() {
           contactName: fullName,
           contactPhone: contact.phone ?? "",
           contactCompany: contact.company ?? null,
-          contactStatus: contact.status ?? "Nuevo",
+          contactStatus: contact.status ?? "prospecto",
           avatarColor: contact.avatar_color ?? colorFromId(c.contact_id ?? c.id),
           initials: initialsOf(fullName),
           preview: c.preview ?? "(sin mensajes)",
