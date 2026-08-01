@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/select";
 import {
   usePipelines, useCreatePipeline, useRenamePipeline, useDeletePipeline,
-  useSeedPipelineTemplate, useTenantId,
+  useSeedPipelineTemplate,
   type Pipeline,
 } from "@/lib/queries/pipeline";
+import { useTenantId } from "@/lib/queries/tenant";
 
 const nameSchema = z.string().trim().min(1, "Nombre requerido").max(60, "Máximo 60 caracteres");
 
