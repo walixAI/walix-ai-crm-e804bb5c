@@ -15,7 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { statusBadgeClass, type LeadStatus, type Source } from "@/lib/contacts/badges";
+import { statusBadgeClass, lifecycleLabel, type ContactLifecycle, type Source } from "@/lib/contacts/badges";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useContactTags } from "@/lib/queries/contactTags";
@@ -39,7 +39,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-const STATUSES: LeadStatus[] = ["Nuevo", "Contactado", "Calificado", "En negociación", "Cliente", "Inactivo"];
+const STATUSES: ContactLifecycle[] = ["prospecto", "cliente", "cliente_inactivo", "inactivo"];
 const SOURCES: Source[] = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 const PAGE_SIZE = 25;
 
@@ -55,7 +55,7 @@ export default function Contacts() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<Source[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<LeadStatus[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<ContactLifecycle[]>([]);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);

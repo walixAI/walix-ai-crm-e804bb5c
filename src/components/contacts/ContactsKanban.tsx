@@ -8,7 +8,7 @@ import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ALL_LEAD_STATUSES, statusBadgeClass, type LeadStatus } from "@/lib/contacts/badges";
+import { ALL_CONTACT_LIFECYCLES, lifecycleLabel, statusBadgeClass, type ContactLifecycle } from "@/lib/contacts/badges";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { useUpdateContact, type ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
@@ -34,14 +34,14 @@ export function ContactsKanban({ contacts, selected, onToggleSelect, onWhatsApp 
   function onDragEnd(e: DragEndEvent) {
     setActive(null);
     const id = e.active.id as string;
-    const target = e.over?.id as LeadStatus | undefined;
+    const target = e.over?.id as ContactLifecycle | undefined;
     if (!target) return;
     const c = contacts.find((x) => x.id === id);
     if (!c || c.status === target) return;
     update.mutate(
       { id, patch: { status: target } },
       {
-        onSuccess: () => toast.success(`${c.name} → ${target}`),
+        onSuccess: () => toast.success(`${c.name} → ${lifecycleLabel[target]}`),
         onError: () => toast.error("No se pudo mover el contacto"),
       },
     );
@@ -50,7 +50,7 @@ export function ContactsKanban({ contacts, selected, onToggleSelect, onWhatsApp 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1">
-        {ALL_LEAD_STATUSES.map((status) => {
+        {ALL_CONTACT_LIFECYCLES.map((status) => {
           const items = contacts.filter((c) => c.status === status);
           return (
             <KanbanColumn
@@ -78,7 +78,7 @@ export function ContactsKanban({ contacts, selected, onToggleSelect, onWhatsApp 
 function KanbanColumn({
   status, items, selected, onToggleSelect, onWhatsApp,
 }: {
-  status: LeadStatus;
+  status: ContactLifecycle;
   items: ContactRow[];
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -89,7 +89,7 @@ function KanbanColumn({
     <div className="w-[280px] shrink-0 flex flex-col">
       <div className="px-2 py-2 mb-2 flex items-center justify-between">
         <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border", statusBadgeClass[status])}>
-          {status}
+          {lifecycleLabel[status]}
         </span>
         <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
       </div>

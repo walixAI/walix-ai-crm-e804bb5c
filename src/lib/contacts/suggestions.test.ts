@@ -11,8 +11,7 @@ const baseContact: ContactRow = {
   company: null,
   companyId: null,
   position: null,
-  status: "Nuevo" as any,
-  stageId: null,
+  status: "prospecto",
   source: "Manual" as any,
   sourceId: null,
   tags: [],
@@ -58,9 +57,9 @@ describe("buildContactSuggestions", () => {
     expect(out.find((s) => s.id === "inbound-pending")).toBeUndefined();
   });
 
-  it("flags inactive contacts in early funnel", () => {
+  it("flags inactive prospects", () => {
     const out = buildContactSuggestions({
-      contact: { ...baseContact, lastActivity: daysAgo(10), status: "Contactado" as any },
+      contact: { ...baseContact, lastActivity: daysAgo(10), status: "prospecto" },
       activity: [],
       deals: [],
       lastInbound: null,
