@@ -3,6 +3,7 @@ import { Paperclip, Smile, Send, StickyNote, Sparkles, FileText, Slash } from "l
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MessageTemplate } from "@/lib/queries/whatsapp";
 
 interface Props {
@@ -104,26 +105,30 @@ export function Composer({
       )}
       {/* AI bar */}
       <div className="bg-primary/5 border-b border-primary/10 px-3 py-2 flex items-center gap-2 flex-wrap">
-        <span className="relative flex">
-          {suggestHint && !aiLoading && (
-            <span className="absolute inset-0 rounded-md bg-primary/30 animate-ping pointer-events-none" />
-          )}
-          <Button
-            size="sm"
-            variant={suggestHint ? "default" : "ghost"}
-            className={cn("h-7 text-xs gap-1.5 relative", !suggestHint && "hover:bg-primary/10")}
-            onClick={onAiSuggest}
-            disabled={aiLoading}
-          >
-            <Sparkles className={cn("h-3.5 w-3.5", suggestHint ? "" : "text-primary")} />
-            Sugerir respuesta
-          </Button>
-        </span>
-        {suggestHint && !aiLoading && (
-          <span className="text-[11px] text-primary font-medium">
-            ← Haz clic para que la IA redacte; tú la revisas y decides enviarla.
-          </span>
-        )}
+        <TooltipProvider>
+          <Tooltip open={suggestHint && !aiLoading ? true : undefined}>
+            <TooltipTrigger asChild>
+              <span className="relative flex">
+                {suggestHint && !aiLoading && (
+                  <span className="absolute inset-0 rounded-md bg-primary/30 animate-ping pointer-events-none" />
+                )}
+                <Button
+                  size="sm"
+                  variant={suggestHint ? "default" : "ghost"}
+                  className={cn("h-7 text-xs gap-1.5 relative", !suggestHint && "hover:bg-primary/10")}
+                  onClick={onAiSuggest}
+                  disabled={aiLoading}
+                >
+                  <Sparkles className={cn("h-3.5 w-3.5", suggestHint ? "" : "text-primary")} />
+                  Sugerir respuesta
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="max-w-[240px] text-xs">
+              Haz clic aquí: la IA redacta un borrador, tú lo revisas y decides si se envía. Nada se envía solo.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 hover:bg-primary/10" onClick={onAiSummarize} disabled={aiLoading}>
           <FileText className="h-3.5 w-3.5 text-primary" />
           Resumir
