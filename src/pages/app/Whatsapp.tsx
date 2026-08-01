@@ -354,6 +354,10 @@ export default function Whatsapp() {
               onNotesChange={setNotesDraft}
               onSaveNotes={handleSaveNotes}
               onLinkDeal={() => setLinkDealOpen(true)}
+              needsReply={needsReply}
+              onAiSuggest={runAiSuggest}
+              aiLoading={aiMutation.isPending}
+              windowText={serviceWindow?.description ?? null}
             />
           )}
         </main>
