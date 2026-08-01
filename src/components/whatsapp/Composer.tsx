@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Paperclip, Smile, Send, StickyNote, Sparkles, FileText, Slash } from "lucide-react";
+import { Paperclip, Smile, Send, StickyNote, Sparkles, FileText, Slash, Clock, AlertCircle, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
