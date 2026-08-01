@@ -33,12 +33,12 @@ interface Props {
   onAiSuggest?: () => void;
   onOpenTemplates?: () => void;
   aiLoading?: boolean;
-  windowText?: string | null;
+  serviceWindow?: ServiceWindow | null;
 }
 
 export function ContactSidePanel({
   conv, notesDraft, onNotesChange, onSaveNotes, onLinkDeal,
-  guidance, onAiSuggest, onOpenTemplates, aiLoading, windowText,
+  guidance, onAiSuggest, onOpenTemplates, aiLoading, serviceWindow,
 }: Props) {
   const { data: deals } = useContactDeals(conv.contactId);
   const { data: activity = [] } = useContactActivity(conv.contactId);
