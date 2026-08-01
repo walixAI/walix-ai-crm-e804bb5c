@@ -36,7 +36,7 @@ serve(async (req) => {
         .select("id")
         .eq("tenant_id", t.id)
         .eq("status", "prospecto")
-        .or(`last_activity.lt.${inactivityCutoff},last_activity.is.null`);
+        .or(`last_activity_at.lt.${inactivityCutoff},last_activity_at.is.null`);
 
       if (prospectos && prospectos.length > 0) {
         const ids = prospectos.map((c) => c.id);
@@ -83,7 +83,7 @@ serve(async (req) => {
         .select("id")
         .eq("tenant_id", t.id)
         .eq("status", "cliente_inactivo")
-        .or(`last_activity.lt.${inactivityCutoff},last_activity.is.null`);
+        .or(`last_activity_at.lt.${inactivityCutoff},last_activity_at.is.null`);
 
       if (deadClients && deadClients.length > 0) {
         const ids = deadClients.map((c) => c.id);
