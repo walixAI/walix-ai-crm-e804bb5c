@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MessageTemplate } from "@/lib/queries/whatsapp";
+import type { Guidance } from "@/lib/whatsapp/guidance";
 
 interface Props {
   draft: string;
@@ -25,8 +26,8 @@ interface Props {
    */
   aiDraftActive?: boolean;
   onClearAiDraft?: () => void;
-  /** Resalta "Sugerir respuesta" porque el cliente escribió y falta responder. */
-  suggestHint?: boolean;
+  /** Guía contextual: define el copy y si se resalta el botón de IA. */
+  guidance?: Guidance | null;
   /** Aviso sobre la ventana de 24 h / costo del mensaje. */
   windowNotice?: { tone: "open" | "closing" | "closed"; text: string } | null;
 }
@@ -35,13 +36,14 @@ export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
   onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
-  suggestHint, windowNotice,
+  guidance, windowNotice,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [tplFilter, setTplFilter] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const highlight = guidance?.state === "awaiting_reply";
 
   // auto-grow
   useEffect(() => {
@@ -105,30 +107,41 @@ export function Composer({
       )}
       {/* AI bar */}
       <div className="bg-primary/5 border-b border-primary/10 px-3 py-2 flex items-center gap-2 flex-wrap">
-        <TooltipProvider>
-          <Tooltip open={suggestHint && !aiLoading ? true : undefined}>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip open={highlight && !aiLoading ? true : undefined}>
             <TooltipTrigger asChild>
               <span className="relative flex">
-                {suggestHint && !aiLoading && (
+                {highlight && !aiLoading && (
                   <span className="absolute inset-0 rounded-md bg-primary/30 animate-ping pointer-events-none" />
                 )}
                 <Button
                   size="sm"
-                  variant={suggestHint ? "default" : "ghost"}
-                  className={cn("h-7 text-xs gap-1.5 relative", !suggestHint && "hover:bg-primary/10")}
+                  variant={highlight ? "default" : "outline"}
+                  className={cn("h-7 text-xs gap-1.5 relative", !highlight && "hover:bg-primary/10 border-primary/30")}
                   onClick={onAiSuggest}
                   disabled={aiLoading}
                 >
-                  <Sparkles className={cn("h-3.5 w-3.5", suggestHint ? "" : "text-primary")} />
-                  Sugerir respuesta
+                  <Sparkles className={cn("h-3.5 w-3.5", highlight ? "" : "text-primary")} />
+                  {aiLoading ? "Redactando…" : guidance?.ctaLabel ?? "Sugerir respuesta"}
                 </Button>
               </span>
             </TooltipTrigger>
             <TooltipContent side="top" align="start" className="max-w-[240px] text-xs">
-              Haz clic aquí: la IA redacta un borrador, tú lo revisas y decides si se envía. Nada se envía solo.
+              {guidance?.tooltip ??
+                "Haz clic aquí: la IA redacta un borrador, tú lo revisas y decides si se envía."}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        {guidance && !aiLoading && (
+          <span
+            className={cn(
+              "text-[11px] font-medium",
+              highlight ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            {guidance.hint}
+          </span>
+        )}
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 hover:bg-primary/10" onClick={onAiSummarize} disabled={aiLoading}>
           <FileText className="h-3.5 w-3.5 text-primary" />
           Resumir

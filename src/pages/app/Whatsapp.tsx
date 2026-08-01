@@ -21,6 +21,7 @@ import { LinkDealDialog } from "@/components/whatsapp/LinkDealDialog";
 import { AiSummaryDialog } from "@/components/whatsapp/AiSummaryDialog";
 import { useWhatsappAi } from "@/lib/queries/whatsappAi";
 import { getServiceWindow } from "@/lib/whatsapp/serviceWindow";
+import { getGuidance } from "@/lib/whatsapp/guidance";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
@@ -247,8 +248,14 @@ export default function Whatsapp() {
   // Nunca generamos ni enviamos nada automáticamente: solo señalamos al usuario
   // que conviene pedir una sugerencia cuando el cliente escribió y falta responder.
   const lastMsg = messages[messages.length - 1] ?? null;
-  const needsReply = !!activeConv && !!lastMsg && lastMsg.direction === "inbound" && !draft.trim();
   const serviceWindow = activeConv ? getServiceWindow(activeConv.lastInboundAt) : null;
+  const guidance = activeConv
+    ? getGuidance({
+        lastDirection: lastMsg ? lastMsg.direction : null,
+        hasInbound: messages.some((m) => m.direction === "inbound"),
+        windowOpen: !!serviceWindow?.open,
+      })
+    : null;
 
   // Mobile flow: when a conv is selected, hide the list
   const showList = !isMobile || !activeId;
@@ -335,7 +342,7 @@ export default function Whatsapp() {
                   onAiPrompt={runAiPrompt}
                   aiLoading={aiMutation.isPending}
                   aiDraftActive={aiDraftActive}
-                  suggestHint={needsReply}
+                  guidance={guidance}
                   windowNotice={
                     serviceWindow
                       ? { tone: serviceWindow.tone, text: serviceWindow.description }
@@ -354,8 +361,9 @@ export default function Whatsapp() {
               onNotesChange={setNotesDraft}
               onSaveNotes={handleSaveNotes}
               onLinkDeal={() => setLinkDealOpen(true)}
-              needsReply={needsReply}
+              guidance={guidance}
               onAiSuggest={runAiSuggest}
+              onOpenTemplates={() => setTemplatesOpen(true)}
               aiLoading={aiMutation.isPending}
               windowText={serviceWindow?.description ?? null}
             />
