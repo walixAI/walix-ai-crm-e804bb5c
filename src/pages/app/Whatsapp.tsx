@@ -21,6 +21,7 @@ import { LinkDealDialog } from "@/components/whatsapp/LinkDealDialog";
 import { AiSummaryDialog } from "@/components/whatsapp/AiSummaryDialog";
 import { useWhatsappAi } from "@/lib/queries/whatsappAi";
 import { getServiceWindow } from "@/lib/whatsapp/serviceWindow";
+import { getGuidance } from "@/lib/whatsapp/guidance";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
