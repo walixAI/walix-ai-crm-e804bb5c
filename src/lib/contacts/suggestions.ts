@@ -94,13 +94,12 @@ export function buildContactSuggestions({
     }
   }
 
-  // 3. Inactive contact in early funnel
+  // 3. Inactive prospect
   const inactiveDays = daysSince(contact.lastActivity);
-  const earlyStatuses = ["Nuevo", "Contactado", "Calificado"];
   if (
     inactiveDays !== null &&
     inactiveDays >= 7 &&
-    earlyStatuses.includes(contact.status as string)
+    contact.status === "prospecto"
   ) {
     out.push({
       id: "reactivate",
@@ -127,9 +126,9 @@ export function buildContactSuggestions({
     });
   }
 
-  // 5. Won contact, ask for referrals
+  // 5. Active client, ask for referrals
   if (
-    (contact.status as string) === "Ganado" &&
+    contact.status === "cliente" &&
     inactiveDays !== null &&
     inactiveDays >= 14
   ) {

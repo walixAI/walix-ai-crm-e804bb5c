@@ -4,7 +4,7 @@ import { MessageCircle, Edit, MoreHorizontal, Plus, Phone, X } from "lucide-reac
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { statusBadgeClass } from "@/lib/contacts/badges";
+import { lifecycleLabel, statusBadgeClass } from "@/lib/contacts/badges";
 import { useContactTags, getTagMetaFromList } from "@/lib/queries/contactTags";
 import { useUpdateContact, useDeleteContact, useContactStats, type ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
