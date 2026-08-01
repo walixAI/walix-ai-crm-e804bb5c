@@ -15,6 +15,7 @@ import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
 import type { Guidance } from "@/lib/whatsapp/guidance";
+import type { ServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 
 function fmt(n: number) {
