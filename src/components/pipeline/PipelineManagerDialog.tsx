@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { z } from "zod";
-import { Pencil, Plus, Trash2, Check, X } from "lucide-react";
+import { Pencil, Plus, Trash2, Check, X, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -14,11 +14,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { WBadge } from "@/components/walix/Badge";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   usePipelines, useCreatePipeline, useRenamePipeline, useDeletePipeline,
+  useSeedPipelineTemplate, useTenantId,
   type Pipeline,
 } from "@/lib/queries/pipeline";
 
 const nameSchema = z.string().trim().min(1, "Nombre requerido").max(60, "Máximo 60 caracteres");
+
+const TEMPLATES = [
+  { value: "ventas", label: "Ventas" },
+  { value: "mantenimiento", label: "Mantenimiento" },
+  { value: "refacciones", label: "Refacciones" },
+  { value: "renovaciones", label: "Renovaciones" },
+];
 
 interface Props {
   open: boolean;
@@ -28,11 +39,14 @@ interface Props {
 
 export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
   const { data: pipelines = [] } = usePipelines();
+  const { data: tenantId } = useTenantId();
   const createMut = useCreatePipeline();
   const renameMut = useRenamePipeline();
   const deleteMut = useDeletePipeline();
+  const seedMut = useSeedPipelineTemplate();
 
   const [newName, setNewName] = useState("");
+  const [newTemplate, setNewTemplate] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<Pipeline | null>(null);
@@ -44,6 +58,11 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
       const res = await createMut.mutateAsync(parsed.data);
       toast.success("Pipeline creado");
       setNewName("");
+      if (res?.id && tenantId && newTemplate) {
+        await seedMut.mutateAsync({ tenantId, pipelineId: res.id, template: newTemplate });
+        toast.success("Plantilla aplicada");
+      }
+      setNewTemplate("");
       if (res?.id) onSelect(res.id);
       onClose();
     } catch (e: any) {
@@ -142,12 +161,24 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
                 maxLength={60}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
               />
+            </div>
+            <div className="flex gap-2">
+              <Select value={newTemplate} onValueChange={setNewTemplate}>
+                <SelectTrigger className="h-9 text-xs flex-1">
+                  <SelectValue placeholder="Plantilla de etapas (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEMPLATES.map(t => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button onClick={handleCreate} disabled={createMut.isPending || !newName.trim()}>
                 <Plus className="h-3.5 w-3.5" /> Crear
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              El nuevo pipeline se crea sin etapas. Podrás añadirlas próximamente.
+              Puedes partir de una plantilla con etapas y reglas de avance automático.
             </p>
           </div>
 
