@@ -92,17 +92,25 @@ export function Composer({
 
   return (
     <div className="border-t border-border bg-card">
-      {/* Aviso de ventana de 24 h */}
+      {/* Aviso de ventana de 24 h / costo */}
       {windowNotice && (
         <div
           className={cn(
             "px-3 py-1.5 text-[11px] font-medium border-b flex items-center gap-1.5",
-            windowNotice.tone === "open" && "bg-success/10 text-success border-success/20",
+            windowNotice.tone === "closed" && "bg-destructive/10 text-destructive border-destructive/20",
             windowNotice.tone === "closing" && "bg-warning/10 text-warning border-warning/20",
-            windowNotice.tone === "closed" && "bg-muted text-muted-foreground border-border",
+            windowNotice.tone === "open" && "bg-success/10 text-success border-success/20",
           )}
         >
-          {windowNotice.tone === "closed" ? "💳" : "✅"} {windowNotice.text}
+          {windowNotice.tone === "closed" ? (
+            <>
+              <AlertCircle className="h-3.5 w-3.5" />
+              <CreditCard className="h-3.5 w-3.5" />
+            </>
+          ) : (
+            <Clock className="h-3.5 w-3.5" />
+          )}
+          {windowNotice.text}
         </div>
       )}
       {/* AI bar */}
