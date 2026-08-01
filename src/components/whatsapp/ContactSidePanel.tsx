@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ExternalLink, Plus, ChevronRight, Sparkles, Clock, FileText } from "lucide-react";
+import { ExternalLink, Plus, ChevronRight, Sparkles, Clock, FileText, AlertTriangle, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
