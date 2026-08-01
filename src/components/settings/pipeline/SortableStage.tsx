@@ -69,7 +69,7 @@ export function SortableStage({ stage, rules, expanded, onToggleExpand, onChange
           <span className={cn(
             "px-2 py-0.5 rounded-md text-xs font-medium",
             stage.is_won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
-          ))}>
+          )}>
             {stage.is_won ? "Ganado" : "Perdido"}
           </span>
         )}
