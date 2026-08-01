@@ -5,7 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Loader2, Save, ChevronDown, ChevronRight } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Loader2, Save, ChevronDown, ChevronRight, Zap, Trash2, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { logAudit } from "@/services/audit";
 import {
@@ -16,6 +18,10 @@ import {
   arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableStage, type StageDraft } from "./SortableStage";
+import {
+  usePipelineStageRules, useCreatePipelineStageRule, useDeletePipelineStageRule,
+  useSeedPipelineTemplate, type PipelineStageRule,
+} from "@/lib/queries/pipeline";
 
 interface Pipeline {
   id: string;
@@ -23,6 +29,20 @@ interface Pipeline {
   is_default: boolean;
   position: number;
 }
+
+const EVENT_OPTIONS: { value: string; label: string }[] = [
+  { value: "message_received", label: "Mensaje recibido" },
+  { value: "payment_received", label: "Pago recibido" },
+  { value: "activity_completed", label: "Actividad registrada" },
+  { value: "task_completed", label: "Tarea completada" },
+];
+
+const TEMPLATE_OPTIONS: { value: string; label: string }[] = [
+  { value: "ventas", label: "Ventas" },
+  { value: "mantenimiento", label: "Mantenimiento" },
+  { value: "refacciones", label: "Refacciones" },
+  { value: "renovaciones", label: "Renovaciones" },
+];
 
 export function PipelineSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
@@ -70,7 +90,7 @@ export function PipelineSettingsTab({ tenantId }: { tenantId: string }) {
           <div>
             <h2 className="text-lg font-semibold">Pipelines</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Crea pipelines y reordena las etapas con arrastrar y soltar.
+              Crea pipelines, reordena etapas y configura reglas de avance automático.
             </p>
           </div>
           <Button onClick={handleCreate} disabled={creating}>
@@ -111,6 +131,13 @@ function PipelineCard({
   const [stages, setStages] = useState<StageDraft[]>([]);
   const [aiScoring, setAiScoring] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+
+  const { data: rules = [] } = usePipelineStageRules(pipeline.id);
+  const createRule = useCreatePipelineStageRule();
+  const deleteRule = useDeletePipelineStageRule();
+  const seedTemplate = useSeedPipelineTemplate();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -149,7 +176,7 @@ function PipelineCard({
     const newStage: StageDraft = {
       id: `tmp-${Date.now()}`,
       name: "Nueva etapa",
-      color: "220 13% 65%",
+      color: "hsl(220 13% 65%)",
       is_won: false,
       is_lost: false,
     };
@@ -159,7 +186,6 @@ function PipelineCard({
   async function handleSave() {
     setSaving(true);
     try {
-      // Persist all stages: delete removed, upsert kept/new
       const existing = stagesData ?? [];
       const keptIds = new Set(stages.filter((s) => !s.id.startsWith("tmp-")).map((s) => s.id));
       const toDelete = existing.filter((s) => !keptIds.has(s.id)).map((s) => s.id);
@@ -198,6 +224,20 @@ function PipelineCard({
     }
   }
 
+  async function handleSeedTemplate() {
+    if (!selectedTemplate) return;
+    try {
+      await seedTemplate.mutateAsync({ tenantId, pipelineId: pipeline.id, template: selectedTemplate });
+      toast({ title: "Plantilla aplicada", description: "Se crearon etapas y reglas de ejemplo." });
+      qc.invalidateQueries({ queryKey: ["settings-stages", pipeline.id] });
+      qc.invalidateQueries({ queryKey: ["pipeline-stage-rules", pipeline.id] });
+      setSelectedTemplate("");
+    } catch (err: unknown) {
+      const m = err instanceof Error ? err.message : "Error";
+      toast({ title: "Error", description: m, variant: "destructive" });
+    }
+  }
+
   return (
     <Card className="overflow-hidden">
       <button
@@ -211,13 +251,34 @@ function PipelineCard({
 
       {expanded && (
         <div className="border-t border-border px-5 py-5 space-y-4 bg-muted/10">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-sm font-medium">Etapas</span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch checked={aiScoring} onCheckedChange={setAiScoring} />
                 IA scoring activo
               </label>
+              <div className="flex items-center gap-2">
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger className="h-8 text-xs w-[160px]">
+                    <SelectValue placeholder="Plantilla..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_OPTIONS.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSeedTemplate}
+                  disabled={!selectedTemplate || seedTemplate.isPending}
+                >
+                  <Wand2 className="h-3.5 w-3.5 mr-1" />
+                  Aplicar
+                </Button>
+              </div>
               <Button size="sm" variant="outline" onClick={handleAddStage}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Etapa
               </Button>
@@ -228,15 +289,28 @@ function PipelineCard({
             <SortableContext items={stages.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
                 {stages.map((s) => (
-                  <SortableStage
-                    key={s.id}
-                    stage={s}
-                    canDelete={!s.is_won && !s.is_lost}
-                    onChange={(patch) =>
-                      setStages((prev) => prev.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
-                    }
-                    onDelete={() => setStages((prev) => prev.filter((x) => x.id !== s.id))}
-                  />
+                  <div key={s.id} className="space-y-2">
+                    <SortableStage
+                      stage={s}
+                      rules={rules}
+                      expanded={expandedStageId === s.id}
+                      onToggleExpand={() => setExpandedStageId(expandedStageId === s.id ? null : s.id)}
+                      canDelete={!s.is_won && !s.is_lost}
+                      onChange={(patch) =>
+                        setStages((prev) => prev.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
+                      }
+                      onDelete={() => setStages((prev) => prev.filter((x) => x.id !== s.id))}
+                    />
+                    {expandedStageId === s.id && (
+                      <StageRulesPanel
+                        stage={s}
+                        stages={stages}
+                        rules={rules}
+                        tenantId={tenantId}
+                        pipelineId={pipeline.id}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             </SortableContext>
@@ -251,6 +325,161 @@ function PipelineCard({
         </div>
       )}
     </Card>
+  );
+}
+
+function StageRulesPanel({
+  stage, stages, rules, tenantId, pipelineId,
+}: {
+  stage: StageDraft;
+  stages: StageDraft[];
+  rules: PipelineStageRule[];
+  tenantId: string;
+  pipelineId: string;
+}) {
+  const { toast } = useToast();
+  const createRule = useCreatePipelineStageRule();
+  const deleteRule = useDeletePipelineStageRule();
+  const [event, setEvent] = useState<string>("");
+  const [toStageId, setToStageId] = useState<string>("");
+  const [activityType, setActivityType] = useState<string>("");
+  const [outcome, setOutcome] = useState<string>("");
+
+  const stageRules = rules.filter(r => r.fromStageId === stage.id);
+
+  async function addRule() {
+    if (!event || !toStageId) {
+      toast({ title: "Selecciona evento y etapa destino", variant: "destructive" });
+      return;
+    }
+    const filters: Record<string, any> = {};
+    if (event === "activity_completed" && activityType) filters.activity_type = activityType;
+    if (event === "activity_completed" && outcome) filters.outcome = outcome;
+    if (event === "task_completed" && activityType) filters.task_kind = activityType;
+    if (event === "task_completed" && outcome) filters.closed_via = outcome;
+
+    try {
+      await createRule.mutateAsync({
+        tenantId,
+        pipelineId,
+        fromStageId: stage.id,
+        toStageId,
+        triggerEvent: event as any,
+        triggerFilters: filters,
+      });
+      toast({ title: "Regla creada" });
+      setEvent("");
+      setToStageId("");
+      setActivityType("");
+      setOutcome("");
+    } catch (err: unknown) {
+      const m = err instanceof Error ? err.message : "Error";
+      toast({ title: "Error", description: m, variant: "destructive" });
+    }
+  }
+
+  async function removeRule(ruleId: string) {
+    try {
+      await deleteRule.mutateAsync({ ruleId, pipelineId });
+      toast({ title: "Regla eliminada" });
+    } catch (err: unknown) {
+      const m = err instanceof Error ? err.message : "Error";
+      toast({ title: "Error", description: m, variant: "destructive" });
+    }
+  }
+
+  const showFilters = event === "activity_completed" || event === "task_completed";
+
+  return (
+    <div className="ml-8 rounded-xl border border-border bg-card p-3 space-y-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <Zap className="h-3.5 w-3.5 text-primary" />
+        Reglas de avance automático
+      </div>
+
+      {stageRules.length === 0 && (
+        <div className="text-xs text-muted-foreground">
+          Sin reglas. Cuando ocurra un evento, el deal se quedará en esta etapa.
+        </div>
+      )}
+
+      {stageRules.map((r) => {
+        const toStage = stages.find(s => s.id === r.toStageId);
+        const label = EVENT_OPTIONS.find(e => e.value === r.triggerEvent)?.label ?? r.triggerEvent;
+        const filters = Object.entries(r.triggerFilters).map(([k, v]) => `${k}: ${v}`).join(", ");
+        return (
+          <div key={r.id} className="flex items-center gap-2 text-sm rounded-md border border-border bg-background px-2 py-1.5">
+            <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="flex-1 truncate">
+              {label} → <span className="font-medium">{toStage?.name ?? "—"}</span>
+              {filters && <span className="text-muted-foreground text-xs ml-1">({filters})</span>}
+            </span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeRule(r.id)}>
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </Button>
+          </div>
+        );
+      })}
+
+      <div className="space-y-2 pt-2 border-t border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Evento</Label>
+            <Select value={event} onValueChange={setEvent}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Selecciona..." />
+              </SelectTrigger>
+              <SelectContent>
+                {EVENT_OPTIONS.map(e => (
+                  <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Mover a</Label>
+            <Select value={toStageId} onValueChange={setToStageId}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Etapa destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {stages.filter(s => s.id !== stage.id).map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{event === "activity_completed" ? "Tipo de actividad" : "Tipo de tarea"}</Label>
+              <Input
+                value={activityType}
+                onChange={(e) => setActivityType(e.target.value)}
+                placeholder="Ej. meeting / maintenance"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Resultado esperado</Label>
+              <Input
+                value={outcome}
+                onChange={(e) => setOutcome(e.target.value)}
+                placeholder="Ej. effective / completed"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+        )}
+
+        <Button size="sm" onClick={addRule} disabled={createRule.isPending || !event || !toStageId}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Agregar regla
+        </Button>
+      </div>
+    </div>
   );
 }
 
