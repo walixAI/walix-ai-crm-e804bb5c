@@ -1,36 +1,82 @@
-## Qué está pasando (verificado en datos)
+# Refactor del ciclo de vida de Contactos
 
-Consulté las conversaciones reales: las 9 más recientes **no tienen ningún mensaje entrante** (`inbound = 0`) y su último mensaje es saliente. Las que sí tienen entrantes son de mayo (más de 24 h).
+## Objetivo
+Separar claramente dos conceptos:
+- **Contacto**: ficha maestra de larga vida con ciclo de vida simple (`Prospecto`, `Cliente`, `Cliente ya inactivo`, `Inactivo`).
+- **Deal / Oportunidad**: transacción con etapas configurables por pipeline (`Cotización`, `Visita`, `Ganado`, `Perdido`, etc.).
 
-Eso explica exactamente lo que ves:
-- `needsReply` sólo es `true` cuando el **último** mensaje es entrante → hoy es `false` en casi todas las conversaciones, así que el panel muestra "No hay mensajes pendientes de responder" y no hay pista visual.
-- La ventana de 24 h se calcula con el último entrante → como no hay ninguno, sale "No hay mensajes del cliente… Meta te la cobrará".
+Eliminar la tabla `contact_stages` y el campo `contacts.stage_id`, que hoy duplican y confunden el estado del contacto con el del pipeline.
 
-O sea: la lógica funciona, pero está diseñada para un solo escenario (el cliente acaba de escribir) y deja la conversación sin guía en todos los demás casos.
+## Cambios en base de datos
 
-## Qué haré
+### 1. Nuevo enum y migración de `contacts.status`
+- Crear enum `contact_lifecycle` con valores: `prospecto`, `cliente`, `cliente_inactivo`, `inactivo`.
+- Migrar `contacts.status` desde `lead_status` a `contact_lifecycle` usando:
+  - `Nuevo`, `Contactado`, `Calificado`, `En negociación` → `prospecto`
+  - `Cliente` → `cliente`
+  - `Inactivo` → `inactivo`
+- Sobreescribir luego con regla por deals: cualquier contacto con al menos un deal `is_won = true` pasa a `cliente`.
+- Eliminar enum `lead_status`.
 
-Convertir la tarjeta "Qué hacer ahora" y la pista del composer en una guía **siempre útil**, con tres estados en vez de uno:
+### 2. Configuración por tenant
+- Agregar a `public.tenants`:
+  - `contact_inactivity_days integer DEFAULT 90` (valores permitidos: 30, 90, 120, 150, 180).
+  - `customer_inactivity_months integer DEFAULT 6` (valores permitidos: 3, 6, 9, 12).
+- Ambos campos serán editables desde Configuración del tenant.
 
-1. **El cliente escribió y falta responder** (último mensaje entrante)
-   - Tarjeta destacada + pasos 1-2-3 + botón "Sugerir respuesta".
-   - Pulso y tooltip abierto sobre el botón del composer.
+### 3. Limpieza de `contact_stages`
+- Eliminar columna `contacts.stage_id`.
+- Eliminar tabla `contact_stages` y sus políticas RLS.
+- Actualizar trigger `seed_tenant_contact_catalogs()` para que ya no inserte filas en `contact_stages` (sigue creando `contact_sources`).
 
-2. **Sin respuesta del cliente / tú fuiste el último en escribir**
-   - Tarjeta con tono neutro pero **igual accionable**: "Redacta un seguimiento con IA" y el mismo botón (misma acción, texto distinto).
-   - En el composer, pista discreta ("La IA puede redactar el seguimiento") y tooltip al pasar el cursor.
+## Automatización del ciclo de vida
 
-3. **Ventana de 24 h cerrada / sin mensajes del cliente**
-   - Además del aviso de costo, ofrecer los dos caminos: "Usar plantilla aprobada" (abre el diálogo de plantillas) y "Redactar con IA" para revisar antes de enviar.
+### 4. Edge function `contact-lifecycle-sync`
+Crear `supabase/functions/contact-lifecycle-sync/index.ts` que se ejecuta cada noche:
 
-También:
-- El tooltip del botón "Sugerir respuesta" pasará a mostrarse **siempre al hover/focus** y quedará abierto automáticamente sólo en el estado 1 (hoy sólo existe en ese caso, y depende de que el hint sea verdadero).
-- La tarjeta del panel se mostrará siempre en la parte superior del panel lateral, con icono y color según el estado, sin nunca quedar en un mensaje "no hay nada que hacer".
-- Nada cambia en el envío: la IA sigue redactando sólo con clic explícito y el envío sigue siendo manual.
+Para cada contacto, usando los umbrales del tenant:
+1. Si tiene al menos un deal ganado → es `cliente`.
+2. Si es `cliente` y el último deal ganado fue hace más de `customer_inactivity_months` → `cliente_inactivo`.
+3. Si no tiene deals ganados y `last_activity_at` es anterior a `contact_inactivity_days` → `inactivo`.
+4. En cualquier otro caso → `prospecto`.
 
-## Detalle técnico
+La función respetará cambios manuales: solo aplicará las transiciones automáticas descritas; un usuario puede cambiar el status manualmente en cualquier momento y el job no lo revertirá salvo que vuelva a cumplirse una regla automática.
 
-- `src/pages/app/Whatsapp.tsx`: derivar un `guidance` con estados `awaiting_reply | follow_up | needs_template`, a partir de `lastMsg.direction`, existencia de entrantes y `getServiceWindow(activeConv.lastInboundAt)`. Pasarlo a `ContactSidePanel` y `Composer` en lugar del booleano `needsReply`, junto a `onOpenTemplates`.
-- `src/components/whatsapp/ContactSidePanel.tsx`: reemplazar el bloque condicional actual por un render por estado (título, copy, pasos, CTA primaria y CTA secundaria de plantillas).
-- `src/components/whatsapp/Composer.tsx`: tooltip siempre disponible en hover/focus; `open` controlado sólo en `awaiting_reply`; texto de la pista según estado; pulso limitado a `awaiting_reply`.
-- Sin cambios de base de datos ni de edge functions.
+### 5. Cron job
+Programar invocación diaria de `contact-lifecycle-sync` mediante `pg_cron` + `net.http_post` al endpoint de la edge function con service_role.
+
+## Cambios en frontend
+
+### 6. Tipos y utilidades
+- Actualizar `src/lib/contacts/badges.ts`: reemplazar `LeadStatus` por `ContactLifecycle` con los 4 estados y sus colores/etiquetas.
+- Actualizar `src/lib/queries/contacts.ts`: remover `stageId`, cambiar tipos de `status` y mapear el nuevo enum.
+- Eliminar o deprecar `src/lib/queries/contactStages.ts`.
+
+### 7. Vistas de Contactos
+- `src/pages/app/Contacts.tsx`: filtros y selectores ahora usan los 4 estados del ciclo de vida.
+- `src/components/contacts/ContactsKanban.tsx`: columnas reducidas a `Prospecto`, `Cliente`, `Cliente ya inactivo`, `Inactivo`.
+- `src/components/contacts/ChangeStatusPopover.tsx`: opciones del nuevo ciclo de vida.
+- Formularios de contacto: quitar selector de etapa; conservar selector de ciclo de vida.
+
+### 8. Configuración del tenant
+- `src/pages/app/Settings.tsx` (o pestaña correspondiente): agregar dos selects:
+  - "Días para inactivar un prospecto" (30, 90, 120, 150, 180).
+  - "Meses para marcar cliente como inactivo" (3, 6, 9, 12).
+- Eliminar el editor de etapas de contacto (`StagesEditor`) de la sección de configuración.
+
+### 9. Pipeline
+- No se modifica la estructura de `pipelines` ni `pipeline_stages`; se mantienen configurables por tenant.
+- Se asegurará que los componentes de Deal no usen `stage_id` del contacto (solo del deal).
+
+## Validación
+
+### 10. Pruebas
+- Verificar migración de datos: conteos por nuevo ciclo de vida y que contactos con deals ganados queden como `cliente`.
+- Ejecutar `contact-lifecycle-sync` manualmente y confirmar transiciones correctas.
+- Revisar que la vista de Contactos, Kanban y filtros rendericen los 4 estados.
+- Confirmar que la configuración de umbrales se persista por tenant.
+
+## Notas técnicas
+- `contacts.last_activity_at` ya existe y se usa como señal de actividad; el job se basará en él.
+- `contacts.source_id` y `contact_sources` se mantienen intactos.
+- El tipo `Database["public"]["Enums"]["lead_status"]` en `src/integrations/supabase/types.ts` se regenerará automáticamente tras la migración.

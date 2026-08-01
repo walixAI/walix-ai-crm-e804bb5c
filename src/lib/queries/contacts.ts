@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { LeadStatus, Source } from "@/lib/contacts/badges";
+import type { ContactLifecycle, Source } from "@/lib/contacts/badges";
 import { useTenantUsers, resolveOwner, colorForUser, type TenantUser } from "@/lib/queries/tenantUsers";
 import { buildContactSuggestions, type ContactSuggestion, type LastInbound } from "@/lib/contacts/suggestions";
 import { useTenantId } from "@/lib/queries/tenant";
@@ -23,8 +23,7 @@ export interface ContactRow {
   company: string | null;
   companyId: string | null;
   position: string | null;
-  status: LeadStatus;
-  stageId: string | null;
+  status: ContactLifecycle;
   source: Source;
   sourceId: string | null;
   tags: string[];
@@ -54,7 +53,6 @@ function mapContact(r: any, users?: TenantUser[]): ContactRow {
     companyId: r.company_id ?? null,
     position: r.position,
     status: r.status,
-    stageId: r.stage_id ?? null,
     source: r.source,
     sourceId: r.source_id ?? null,
     tags: r.tags ?? [],
@@ -109,10 +107,9 @@ export interface ContactInput {
   company?: string | null;
   company_id?: string | null;
   position?: string | null;
-  status?: LeadStatus;
+  status?: ContactLifecycle;
   source?: Source;
   source_id?: string | null;
-  stage_id?: string | null;
   tags?: string[];
   owner_id?: string | null;
 }

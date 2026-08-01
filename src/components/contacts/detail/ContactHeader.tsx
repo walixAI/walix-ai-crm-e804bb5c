@@ -4,7 +4,7 @@ import { MessageCircle, Edit, MoreHorizontal, Plus, Phone, X } from "lucide-reac
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { statusBadgeClass } from "@/lib/contacts/badges";
+import { lifecycleLabel, statusBadgeClass } from "@/lib/contacts/badges";
 import { useContactTags, getTagMetaFromList } from "@/lib/queries/contactTags";
 import { useUpdateContact, useDeleteContact, useContactStats, type ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
               align="start"
               trigger={
                 <button className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border hover:opacity-80", statusBadgeClass[contact.status])}>
-                  {contact.status}
+                  {lifecycleLabel[contact.status]}
                 </button>
               }
             />
