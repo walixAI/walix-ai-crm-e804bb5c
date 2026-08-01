@@ -929,45 +929,6 @@ export type Database = {
         }
         Relationships: []
       }
-      contact_stages: {
-        Row: {
-          color: string
-          created_at: string
-          id: string
-          is_default: boolean
-          is_lost: boolean
-          is_won: boolean
-          name: string
-          position: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          is_lost?: boolean
-          is_won?: boolean
-          name: string
-          position?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          is_lost?: boolean
-          is_won?: boolean
-          name?: string
-          position?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       contact_tags: {
         Row: {
           created_at: string
@@ -1019,8 +980,7 @@ export type Database = {
           position: string | null
           source: string
           source_id: string | null
-          stage_id: string | null
-          status: Database["public"]["Enums"]["lead_status"]
+          status: Database["public"]["Enums"]["contact_lifecycle"]
           tags: string[]
           tenant_id: string
           updated_at: string
@@ -1040,8 +1000,7 @@ export type Database = {
           position?: string | null
           source?: string
           source_id?: string | null
-          stage_id?: string | null
-          status?: Database["public"]["Enums"]["lead_status"]
+          status?: Database["public"]["Enums"]["contact_lifecycle"]
           tags?: string[]
           tenant_id: string
           updated_at?: string
@@ -1061,8 +1020,7 @@ export type Database = {
           position?: string | null
           source?: string
           source_id?: string | null
-          stage_id?: string | null
-          status?: Database["public"]["Enums"]["lead_status"]
+          status?: Database["public"]["Enums"]["contact_lifecycle"]
           tags?: string[]
           tenant_id?: string
           updated_at?: string
@@ -2682,9 +2640,11 @@ export type Database = {
         Row: {
           brand_name: string | null
           brand_primary: string | null
+          contact_inactivity_days: number | null
           count_business_days: boolean
           created_at: string
           currency: string
+          customer_inactivity_months: number | null
           id: string
           industry: string | null
           locale: string
@@ -2707,9 +2667,11 @@ export type Database = {
         Insert: {
           brand_name?: string | null
           brand_primary?: string | null
+          contact_inactivity_days?: number | null
           count_business_days?: boolean
           created_at?: string
           currency?: string
+          customer_inactivity_months?: number | null
           id?: string
           industry?: string | null
           locale?: string
@@ -2732,9 +2694,11 @@ export type Database = {
         Update: {
           brand_name?: string | null
           brand_primary?: string | null
+          contact_inactivity_days?: number | null
           count_business_days?: boolean
           created_at?: string
           currency?: string
+          customer_inactivity_months?: number | null
           id?: string
           industry?: string | null
           locale?: string
@@ -3153,15 +3117,13 @@ export type Database = {
         | "org_owner"
         | "org_member"
         | "tenant_owner"
+      contact_lifecycle:
+        | "prospecto"
+        | "cliente"
+        | "cliente_inactivo"
+        | "inactivo"
       conversation_status: "Nuevo" | "En atención" | "Esperando" | "Resuelto"
       lead_source: "WhatsApp" | "Formulario web" | "Referido" | "Manual"
-      lead_status:
-        | "Nuevo"
-        | "Contactado"
-        | "Calificado"
-        | "En negociación"
-        | "Cliente"
-        | "Inactivo"
       message_direction: "inbound" | "outbound"
       message_type: "text" | "image" | "document" | "audio" | "location"
       notification_category: "operational" | "ai" | "system"
@@ -3324,16 +3286,14 @@ export const Constants = {
         "org_member",
         "tenant_owner",
       ],
+      contact_lifecycle: [
+        "prospecto",
+        "cliente",
+        "cliente_inactivo",
+        "inactivo",
+      ],
       conversation_status: ["Nuevo", "En atención", "Esperando", "Resuelto"],
       lead_source: ["WhatsApp", "Formulario web", "Referido", "Manual"],
-      lead_status: [
-        "Nuevo",
-        "Contactado",
-        "Calificado",
-        "En negociación",
-        "Cliente",
-        "Inactivo",
-      ],
       message_direction: ["inbound", "outbound"],
       message_type: ["text", "image", "document", "audio", "location"],
       notification_category: ["operational", "ai", "system"],
