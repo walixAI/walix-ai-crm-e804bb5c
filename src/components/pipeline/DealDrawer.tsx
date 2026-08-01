@@ -275,7 +275,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 {stageHistory.map((h) => (
                   <div key={h.id} className="flex items-center gap-2 text-sm rounded-md border border-border bg-card px-3 py-2">
                     {h.metadata?.automatic && (
-                      <Bot className="h-3.5 w-3.5 text-primary shrink-0" title="Avance automático" />
+                      <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
                     )}
                     <span className="text-muted-foreground">{h.fromStageName ?? "Inicio"}</span>
                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
