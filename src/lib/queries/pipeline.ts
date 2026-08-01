@@ -234,7 +234,7 @@ export function useCreatePipelineStageRule() {
         to_stage_id: payload.toStageId,
         trigger_event: payload.triggerEvent,
         trigger_filters: payload.triggerFilters,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
