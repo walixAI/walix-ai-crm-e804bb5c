@@ -27,6 +27,8 @@ serve(async (req) => {
       const inactivityDays = t.contact_inactivity_days ?? 90;
       const customerMonths = t.customer_inactivity_months ?? 6;
       const inactivityCutoff = new Date(Date.now() - inactivityDays * 86_400_000).toISOString();
+      const monthsAgo = new Date();
+      monthsAgo.setMonth(monthsAgo.getMonth() - customerMonths);
 
       // Prospecto -> Inactivo
       const { data: prospectos } = await supabase
@@ -47,45 +49,32 @@ serve(async (req) => {
       }
 
       // Cliente -> Cliente ya inactivo (no won deals in last N months)
-      const { data: staleClients, error: staleError } = await supabase.rpc("find_stale_clients", {
-        p_tenant_id: t.id,
-        p_months: customerMonths,
-      });
-      if (staleError) {
-        // Fallback: inline query if RPC not available
-        const monthsAgo = new Date();
-        monthsAgo.setMonth(monthsAgo.getMonth() - customerMonths);
-        const { data: inlineStale, error: inlineErr } = await supabase
-          .from("contacts")
-          .select("id")
-          .eq("tenant_id", t.id)
-          .eq("status", "cliente")
-          .not("id", "in", (
-            await supabase
-              .from("deals")
-              .select("contact_id")
-              .eq("tenant_id", t.id)
-              .eq("is_won", true)
-              .gte("updated_at", monthsAgo.toISOString())
-          ).data?.map((d) => d.contact_id) as string[] ?? []);
-        if (inlineErr) throw inlineErr;
-        if (inlineStale && inlineStale.length > 0) {
-          const ids = inlineStale.map((c) => c.id);
-          const { error } = await supabase
-            .from("contacts")
-            .update({ status: "cliente_inactivo", updated_at: new Date().toISOString() })
-            .in("id", ids);
-          if (error) throw error;
-          total += ids.length;
-        }
-      } else if (staleClients && staleClients.length > 0) {
-        const ids = staleClients.map((c: any) => c.id);
+      const { data: recentWonContacts } = await supabase
+        .from("deals")
+        .select("contact_id")
+        .eq("tenant_id", t.id)
+        .eq("is_won", true)
+        .gte("updated_at", monthsAgo.toISOString());
+
+      const recentlyActiveIds = new Set((recentWonContacts ?? []).map((d) => d.contact_id));
+
+      const { data: clients } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("tenant_id", t.id)
+        .eq("status", "cliente");
+
+      const staleClientIds = (clients ?? [])
+        .filter((c) => !recentlyActiveIds.has(c.id))
+        .map((c) => c.id);
+
+      if (staleClientIds.length > 0) {
         const { error } = await supabase
           .from("contacts")
           .update({ status: "cliente_inactivo", updated_at: new Date().toISOString() })
-          .in("id", ids);
+          .in("id", staleClientIds);
         if (error) throw error;
-        total += ids.length;
+        total += staleClientIds.length;
       }
 
       // Cliente ya inactivo -> Inactivo
