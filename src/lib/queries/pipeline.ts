@@ -162,6 +162,7 @@ export interface StageHistoryRow {
   fromStageName: string | null;
   toStageName: string | null;
   changedAt: string;
+  metadata: { automatic?: boolean; ruleId?: string; event?: string } | null;
 }
 
 export function useStageHistory(dealId: string | undefined) {
@@ -182,7 +183,95 @@ export function useStageHistory(dealId: string | undefined) {
         fromStageName: r.from_stage_name,
         toStageName: r.to_stage_name,
         changedAt: r.changed_at,
+        metadata: r.metadata,
       }));
+    },
+  });
+}
+
+export interface PipelineStageRule {
+  id: string;
+  pipelineId: string;
+  fromStageId: string;
+  toStageId: string;
+  triggerEvent: string;
+  triggerFilters: Record<string, any>;
+  isActive: boolean;
+}
+
+export function usePipelineStageRules(pipelineId: string | undefined) {
+  return useQuery({
+    queryKey: ["pipeline-stage-rules", pipelineId],
+    enabled: !!pipelineId,
+    queryFn: async (): Promise<PipelineStageRule[]> => {
+      const { data, error } = await supabase
+        .from("pipeline_stage_rules")
+        .select("*")
+        .eq("pipeline_id", pipelineId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        pipelineId: r.pipeline_id,
+        fromStageId: r.from_stage_id,
+        toStageId: r.to_stage_id,
+        triggerEvent: r.trigger_event,
+        triggerFilters: r.trigger_filters ?? {},
+        isActive: !!r.is_active,
+      }));
+    },
+  });
+}
+
+export function useCreatePipelineStageRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Omit<PipelineStageRule, "id" | "isActive"> & { tenantId: string }) => {
+      const { error } = await supabase.from("pipeline_stage_rules").insert({
+        tenant_id: payload.tenantId,
+        pipeline_id: payload.pipelineId,
+        from_stage_id: payload.fromStageId,
+        to_stage_id: payload.toStageId,
+        trigger_event: payload.triggerEvent,
+        trigger_filters: payload.triggerFilters,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pipeline-stage-rules", v.pipelineId] });
+    },
+  });
+}
+
+export function useDeletePipelineStageRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { ruleId: string; pipelineId: string }) => {
+      const { error } = await supabase.from("pipeline_stage_rules").delete().eq("id", args.ruleId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pipeline-stage-rules", v.pipelineId] });
+    },
+  });
+}
+
+export function useSeedPipelineTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { tenantId: string; pipelineId: string; template: string }) => {
+      const { data, error } = await supabase.rpc("seed_pipeline_template", {
+        p_tenant_id: args.tenantId,
+        p_pipeline_id: args.pipelineId,
+        p_template_name: args.template,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipelines"] });
+      qc.invalidateQueries({ queryKey: ["pipeline-stages"] });
+      qc.invalidateQueries({ queryKey: ["pipeline-stage-rules"] });
     },
   });
 }
