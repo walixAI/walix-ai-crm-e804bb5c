@@ -1,82 +1,102 @@
-# Refactor del ciclo de vida de Contactos
+## 1. Estado actual: cómo ven Admin y usuario las etapas de un Lead/Deal
 
-## Objetivo
-Separar claramente dos conceptos:
-- **Contacto**: ficha maestra de larga vida con ciclo de vida simple (`Prospecto`, `Cliente`, `Cliente ya inactivo`, `Inactivo`).
-- **Deal / Oportunidad**: transacción con etapas configurables por pipeline (`Cotización`, `Visita`, `Ganado`, `Perdido`, etc.).
+### Vistas disponibles hoy
 
-Eliminar la tabla `contact_stages` y el campo `contacts.stage_id`, que hoy duplican y confunden el estado del contacto con el del pipeline.
+| Rol | Dónde ve las etapas | Qué puede hacer |
+|-----|---------------------|-----------------|
+| **Admin / Tenant Owner / Tenant Admin** | 1. **Pipeline** (`/pipeline`): kanban por etapas de todo el tenant.<br>2. **Configuración → Pipeline** (`/settings?tab=pipeline`): crea pipelines, renombra, elimina y edita etapas (orden, nombre, color).<br>3. **Ficha de contacto → panel derecho "Oportunidades"**: lista los deals del contacto con su etapa actual, monto y probabilidad. | Puede mover deals entre etapas (drag & drop en kanban o selector en el DealDrawer), crear nuevos deals y configurar pipelines/etapas. |
+| **Usuario / Vendedor / Gerente de Ventas** | 1. **Pipeline** (`/pipeline`): kanban filtrado por permisos (`own` para vendedor, `team` para gerente).<br>2. **Ficha de contacto → panel derecho "Oportunidades"**: mismo panel, solo ve deals que sus permisos le permiten.<br>3. **DealDrawer**: al hacer clic en un deal se abre un panel con los detalles, incluyendo la etapa actual y el historial de cambios de etapa. | Puede mover sus propios deals entre etapas (si tiene `deals.update.own`) y crear deals. No puede configurar pipelines ni etapas. |
 
-## Cambios en base de datos
+### Cómo funciona el modelo de datos
 
-### 1. Nuevo enum y migración de `contacts.status`
-- Crear enum `contact_lifecycle` con valores: `prospecto`, `cliente`, `cliente_inactivo`, `inactivo`.
-- Migrar `contacts.status` desde `lead_status` a `contact_lifecycle` usando:
-  - `Nuevo`, `Contactado`, `Calificado`, `En negociación` → `prospecto`
-  - `Cliente` → `cliente`
-  - `Inactivo` → `inactivo`
-- Sobreescribir luego con regla por deals: cualquier contacto con al menos un deal `is_won = true` pasa a `cliente`.
-- Eliminar enum `lead_status`.
+- **`pipelines`**: conjuntos de etapas (ej. Ventas, Renovaciones, Mantenimientos). Cada tenant puede tener varios pipelines.
+- **`pipeline_stages`**: etapas dentro de un pipeline (ej. Nuevo, Contactado, Cotización, Negociación, Cerrado Ganado, Cerrado Perdido). Cada etapa tiene `is_won` / `is_lost`.
+- **`deals`**: cada oportunidad apunta a `stage_id` y `stage_name`. El historial de cambios se guarda en `deal_stage_history` gracias al trigger `log_deal_stage_change`.
+- **`contacts`**: el contacto tiene un ciclo de vida separado (`prospecto`, `cliente`, `cliente_inactivo`, `inactivo`). Cuando un deal se marca ganado, el trigger `trg_contact_lifecycle_from_deal` promueve al contacto a `cliente`.
 
-### 2. Configuración por tenant
-- Agregar a `public.tenants`:
-  - `contact_inactivity_days integer DEFAULT 90` (valores permitidos: 30, 90, 120, 150, 180).
-  - `customer_inactivity_months integer DEFAULT 6` (valores permitidos: 3, 6, 9, 12).
-- Ambos campos serán editables desde Configuración del tenant.
+### Permisos relevantes (de `src/constants/permissions.ts`)
 
-### 3. Limpieza de `contact_stages`
-- Eliminar columna `contacts.stage_id`.
-- Eliminar tabla `contact_stages` y sus políticas RLS.
-- Actualizar trigger `seed_tenant_contact_catalogs()` para que ya no inserte filas en `contact_stages` (sigue creando `contact_sources`).
+- `tenant_owner` / `tenant_admin`: `deals.*`, `pipeline.*`, `settings.pipeline`.
+- `sales_manager`: `deals.read.team`, `deals.update.team`, `deals.reassign.team`, `pipeline.read`.
+- `sales_rep`: `deals.read.own`, `deals.update.own`, `deals.create`, `pipeline.read`.
 
-## Automatización del ciclo de vida
+---
 
-### 4. Edge function `contact-lifecycle-sync`
-Crear `supabase/functions/contact-lifecycle-sync/index.ts` que se ejecuta cada noche:
+## 2. Propuesta: automatizar el avance de etapas por resultado de actividad + tipificación
 
-Para cada contacto, usando los umbrales del tenant:
-1. Si tiene al menos un deal ganado → es `cliente`.
-2. Si es `cliente` y el último deal ganado fue hace más de `customer_inactivity_months` → `cliente_inactivo`.
-3. Si no tiene deals ganados y `last_activity_at` es anterior a `contact_inactivity_days` → `inactivo`.
-4. En cualquier otro caso → `prospecto`.
+### Objetivo
 
-La función respetará cambios manuales: solo aplicará las transiciones automáticas descritas; un usuario puede cambiar el status manualmente en cualquier momento y el job no lo revertirá salvo que vuelva a cumplirse una regla automática.
+Que el tenant defina, por pipeline y por etapa:
 
-### 5. Cron job
-Programar invocación diaria de `contact-lifecycle-sync` mediante `pg_cron` + `net.http_post` al endpoint de la edge function con service_role.
+1. **Si la etapa avanza automáticamente** ante ciertos eventos.
+2. **Qué evento dispara el avance**: respuesta de WhatsApp, llamada efectiva, email respondido, pago registrado, tarea completada con cierto resultado, etc.
+3. **A qué etapa avanza** cuando ocurre el evento.
+4. **Si la etapa es manual** (solo el vendedor/admin la mueve).
+5. **Plantillas iniciales sugeridas** al crear un pipeline (Ventas, Renovaciones, Mantenimiento, Refacciones).
 
-## Cambios en frontend
+### Ejemplos de reglas que se podrían configurar
 
-### 6. Tipos y utilidades
-- Actualizar `src/lib/contacts/badges.ts`: reemplazar `LeadStatus` por `ContactLifecycle` con los 4 estados y sus colores/etiquetas.
-- Actualizar `src/lib/queries/contacts.ts`: remover `stageId`, cambiar tipos de `status` y mapear el nuevo enum.
-- Eliminar o deprecar `src/lib/queries/contactStages.ts`.
+- Si un contacto **responde un mensaje de WhatsApp** y el deal está en "Nuevo", pasa a "Contactado".
+- Si se registra un **pago total** en un deal, pasa a "Pagado" / "Cerrado Ganado".
+- Si se completa una **visita de mantenimiento** con resultado "Exitoso", avanza a "Servicio completado".
+- Las etapas "Cerrado Ganado" y "Cerrado Perdido" pueden ser manuales o automáticas según configuración.
 
-### 7. Vistas de Contactos
-- `src/pages/app/Contacts.tsx`: filtros y selectores ahora usan los 4 estados del ciclo de vida.
-- `src/components/contacts/ContactsKanban.tsx`: columnas reducidas a `Prospecto`, `Cliente`, `Cliente ya inactivo`, `Inactivo`.
-- `src/components/contacts/ChangeStatusPopover.tsx`: opciones del nuevo ciclo de vida.
-- Formularios de contacto: quitar selector de etapa; conservar selector de ciclo de vida.
+### Alcance del plan
 
-### 8. Configuración del tenant
-- `src/pages/app/Settings.tsx` (o pestaña correspondiente): agregar dos selects:
-  - "Días para inactivar un prospecto" (30, 90, 120, 150, 180).
-  - "Meses para marcar cliente como inactivo" (3, 6, 9, 12).
-- Eliminar el editor de etapas de contacto (`StagesEditor`) de la sección de configuración.
+1. **Base de datos**: nueva tabla `pipeline_stage_rules` para guardar las reglas de avance automático por etapa.
+2. **Triggers / Edge function**: detectar eventos (mensaje entrante, pago, actividad con resultado) y mover el deal si hay una regla activa.
+3. **Configuración UI**: en `Settings → Pipeline`, permitir marcar etapas como automáticas y definir su trigger y etapa destino.
+4. **Plantillas**: al crear un pipeline, ofrecer plantillas con etapas y reglas predefinidas para Refrigeración G&R.
+5. **Historial**: los cambios automáticos se registran en `deal_stage_history` indicando que fueron por regla (no por usuario).
+6. **Permisos**: los cambios automáticos respetan RLS; el sistema usa service_role o security definer para mover deals cuando el evento es del sistema.
 
-### 9. Pipeline
-- No se modifica la estructura de `pipelines` ni `pipeline_stages`; se mantienen configurables por tenant.
-- Se asegurará que los componentes de Deal no usen `stage_id` del contacto (solo del deal).
+### Diagrama de flujo
 
-## Validación
+```text
+Evento del sistema (mensaje, pago, actividad)
+        |
+        v
+Buscar deal(s) activo(s) del contacto
+        |
+        v
+¿Hay regla para la etapa actual + tipo de evento?
+        |
+   Si   v
+Mover deal a etapa destino
+        |
+        v
+Registrar en deal_stage_history (automático)
+        |
+        v
+Notificar / actualizar UI
+```
 
-### 10. Pruebas
-- Verificar migración de datos: conteos por nuevo ciclo de vida y que contactos con deals ganados queden como `cliente`.
-- Ejecutar `contact-lifecycle-sync` manualmente y confirmar transiciones correctas.
-- Revisar que la vista de Contactos, Kanban y filtros rendericen los 4 estados.
-- Confirmar que la configuración de umbrales se persista por tenant.
+### Tablas a crear
 
-## Notas técnicas
-- `contacts.last_activity_at` ya existe y se usa como señal de actividad; el job se basará en él.
-- `contacts.source_id` y `contact_sources` se mantienen intactos.
-- El tipo `Database["public"]["Enums"]["lead_status"]` en `src/integrations/supabase/types.ts` se regenerará automáticamente tras la migración.
+- `pipeline_stage_rules`
+  - `id`, `tenant_id`, `pipeline_id`, `from_stage_id`
+  - `trigger_event` (enum: `whatsapp_reply`, `payment_received`, `activity_completed`, `call_completed`, `email_replied`, `task_completed`)
+  - `trigger_filters` (JSONB, ej. `{ activity_type: "call", outcome: "effective" }`)
+  - `to_stage_id`
+  - `is_active`
+  - `created_at`, `updated_at`
+
+### Componentes UI a modificar
+
+- `src/components/settings/pipeline/PipelineTab.tsx`: agregar modo "reglas de automatización" por etapa.
+- `src/components/pipeline/KanbanBoard.tsx` / `DealDrawer.tsx`: mostrar icono/badge cuando una etapa tiene reglas automáticas.
+- `src/components/contacts/detail/DealsSidePanel.tsx`: mostrar indicador de "etapa automática" y próximo paso sugerido.
+
+### Entregables
+
+1. Migración de base de datos con tabla, grants, RLS y políticas.
+2. Trigger o edge function para aplicar reglas ante eventos.
+3. Actualización del panel de configuración de pipelines.
+4. Plantillas iniciales sugeridas para pipelines comunes.
+5. Tests de reglas automáticas y verificación de historial.
+
+---
+
+## 3. Próximo paso sugerido
+
+Si apruebas este plan, comenzaré con la migración de `pipeline_stage_rules` y la configuración UI en `Settings → Pipeline`. Si prefieres solo la explicación actual sin implementar la automatización, rechaza el plan y lo dejamos documentado para más adelante.

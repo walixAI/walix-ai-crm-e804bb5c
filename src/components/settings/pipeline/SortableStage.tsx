@@ -1,9 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, Trash2, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { PipelineStageRule } from "@/lib/queries/pipeline";
 
 export interface StageDraft {
   id: string;
@@ -15,12 +16,15 @@ export interface StageDraft {
 
 interface Props {
   stage: StageDraft;
+  rules: PipelineStageRule[];
+  expanded: boolean;
+  onToggleExpand: () => void;
   onChange: (patch: Partial<StageDraft>) => void;
   onDelete: () => void;
   canDelete: boolean;
 }
 
-export function SortableStage({ stage, onChange, onDelete, canDelete }: Props) {
+export function SortableStage({ stage, rules, expanded, onToggleExpand, onChange, onDelete, canDelete }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stage.id });
 
@@ -30,51 +34,71 @@ export function SortableStage({ stage, onChange, onDelete, canDelete }: Props) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const activeRules = rules.filter(r => r.fromStageId === stage.id && r.isActive);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 p-2 rounded-xl border border-border bg-card",
+        "rounded-xl border border-border bg-card overflow-hidden",
         isDragging && "ring-2 ring-primary"
       )}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
-        aria-label="Reordenar etapa"
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <input
-        type="color"
-        value={hslToHex(stage.color)}
-        onChange={(e) => onChange({ color: hexToHsl(e.target.value) })}
-        className="h-7 w-7 rounded border border-border bg-background cursor-pointer"
-      />
-      <Input
-        value={stage.name}
-        onChange={(e) => onChange({ name: e.target.value })}
-        className="flex-1 h-9"
-      />
-      {(stage.is_won || stage.is_lost) && (
-        <span className={cn(
-          "px-2 py-0.5 rounded-md text-xs font-medium",
-          stage.is_won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
-        )}>
-          {stage.is_won ? "Ganado" : "Perdido"}
-        </span>
+      <div className="flex items-center gap-2 p-2">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
+          aria-label="Reordenar etapa"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <input
+          type="color"
+          value={hslToHex(stage.color)}
+          onChange={(e) => onChange({ color: hexToHsl(e.target.value) })}
+          className="h-7 w-7 rounded border border-border bg-background cursor-pointer"
+        />
+        <Input
+          value={stage.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          className="flex-1 h-9"
+        />
+        {(stage.is_won || stage.is_lost) && (
+          <span className={cn(
+            "px-2 py-0.5 rounded-md text-xs font-medium",
+            stage.is_won ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+          )}>
+            {stage.is_won ? "Ganado" : "Perdido"}
+          </span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleExpand}
+          aria-label={expanded ? "Colapsar reglas" : "Expandir reglas"}
+          className="h-8 w-8"
+        >
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onDelete}
+          disabled={!canDelete}
+          aria-label="Eliminar etapa"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {activeRules.length > 0 && !expanded && (
+        <div className="px-3 pb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Zap className="h-3 w-3 text-primary" />
+          <span>{activeRules.length} regla{activeRules.length === 1 ? "" : "s"} de avance automático</span>
+        </div>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onDelete}
-        disabled={!canDelete}
-        aria-label="Eliminar etapa"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
     </div>
   );
 }
