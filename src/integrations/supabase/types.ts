@@ -1334,6 +1334,7 @@ export type Database = {
           from_stage_id: string | null
           from_stage_name: string | null
           id: string
+          metadata: Json | null
           tenant_id: string
           to_stage_id: string | null
           to_stage_name: string | null
@@ -1345,6 +1346,7 @@ export type Database = {
           from_stage_id?: string | null
           from_stage_name?: string | null
           id?: string
+          metadata?: Json | null
           tenant_id: string
           to_stage_id?: string | null
           to_stage_name?: string | null
@@ -1356,6 +1358,7 @@ export type Database = {
           from_stage_id?: string | null
           from_stage_name?: string | null
           id?: string
+          metadata?: Json | null
           tenant_id?: string
           to_stage_id?: string | null
           to_stage_name?: string | null
@@ -2192,6 +2195,74 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_stage_rules: {
+        Row: {
+          created_at: string
+          from_stage_id: string
+          id: string
+          is_active: boolean
+          pipeline_id: string
+          tenant_id: string
+          to_stage_id: string
+          trigger_event: Database["public"]["Enums"]["pipeline_stage_trigger_event"]
+          trigger_filters: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_stage_id: string
+          id?: string
+          is_active?: boolean
+          pipeline_id: string
+          tenant_id: string
+          to_stage_id: string
+          trigger_event: Database["public"]["Enums"]["pipeline_stage_trigger_event"]
+          trigger_filters?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_stage_id?: string
+          id?: string
+          is_active?: boolean
+          pipeline_id?: string
+          tenant_id?: string
+          to_stage_id?: string
+          trigger_event?: Database["public"]["Enums"]["pipeline_stage_trigger_event"]
+          trigger_filters?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stage_rules_from_stage_id_fkey"
+            columns: ["from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_rules_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_rules_to_stage_id_fkey"
+            columns: ["to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_stages: {
         Row: {
           color: string
@@ -2996,6 +3067,14 @@ export type Database = {
       ai_cleanup_old_data: { Args: never; Returns: undefined }
       ai_recompute_next_run: { Args: { p_agent_id: string }; Returns: string }
       ai_run_due_agents: { Args: never; Returns: number }
+      apply_pipeline_stage_rules: {
+        Args: {
+          p_deal_id: string
+          p_event_filters?: Json
+          p_event_type: Database["public"]["Enums"]["pipeline_stage_trigger_event"]
+        }
+        Returns: boolean
+      }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -3080,6 +3159,14 @@ export type Database = {
         Args: { _tenant_id: string }
         Returns: undefined
       }
+      seed_pipeline_template: {
+        Args: {
+          p_pipeline_id: string
+          p_template_name: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
       suggest_goal_split: {
         Args: {
           _dimension: string
@@ -3128,6 +3215,11 @@ export type Database = {
       message_type: "text" | "image" | "document" | "audio" | "location"
       notification_category: "operational" | "ai" | "system"
       notification_severity: "info" | "success" | "warning" | "danger"
+      pipeline_stage_trigger_event:
+        | "message_received"
+        | "payment_received"
+        | "activity_completed"
+        | "task_completed"
       tag_family: "temperature" | "cycle" | "special"
       whatsapp_channel_kind: "clients" | "team"
       whatsapp_channel_status: "pending" | "connected" | "error" | "disabled"
@@ -3298,6 +3390,12 @@ export const Constants = {
       message_type: ["text", "image", "document", "audio", "location"],
       notification_category: ["operational", "ai", "system"],
       notification_severity: ["info", "success", "warning", "danger"],
+      pipeline_stage_trigger_event: [
+        "message_received",
+        "payment_received",
+        "activity_completed",
+        "task_completed",
+      ],
       tag_family: ["temperature", "cycle", "special"],
       whatsapp_channel_kind: ["clients", "team"],
       whatsapp_channel_status: ["pending", "connected", "error", "disabled"],
