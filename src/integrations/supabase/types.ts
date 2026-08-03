@@ -78,6 +78,73 @@ export type Database = {
           },
         ]
       }
+      activity_outcomes: {
+        Row: {
+          activity_kind: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          moves_to_stage_id: string | null
+          pipeline_id: string | null
+          position: number
+          requires_next_action: boolean
+          stage_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_kind?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          moves_to_stage_id?: string | null
+          pipeline_id?: string | null
+          position?: number
+          requires_next_action?: boolean
+          stage_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_kind?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          moves_to_stage_id?: string | null
+          pipeline_id?: string | null
+          position?: number
+          requires_next_action?: boolean
+          stage_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_outcomes_moves_to_stage_id_fkey"
+            columns: ["moves_to_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_outcomes_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_outcomes_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_runs: {
         Row: {
           actions_taken: number
@@ -3162,6 +3229,10 @@ export type Database = {
       recent_acted_suggestion: {
         Args: { _entity_id: string; _entity_type: string; _tenant_id: string }
         Returns: string
+      }
+      seed_default_activity_outcomes: {
+        Args: { _pipeline_id: string; _tenant_id: string }
+        Returns: number
       }
       seed_default_ai_agents: {
         Args: { _tenant_id: string }
