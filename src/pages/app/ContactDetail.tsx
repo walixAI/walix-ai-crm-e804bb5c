@@ -16,6 +16,8 @@ import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
 import { ActivitiesTab } from "@/components/contacts/detail/ActivitiesTab";
+import { DealsTab } from "@/components/contacts/detail/DealsTab";
+import { useContactPipelineDeals } from "@/lib/queries/pipeline";
 import { useContactActivity } from "@/lib/queries/contacts";
 import { useMyProfile } from "@/lib/queries/profile";
 import ContactDetailSimple from "./ContactDetailSimple";
@@ -27,6 +29,7 @@ export default function ContactDetail() {
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
   const { data: profile } = useMyProfile();
+  const { data: contactDeals = [] } = useContactPipelineDeals(id);
 
   const simpleMode = (profile as any)?.ui_prefs?.mode === "simple";
   if (simpleMode) return <ContactDetailSimple />;
@@ -84,6 +87,9 @@ export default function ContactDetail() {
                 Conversaciones {convs.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{convs.length}</span>}
               </TabsTrigger>
               <TabsTrigger value="activities">Actividades</TabsTrigger>
+              <TabsTrigger value="deals">
+                Oportunidades {contactDeals.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{contactDeals.length}</span>}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
@@ -110,6 +116,10 @@ export default function ContactDetail() {
 
             <TabsContent value="activities" className="mt-4">
               <ActivitiesTab contactId={contact.id} />
+            </TabsContent>
+
+            <TabsContent value="deals" className="mt-4">
+              <DealsTab contactId={contact.id} contactName={contact.name} />
             </TabsContent>
           </Tabs>
         </div>
