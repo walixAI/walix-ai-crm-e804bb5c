@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -187,11 +188,20 @@ export function DealsPerformanceView({
         const di = r.deal.stageId ? idx.get(r.deal.stageId) : undefined;
         return di !== undefined && di >= i;
       });
+      const bySeller = new Map<string, { count: number; amount: number }>();
+      for (const r of reached) {
+        const key = r.deal.ownerName || "Sin asignar";
+        const cur = bySeller.get(key) ?? { count: 0, amount: 0 };
+        bySeller.set(key, { count: cur.count + 1, amount: cur.amount + r.deal.amount });
+      }
       return {
         stage: s,
         count: reached.length,
         amount: reached.reduce((sum, r) => sum + r.deal.amount, 0),
         here: rows.filter((r) => r.deal.stageId === s.id).length,
+        sellers: Array.from(bySeller.entries())
+          .map(([name, v]) => ({ name, ...v }))
+          .sort((a, b) => b.count - a.count),
       };
     });
     return base.map((f, i) => {
