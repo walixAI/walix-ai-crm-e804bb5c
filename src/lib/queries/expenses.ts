@@ -592,33 +592,91 @@ export function useUpsertRecurring() {
     mutationFn: async (input: Partial<RecurringExpense> & { amount: number; day_of_month: number; category_id: string | null }) => {
       if (!tenantId) throw new Error("Sin tenant");
       if (input.id) {
+        const { data: before } = await supabase
+          .from("recurring_expenses" as any).select("*").eq("id", input.id).maybeSingle();
         const { error } = await supabase.from("recurring_expenses" as any).update({
           amount: input.amount, day_of_month: input.day_of_month,
           category_id: input.category_id, description: input.description ?? null,
           is_active: input.is_active ?? true,
         } as any).eq("id", input.id);
         if (error) throw error;
+        const changes = diffFields(
+          {
+            amount: (before as any)?.amount, day_of_month: (before as any)?.day_of_month,
+            category_id: (before as any)?.category_id, description: (before as any)?.description,
+            is_active: (before as any)?.is_active,
+          },
+          {
+            amount: input.amount, day_of_month: input.day_of_month,
+            category_id: input.category_id, description: input.description ?? null,
+            is_active: input.is_active ?? true,
+          },
+        );
+        if (Object.keys(changes).length > 0) {
+          await logAudit({
+            action: "recurring_expense.updated",
+            tenantId,
+            targetType: "recurring_expense",
+            targetId: input.id,
+            metadata: { changes },
+          });
+        }
       } else {
-        const { error } = await supabase.from("recurring_expenses" as any).insert({
+        const { data, error } = await supabase.from("recurring_expenses" as any).insert({
           tenant_id: tenantId,
           amount: input.amount, day_of_month: input.day_of_month,
           category_id: input.category_id, description: input.description ?? null,
-        } as any);
+        } as any).select("id").single();
         if (error) throw error;
+        await logAudit({
+          action: "recurring_expense.created",
+          tenantId,
+          targetType: "recurring_expense",
+          targetId: (data as any)?.id ?? null,
+          metadata: {
+            after: {
+              amount: input.amount, day_of_month: input.day_of_month,
+              category_id: input.category_id, description: input.description ?? null,
+            },
+          },
+        });
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recurring-expenses"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
+    },
   });
 }
 
 export function useDeleteRecurring() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: before } = await supabase
+        .from("recurring_expenses" as any).select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("recurring_expenses" as any).delete().eq("id", id);
       if (error) throw error;
+      await logAudit({
+        action: "recurring_expense.deleted",
+        tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+        targetType: "recurring_expense",
+        targetId: id,
+        metadata: {
+          before: {
+            amount: (before as any)?.amount ?? null,
+            day_of_month: (before as any)?.day_of_month ?? null,
+            category_id: (before as any)?.category_id ?? null,
+            description: (before as any)?.description ?? null,
+          },
+        },
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recurring-expenses"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
+    },
   });
 }
 
