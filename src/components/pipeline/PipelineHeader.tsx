@@ -117,14 +117,16 @@ export function PipelineHeader({
         </div>
       </div>
 
-      <ForecastKpis
-        total={totalAmount}
-        weighted={weightedAmount}
-        closingThisMonth={closingThisMonth}
-        closingDeltaPct={closingDeltaPct}
-        activeCount={activeCount}
-      />
-      <div className="mt-2"><RunRateChip /></div>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <RunRateChip />
+        <ForecastKpis
+          total={totalAmount}
+          weighted={weightedAmount}
+          closingThisMonth={closingThisMonth}
+          closingDeltaPct={closingDeltaPct}
+          activeCount={activeCount}
+        />
+      </div>
     </div>
   );
 }

@@ -45,7 +45,11 @@ export function AiAlertBanner({
         {description && <div className="text-xs text-muted-foreground mt-0.5">{description}</div>}
       </div>
       {actionLabel && onAction && (
-        <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={onAction}>
+        <Button
+          size="sm"
+          className="h-7 text-xs shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={onAction}
+        >
           {actionLabel}
         </Button>
       )}
