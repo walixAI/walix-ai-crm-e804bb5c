@@ -164,6 +164,8 @@ export function LogFollowUpDialog({
       setShowStage(true);
     }
     if (outcome.requiresNextAction) setHasNext(true);
+    if (outcome.isLost) setDiagMode("lost");
+    if (outcome.isWon) { setDiagMode("none"); setHasNext(false); }
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
