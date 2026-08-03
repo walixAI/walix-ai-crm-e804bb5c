@@ -31,6 +31,7 @@ import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
 import {
   useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
+import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -65,6 +66,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const { data: aiSuggestions = [] } = useDealAiSuggestions(deal?.id, deal?.contactId);
   const { data: stageHistory = [] } = useStageHistory(deal?.id);
   const { data: notes = [] } = useDealNotes(deal?.id);
+  const { data: fieldHistory = [] } = useDealFieldHistory(deal?.id);
+  const logFieldChange = useLogDealFieldChange(deal?.id);
   const createNote = useCreateDealNote(deal?.id, deal?.contactId ?? null);
   const updateNote = useUpdateDealNote(deal?.id);
   const deleteNote = useDeleteDealNote(deal?.id);
@@ -187,50 +190,24 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
-              <EditableField
-                label={`Probabilidad: ${deal.probability}%`}
-                value={String(deal.probability)}
-                onSave={(v) => savePatch({ probability: Number(v) })}
-                display={
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
-                      style={{ width: `${deal.probability}%` }}
-                    />
-                  </div>
-                }
-                render={(v, set) => (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{v}%</div>
-                    <Slider value={[Number(v)]} onValueChange={([n]) => set(String(n))} min={0} max={100} step={5} />
-                  </div>
-                )}
-              />
+              <Field label={`Probabilidad: ${deal.probability}%`}>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
+                    style={{ width: `${deal.probability}%` }}
+                  />
+                </div>
+              </Field>
 
-              <EditableField
-                label="Fuente"
-                display={deal.source}
-                value={deal.source ?? ""}
-                onSave={(v) => savePatch({ source: v })}
-                render={(v, set) => (
-                  <Select value={v} onValueChange={set}>
-                    <SelectTrigger><SelectValue placeholder="Elige una fuente" /></SelectTrigger>
-                    <SelectContent>
-                      {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
+              <Field label="Fuente">
+                <ReadValue>{deal.source}</ReadValue>
+              </Field>
 
               <DealDiagnosticPanel deal={deal} />
 
-              <EditableField
-                label="Descripción general"
-                display={deal.notes ?? "—"}
-                value={deal.notes ?? ""}
-                onSave={(v) => savePatch({ notes: v || null })}
-                render={(v, set) => <Textarea rows={3} autoFocus value={v} onChange={(e) => set(e.target.value)} />}
-              />
+              <Field label="Descripción general">
+                <ReadValue>{deal.notes ?? "—"}</ReadValue>
+              </Field>
 
               <div className="space-y-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
