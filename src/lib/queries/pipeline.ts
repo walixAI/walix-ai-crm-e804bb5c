@@ -41,6 +41,12 @@ export interface PipelineDeal {
   productCategoryId: string | null;
   createdAt: string;
   updatedAt: string;
+  /* Diagnóstico de por qué no avanza */
+  currentBlockerId: string | null;
+  blockerSetAt: string | null;
+  blockerExpectedAt: string | null;
+  noResponseSince: string | null;
+  lastKnownBlockerId: string | null;
 }
 
 function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
@@ -65,6 +71,11 @@ function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
     productCategoryId: r.product_category_id ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    currentBlockerId: r.current_blocker_id ?? null,
+    blockerSetAt: r.blocker_set_at ?? null,
+    blockerExpectedAt: r.blocker_expected_at ?? null,
+    noResponseSince: r.no_response_since ?? null,
+    lastKnownBlockerId: r.last_known_blocker_id ?? null,
   };
 }
 
