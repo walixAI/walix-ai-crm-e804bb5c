@@ -45,8 +45,6 @@ interface Props {
 }
 
 export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt, defaultTab = "summary" }: Props) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<any>({});
   const update = useUpdateDeal();
   const suggestNextStep = useSuggestNextStep();
   const scoreProbability = useScoreProbability();
@@ -58,16 +56,6 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 
   useEffect(() => {
     if (deal) {
-      setDraft({
-        name: deal.name,
-        amount: deal.amount,
-        probability: deal.probability,
-        stage_id: deal.stageId,
-        expected_close_date: deal.expectedCloseDate ?? "",
-        source: deal.source,
-        notes: deal.notes ?? "",
-      });
-      setEditing(false);
       setAiSuggestion(null);
       setAiScore(null);
     }
@@ -88,29 +76,14 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 
   if (!deal) return null;
 
-  async function save() {
+  async function savePatch(patch: Record<string, any>) {
     if (!deal) return;
-    const stage = stages.find(s => s.id === draft.stage_id);
     try {
-      await update.mutateAsync({
-        dealId: deal.id,
-        patch: {
-          name: draft.name,
-          amount: Number(draft.amount),
-          probability: Number(draft.probability),
-          stage_id: draft.stage_id,
-          stage_name: stage?.name ?? deal.stageName,
-          is_won: stage?.isWon ?? false,
-          is_lost: stage?.isLost ?? false,
-          expected_close_date: draft.expected_close_date || null,
-          source: draft.source,
-          notes: draft.notes || null,
-        },
-      });
-      toast.success("Oportunidad actualizado");
-      setEditing(false);
+      await update.mutateAsync({ dealId: deal.id, patch });
+      toast.success("Cambio guardado");
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");
+      throw e;
     }
   }
 
