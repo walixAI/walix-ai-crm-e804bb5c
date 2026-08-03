@@ -200,10 +200,20 @@ export function useLogFollowUp() {
       if (input.dealId && targetStageId && targetStageId !== input.stageId) {
         const { data: stage } = await (supabase as any)
           .from("pipeline_stages")
-          .select("id, name, is_won, is_lost")
+          .select("id, name, is_won, is_lost, position")
           .eq("id", targetStageId)
           .maybeSingle();
-        if (stage) {
+        let allowed = !!stage;
+        // No se permiten retrocesos: la etapa destino debe ir adelante de la actual.
+        if (stage && input.stageId) {
+          const { data: current } = await (supabase as any)
+            .from("pipeline_stages")
+            .select("position")
+            .eq("id", input.stageId)
+            .maybeSingle();
+          if (current && stage.position <= current.position) allowed = false;
+        }
+        if (stage && allowed) {
           await (supabase as any).from("deals").update({
             stage_id: stage.id,
             stage_name: stage.name,
