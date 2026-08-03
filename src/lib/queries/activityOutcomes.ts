@@ -37,7 +37,21 @@ export interface ActivityOutcome {
   requiresNextAction: boolean;
   position: number;
   isActive: boolean;
+  /** advance = mueve solo · suggest = propone y el usuario confirma · stay = no mueve */
+  stageBehavior: StageBehavior;
+  /** cierra la oportunidad como ganada */
+  isWon: boolean;
+  /** cierra la oportunidad como perdida */
+  isLost: boolean;
 }
+
+export type StageBehavior = "advance" | "suggest" | "stay";
+
+export const STAGE_BEHAVIORS: { value: StageBehavior; label: string; hint: string }[] = [
+  { value: "advance", label: "Avanza solo", hint: "Mueve la oportunidad automáticamente" },
+  { value: "suggest", label: "Sugiere", hint: "Propone la etapa y el usuario confirma" },
+  { value: "stay", label: "Permanece", hint: "No cambia la etapa" },
+];
 
 function mapOutcome(r: any): ActivityOutcome {
   return {
@@ -50,6 +64,9 @@ function mapOutcome(r: any): ActivityOutcome {
     requiresNextAction: r.requires_next_action,
     position: r.position,
     isActive: r.is_active,
+    stageBehavior: (r.stage_behavior ?? "stay") as StageBehavior,
+    isWon: !!r.is_won,
+    isLost: !!r.is_lost,
   };
 }
 
