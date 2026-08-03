@@ -154,9 +154,18 @@ export function LogFollowUpDialog({
   // Al cambiar tipificación, precargar la etapa sugerida y la exigencia de próxima acción.
   useEffect(() => {
     if (!outcome) { setTargetStage("none"); return; }
-    setTargetStage(outcome.movesToStageId ?? "none");
-    if (outcome.movesToStageId) setShowStage(true);
+    const target = outcome.movesToStageId;
+    const isForward = !!target && stages.some((s) => s.id === target && s.position > currentPosition);
+    if (outcome.stageBehavior === "stay" || !isForward) {
+      setTargetStage("none");
+      setShowStage(false);
+    } else {
+      setTargetStage(target!);
+      setShowStage(true);
+    }
     if (outcome.requiresNextAction) setHasNext(true);
+    if (outcome.isLost) setDiagMode("lost");
+    if (outcome.isWon) { setDiagMode("none"); setHasNext(false); }
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -167,6 +176,14 @@ export function LogFollowUpDialog({
   const suggestedStageName = stages.find((s) => s.id === outcome?.movesToStageId)?.name ?? null;
   const currentStageName = stages.find((s) => s.id === effectiveStageId)?.name ?? null;
   const targetStageName = stages.find((s) => s.id === targetStage)?.name ?? null;
+
+  // No se permiten retrocesos: solo etapas posteriores a la actual.
+  const currentPosition = stages.find((s) => s.id === effectiveStageId)?.position ?? -1;
+  const forwardStages = useMemo(
+    () => stages.filter((s) => s.position > currentPosition),
+    [stages, currentPosition],
+  );
+  const behavior = outcome?.stageBehavior ?? "stay";
 
   async function save() {
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
@@ -410,7 +427,16 @@ export function LogFollowUpDialog({
 
           {/* Etapa: sólo si hay sugerencia o el usuario lo pide */}
           {selectedDealId && (
-            showStage ? (
+            behavior === "advance" && targetStage !== "none" ? (
+              <div className="rounded-lg border-2 border-success/40 bg-success/5 p-3">
+                <div className="flex flex-wrap items-center gap-2 text-base">
+                  <WBadge variant="info">{currentStageName ?? "—"}</WBadge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <WBadge variant="success">{targetStageName}</WBadge>
+                  <span className="text-sm text-muted-foreground">se actualiza sola al guardar</span>
+                </div>
+              </div>
+            ) : showStage ? (
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Etapa</span>
@@ -429,21 +455,24 @@ export function LogFollowUpDialog({
                   <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none" className="text-base">No mover la etapa</SelectItem>
-                    {stages.map((s) => (
+                    {forwardStages.map((s) => (
                       <SelectItem key={s.id} value={s.id} className="text-base">Mover a: {s.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  La oportunidad solo puede avanzar; no se permite regresar a etapas anteriores.
+                </p>
               </div>
-            ) : (
+            ) : forwardStages.length > 0 ? (
               <button
                 type="button"
                 className="text-sm text-muted-foreground underline underline-offset-2"
                 onClick={() => setShowStage(true)}
               >
-                Cambiar la etapa de la oportunidad
+                Avanzar la etapa de la oportunidad
               </button>
-            )
+            ) : null
           )}
         </div>
 

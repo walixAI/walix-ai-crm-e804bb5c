@@ -37,7 +37,21 @@ export interface ActivityOutcome {
   requiresNextAction: boolean;
   position: number;
   isActive: boolean;
+  /** advance = mueve solo · suggest = propone y el usuario confirma · stay = no mueve */
+  stageBehavior: StageBehavior;
+  /** cierra la oportunidad como ganada */
+  isWon: boolean;
+  /** cierra la oportunidad como perdida */
+  isLost: boolean;
 }
+
+export type StageBehavior = "advance" | "suggest" | "stay";
+
+export const STAGE_BEHAVIORS: { value: StageBehavior; label: string; hint: string }[] = [
+  { value: "advance", label: "Avanza solo", hint: "Mueve la oportunidad automáticamente" },
+  { value: "suggest", label: "Sugiere", hint: "Propone la etapa y el usuario confirma" },
+  { value: "stay", label: "Permanece", hint: "No cambia la etapa" },
+];
 
 function mapOutcome(r: any): ActivityOutcome {
   return {
@@ -50,6 +64,9 @@ function mapOutcome(r: any): ActivityOutcome {
     requiresNextAction: r.requires_next_action,
     position: r.position,
     isActive: r.is_active,
+    stageBehavior: (r.stage_behavior ?? "stay") as StageBehavior,
+    isWon: !!r.is_won,
+    isLost: !!r.is_lost,
   };
 }
 
@@ -168,6 +185,15 @@ export function useLogFollowUp() {
           patch.is_lost = true;
           patch.lost_reason = input.lossReasonLabel ?? null;
         }
+        // Tipificación terminal: cierra la oportunidad
+        if (input.outcome?.isWon) {
+          patch.is_won = true;
+          patch.is_lost = false;
+        }
+        if (input.outcome?.isLost) {
+          patch.is_lost = true;
+          patch.is_won = false;
+        }
         // Una actividad entrante significa que el cliente sí respondió
         if (k?.direction === "in") {
           patch.last_inbound_at = input.occurredAt;
@@ -183,10 +209,20 @@ export function useLogFollowUp() {
       if (input.dealId && targetStageId && targetStageId !== input.stageId) {
         const { data: stage } = await (supabase as any)
           .from("pipeline_stages")
-          .select("id, name, is_won, is_lost")
+          .select("id, name, is_won, is_lost, position")
           .eq("id", targetStageId)
           .maybeSingle();
-        if (stage) {
+        let allowed = !!stage;
+        // No se permiten retrocesos: la etapa destino debe ir adelante de la actual.
+        if (stage && input.stageId) {
+          const { data: current } = await (supabase as any)
+            .from("pipeline_stages")
+            .select("position")
+            .eq("id", input.stageId)
+            .maybeSingle();
+          if (current && stage.position <= current.position) allowed = false;
+        }
+        if (stage && allowed) {
           await (supabase as any).from("deals").update({
             stage_id: stage.id,
             stage_name: stage.name,
@@ -245,6 +281,9 @@ export function useUpsertActivityOutcome() {
         requires_next_action: input.requiresNextAction ?? true,
         position: input.position ?? 0,
         is_active: input.isActive ?? true,
+        stage_behavior: input.stageBehavior ?? "stay",
+        is_won: input.isWon ?? false,
+        is_lost: input.isLost ?? false,
       };
       if (input.id) {
         const { error } = await (supabase as any).from("activity_outcomes").update(row).eq("id", input.id);

@@ -84,11 +84,14 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_lost: boolean
+          is_won: boolean
           label: string
           moves_to_stage_id: string | null
           pipeline_id: string | null
           position: number
           requires_next_action: boolean
+          stage_behavior: string
           stage_id: string | null
           tenant_id: string
           updated_at: string
@@ -98,11 +101,14 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_lost?: boolean
+          is_won?: boolean
           label: string
           moves_to_stage_id?: string | null
           pipeline_id?: string | null
           position?: number
           requires_next_action?: boolean
+          stage_behavior?: string
           stage_id?: string | null
           tenant_id: string
           updated_at?: string
@@ -112,11 +118,14 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_lost?: boolean
+          is_won?: boolean
           label?: string
           moves_to_stage_id?: string | null
           pipeline_id?: string | null
           position?: number
           requires_next_action?: boolean
+          stage_behavior?: string
           stage_id?: string | null
           tenant_id?: string
           updated_at?: string

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePipelines, useStages } from "@/lib/queries/pipeline";
 import {
   ACTIVITY_KINDS, useActivityOutcomes, useUpsertActivityOutcome,
-  useDeleteActivityOutcome, useSeedActivityOutcomes,
+  useDeleteActivityOutcome, useSeedActivityOutcomes, STAGE_BEHAVIORS, type StageBehavior,
 } from "@/lib/queries/activityOutcomes";
 import { DiagnosticsSettings } from "./DiagnosticsSettings";
 
@@ -28,6 +28,7 @@ export function OutcomesTab() {
   const [newStage, setNewStage] = useState<string>("all");
   const [newKind, setNewKind] = useState<string>("all");
   const [newMoves, setNewMoves] = useState<string>("none");
+  const [newBehavior, setNewBehavior] = useState<StageBehavior>("stay");
 
   const byStage = useMemo(() => {
     const m = new Map<string, typeof outcomes>();
@@ -50,6 +51,7 @@ export function OutcomesTab() {
         activityKind: newKind === "all" ? null : newKind,
         label: newLabel.trim(),
         movesToStageId: newMoves === "none" ? null : newMoves,
+        stageBehavior: newMoves === "none" ? "stay" : newBehavior === "stay" ? "suggest" : newBehavior,
         requiresNextAction: true,
         position: 99,
         isActive: true,
@@ -87,7 +89,8 @@ export function OutcomesTab() {
         </div>
         <p className="text-xs text-muted-foreground">
           Cada tipificación se asocia a una etapa (o a todas) y puede mover automáticamente la oportunidad
-          a otra etapa cuando el usuario la selecciona al registrar un seguimiento.
+          a otra etapa cuando el usuario la selecciona al registrar un seguimiento. Las oportunidades solo
+          pueden avanzar: nunca regresan a una etapa anterior.
         </p>
       </Card>
 
@@ -134,6 +137,19 @@ export function OutcomesTab() {
             </div>
           </div>
         </div>
+        {newMoves !== "none" && (
+          <div className="max-w-xs">
+            <Label className="text-xs">Comportamiento</Label>
+            <Select value={newBehavior === "stay" ? "suggest" : newBehavior} onValueChange={(v) => setNewBehavior(v as StageBehavior)}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STAGE_BEHAVIORS.filter((b) => b.value !== "stay").map((b) => (
+                  <SelectItem key={b.value} value={b.value}>{b.label} — {b.hint}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </Card>
 
       {[...byStage.entries()].map(([key, list]) => (
@@ -147,7 +163,12 @@ export function OutcomesTab() {
               </span>
               <Select
                 value={o.movesToStageId ?? "none"}
-                onValueChange={(v) => upsert.mutate({ ...o, pipelineId: o.pipelineId, movesToStageId: v === "none" ? null : v })}
+                onValueChange={(v) => upsert.mutate({
+                  ...o,
+                  pipelineId: o.pipelineId,
+                  movesToStageId: v === "none" ? null : v,
+                  stageBehavior: v === "none" ? "stay" : (o.stageBehavior === "stay" ? "suggest" : o.stageBehavior),
+                })}
               >
                 <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -155,6 +176,19 @@ export function OutcomesTab() {
                   {stages.map((s) => <SelectItem key={s.id} value={s.id}>Mover a: {s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {o.movesToStageId && (
+                <Select
+                  value={o.stageBehavior === "stay" ? "suggest" : o.stageBehavior}
+                  onValueChange={(v) => upsert.mutate({ ...o, pipelineId: o.pipelineId, stageBehavior: v as StageBehavior })}
+                >
+                  <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STAGE_BEHAVIORS.filter((b) => b.value !== "stay").map((b) => (
+                      <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <div className="flex items-center gap-1">
                 <Switch
                   checked={o.requiresNextAction}
