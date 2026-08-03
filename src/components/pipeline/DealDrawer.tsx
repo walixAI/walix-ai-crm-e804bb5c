@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Bot, Lock, Pencil, RefreshCw, Save, Sparkles, X, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight, Bot, ChevronRight, Lock, Pencil, Plus, RefreshCw, Save, Sparkles, Trash2, Zap,
+} from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -23,6 +26,10 @@ import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type 
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
+import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
+import {
+  useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
+} from "@/lib/queries/dealNotes";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -44,6 +51,9 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const scoreProbability = useScoreProbability();
   const [aiSuggestion, setAiSuggestion] = useState<NextStepSuggestion | null>(null);
   const [aiScore, setAiScore] = useState<ProbabilityScore | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [editingNote, setEditingNote] = useState<{ id: string; text: string } | null>(null);
 
   useEffect(() => {
     if (deal) {
@@ -65,6 +75,10 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const { data: activity = [] } = useDealActivity(deal?.id);
   const { data: aiSuggestions = [] } = useDealAiSuggestions(deal?.id, deal?.contactId);
   const { data: stageHistory = [] } = useStageHistory(deal?.id);
+  const { data: notes = [] } = useDealNotes(deal?.id);
+  const createNote = useCreateDealNote(deal?.id, deal?.contactId ?? null);
+  const updateNote = useUpdateDealNote(deal?.id);
+  const deleteNote = useDeleteDealNote(deal?.id);
 
   const lastStageChangeAt = stageHistory[0]?.changedAt ?? deal?.updatedAt ?? null;
   const daysInStage = lastStageChangeAt
@@ -153,18 +167,28 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   <Save className="h-4 w-4 text-success" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <span className="text-success font-bold text-lg">{formatMXN(deal.amount)} MXN</span>
             <WBadge variant={deal.isWon ? "success" : deal.isLost ? "danger" : "info"}>{deal.stageName}</WBadge>
           </div>
-          {contactName && (
-            <div className="text-xs text-muted-foreground">Contacto: {contactName}</div>
-          )}
+          <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+            {contactName && (
+              deal.contactId ? (
+                <Link
+                  to={`/contacts/${deal.contactId}`}
+                  onClick={onClose}
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Contacto: {contactName} <ChevronRight className="h-3 w-3" />
+                </Link>
+              ) : (
+                <span>Contacto: {contactName}</span>
+              )
+            )}
+            <span>Creada el {format(new Date(deal.createdAt), "PPP", { locale: es })}</span>
+          </div>
         </SheetHeader>
 
         <Tabs key={`${deal.id}-${defaultTab}`} defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
@@ -224,14 +248,95 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 ) : <ReadValue>{deal.source}</ReadValue>}
               </Field>
 
-              <Field label="Notas">
+              <Field label="Descripción general">
                 {editing ? (
                   <Textarea rows={3} value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
                 ) : <ReadValue>{deal.notes ?? "—"}</ReadValue>}
               </Field>
+
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
+                <div className="flex gap-2 items-start">
+                  <Textarea
+                    rows={2}
+                    maxLength={2000}
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Escribe una nota…"
+                    className="flex-1"
+                  />
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    disabled={!newNote.trim() || createNote.isPending}
+                    onClick={async () => {
+                      try {
+                        await createNote.mutateAsync(newNote.trim());
+                        setNewNote("");
+                        toast.success("Nota agregada");
+                      } catch (e: any) { toast.error(e?.message ?? "Error"); }
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {notes.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">Sin notas todavía.</p>
+                )}
+                {notes.map((n) => (
+                  <div key={n.id} className="rounded-lg border border-border bg-card p-3">
+                    {editingNote?.id === n.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          rows={3}
+                          value={editingNote.text}
+                          onChange={(e) => setEditingNote({ id: n.id, text: e.target.value })}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => setEditingNote(null)}>Cancelar</Button>
+                          <Button
+                            size="sm"
+                            disabled={updateNote.isPending || !editingNote.text.trim()}
+                            onClick={async () => {
+                              try {
+                                await updateNote.mutateAsync({ id: n.id, description: editingNote.text.trim() });
+                                setEditingNote(null);
+                                toast.success("Nota actualizada");
+                              } catch (e: any) { toast.error(e?.message ?? "Error"); }
+                            }}
+                          >Guardar</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-sm whitespace-pre-wrap break-words">{n.description}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] text-muted-foreground flex-1">
+                            {format(new Date(n.occurredAt), "PPP HH:mm", { locale: es })}
+                          </span>
+                          <Button variant="ghost" size="icon" className="h-7 w-7"
+                            onClick={() => setEditingNote({ id: n.id, text: n.description })}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-danger"
+                            onClick={async () => {
+                              try { await deleteNote.mutateAsync(n.id); toast.success("Nota eliminada"); }
+                              catch (e: any) { toast.error(e?.message ?? "Error"); }
+                            }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="activity" className="m-0">
+              <Button size="sm" className="w-full mb-4" onClick={() => setFollowUpOpen(true)}>
+                <Plus className="h-4 w-4" /> Registrar seguimiento
+              </Button>
               <div className="relative pl-2">
                 <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
                 {activity.length === 0 && (
@@ -246,7 +351,21 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                     </div>
                     <div className="flex-1 pt-1.5">
                       <div className="text-sm">{a.description}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{relativeTime(a.occurred_at)}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {a.metadata?.activity_kind_label && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            {a.metadata.activity_kind_label}
+                          </span>
+                        )}
+                        {a.metadata?.result && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                            {a.metadata.result}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(a.occurred_at), "PPP HH:mm", { locale: es })} · {relativeTime(a.occurred_at)}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -254,6 +373,15 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
             </TabsContent>
 
             <TabsContent value="history" className="space-y-3 m-0">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1">
+                  Fecha de creación
+                </div>
+                <div className="text-sm font-medium">
+                  {format(new Date(deal.createdAt), "PPP HH:mm", { locale: es })}
+                </div>
+              </div>
+
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1">
                   Tiempo en etapa actual
@@ -274,19 +402,23 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   </div>
                 )}
                 {stageHistory.map((h) => (
-                  <div key={h.id} className="flex items-center gap-2 text-sm rounded-md border border-border bg-card px-3 py-2">
-                    {h.metadata?.automatic && (
-                      <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
-                    )}
-                    <span className="text-muted-foreground">{h.fromStageName ?? "Inicio"}</span>
-                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="font-medium flex-1 truncate">{h.toStageName ?? "—"}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">{relativeTime(h.changedAt)}</span>
-                    {h.metadata?.automatic && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
-                        Auto
-                      </span>
-                    )}
+                  <div key={h.id} className="rounded-md border border-border bg-card px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      {h.metadata?.automatic && (
+                        <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
+                      )}
+                      <span className="text-muted-foreground">{h.fromStageName ?? "Inicio"}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium flex-1 truncate">{h.toStageName ?? "—"}</span>
+                      {h.metadata?.automatic && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                          Auto
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {format(new Date(h.changedAt), "PPP HH:mm", { locale: es })} · {relativeTime(h.changedAt)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -391,6 +523,15 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           </div>
         </Tabs>
       </SheetContent>
+
+      <LogFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        contactId={deal.contactId}
+        dealId={deal.id}
+        stageId={deal.stageId}
+        pipelineId={stages[0]?.pipelineId ?? null}
+      />
     </Sheet>
   );
 }

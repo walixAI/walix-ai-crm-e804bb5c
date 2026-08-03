@@ -16,6 +16,7 @@ import { GoalsTab } from "@/components/settings/goals/GoalsTab";
 import { ExpenseCategoriesTab } from "@/components/settings/expenses/ExpenseCategoriesTab";
 import { CopilotCapabilitiesTab } from "@/components/settings/copilot/CopilotCapabilitiesTab";
 import { WidgetsTab } from "@/components/settings/widgets/WidgetsTab";
+import { OutcomesTab } from "@/components/settings/outcomes/OutcomesTab";
 import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
 
 const TABS = [
@@ -23,6 +24,7 @@ const TABS = [
   { id: "team", label: "Equipo" },
   { id: "pipeline", label: "Pipeline" },
   { id: "contacts", label: "Contactos" },
+  { id: "outcomes", label: "Seguimiento" },
   { id: "goals", label: "Metas" },
   { id: "expenses", label: "Gastos" },
   { id: "widgets", label: "Tarjetas" },
@@ -95,6 +97,7 @@ export default function Settings() {
         <TabsContent value="team"><TeamTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="pipeline"><PipelineSettingsTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="contacts"><ContactsSettingsTab /></TabsContent>
+        <TabsContent value="outcomes"><OutcomesTab /></TabsContent>
         <TabsContent value="goals"><GoalsTab /></TabsContent>
         <TabsContent value="expenses"><ExpenseCategoriesTab /></TabsContent>
         <TabsContent value="widgets"><WidgetsTab /></TabsContent>

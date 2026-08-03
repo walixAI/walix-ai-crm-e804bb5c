@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Plus, Phone, Users, Mail, FileText, ListChecks, CheckSquare } from "lucide-react";
+import { Plus, Phone, Users, Mail, FileText, ListChecks, CheckSquare, ClipboardCheck } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useContactActivity, type ActivityRow } from "@/lib/queries/contacts";
 import { useContactPipelineDeals, useContactStageHistory } from "@/lib/queries/pipeline";
 import { ActivityItem } from "./ActivityItem";
 import { LogActivityDialog, type LogKind } from "./dialogs/LogActivityDialog";
+import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { TasksTab } from "./TasksTab";
 
 interface Props { contactId: string }
@@ -23,6 +24,7 @@ export function ActivitiesTab({ contactId }: Props) {
   const [tab, setTab] = useState("all");
   const [logOpen, setLogOpen] = useState(false);
   const [logKind, setLogKind] = useState<LogKind>("note");
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const { data: activity = [] } = useContactActivity(contactId);
   const { data: deals = [] } = useContactPipelineDeals(contactId);
   const { data: stageHistory = [] } = useContactStageHistory(contactId);
@@ -70,6 +72,9 @@ export function ActivitiesTab({ contactId }: Props) {
             ))}
           </TabsList>
           <div className="flex gap-1">
+            <Button size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
+              <ClipboardCheck className="h-4 w-4" /> Registrar seguimiento
+            </Button>
             {current.cta && tab !== "all" && (
               <Button size="sm" onClick={() => openLog(current.cta!)}>
                 <Plus className="h-4 w-4" /> Nueva {current.label.slice(0, -1).toLowerCase()}
@@ -101,6 +106,12 @@ export function ActivitiesTab({ contactId }: Props) {
       </Tabs>
 
       <LogActivityDialog open={logOpen} onOpenChange={setLogOpen} contactId={contactId} kind={logKind} />
+      <LogFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        contactId={contactId}
+        allowDealPicker
+      />
     </div>
   );
 }
