@@ -387,44 +387,83 @@ export function DealsPerformanceView({
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="text-sm font-semibold">Embudo de avance</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">% de paso entre etapas (anidado)</span>
-            {funnelTop > 0 && (
-              <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
-                Conversión total {funnelConversionPct}% ({funnelEnd}/{funnelTop})
-              </span>
-            )}
-          </div>
+          {funnelTop > 0 && (
+            <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
+              Conversión total {funnelConversionPct}%
+            </span>
+          )}
         </div>
         {funnelTop === 0 ? (
           <p className="text-sm text-muted-foreground">Sin oportunidades para calcular el embudo.</p>
         ) : (
-          <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
-            {funnel.map((f, i) => (
-              <div key={f.stage.id} className="flex items-center gap-2 shrink-0">
-                {i > 0 && (
-                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="text-[10px] font-semibold">{f.stepPct}%</span>
+          <>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {funnel.map((f, i) => {
+                const active = openStage === f.stage.id;
+                return (
+                  <div key={f.stage.id} className="flex items-center gap-1.5 shrink-0">
+                    {i > 0 && (
+                      <div className="flex items-center text-muted-foreground text-[10px] font-semibold">
+                        <ChevronRight className="h-3.5 w-3.5" />
+                        {f.stepPct}%
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setOpenStage(active ? null : f.stage.id)}
+                      className={cn(
+                        "min-w-[120px] text-left rounded-lg border px-3 py-2 transition-colors",
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-muted/30 hover:border-primary/40",
+                      )}
+                      title="Ver desglose por vendedor"
+                    >
+                      <div className="text-[11px] text-muted-foreground truncate">{f.stage.name}</div>
+                      <div className="text-lg font-bold leading-tight">{f.count}</div>
+                    </button>
                   </div>
-                )}
-                <div className="min-w-[140px] rounded-lg border border-border bg-muted/30 p-2.5">
-                  <div className="text-[11px] font-medium truncate" title={f.stage.name}>{f.stage.name}</div>
-                  <div className="text-lg font-bold leading-tight">{f.count}</div>
-                  <div className="text-[10px] text-muted-foreground">{formatMXN(f.amount)}</div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${Math.max(f.totalPct, f.count ? 3 : 0)}%` }}
-                    />
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Clic en una etapa para ver el desglose por vendedor.
+            </p>
+            {openStage && (() => {
+              const f = funnel.find((x) => x.stage.id === openStage);
+              if (!f) return null;
+              return (
+                <div className="mt-3 rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold">
+                      {f.stage.name} · {f.count} oportunidades · {formatMXN(f.amount)}
+                    </span>
+                    <button className="text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setOpenStage(null)}>
+                      Cerrar
+                    </button>
                   </div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {f.totalPct}% del total · {f.here} hoy
-                  </div>
+                  {f.sellers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Sin oportunidades en esta etapa.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {f.sellers.map((s) => (
+                        <div key={s.name} className="flex items-center gap-2">
+                          <span className="text-xs w-32 truncate">{s.name}</span>
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${f.count ? Math.max(3, (s.count / f.count) * 100) : 0}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium w-8 text-right">{s.count}</span>
+                          <span className="text-[11px] text-muted-foreground w-24 text-right">{formatMXN(s.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              );
+            })()}
+          </>
         )}
       </div>
 
