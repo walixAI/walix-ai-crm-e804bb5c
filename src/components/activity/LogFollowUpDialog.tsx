@@ -154,8 +154,15 @@ export function LogFollowUpDialog({
   // Al cambiar tipificación, precargar la etapa sugerida y la exigencia de próxima acción.
   useEffect(() => {
     if (!outcome) { setTargetStage("none"); return; }
-    setTargetStage(outcome.movesToStageId ?? "none");
-    if (outcome.movesToStageId) setShowStage(true);
+    const target = outcome.movesToStageId;
+    const isForward = !!target && stages.some((s) => s.id === target && s.position > currentPosition);
+    if (outcome.stageBehavior === "stay" || !isForward) {
+      setTargetStage("none");
+      setShowStage(false);
+    } else {
+      setTargetStage(target!);
+      setShowStage(true);
+    }
     if (outcome.requiresNextAction) setHasNext(true);
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
