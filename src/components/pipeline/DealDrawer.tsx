@@ -29,7 +29,7 @@ import { AiContextPanel } from "@/components/walix/AiContextPanel";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
 import {
-  useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
+  useDealNotes, useCreateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
 import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
 
@@ -53,7 +53,6 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const [aiScore, setAiScore] = useState<ProbabilityScore | null>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
-  const [editingNote, setEditingNote] = useState<{ id: string; text: string } | null>(null);
 
   useEffect(() => {
     if (deal) {
@@ -69,7 +68,6 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const { data: fieldHistory = [] } = useDealFieldHistory(deal?.id);
   const logFieldChange = useLogDealFieldChange(deal?.id);
   const createNote = useCreateDealNote(deal?.id, deal?.contactId ?? null);
-  const updateNote = useUpdateDealNote(deal?.id);
   const deleteNote = useDeleteDealNote(deal?.id);
 
   const lastStageChangeAt = stageHistory[0]?.changedAt ?? deal?.updatedAt ?? null;
@@ -166,7 +164,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           </TabsList>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            <TabsContent value="summary" className="space-y-4 m-0">
+            <TabsContent value="summary" className="space-y-4 m-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ring-0">
               <EditableField
                 label="Monto MXN"
                 display={formatMXN(deal.amount)}
@@ -263,49 +261,19 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 )}
                 {notes.map((n) => (
                   <div key={n.id} className="rounded-lg border border-border bg-card p-3">
-                    {editingNote?.id === n.id ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          rows={3}
-                          value={editingNote.text}
-                          onChange={(e) => setEditingNote({ id: n.id, text: e.target.value })}
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingNote(null)}>Cancelar</Button>
-                          <Button
-                            size="sm"
-                            disabled={updateNote.isPending || !editingNote.text.trim()}
-                            onClick={async () => {
-                              try {
-                                await updateNote.mutateAsync({ id: n.id, description: editingNote.text.trim() });
-                                setEditingNote(null);
-                                toast.success("Nota actualizada");
-                              } catch (e: any) { toast.error(e?.message ?? "Error"); }
-                            }}
-                          >Guardar</Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-sm whitespace-pre-wrap break-words">{n.description}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[11px] text-muted-foreground flex-1">
-                            {format(new Date(n.occurredAt), "PPP HH:mm", { locale: es })}
-                          </span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => setEditingNote({ id: n.id, text: n.description })}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-danger"
-                            onClick={async () => {
-                              try { await deleteNote.mutateAsync(n.id); toast.success("Nota eliminada"); }
-                              catch (e: any) { toast.error(e?.message ?? "Error"); }
-                            }}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </>
-                    )}
+                    <div className="text-sm whitespace-pre-wrap break-words">{n.description}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[11px] text-muted-foreground flex-1">
+                        {format(new Date(n.occurredAt), "PPP HH:mm", { locale: es })}
+                      </span>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-danger"
+                        onClick={async () => {
+                          try { await deleteNote.mutateAsync(n.id); toast.success("Nota eliminada"); }
+                          catch (e: any) { toast.error(e?.message ?? "Error"); }
+                        }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
