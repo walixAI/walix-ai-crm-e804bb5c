@@ -12,6 +12,7 @@ import {
   ACTIVITY_KINDS, useActivityOutcomes, useUpsertActivityOutcome,
   useDeleteActivityOutcome, useSeedActivityOutcomes,
 } from "@/lib/queries/activityOutcomes";
+import { DiagnosticsSettings } from "./DiagnosticsSettings";
 
 export function OutcomesTab() {
   const { data: pipelines = [] } = usePipelines();
@@ -168,6 +169,10 @@ export function OutcomesTab() {
           ))}
         </Card>
       ))}
+
+      <div className="pt-2 border-t border-border">
+        <DiagnosticsSettings />
+      </div>
     </div>
   );
 }

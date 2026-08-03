@@ -27,6 +27,7 @@ import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
+import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
 import {
   useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
@@ -247,6 +248,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   </Select>
                 ) : <ReadValue>{deal.source}</ReadValue>}
               </Field>
+
+              <DealDiagnosticPanel deal={deal} />
 
               <Field label="Descripción general">
                 {editing ? (

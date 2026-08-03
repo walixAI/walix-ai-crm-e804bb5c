@@ -96,6 +96,18 @@ export interface LogFollowUpInput {
   nextActionTitle?: string;
   /** etapa destino confirmada por el usuario (puede diferir de la sugerida) */
   moveToStageId?: string | null;
+  /* --- Diagnóstico de avance --- */
+  /** bloqueo declarado por el lead (sigue vivo). "" o null = sin cambio */
+  blockerId?: string | null;
+  blockerExpectedAt?: string | null;
+  blockerNote?: string | null;
+  /** marcar el bloqueo vigente como resuelto */
+  clearBlocker?: boolean;
+  /** motivo de pérdida (lead terminal) */
+  lossReasonId?: string | null;
+  /** etiquetas legibles para el histórico */
+  blockerLabel?: string | null;
+  lossReasonLabel?: string | null;
 }
 
 export function useLogFollowUp() {
@@ -124,9 +136,47 @@ export function useLogFollowUp() {
           result: input.outcome?.label ?? null,
           next_action_at: input.nextActionAt,
           follow_up: true,
+          blocker_id: input.blockerId ?? null,
+          blocker_label: input.blockerLabel ?? null,
+          blocker_expected_at: input.blockerExpectedAt ?? null,
+          blocker_note: input.blockerNote ?? null,
+          blocker_cleared: !!input.clearBlocker,
+          loss_reason_id: input.lossReasonId ?? null,
+          loss_reason_label: input.lossReasonLabel ?? null,
         },
       });
       if (error) throw error;
+
+      // Estado vigente de diagnóstico en la oportunidad
+      if (input.dealId) {
+        const patch: Record<string, any> = {};
+        if (input.clearBlocker) {
+          patch.current_blocker_id = null;
+          patch.blocker_set_at = null;
+          patch.blocker_expected_at = null;
+          patch.blocker_note = null;
+        }
+        if (input.blockerId) {
+          patch.current_blocker_id = input.blockerId;
+          patch.blocker_set_at = new Date().toISOString();
+          patch.blocker_expected_at = input.blockerExpectedAt ?? null;
+          patch.blocker_note = input.blockerNote ?? null;
+          patch.last_known_blocker_id = input.blockerId;
+        }
+        if (input.lossReasonId) {
+          patch.loss_reason_id = input.lossReasonId;
+          patch.is_lost = true;
+          patch.lost_reason = input.lossReasonLabel ?? null;
+        }
+        // Una actividad entrante significa que el cliente sí respondió
+        if (k?.direction === "in") {
+          patch.last_inbound_at = input.occurredAt;
+          patch.no_response_since = null;
+        }
+        if (Object.keys(patch).length) {
+          await (supabase as any).from("deals").update(patch).eq("id", input.dealId);
+        }
+      }
 
       // Mover etapa si aplica
       const targetStageId = input.moveToStageId ?? null;
@@ -173,6 +223,8 @@ export function useLogFollowUp() {
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
       qc.invalidateQueries({ queryKey: ["contact-tasks", v.contactId] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["deal-diagnostic", v.dealId] });
+      qc.invalidateQueries({ queryKey: ["diagnostics-deals"] });
     },
   });
 }
