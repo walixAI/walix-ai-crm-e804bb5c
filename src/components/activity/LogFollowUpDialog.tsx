@@ -134,7 +134,6 @@ export function LogFollowUpDialog({
     setSelectedDealId(dealId);
     setDescription("");
     setOccurred(toLocalInput(new Date()));
-    setEditOccurred(false);
     setHasNext(true);
     setNextDay(dateInput(2));
     setCustomNextDay(false);
