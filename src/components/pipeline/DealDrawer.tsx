@@ -248,6 +248,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 ) : <ReadValue>{deal.source}</ReadValue>}
               </Field>
 
+              <DealDiagnosticPanel deal={deal} />
+
               <Field label="Descripción general">
                 {editing ? (
                   <Textarea rows={3} value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
