@@ -37,10 +37,11 @@ function dateInput(daysAhead: number) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Convierte YYYY-MM-DD a ISO a las 10:00 locales. */
-function dayToIso(day: string) {
+/** Convierte YYYY-MM-DD + HH:MM a ISO local. */
+function dayToIso(day: string, time = "10:00") {
   const [y, m, d] = day.split("-").map(Number);
-  return new Date(y, m - 1, d, 10, 0, 0, 0).toISOString();
+  const [hh, mm] = time.split(":").map(Number);
+  return new Date(y, m - 1, d, hh || 0, mm || 0, 0, 0).toISOString();
 }
 
 function longDate(day: string) {
@@ -56,6 +57,8 @@ const DAY_PRESETS = [
   { label: "En 1 semana", days: 7 },
   { label: "En 15 días", days: 15 },
 ];
+
+const TIME_PRESETS = ["09:00", "10:00", "12:00", "16:00"];
 
 /** Botón grande de opción, pensado para lectura fácil. */
 function BigChoice({
@@ -102,6 +105,8 @@ export function LogFollowUpDialog({
   const [hasNext, setHasNext] = useState(true);
   const [nextDay, setNextDay] = useState(() => dateInput(2));
   const [customNextDay, setCustomNextDay] = useState(false);
+  const [nextTime, setNextTime] = useState("10:00");
+  const [customNextTime, setCustomNextTime] = useState(false);
   const [targetStage, setTargetStage] = useState<string>("none");
   const [showStage, setShowStage] = useState(false);
   const [diagMode, setDiagMode] = useState<DiagMode>("none");
@@ -109,6 +114,7 @@ export function LogFollowUpDialog({
   const [blockerExpected, setBlockerExpected] = useState<string>(() => dateInput(7));
   const [lossReasonId, setLossReasonId] = useState<string>("");
   const [clearBlocker, setClearBlocker] = useState(false);
+  const [showProblem, setShowProblem] = useState(false);
 
   const effectiveDeal = useMemo(
     () => contactDeals.find((d: any) => d.id === selectedDealId) ?? null,
@@ -137,6 +143,9 @@ export function LogFollowUpDialog({
     setHasNext(true);
     setNextDay(dateInput(2));
     setCustomNextDay(false);
+    setNextTime("10:00");
+    setCustomNextTime(false);
+    setShowProblem(false);
     setShowStage(false);
     setDiagMode("none");
     setBlockerId("");
@@ -164,8 +173,17 @@ export function LogFollowUpDialog({
       setShowStage(true);
     }
     if (outcome.requiresNextAction) setHasNext(true);
-    if (outcome.isLost) setDiagMode("lost");
-    if (outcome.isWon) { setDiagMode("none"); setHasNext(false); }
+    setShowProblem(false);
+    if (outcome.isLost) {
+      setDiagMode("lost");
+    } else if (outcome.isWon) {
+      setDiagMode("none");
+      setHasNext(false);
+    } else if (isForward && outcome.stageBehavior !== "stay") {
+      // El resultado hace avanzar: no se pregunta por bloqueos.
+      setDiagMode("none");
+      if (diagnostic?.currentBlockerId) setClearBlocker(true);
+    }
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -184,6 +202,8 @@ export function LogFollowUpDialog({
     [stages, currentPosition],
   );
   const behavior = outcome?.stageBehavior ?? "stay";
+  /** El resultado elegido mueve la oportunidad hacia adelante. */
+  const isAdvancing = !!outcome && !outcome.isWon && !outcome.isLost && targetStage !== "none";
 
   async function save() {
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
@@ -200,7 +220,7 @@ export function LogFollowUpDialog({
         outcome,
         description: description.trim(),
         occurredAt: fromLocalInput(occurred),
-        nextActionAt: hasNext ? dayToIso(nextDay) : null,
+        nextActionAt: hasNext ? dayToIso(nextDay, nextTime) : null,
         nextActionTitle: hasNext ? `Seguimiento: ${outcome.label}` : "",
         moveToStageId: targetStage === "none" ? null : targetStage,
         blockerId: diagMode === "blocked" ? blockerId : null,
@@ -326,9 +346,39 @@ export function LogFollowUpDialog({
                     onChange={(e) => setNextDay(e.target.value)}
                   />
                 )}
+                <div className="space-y-2 pt-1">
+                  <Label className="text-sm text-muted-foreground">¿A qué hora?</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {TIME_PRESETS.map((t) => (
+                      <BigChoice
+                        key={t}
+                        active={!customNextTime && nextTime === t}
+                        onClick={() => { setCustomNextTime(false); setNextTime(t); }}
+                      >
+                        {t}
+                      </BigChoice>
+                    ))}
+                  </div>
+                  <BigChoice
+                    active={customNextTime}
+                    onClick={() => setCustomNextTime(true)}
+                    className="w-full"
+                  >
+                    Otra hora
+                  </BigChoice>
+                  {customNextTime && (
+                    <Input
+                      type="time"
+                      className="h-12 text-base"
+                      value={nextTime}
+                      onChange={(e) => setNextTime(e.target.value)}
+                    />
+                  )}
+                </div>
                 {nextDay && (
                   <p className="text-sm text-muted-foreground">
-                    Te lo recordaremos el <span className="font-medium text-foreground">{longDate(nextDay)}</span> a las 10:00.
+                    Te lo recordaremos el <span className="font-medium text-foreground">{longDate(nextDay)}</span> a las{" "}
+                    <span className="font-medium text-foreground">{nextTime}</span>.
                   </p>
                 )}
               </>
@@ -337,12 +387,18 @@ export function LogFollowUpDialog({
             )}
           </div>
 
-          {/* 4. Diagnóstico */}
-          {selectedDealId && (
+          {/* 4. Diagnóstico — depende del resultado elegido */}
+          {selectedDealId && !outcome?.isWon && (
             <div className="space-y-3">
-              <Label className="text-base">4. ¿Por qué no avanza?</Label>
+              <Label className="text-base">
+                {outcome?.isLost
+                  ? "4. ¿Por qué se perdió?"
+                  : isAdvancing
+                    ? "4. ¿En qué quedaron?"
+                    : "4. ¿Por qué no avanza?"}
+              </Label>
 
-              {currentBlocker && (
+              {currentBlocker && !outcome?.isLost && (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
                   <PauseCircle className="h-4 w-4 text-warning" />
                   <span className="text-sm font-medium">{currentBlocker.label}</span>
@@ -356,17 +412,36 @@ export function LogFollowUpDialog({
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <BigChoice active={diagMode === "none"} onClick={() => setDiagMode("none")}>
-                  Todo bien, sigue avanzando
-                </BigChoice>
-                <BigChoice active={diagMode === "blocked"} onClick={() => setDiagMode("blocked")}>
-                  Está esperando algo
-                </BigChoice>
-                <BigChoice active={diagMode === "lost"} onClick={() => setDiagMode("lost")}>
-                  Ya no quiere / se perdió
-                </BigChoice>
-              </div>
+              {isAdvancing && !showProblem && !outcome?.isLost && (
+                <div className="space-y-2">
+                  <div className="rounded-lg bg-success/10 px-3 py-2.5 text-base text-foreground">
+                    El cliente sigue avanzando
+                    {targetStageName ? <> hacia <span className="font-medium">{targetStageName}</span></> : null}. Lo que te dijo queda
+                    guardado en la nota de arriba.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowProblem(true)}
+                    className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  >
+                    Reportar un problema
+                  </button>
+                </div>
+              )}
+
+              {!outcome?.isLost && (!isAdvancing || showProblem) && (
+                <div className="grid gap-2">
+                  <BigChoice active={diagMode === "none"} onClick={() => setDiagMode("none")}>
+                    Todo bien, sigue avanzando
+                  </BigChoice>
+                  <BigChoice active={diagMode === "blocked"} onClick={() => setDiagMode("blocked")}>
+                    Está esperando algo
+                  </BigChoice>
+                  <BigChoice active={diagMode === "lost"} onClick={() => setDiagMode("lost")}>
+                    Ya no quiere / se perdió
+                  </BigChoice>
+                </div>
+              )}
 
               {diagMode === "blocked" && (
                 <div className="space-y-2">
