@@ -33,9 +33,10 @@ interface Props {
   onClose: () => void;
   contactName?: string;
   contactLastActivityAt?: string | null;
+  defaultTab?: "summary" | "activity" | "history" | "ai";
 }
 
-export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt }: Props) {
+export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt, defaultTab = "summary" }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<any>({});
   const update = useUpdateDeal();
