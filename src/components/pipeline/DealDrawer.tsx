@@ -130,18 +130,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
       <SheetContent side="right" className="w-full sm:max-w-[480px] p-0 flex flex-col">
         <SheetHeader className="px-5 py-4 border-b border-border">
           <div className="flex items-center justify-between gap-2">
-            <SheetTitle className="truncate">{deal.name}</SheetTitle>
-            <div className="flex items-center gap-1">
-              {!editing ? (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(true)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={save} disabled={update.isPending}>
-                  <Save className="h-4 w-4 text-success" />
-                </Button>
-              )}
-            </div>
+            <SheetTitle className="truncate pr-8">{deal.name}</SheetTitle>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <span className="text-success font-bold text-lg">{formatMXN(deal.amount)} MXN</span>
@@ -175,60 +164,73 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <TabsContent value="summary" className="space-y-4 m-0">
-              <Field label="Monto MXN">
-                {editing ? (
-                  <Input type="number" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} />
-                ) : <ReadValue>{formatMXN(deal.amount)}</ReadValue>}
-              </Field>
+              <EditableField
+                label="Monto MXN"
+                display={formatMXN(deal.amount)}
+                value={String(deal.amount)}
+                onSave={(v) => savePatch({ amount: Number(v) || 0 })}
+                render={(v, set) => <Input type="number" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
+              />
 
               <Field label="Etapa">
-                {editing ? (
-                  <Select value={draft.stage_id} onValueChange={(v) => setDraft({ ...draft, stage_id: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {stages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                ) : <ReadValue>{deal.stageName}</ReadValue>}
+                <ReadValue>{deal.stageName}</ReadValue>
+                <p className="text-[11px] text-muted-foreground">
+                  La etapa cambia al registrar un seguimiento (pestaña Actividad).
+                </p>
               </Field>
 
-              <Field label="Fecha estimada de cierre">
-                {editing ? (
-                  <Input type="date" value={draft.expected_close_date ?? ""} onChange={e => setDraft({ ...draft, expected_close_date: e.target.value })} />
-                ) : <ReadValue>{deal.expectedCloseDate ? format(new Date(deal.expectedCloseDate), "PPP", { locale: es }) : "—"}</ReadValue>}
-              </Field>
+              <EditableField
+                label="Fecha estimada de cierre"
+                display={deal.expectedCloseDate ? format(new Date(deal.expectedCloseDate), "PPP", { locale: es }) : "—"}
+                value={deal.expectedCloseDate ?? ""}
+                onSave={(v) => savePatch({ expected_close_date: v || null })}
+                render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
+              />
 
-              <Field label={`Probabilidad: ${editing ? draft.probability : deal.probability}%`}>
-                {editing ? (
-                  <Slider value={[Number(draft.probability)]} onValueChange={([v]) => setDraft({ ...draft, probability: v })} min={0} max={100} step={5} />
-                ) : (
+              <EditableField
+                label={`Probabilidad: ${deal.probability}%`}
+                value={String(deal.probability)}
+                onSave={(v) => savePatch({ probability: Number(v) })}
+                display={
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
                       style={{ width: `${deal.probability}%` }}
                     />
                   </div>
+                }
+                render={(v, set) => (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">{v}%</div>
+                    <Slider value={[Number(v)]} onValueChange={([n]) => set(String(n))} min={0} max={100} step={5} />
+                  </div>
                 )}
-              </Field>
+              />
 
-              <Field label="Fuente">
-                {editing ? (
-                  <Select value={draft.source} onValueChange={(v) => setDraft({ ...draft, source: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+              <EditableField
+                label="Fuente"
+                display={deal.source}
+                value={deal.source ?? ""}
+                onSave={(v) => savePatch({ source: v })}
+                render={(v, set) => (
+                  <Select value={v} onValueChange={set}>
+                    <SelectTrigger><SelectValue placeholder="Elige una fuente" /></SelectTrigger>
                     <SelectContent>
                       {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                ) : <ReadValue>{deal.source}</ReadValue>}
-              </Field>
+                )}
+              />
 
               <DealDiagnosticPanel deal={deal} />
 
-              <Field label="Descripción general">
-                {editing ? (
-                  <Textarea rows={3} value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
-                ) : <ReadValue>{deal.notes ?? "—"}</ReadValue>}
-              </Field>
+              <EditableField
+                label="Descripción general"
+                display={deal.notes ?? "—"}
+                value={deal.notes ?? ""}
+                onSave={(v) => savePatch({ notes: v || null })}
+                render={(v, set) => <Textarea rows={3} autoFocus value={v} onChange={(e) => set(e.target.value)} />}
+              />
 
               <div className="space-y-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
