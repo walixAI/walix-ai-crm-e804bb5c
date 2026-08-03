@@ -22,19 +22,26 @@ Una fila por oportunidad activa, ordenable, con:
 - Semáforo de salud usando la lógica ya existente (`computeDealHealth`): Hot, Cold, Stale, Overdue
 - Fecha estimada de cierre, marcada en rojo si ya pasó
 
-**4. Agrupadores rápidos**
-Chips para filtrar la tabla: Todas · En riesgo · Estancadas (+14 días) · Vencidas · Cierran este mes.
+**4. Selector de periodo y dos lentes**
 
-**5. Exportar CSV**
-Mismo patrón que la vista Lista, incluyendo las columnas de salud.
+Arriba de la tabla, un selector de periodo (mes actual por defecto, con opción de otro mes o rango) y dos lentes que cambian qué oportunidades entran:
+
+- **Activadas en el periodo**: oportunidades creadas dentro del mes/periodo seleccionado, sin importar cuándo cierren (este mes o en el futuro). Responde "¿qué generamos este mes?".
+- **Activas en el periodo** (por defecto): todas las oportunidades abiertas que estuvieron vivas durante el periodo, sin importar si se crearon este mes o antes, y sin importar cuándo cierren. Responde "¿qué tenemos en juego?".
+
+El resumen de arriba se recalcula según la lente y el periodo elegidos, con una línea de texto que indica exactamente qué se está midiendo.
+
+**5. Agrupadores rápidos**
+Chips sobre el conjunto ya filtrado: Todas · En riesgo · Estancadas (+14 días) · Vencidas · Cierran en el periodo.
+
+**6. Exportar CSV**
+Mismo patrón que la vista Lista, incluyendo columnas de salud, la lente y el periodo aplicados.
 
 Al hacer clic en una fila se abre el `DealDrawer` existente, igual que hoy.
 
-## Sobre el periodo seleccionado
+## Sobre el periodo
 
-La vista Desempeño se enfoca en **oportunidades activas hoy**, con métricas de salud actuales. Para analizar el pipeline de un periodo histórico o futuro (por ejemplo "¿cuánto pipeline teníamos el 15 de julio?"), se usa la página **Reportes** (`/reportes`), que ya permite filtrar por periodo y vendedor y muestra funnel, cierres, actividad y desempeño por vendedor.
-
-Si el usuario quiere ver oportunidades cuya **fecha estimada de cierre cae dentro del mes/periodo seleccionado**, la vista Desempeño incluirá un filtro rápido "Cierran este mes" y se podrá extender con un selector de rango de fechas de cierre en una siguiente iteración.
+La vista Desempeño siempre trabaja sobre un periodo (mes actual por defecto); las métricas de salud se calculan al día de hoy. Para análisis histórico más profundo (funnel, cierres, actividad y desempeño por vendedor de un periodo pasado) sigue estando **Reportes** (`/reportes`).
 
 ## Detalles técnicos
 
@@ -43,4 +50,8 @@ Si el usuario quiere ver oportunidades cuya **fecha estimada de cierre cae dentr
 - `PipelineHeader.tsx`: tercer botón en el selector de vista.
 - Salud por deal con `computeDealHealth` de `src/lib/dealHealth.ts` (ya usa la última actividad del contacto, que Pipeline ya carga en `contactLastActivityAt`).
 - Stepper de etapa con el componente `StageStepper` y las `stages` del pipeline activo.
-- Sin cambios en base de datos ni consultas nuevas: todo se calcula sobre los datos que Pipeline ya trae.
+- Lentes calculadas sobre el arreglo `filtered` que Pipeline ya tiene:
+  - Activadas: `createdAt` dentro del rango del periodo.
+  - Activas: deal abierto (no ganado ni perdido) con `createdAt <= fin del periodo`; los ganados/perdidos dentro del periodo se muestran aparte para no inflar el pipeline abierto.
+- Periodo y lente en estado local, persistidos en `usePipelinePrefs` junto con `view`.
+- Sin cambios en base de datos: `deals` ya expone `createdAt`, `updatedAt`, `expectedCloseDate`, `isWon` e `isLost`.
