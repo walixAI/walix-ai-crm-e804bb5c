@@ -4,6 +4,7 @@ import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { KanbanSkeleton, TableSkeleton } from "@/components/walix/Skeletons";
 import { KanbanBoard } from "@/components/pipeline/KanbanBoard";
 import { DealsListView } from "@/components/pipeline/DealsListView";
+import { DealsPerformanceView, currentMonthKey } from "@/components/pipeline/DealsPerformanceView";
 import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { type PipelineFiltersValue } from "@/components/pipeline/PipelineFilters";
@@ -72,7 +73,7 @@ export default function Pipeline() {
     });
 
   const view = prefs.view;
-  const setView = (v: "kanban" | "list") => setPrefs({ ...prefs, view: v });
+  const setView = (v: "kanban" | "list" | "performance") => setPrefs({ ...prefs, view: v });
   const search = prefs.search;
   const setSearch = (v: string) => setPrefs({ ...prefs, search: v });
 
@@ -253,6 +254,18 @@ export default function Pipeline() {
           onToggleSelect={toggleSelect}
           onRequestLost={setLostDeal}
           onNewTask={setTaskDeal}
+        />
+      ) : view === "performance" ? (
+        <DealsPerformanceView
+          deals={filtered}
+          stages={stages.filter((s) => !s.isWon && !s.isLost)}
+          contactName={contactName}
+          contactLastActivityById={contactLastActivityById}
+          onOpenDeal={setOpenDeal}
+          lens={prefs.perfLens}
+          onLens={(v) => setPrefs({ ...prefs, perfLens: v })}
+          periodMonth={prefs.perfMonth ?? currentMonthKey()}
+          onPeriodMonth={(v) => setPrefs({ ...prefs, perfMonth: v })}
         />
       ) : (
         <DealsListView deals={filtered} contactName={contactName} onOpenDeal={setOpenDeal} />
