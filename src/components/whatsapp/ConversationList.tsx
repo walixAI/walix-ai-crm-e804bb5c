@@ -10,7 +10,7 @@ import { useMessageSearch } from "@/lib/queries/whatsapp";
 import { getServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import { ConversationListSkeleton } from "@/components/walix/Skeletons";
 
-type Tab = "all" | "mine" | "unassigned" | "resolved";
+type Tab = "all" | "pending" | "mine" | "unassigned" | "resolved";
 
 function timeAgo(iso: string | null) {
   if (!iso) return "";
@@ -43,6 +43,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
 
   const filtered = useMemo(() => {
     let list = conversations;
+    if (tab === "pending") list = list.filter((c) => c.awaitingReply);
     if (tab === "mine") list = list.filter((c) => c.assigneeId === myUserId);
     if (tab === "unassigned") list = list.filter((c) => !c.assigneeId);
     if (tab === "resolved") list = list.filter((c) => c.status === "Resuelto");
@@ -61,9 +62,20 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
   }, [conversations, tab, term, myUserId, matchingConvIds]);
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unread ?? 0), 0);
+  const counts = useMemo(
+    () => ({
+      all: conversations.filter((c) => c.status !== "Resuelto").length,
+      pending: conversations.filter((c) => c.awaitingReply).length,
+      mine: conversations.filter((c) => c.assigneeId === myUserId).length,
+      unassigned: conversations.filter((c) => !c.assigneeId).length,
+      resolved: conversations.filter((c) => c.status === "Resuelto").length,
+    }),
+    [conversations, myUserId],
+  );
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "all", label: "Todos" },
+    { id: "pending", label: "Por responder" },
     { id: "mine", label: "Mis chats" },
     { id: "unassigned", label: "Sin asignar" },
     { id: "resolved", label: "Resueltos" },
@@ -86,17 +98,18 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
         </div>
 
         {/* Tabs */}
-        <div className="mt-3 flex gap-1 bg-muted rounded-lg p-1">
+        <div className="mt-3 grid grid-cols-3 gap-1 bg-muted rounded-lg p-1">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "flex-1 text-[11px] font-medium px-2 py-1.5 rounded-md transition",
+                "text-[11px] font-medium px-2 py-1.5 rounded-md transition truncate",
                 tab === t.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.label}
+              {counts[t.id] > 0 && <span className="ml-1 opacity-70">{counts[t.id]}</span>}
             </button>
           ))}
         </div>
@@ -162,6 +175,11 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{c.preview}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <StatusBadge status={c.status} />
+                      {c.awaitingReply && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-warning/10 text-warning border-warning/30">
+                          Por responder
+                        </span>
+                      )}
                       <span
                         title={win.description}
                         className={cn(
