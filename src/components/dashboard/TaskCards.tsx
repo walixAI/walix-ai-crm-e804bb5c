@@ -3,12 +3,15 @@ import { AlertTriangle, Calendar, ArrowRight, ChevronRight, User } from "lucide-
 import { Button } from "@/components/ui/button";
 import { useTasks, type TaskRow } from "@/lib/queries/tasks";
 import { relativeTime } from "@/lib/format/relativeTime";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export function TaskCards() {
   const navigate = useNavigate();
-  // Tenant-wide (not mineOnly): the dashboard shows the whole team.
-  const { data: overdue = [] } = useTasks({ view: "overdue" });
-  const { data: upcoming = [] } = useTasks({ view: "upcoming" });
+  // Admins/managers ven al equipo completo; el resto solo sus tareas.
+  const { isTenantAdmin, isManager, isPlatform } = usePermissions();
+  const canSeeAll = isTenantAdmin || isManager || isPlatform;
+  const { data: overdue = [] } = useTasks({ view: "overdue", mineOnly: !canSeeAll });
+  const { data: upcoming = [] } = useTasks({ view: "upcoming", mineOnly: !canSeeAll });
 
   const open = (t: TaskRow) => {
     // Siempre priorizamos la persona: el gestor trabaja sobre el contacto.
