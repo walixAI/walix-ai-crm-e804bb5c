@@ -3147,6 +3147,14 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_pipeline_stage: {
+        Args: {
+          _outcome_action?: string
+          _stage_id: string
+          _target_stage_id?: string
+        }
+        Returns: Json
+      }
       downgrade_expired_trials: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
@@ -3218,6 +3226,15 @@ export type Database = {
         Returns: number
       }
       org_tenant_count: { Args: { _org_id: string }; Returns: number }
+      pipeline_stage_impact: {
+        Args: { _stage_id: string }
+        Returns: {
+          deals_count: number
+          outcomes_count: number
+          outcomes_targeting_count: number
+          rules_count: number
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

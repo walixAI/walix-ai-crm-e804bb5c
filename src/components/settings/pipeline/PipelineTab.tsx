@@ -18,6 +18,8 @@ import {
   arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableStage, type StageDraft } from "./SortableStage";
+import { DeleteStageDialog } from "./DeleteStageDialog";
+import { useCopyStageOutcomes } from "@/lib/queries/pipelineStages";
 import {
   usePipelineStageRules, useCreatePipelineStageRule, useDeletePipelineStageRule,
   useSeedPipelineTemplate, type PipelineStageRule,
@@ -133,6 +135,10 @@ function PipelineCard({
   const [saving, setSaving] = useState(false);
   const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [stageToDelete, setStageToDelete] = useState<StageDraft | null>(null);
+  const [newStageIds, setNewStageIds] = useState<string[]>([]);
+  const [copyFromId, setCopyFromId] = useState<string>("");
+  const copyOutcomes = useCopyStageOutcomes();
 
   const { data: rules = [] } = usePipelineStageRules(pipeline.id);
   const createRule = useCreatePipelineStageRule();
@@ -186,26 +192,23 @@ function PipelineCard({
   async function handleSave() {
     setSaving(true);
     try {
-      const existing = stagesData ?? [];
-      const keptIds = new Set(stages.filter((s) => !s.id.startsWith("tmp-")).map((s) => s.id));
-      const toDelete = existing.filter((s) => !keptIds.has(s.id)).map((s) => s.id);
-      if (toDelete.length) {
-        await supabase.from("pipeline_stages").delete().in("id", toDelete);
-      }
+      const createdIds: string[] = [];
       for (let i = 0; i < stages.length; i++) {
         const s = stages[i];
         if (s.id.startsWith("tmp-")) {
-          await supabase.from("pipeline_stages").insert({
+          const { data: created } = await supabase.from("pipeline_stages").insert({
             tenant_id: tenantId, pipeline_id: pipeline.id,
             name: s.name, color: s.color, position: i,
             is_won: s.is_won, is_lost: s.is_lost,
-          });
+          }).select("id").maybeSingle();
+          if (created?.id) createdIds.push(created.id);
         } else {
           await supabase.from("pipeline_stages").update({
             name: s.name, color: s.color, position: i,
           }).eq("id", s.id);
         }
       }
+      setNewStageIds(createdIds);
       await logAudit({
         action: "pipeline.stages.updated",
         tenantId,
@@ -299,7 +302,13 @@ function PipelineCard({
                       onChange={(patch) =>
                         setStages((prev) => prev.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
                       }
-                      onDelete={() => setStages((prev) => prev.filter((x) => x.id !== s.id))}
+                      onDelete={() => {
+                        if (s.id.startsWith("tmp-")) {
+                          setStages((prev) => prev.filter((x) => x.id !== s.id));
+                        } else {
+                          setStageToDelete(s);
+                        }
+                      }}
                     />
                     {expandedStageId === s.id && (
                       <StageRulesPanel
@@ -322,6 +331,68 @@ function PipelineCard({
               Guardar etapas
             </Button>
           </div>
+
+          {newStageIds.length > 0 && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <div className="text-sm font-medium">
+                Agrega tipificaciones para {newStageIds.length === 1 ? "la nueva etapa" : "las nuevas etapas"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sin tipificaciones, al registrar un seguimiento en esta etapa solo aparecerán las generales.
+                Puedes copiarlas de otra etapa o crearlas en Ajustes → Seguimiento.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={copyFromId} onValueChange={setCopyFromId}>
+                  <SelectTrigger className="h-8 text-xs w-[200px]">
+                    <SelectValue placeholder="Copiar tipificaciones de..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stages
+                      .filter((s) => !s.id.startsWith("tmp-") && !newStageIds.includes(s.id))
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!copyFromId || copyOutcomes.isPending}
+                  onClick={async () => {
+                    try {
+                      let total = 0;
+                      for (const id of newStageIds) {
+                        total += await copyOutcomes.mutateAsync({ fromStageId: copyFromId, toStageId: id });
+                      }
+                      toast({ title: "Tipificaciones copiadas", description: `${total} creada(s).` });
+                      setNewStageIds([]);
+                      setCopyFromId("");
+                    } catch (err: unknown) {
+                      const m = err instanceof Error ? err.message : "Error";
+                      toast({ title: "Error", description: m, variant: "destructive" });
+                    }
+                  }}
+                >
+                  Copiar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setNewStageIds([])}>
+                  Ahora no
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DeleteStageDialog
+            open={!!stageToDelete}
+            stage={stageToDelete}
+            otherStages={stages}
+            pipelineId={pipeline.id}
+            onClose={() => setStageToDelete(null)}
+            onDeleted={() => {
+              const id = stageToDelete?.id;
+              if (id) setStages((prev) => prev.filter((x) => x.id !== id));
+            }}
+          />
         </div>
       )}
     </Card>
