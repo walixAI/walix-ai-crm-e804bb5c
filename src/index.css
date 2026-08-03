@@ -59,6 +59,14 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+
+    /* Funnel stage palette */
+    --funnel-1: 199 89% 48%;
+    --funnel-2: 172 66% 42%;
+    --funnel-3: 258 76% 62%;
+    --funnel-4: 38 92% 50%;
+    --funnel-5: 331 74% 55%;
+    --funnel-6: 142 71% 45%;
     --danger: 0 84% 60%;
     --danger-foreground: 0 0% 100%;
     --info: 217 91% 60%;
