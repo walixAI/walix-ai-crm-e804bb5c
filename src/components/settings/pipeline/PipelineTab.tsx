@@ -302,7 +302,13 @@ function PipelineCard({
                       onChange={(patch) =>
                         setStages((prev) => prev.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
                       }
-                      onDelete={() => setStages((prev) => prev.filter((x) => x.id !== s.id))}
+                      onDelete={() => {
+                        if (s.id.startsWith("tmp-")) {
+                          setStages((prev) => prev.filter((x) => x.id !== s.id));
+                        } else {
+                          setStageToDelete(s);
+                        }
+                      }}
                     />
                     {expandedStageId === s.id && (
                       <StageRulesPanel
@@ -325,6 +331,68 @@ function PipelineCard({
               Guardar etapas
             </Button>
           </div>
+
+          {newStageIds.length > 0 && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <div className="text-sm font-medium">
+                Agrega tipificaciones para {newStageIds.length === 1 ? "la nueva etapa" : "las nuevas etapas"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sin tipificaciones, al registrar un seguimiento en esta etapa solo aparecerán las generales.
+                Puedes copiarlas de otra etapa o crearlas en Ajustes → Seguimiento.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={copyFromId} onValueChange={setCopyFromId}>
+                  <SelectTrigger className="h-8 text-xs w-[200px]">
+                    <SelectValue placeholder="Copiar tipificaciones de..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stages
+                      .filter((s) => !s.id.startsWith("tmp-") && !newStageIds.includes(s.id))
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!copyFromId || copyOutcomes.isPending}
+                  onClick={async () => {
+                    try {
+                      let total = 0;
+                      for (const id of newStageIds) {
+                        total += await copyOutcomes.mutateAsync({ fromStageId: copyFromId, toStageId: id });
+                      }
+                      toast({ title: "Tipificaciones copiadas", description: `${total} creada(s).` });
+                      setNewStageIds([]);
+                      setCopyFromId("");
+                    } catch (err: unknown) {
+                      const m = err instanceof Error ? err.message : "Error";
+                      toast({ title: "Error", description: m, variant: "destructive" });
+                    }
+                  }}
+                >
+                  Copiar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setNewStageIds([])}>
+                  Ahora no
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DeleteStageDialog
+            open={!!stageToDelete}
+            stage={stageToDelete}
+            otherStages={stages}
+            pipelineId={pipeline.id}
+            onClose={() => setStageToDelete(null)}
+            onDeleted={() => {
+              const id = stageToDelete?.id;
+              if (id) setStages((prev) => prev.filter((x) => x.id !== id));
+            }}
+          />
         </div>
       )}
     </Card>
