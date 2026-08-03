@@ -6,14 +6,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useExpenseCategories, useCreateExpense } from "@/lib/queries/expenses";
+import {
+  useExpenseCategories, useCreateExpense, useUpdateExpense, useExpenseScope,
+  type Expense,
+} from "@/lib/queries/expenses";
 import { toast } from "sonner";
 
-interface Props { open: boolean; onOpenChange: (v: boolean) => void; }
+interface Props {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  /** Si se pasa, el diálogo edita ese gasto en vez de crear uno nuevo. */
+  expense?: Expense | null;
+}
 
-export function ExpenseFormDialog({ open, onOpenChange }: Props) {
+export function ExpenseFormDialog({ open, onOpenChange, expense = null }: Props) {
   const { data: cats = [] } = useExpenseCategories();
   const create = useCreateExpense();
+  const update = useUpdateExpense();
+  const { canManageFixed } = useExpenseScope();
   const [kind, setKind] = useState<"fijo" | "variable">("variable");
   const [categoryId, setCategoryId] = useState<string>("");
   const [amount, setAmount] = useState("");
@@ -22,23 +32,36 @@ export function ExpenseFormDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (open) {
-      setKind("variable"); setCategoryId(""); setAmount("");
-      setDate(new Date().toISOString().slice(0, 10)); setDescription("");
+      setKind(expense?.kind ?? "variable");
+      setCategoryId(expense?.category_id ?? "");
+      setAmount(expense ? String(expense.amount) : "");
+      setDate(expense?.incurred_at ?? new Date().toISOString().slice(0, 10));
+      setDescription(expense?.description ?? "");
     }
-  }, [open]);
+  }, [open, expense]);
 
   const filteredCats = cats.filter(c => c.kind === kind);
+  const isEdit = !!expense;
+  const busy = create.isPending || update.isPending;
 
   async function handleSubmit() {
     const amt = Number(amount);
     if (!amt || amt <= 0) { toast.error("Monto inválido"); return; }
     if (!categoryId) { toast.error("Selecciona una categoría"); return; }
     try {
-      await create.mutateAsync({
-        kind, category_id: categoryId, amount: amt,
-        incurred_at: date, description: description || null,
-      });
-      toast.success("Gasto registrado");
+      if (isEdit) {
+        await update.mutateAsync({
+          id: expense!.id, category_id: categoryId, amount: amt,
+          incurred_at: date, description: description || null,
+        });
+        toast.success("Gasto actualizado");
+      } else {
+        await create.mutateAsync({
+          kind, category_id: categoryId, amount: amt,
+          incurred_at: date, description: description || null,
+        });
+        toast.success("Gasto registrado");
+      }
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message ?? "Error al registrar");
@@ -48,8 +71,9 @@ export function ExpenseFormDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Nuevo gasto</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEdit ? "Editar gasto" : "Nuevo gasto"}</DialogTitle></DialogHeader>
         <div className="space-y-4">
+          {canManageFixed && !isEdit && (
           <div>
             <Label>Tipo</Label>
             <RadioGroup value={kind} onValueChange={(v) => { setKind(v as any); setCategoryId(""); }} className="flex gap-4 mt-2">
@@ -61,6 +85,7 @@ export function ExpenseFormDialog({ open, onOpenChange }: Props) {
               </label>
             </RadioGroup>
           </div>
+          )}
           <div>
             <Label>Categoría</Label>
             <Select value={categoryId} onValueChange={setCategoryId}>
@@ -87,7 +112,7 @@ export function ExpenseFormDialog({ open, onOpenChange }: Props) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={create.isPending}>Registrar</Button>
+          <Button onClick={handleSubmit} disabled={busy}>{isEdit ? "Guardar cambios" : "Registrar"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
