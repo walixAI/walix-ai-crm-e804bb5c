@@ -163,7 +163,12 @@ export function OutcomesTab() {
               </span>
               <Select
                 value={o.movesToStageId ?? "none"}
-                onValueChange={(v) => upsert.mutate({ ...o, pipelineId: o.pipelineId, movesToStageId: v === "none" ? null : v })}
+                onValueChange={(v) => upsert.mutate({
+                  ...o,
+                  pipelineId: o.pipelineId,
+                  movesToStageId: v === "none" ? null : v,
+                  stageBehavior: v === "none" ? "stay" : (o.stageBehavior === "stay" ? "suggest" : o.stageBehavior),
+                })}
               >
                 <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -171,6 +176,19 @@ export function OutcomesTab() {
                   {stages.map((s) => <SelectItem key={s.id} value={s.id}>Mover a: {s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {o.movesToStageId && (
+                <Select
+                  value={o.stageBehavior === "stay" ? "suggest" : o.stageBehavior}
+                  onValueChange={(v) => upsert.mutate({ ...o, pipelineId: o.pipelineId, stageBehavior: v as StageBehavior })}
+                >
+                  <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STAGE_BEHAVIORS.filter((b) => b.value !== "stay").map((b) => (
+                      <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <div className="flex items-center gap-1">
                 <Switch
                   checked={o.requiresNextAction}
