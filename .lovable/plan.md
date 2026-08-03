@@ -1,53 +1,99 @@
-# Registrar objeciones en seguimientos
+# Diagnóstico de por qué no avanzan las oportunidades
 
-## Contexto
-El sistema actual registra seguimientos con **tipo de actividad + dirección** (llamada saliente, WhatsApp entrante, etc.) y una **tipificación de resultado** configurable por tenant (ej. "Contacto efectivo", "No contestó"). Sin embargo, no existe un campo estructurado para capturar **por qué un lead no avanza** (objeciones como "precio alto", "no es el momento", "decide otra persona", etc.).
+## El problema de análisis
 
-## Objetivo
-Permitir que el vendedor registre, al momento de cada seguimiento, una **objeción** elegida de un catálogo configurable por tenant. Esto será solo informativo: no moverá etapas, pero habilitará reportes para detectar patrones (por ejemplo, "cuántos leads se atoran por precio alto").
+Hoy cada seguimiento captura **canal** (llamada/WhatsApp/email + dirección) y **tipificación de resultado** (Contacto efectivo, No contestó...). Eso responde "¿qué hicimos?" pero no "¿por qué está detenido?".
 
-## Alcance
+Hay tres situaciones distintas que hoy no se distinguen y que necesitan datos diferentes:
 
-### 1. Catálogo de objeciones por tenant
-- Nueva tabla `objections` en el esquema público con RLS.
-- Campos: `tenant_id`, `label` (ej. "Precio alto"), `description`, `color`, `position`, `is_active`.
-- CRUD en Ajustes → Seguimiento para que cada tenant administre sus propias objeciones.
-- Semilla con objeciones recomendadas por pipeline/tenant.
+| Situación | Qué dijo el lead | Qué necesitamos capturar |
+|---|---|---|
+| **Está vivo pero detenido** | "Estoy evaluando otros proveedores", "espero presupuesto" | Un **bloqueo** temporal, con fecha esperada de resolución |
+| **Dijo que no** | "Está caro", "no me sirve", "ya compré con otro" | Un **motivo de cierre perdido**, terminal |
+| **Dejó de contestar** | Nada — silencio | Detección automática + **cuál era el último bloqueo vigente** |
 
-### 2. Registro de objeción en cada seguimiento
-- En `LogFollowUpDialog.tsx` agregar un campo opcional "Objeción / motivo de no avance".
-- El campo usa el catálogo del tenant + opción "Ninguna / No aplica".
-- Se guarda en `activities.metadata.objection_id` y `activities.metadata.objection_label`.
-- También se mostrará en el detalle de actividad (`ActivityItem`) con un badge de color.
+El valor analítico está en cruzar las tres: el lead que se silencia rara vez explica por qué, pero su último bloqueo declarado sí lo revela.
 
-### 3. Reporte de objeciones
-- Nuevo componente `ObjectionsReportCard.tsx` en Dashboard o Reportes.
-- Muestra distribución de objeciones en el periodo seleccionado (conteo y monto de oportunidades afectadas).
-- Permite filtrar por pipeline, etapa y vendedor.
-- Indica cuáles deals están "atorados" con la misma objeción por más de N días.
+## Modelo propuesto
 
-### 4. Vista de oportunidad y contacto
-- En `DealDrawer.tsx` y en el perfil del contacto, mostrar la objeción más reciente del deal/contacto.
-- En la tabla de desempeño de oportunidades agregar filtro por objeción.
+### Capa 1 — Bloqueo (lead vivo)
+Catálogo configurable por tenant, ejemplos por defecto:
+- Evaluando otros proveedores
+- Esperando aprobación interna / de su jefe
+- Esperando presupuesto o liberación de recursos
+- Revisando la propuesta técnica
+- Pidió que lo contactemos después
+- Precio en revisión / pidió descuento
 
-## No incluye
-- No se crean etapas automáticas de objeción.
-- No se envían notificaciones automáticas por objeción (se puede agregar después).
-- No se integra con IA por ahora.
+Cada bloqueo se registra en el seguimiento junto con una **fecha esperada de resolución**. Es un estado vigente: se mantiene hasta que otro seguimiento lo cambie o lo resuelva.
 
-## Archivos a modificar / crear
-- `supabase/migrations/...` — tabla `objections`, políticas RLS, grants, trigger de updated_at.
-- `src/lib/queries/objections.ts` — hooks de CRUD y consulta.
-- `src/components/activity/LogFollowUpDialog.tsx` — campo de objeción.
-- `src/components/contacts/detail/ActivityItem.tsx` — mostrar objeción.
-- `src/components/settings/outcomes/OutcomesTab.tsx` — administrar objeciones.
-- `src/components/reports/ObjectionsReportCard.tsx` — reporte nuevo.
-- `src/components/pipeline/DealsPerformanceView.tsx` — filtro por objeción.
-- `src/components/pipeline/DealDrawer.tsx` — objeción más reciente.
+### Capa 2 — Motivo de pérdida (lead terminal)
+Catálogo configurable por tenant, ejemplos por defecto:
+- Precio alto
+- No cubre su necesidad
+- Compró con la competencia
+- Sin presupuesto
+- Ya no responde
+- Ya no es el momento
+
+Se captura al marcar la oportunidad como perdida, o al registrar un seguimiento cuyo resultado sea de desinterés explícito.
+
+### Capa 3 — Silencio inferido
+Regla automática configurable (por defecto **10 días** sin respuesta del lead):
+- La oportunidad se marca con la señal **"Sin respuesta"** (no se cierra automáticamente, sólo se marca).
+- Se conserva el **último bloqueo vigente** al momento del silencio, como "última señal conocida".
+- Aparece en Mi Día como pendiente de decisión: reactivar o cerrar como perdida.
+
+## Qué se puede responder con esto
+
+1. ¿Cuántas oportunidades están detenidas y por qué motivo? (conteo y monto por bloqueo)
+2. ¿Cuánto tiempo promedio dura cada tipo de bloqueo, y cuál nunca se resuelve?
+3. ¿Qué % de los que declararon "precio en revisión" terminaron perdidos?
+4. **Cruce clave**: último bloqueo declarado → motivo final de pérdida. Revela la causa real detrás de los silencios.
+5. ¿Qué vendedor acumula más oportunidades detenidas por el mismo bloqueo?
+6. ¿En qué etapa del embudo aparecen más bloqueos de precio?
+
+## Alcance de implementación
+
+### Base de datos
+- Tabla `deal_blockers` (catálogo por tenant): `label`, `description`, `default_resolution_days`, `position`, `is_active`.
+- Tabla `deal_loss_reasons` (catálogo por tenant): `label`, `description`, `position`, `is_active`. Sustituye el texto libre que hoy se guarda en `deals.lost_reason`.
+- Columnas nuevas en `deals`: `current_blocker_id`, `blocker_set_at`, `blocker_expected_at`, `loss_reason_id`, `last_inbound_at`, `no_response_since`.
+- Semillas con los catálogos recomendados de arriba.
+- Job diario que marca `no_response_since` cuando pasan N días sin actividad entrante, respetando el umbral configurado por tenant.
+
+### Registro de seguimiento
+En `LogFollowUpDialog.tsx`, después de la tipificación, aparece un bloque contextual:
+- Si el resultado indica que sigue vivo → selector **"¿Qué está esperando el lead?"** + fecha esperada de resolución.
+- Si el resultado indica desinterés → selector **"Motivo de pérdida"** + comentario.
+- Si ya había un bloqueo vigente, se muestra y se puede marcar como resuelto.
+
+Todo se guarda en la actividad (histórico) y actualiza el estado vigente de la oportunidad.
+
+### Visualización
+- **Tarjeta de oportunidad y `DealDrawer`**: chip del bloqueo vigente con antigüedad ("Evaluando otros proveedores · 12 días").
+- **Señal "Sin respuesta"** con el último bloqueo conocido.
+- **Perfil del contacto**: el bloqueo o motivo aparece en cada entrada del feed de actividad.
+
+### Reportes
+Nueva sección **"Por qué no avanzan"** en Reportes:
+- Distribución de bloqueos vigentes (conteo, monto, antigüedad promedio).
+- Distribución de motivos de pérdida del periodo.
+- Matriz de cruce último bloqueo × motivo de pérdida.
+- Desglose por vendedor y por etapa.
+
+### Ajustes
+En Ajustes → Seguimiento, dos secciones nuevas junto a las tipificaciones: administración de **Bloqueos** y de **Motivos de pérdida**, más el umbral de días de silencio.
+
+## Notas técnicas
+- Los catálogos son por tenant, con RLS y grants como el resto de tablas.
+- `deals.lost_reason` (texto) se conserva y se migra a `loss_reason_id` cuando hay coincidencia; el texto queda como respaldo.
+- El bloqueo **no mueve etapas** — es informativo, coherente con la decisión ya tomada sobre las tipificaciones.
+- El histórico vive en `activities.metadata`; el estado vigente vive en `deals` para poder filtrar y ordenar rápido.
 
 ## Criterios de aceptación
-1. El tenant puede crear/editar/eliminar objeciones en Ajustes → Seguimiento.
-2. Al registrar un seguimiento, el vendedor puede seleccionar una objeción del catálogo.
-3. La objeción queda guardada en la actividad y visible en el feed.
-4. Existe un reporte que muestre cuántas oportunidades tienen cada objeción y su monto.
-5. La tabla de desempeño permite filtrar oportunidades por objeción.
+1. Al registrar un seguimiento se puede declarar qué está esperando el lead, con fecha esperada.
+2. Al perder una oportunidad se elige un motivo del catálogo del tenant.
+3. Una oportunidad sin respuesta del lead por N días se marca sola, conservando su último bloqueo.
+4. El reporte muestra el cruce entre último bloqueo y motivo de pérdida.
+5. El tenant administra ambos catálogos y el umbral de silencio desde Ajustes.
