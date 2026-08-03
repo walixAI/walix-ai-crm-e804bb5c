@@ -101,11 +101,29 @@ export interface ExpenseFilters {
   status?: "draft" | "confirmed" | "all";
 }
 
+/**
+ * Alcance de gastos: administradores/gerentes ven todo el tenant,
+ * un vendedor solo ve (y edita) los gastos variables que le corresponden.
+ */
+export function useExpenseScope() {
+  const { user } = useAuth();
+  const { isTenantAdmin, isManager, isPlatform } = usePermissions();
+  const canSeeAll = isTenantAdmin || isManager || isPlatform;
+  return {
+    canSeeAll,
+    canManageFixed: canSeeAll,
+    userId: user?.id ?? null,
+    canEdit: (e: Pick<Expense, "owner_id" | "kind">) =>
+      canSeeAll || (e.kind !== "fijo" && e.owner_id === user?.id),
+  };
+}
+
 export function useExpenses(filters: ExpenseFilters = {}) {
   const { data: tenantId } = useTenantId();
+  const { canSeeAll, userId } = useExpenseScope();
   return useQuery({
-    queryKey: ["expenses", tenantId, filters.month?.toISOString().slice(0, 7), filters.kind, filters.categoryId],
-    enabled: !!tenantId,
+    queryKey: ["expenses", tenantId, filters.month?.toISOString().slice(0, 7), filters.kind, filters.categoryId, canSeeAll, userId],
+    enabled: !!tenantId && !!userId,
     staleTime: 30_000,
     queryFn: async () => {
       const month = filters.month ?? new Date();
@@ -120,6 +138,10 @@ export function useExpenses(filters: ExpenseFilters = {}) {
       if (filters.kind && filters.kind !== "all") q = q.eq("kind", filters.kind);
       if (filters.categoryId) q = q.eq("category_id", filters.categoryId);
       if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
+      if (!canSeeAll) {
+        // El vendedor solo ve sus gastos variables (los fijos son del negocio).
+        q = q.eq("owner_id", userId!).eq("kind", "variable");
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Expense[];
@@ -129,16 +151,19 @@ export function useExpenses(filters: ExpenseFilters = {}) {
 
 export function useDraftExpenses() {
   const { data: tenantId } = useTenantId();
+  const { canSeeAll, userId } = useExpenseScope();
   return useQuery({
-    queryKey: ["expenses-drafts", tenantId],
-    enabled: !!tenantId,
+    queryKey: ["expenses-drafts", tenantId, canSeeAll, userId],
+    enabled: !!tenantId && !!userId,
     staleTime: 15_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("expenses" as any)
         .select("*")
         .eq("status", "draft")
         .order("created_at", { ascending: false });
+      if (!canSeeAll) q = q.eq("owner_id", userId!).eq("kind", "variable");
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Expense[];
     },
