@@ -31,37 +31,61 @@ interface Props {
 type SortKey = "name" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
 type Chip = "all" | "risk" | "stale" | "overdue" | "closing";
 
-function monthRange(periodMonth: string) {
-  const [y, m] = periodMonth.split("-").map(Number);
-  const start = new Date(y, m - 1, 1);
-  const end = new Date(y, m, 1);
-  return { start, end };
-}
-
+/** Default period value. */
 export function currentMonthKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return "month";
 }
 
-function monthKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-function monthOptions(current: string) {
+/** Resolves a period value ("month" | "prev" | "90d" | "year" | "custom:from:to" | legacy "YYYY-MM"). */
+function parsePeriod(value: string): { start: Date; end: Date; label: string } {
   const now = new Date();
-  const list: { key: string; label: string }[] = [];
-  for (let i = -12; i <= 3; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    list.push({ key: monthKey(d), label: d.toLocaleDateString("es-MX", { month: "long", year: "numeric" }) });
+  const monthLabel = (d: Date) => d.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+
+  if (value.startsWith("custom:")) {
+    const [, from, to] = value.split(":");
+    if (from && to) {
+      const start = new Date(`${from}T00:00:00`);
+      const end = new Date(`${to}T00:00:00`);
+      end.setDate(end.getDate() + 1);
+      return { start, end, label: `${from} → ${to}` };
+    }
   }
-  if (!list.some((o) => o.key === current)) {
-    const [y, m] = current.split("-").map(Number);
-    const d = new Date(y, m - 1, 1);
-    list.push({ key: current, label: d.toLocaleDateString("es-MX", { month: "long", year: "numeric" }) });
-    list.sort((a, b) => (a.key < b.key ? -1 : 1));
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    const [y, m] = value.split("-").map(Number);
+    const start = new Date(y, m - 1, 1);
+    return { start, end: new Date(y, m, 1), label: monthLabel(start) };
   }
-  return list;
+  switch (value) {
+    case "prev": {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return { start, end: new Date(now.getFullYear(), now.getMonth(), 1), label: monthLabel(start) };
+    }
+    case "90d": {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 89);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      return { start, end, label: "últimos 90 días" };
+    }
+    case "year": {
+      const start = new Date(now.getFullYear(), 0, 1);
+      const end = new Date(now.getFullYear() + 1, 0, 1);
+      return { start, end, label: `el año ${now.getFullYear()}` };
+    }
+    default: {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start, end: new Date(now.getFullYear(), now.getMonth() + 1, 1), label: monthLabel(start) };
+    }
+  }
 }
+
+const PERIOD_PRESETS = [
+  { key: "month", label: "Este mes" },
+  { key: "prev", label: "Mes anterior" },
+  { key: "90d", label: "Últimos 90 días" },
+  { key: "year", label: "Todo el año" },
+  { key: "custom", label: "Personalizado" },
+] as const;
 
 export function DealsPerformanceView({
   deals, stages, contactName, contactLastActivityById, onOpenDeal,
