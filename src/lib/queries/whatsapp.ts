@@ -32,6 +32,10 @@ export interface ConversationItem {
   lastAt: string | null;
   /** Fecha del último mensaje entrante (para la ventana de 24 h de Meta). */
   lastInboundAt: string | null;
+  /** Fecha del último mensaje saliente (respuesta del vendedor). */
+  lastOutboundAt: string | null;
+  /** true si el último mensaje es del cliente y aún no hay respuesta del vendedor. */
+  awaitingReply: boolean;
   status: ConversationStatus;
   assigneeId: string | null;
   assigneeName: string;
