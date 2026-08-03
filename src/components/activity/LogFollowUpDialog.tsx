@@ -245,22 +245,6 @@ export function LogFollowUpDialog({
                 ))}
               </SelectContent>
             </Select>
-            {!editOccurred ? (
-              <button
-                type="button"
-                className="text-sm text-muted-foreground underline underline-offset-2"
-                onClick={() => setEditOccurred(true)}
-              >
-                Fue hoy · cambiar fecha
-              </button>
-            ) : (
-              <Input
-                type="datetime-local"
-                className="h-12 text-base"
-                value={occurred}
-                onChange={(e) => setOccurred(e.target.value)}
-              />
-            )}
           </div>
 
           {/* 2. ¿Qué pasó? */}
