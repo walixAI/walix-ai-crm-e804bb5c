@@ -31,6 +31,7 @@ import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
 import {
   useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
+import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -65,6 +66,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const { data: aiSuggestions = [] } = useDealAiSuggestions(deal?.id, deal?.contactId);
   const { data: stageHistory = [] } = useStageHistory(deal?.id);
   const { data: notes = [] } = useDealNotes(deal?.id);
+  const { data: fieldHistory = [] } = useDealFieldHistory(deal?.id);
+  const logFieldChange = useLogDealFieldChange(deal?.id);
   const createNote = useCreateDealNote(deal?.id, deal?.contactId ?? null);
   const updateNote = useUpdateDealNote(deal?.id);
   const deleteNote = useDeleteDealNote(deal?.id);
@@ -168,7 +171,18 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 label="Monto MXN"
                 display={formatMXN(deal.amount)}
                 value={String(deal.amount)}
-                onSave={(v) => savePatch({ amount: Number(v) || 0 })}
+                onSave={async (v) => {
+                  const next = Number(v) || 0;
+                  if (next === deal.amount) return;
+                  await savePatch({ amount: next });
+                  await logFieldChange.mutateAsync({
+                    field: "amount",
+                    from: String(deal.amount),
+                    to: String(next),
+                    contactId: deal.contactId,
+                    description: `Monto actualizado de ${formatMXN(deal.amount)} a ${formatMXN(next)}`,
+                  });
+                }}
                 render={(v, set) => <Input type="number" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
@@ -183,54 +197,40 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 label="Fecha estimada de cierre"
                 display={deal.expectedCloseDate ? format(new Date(deal.expectedCloseDate), "PPP", { locale: es }) : "—"}
                 value={deal.expectedCloseDate ?? ""}
-                onSave={(v) => savePatch({ expected_close_date: v || null })}
+                onSave={async (v) => {
+                  const next = v || null;
+                  if ((deal.expectedCloseDate ?? null) === next) return;
+                  await savePatch({ expected_close_date: next });
+                  const fmt = (d: string | null) => (d ? format(new Date(d), "PPP", { locale: es }) : "sin fecha");
+                  await logFieldChange.mutateAsync({
+                    field: "expected_close_date",
+                    from: deal.expectedCloseDate ?? null,
+                    to: next,
+                    contactId: deal.contactId,
+                    description: `Fecha estimada de cierre cambiada de ${fmt(deal.expectedCloseDate ?? null)} a ${fmt(next)}`,
+                  });
+                }}
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
-              <EditableField
-                label={`Probabilidad: ${deal.probability}%`}
-                value={String(deal.probability)}
-                onSave={(v) => savePatch({ probability: Number(v) })}
-                display={
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
-                      style={{ width: `${deal.probability}%` }}
-                    />
-                  </div>
-                }
-                render={(v, set) => (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{v}%</div>
-                    <Slider value={[Number(v)]} onValueChange={([n]) => set(String(n))} min={0} max={100} step={5} />
-                  </div>
-                )}
-              />
+              <Field label={`Probabilidad: ${deal.probability}%`}>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
+                    style={{ width: `${deal.probability}%` }}
+                  />
+                </div>
+              </Field>
 
-              <EditableField
-                label="Fuente"
-                display={deal.source}
-                value={deal.source ?? ""}
-                onSave={(v) => savePatch({ source: v })}
-                render={(v, set) => (
-                  <Select value={v} onValueChange={set}>
-                    <SelectTrigger><SelectValue placeholder="Elige una fuente" /></SelectTrigger>
-                    <SelectContent>
-                      {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
+              <Field label="Fuente">
+                <ReadValue>{deal.source}</ReadValue>
+              </Field>
 
               <DealDiagnosticPanel deal={deal} />
 
-              <EditableField
-                label="Descripción general"
-                display={deal.notes ?? "—"}
-                value={deal.notes ?? ""}
-                onSave={(v) => savePatch({ notes: v || null })}
-                render={(v, set) => <Textarea rows={3} autoFocus value={v} onChange={(e) => set(e.target.value)} />}
-              />
+              <Field label="Descripción general">
+                <ReadValue>{deal.notes ?? "—"}</ReadValue>
+              </Field>
 
               <div className="space-y-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
@@ -368,6 +368,26 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   <span className="text-3xl font-bold">{daysInStage}</span>
                   <span className="text-sm text-muted-foreground">{daysInStage === 1 ? "día" : "días"} en "{deal.stageName}"</span>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Cambios de monto y fecha
+                </div>
+                {fieldHistory.length === 0 && (
+                  <div className="text-sm text-muted-foreground italic py-3 text-center">
+                    Sin cambios registrados.
+                  </div>
+                )}
+                {fieldHistory.map((h) => (
+                  <div key={h.id} className="rounded-md border border-border bg-card px-3 py-2">
+                    <div className="text-sm">{h.description}</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {format(new Date(h.changedAt), "PPP HH:mm", { locale: es })}
+                      {h.changedByName ? ` · ${h.changedByName}` : ""}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="space-y-2">
