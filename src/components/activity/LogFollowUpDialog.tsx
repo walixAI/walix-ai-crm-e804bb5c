@@ -37,10 +37,11 @@ function dateInput(daysAhead: number) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Convierte YYYY-MM-DD a ISO a las 10:00 locales. */
-function dayToIso(day: string) {
+/** Convierte YYYY-MM-DD + HH:MM a ISO local. */
+function dayToIso(day: string, time = "10:00") {
   const [y, m, d] = day.split("-").map(Number);
-  return new Date(y, m - 1, d, 10, 0, 0, 0).toISOString();
+  const [hh, mm] = time.split(":").map(Number);
+  return new Date(y, m - 1, d, hh || 0, mm || 0, 0, 0).toISOString();
 }
 
 function longDate(day: string) {
@@ -56,6 +57,8 @@ const DAY_PRESETS = [
   { label: "En 1 semana", days: 7 },
   { label: "En 15 días", days: 15 },
 ];
+
+const TIME_PRESETS = ["09:00", "10:00", "12:00", "16:00"];
 
 /** Botón grande de opción, pensado para lectura fácil. */
 function BigChoice({
