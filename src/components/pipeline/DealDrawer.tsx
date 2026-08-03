@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Bot, Lock, Pencil, RefreshCw, Save, Sparkles, X, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight, Bot, ChevronRight, Lock, Pencil, Plus, RefreshCw, Save, Sparkles, Trash2, Zap,
+} from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -23,6 +26,10 @@ import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type 
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
+import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
+import {
+  useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
+} from "@/lib/queries/dealNotes";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -44,6 +51,9 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const scoreProbability = useScoreProbability();
   const [aiSuggestion, setAiSuggestion] = useState<NextStepSuggestion | null>(null);
   const [aiScore, setAiScore] = useState<ProbabilityScore | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [editingNote, setEditingNote] = useState<{ id: string; text: string } | null>(null);
 
   useEffect(() => {
     if (deal) {
@@ -65,6 +75,10 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const { data: activity = [] } = useDealActivity(deal?.id);
   const { data: aiSuggestions = [] } = useDealAiSuggestions(deal?.id, deal?.contactId);
   const { data: stageHistory = [] } = useStageHistory(deal?.id);
+  const { data: notes = [] } = useDealNotes(deal?.id);
+  const createNote = useCreateDealNote(deal?.id, deal?.contactId ?? null);
+  const updateNote = useUpdateDealNote(deal?.id);
+  const deleteNote = useDeleteDealNote(deal?.id);
 
   const lastStageChangeAt = stageHistory[0]?.changedAt ?? deal?.updatedAt ?? null;
   const daysInStage = lastStageChangeAt
@@ -153,18 +167,28 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   <Save className="h-4 w-4 text-success" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <span className="text-success font-bold text-lg">{formatMXN(deal.amount)} MXN</span>
             <WBadge variant={deal.isWon ? "success" : deal.isLost ? "danger" : "info"}>{deal.stageName}</WBadge>
           </div>
-          {contactName && (
-            <div className="text-xs text-muted-foreground">Contacto: {contactName}</div>
-          )}
+          <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+            {contactName && (
+              deal.contactId ? (
+                <Link
+                  to={`/contacts/${deal.contactId}`}
+                  onClick={onClose}
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Contacto: {contactName} <ChevronRight className="h-3 w-3" />
+                </Link>
+              ) : (
+                <span>Contacto: {contactName}</span>
+              )
+            )}
+            <span>Creada el {format(new Date(deal.createdAt), "PPP", { locale: es })}</span>
+          </div>
         </SheetHeader>
 
         <Tabs key={`${deal.id}-${defaultTab}`} defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
