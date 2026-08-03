@@ -11,6 +11,7 @@ import {
   useAllExpenseCategories, formatMXN0, type RecurringExpense,
 } from "@/lib/queries/expenses";
 import { toast } from "sonner";
+import { ExpenseHistoryList } from "@/components/expenses/ExpenseHistoryList";
 
 export function RecurringExpensesTab() {
   const { data: items = [], isLoading } = useRecurringExpenses();
@@ -100,6 +101,14 @@ export function RecurringExpensesTab() {
                   <Button onClick={save}><Check className="h-4 w-4 mr-1" /> Guardar</Button>
                 </div>
               </div>
+              {editing.id && (
+                <div className="pt-2 border-t">
+                  <Label className="text-xs text-muted-foreground">Historial de cambios</Label>
+                  <div className="mt-2 max-h-44 overflow-y-auto">
+                    <ExpenseHistoryList targetId={editing.id} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
