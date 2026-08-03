@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePipelines, useStages } from "@/lib/queries/pipeline";
 import {
   ACTIVITY_KINDS, useActivityOutcomes, useUpsertActivityOutcome,
-  useDeleteActivityOutcome, useSeedActivityOutcomes,
+  useDeleteActivityOutcome, useSeedActivityOutcomes, STAGE_BEHAVIORS, type StageBehavior,
 } from "@/lib/queries/activityOutcomes";
 import { DiagnosticsSettings } from "./DiagnosticsSettings";
 
@@ -28,6 +28,7 @@ export function OutcomesTab() {
   const [newStage, setNewStage] = useState<string>("all");
   const [newKind, setNewKind] = useState<string>("all");
   const [newMoves, setNewMoves] = useState<string>("none");
+  const [newBehavior, setNewBehavior] = useState<StageBehavior>("stay");
 
   const byStage = useMemo(() => {
     const m = new Map<string, typeof outcomes>();
@@ -50,6 +51,7 @@ export function OutcomesTab() {
         activityKind: newKind === "all" ? null : newKind,
         label: newLabel.trim(),
         movesToStageId: newMoves === "none" ? null : newMoves,
+        stageBehavior: newMoves === "none" ? "stay" : newBehavior === "stay" ? "suggest" : newBehavior,
         requiresNextAction: true,
         position: 99,
         isActive: true,
