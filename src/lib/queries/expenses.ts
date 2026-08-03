@@ -815,3 +815,74 @@ export function useMonthExpenseBreakdown() {
     },
   });
 }
+
+// ================ Historial de cambios de gastos ================
+
+export interface ExpenseHistoryEntry extends AuditEntry {}
+
+const EXPENSE_ACTIONS = [
+  "expense.created", "expense.updated", "expense.deleted", "expense.confirmed",
+  "recurring_expense.created", "recurring_expense.updated", "recurring_expense.deleted",
+];
+
+/** Historial de un gasto o plantilla recurrente en particular. */
+export function useExpenseHistory(targetId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["expense-history", targetId],
+    enabled: !!targetId,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_log")
+        .select("*")
+        .eq("target_id", targetId!)
+        .in("action", EXPENSE_ACTIONS)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpenseHistoryEntry[];
+    },
+  });
+}
+
+/** Historial completo de gastos del tenant (solo admin/gerente lo consulta). */
+export function useExpensesAuditLog(limit = 100) {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["expense-history", "tenant", tenantId, limit],
+    enabled: !!tenantId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_log")
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .in("action", EXPENSE_ACTIONS)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpenseHistoryEntry[];
+    },
+  });
+}
+
+export const EXPENSE_ACTION_LABEL: Record<string, string> = {
+  "expense.created": "Gasto registrado",
+  "expense.updated": "Gasto editado",
+  "expense.deleted": "Gasto eliminado",
+  "expense.confirmed": "Gasto confirmado",
+  "recurring_expense.created": "Plantilla fija creada",
+  "recurring_expense.updated": "Plantilla fija editada",
+  "recurring_expense.deleted": "Plantilla fija eliminada",
+};
+
+export const EXPENSE_FIELD_LABEL: Record<string, string> = {
+  amount: "Monto",
+  category_id: "Categoría",
+  incurred_at: "Fecha",
+  description: "Descripción",
+  status: "Estado",
+  kind: "Tipo",
+  day_of_month: "Día del mes",
+  is_active: "Activa",
+};
