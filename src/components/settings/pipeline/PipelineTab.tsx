@@ -18,6 +18,8 @@ import {
   arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableStage, type StageDraft } from "./SortableStage";
+import { DeleteStageDialog } from "./DeleteStageDialog";
+import { useCopyStageOutcomes } from "@/lib/queries/pipelineStages";
 import {
   usePipelineStageRules, useCreatePipelineStageRule, useDeletePipelineStageRule,
   useSeedPipelineTemplate, type PipelineStageRule,
@@ -133,6 +135,10 @@ function PipelineCard({
   const [saving, setSaving] = useState(false);
   const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [stageToDelete, setStageToDelete] = useState<StageDraft | null>(null);
+  const [newStageIds, setNewStageIds] = useState<string[]>([]);
+  const [copyFromId, setCopyFromId] = useState<string>("");
+  const copyOutcomes = useCopyStageOutcomes();
 
   const { data: rules = [] } = usePipelineStageRules(pipeline.id);
   const createRule = useCreatePipelineStageRule();
@@ -186,26 +192,23 @@ function PipelineCard({
   async function handleSave() {
     setSaving(true);
     try {
-      const existing = stagesData ?? [];
-      const keptIds = new Set(stages.filter((s) => !s.id.startsWith("tmp-")).map((s) => s.id));
-      const toDelete = existing.filter((s) => !keptIds.has(s.id)).map((s) => s.id);
-      if (toDelete.length) {
-        await supabase.from("pipeline_stages").delete().in("id", toDelete);
-      }
+      const createdIds: string[] = [];
       for (let i = 0; i < stages.length; i++) {
         const s = stages[i];
         if (s.id.startsWith("tmp-")) {
-          await supabase.from("pipeline_stages").insert({
+          const { data: created } = await supabase.from("pipeline_stages").insert({
             tenant_id: tenantId, pipeline_id: pipeline.id,
             name: s.name, color: s.color, position: i,
             is_won: s.is_won, is_lost: s.is_lost,
-          });
+          }).select("id").maybeSingle();
+          if (created?.id) createdIds.push(created.id);
         } else {
           await supabase.from("pipeline_stages").update({
             name: s.name, color: s.color, position: i,
           }).eq("id", s.id);
         }
       }
+      setNewStageIds(createdIds);
       await logAudit({
         action: "pipeline.stages.updated",
         tenantId,
