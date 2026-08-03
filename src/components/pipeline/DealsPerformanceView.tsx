@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -31,37 +32,61 @@ interface Props {
 type SortKey = "name" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
 type Chip = "all" | "risk" | "stale" | "overdue" | "closing";
 
-function monthRange(periodMonth: string) {
-  const [y, m] = periodMonth.split("-").map(Number);
-  const start = new Date(y, m - 1, 1);
-  const end = new Date(y, m, 1);
-  return { start, end };
-}
-
+/** Default period value. */
 export function currentMonthKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return "month";
 }
 
-function monthKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-function monthOptions(current: string) {
+/** Resolves a period value ("month" | "prev" | "90d" | "year" | "custom:from:to" | legacy "YYYY-MM"). */
+function parsePeriod(value: string): { start: Date; end: Date; label: string } {
   const now = new Date();
-  const list: { key: string; label: string }[] = [];
-  for (let i = -12; i <= 3; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    list.push({ key: monthKey(d), label: d.toLocaleDateString("es-MX", { month: "long", year: "numeric" }) });
+  const monthLabel = (d: Date) => d.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+
+  if (value.startsWith("custom:")) {
+    const [, from, to] = value.split(":");
+    if (from && to) {
+      const start = new Date(`${from}T00:00:00`);
+      const end = new Date(`${to}T00:00:00`);
+      end.setDate(end.getDate() + 1);
+      return { start, end, label: `${from} → ${to}` };
+    }
   }
-  if (!list.some((o) => o.key === current)) {
-    const [y, m] = current.split("-").map(Number);
-    const d = new Date(y, m - 1, 1);
-    list.push({ key: current, label: d.toLocaleDateString("es-MX", { month: "long", year: "numeric" }) });
-    list.sort((a, b) => (a.key < b.key ? -1 : 1));
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    const [y, m] = value.split("-").map(Number);
+    const start = new Date(y, m - 1, 1);
+    return { start, end: new Date(y, m, 1), label: monthLabel(start) };
   }
-  return list;
+  switch (value) {
+    case "prev": {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return { start, end: new Date(now.getFullYear(), now.getMonth(), 1), label: monthLabel(start) };
+    }
+    case "90d": {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 89);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      return { start, end, label: "últimos 90 días" };
+    }
+    case "year": {
+      const start = new Date(now.getFullYear(), 0, 1);
+      const end = new Date(now.getFullYear() + 1, 0, 1);
+      return { start, end, label: `el año ${now.getFullYear()}` };
+    }
+    default: {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start, end: new Date(now.getFullYear(), now.getMonth() + 1, 1), label: monthLabel(start) };
+    }
+  }
 }
+
+const PERIOD_PRESETS = [
+  { key: "month", label: "Este mes" },
+  { key: "prev", label: "Mes anterior" },
+  { key: "90d", label: "Últimos 90 días" },
+  { key: "year", label: "Todo el año" },
+  { key: "custom", label: "Personalizado" },
+] as const;
 
 export function DealsPerformanceView({
   deals, stages, contactName, contactLastActivityById, onOpenDeal,
@@ -72,12 +97,14 @@ export function DealsPerformanceView({
   const [productId, setProductId] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
+  const [openStage, setOpenStage] = useState<string | null>(null);
   const { data: products = [] } = useProductCategories();
 
-  const { start, end } = useMemo(() => monthRange(periodMonth), [periodMonth]);
-  const months = useMemo(() => monthOptions(periodMonth), [periodMonth]);
-
-  const periodLabel = start.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  const { start, end, label: periodLabel } = useMemo(() => parsePeriod(periodMonth), [periodMonth]);
+  const presetKey = periodMonth.startsWith("custom:")
+    ? "custom"
+    : (PERIOD_PRESETS.some((p) => p.key === periodMonth) ? periodMonth : "month");
+  const [, customFrom = "", customTo = ""] = periodMonth.startsWith("custom:") ? periodMonth.split(":") : [];
 
   // Base set according to lens
   const base = useMemo(() => {
@@ -161,11 +188,20 @@ export function DealsPerformanceView({
         const di = r.deal.stageId ? idx.get(r.deal.stageId) : undefined;
         return di !== undefined && di >= i;
       });
+      const bySeller = new Map<string, { count: number; amount: number }>();
+      for (const r of reached) {
+        const key = r.deal.ownerName || "Sin asignar";
+        const cur = bySeller.get(key) ?? { count: 0, amount: 0 };
+        bySeller.set(key, { count: cur.count + 1, amount: cur.amount + r.deal.amount });
+      }
       return {
         stage: s,
         count: reached.length,
         amount: reached.reduce((sum, r) => sum + r.deal.amount, 0),
         here: rows.filter((r) => r.deal.stageId === s.id).length,
+        sellers: Array.from(bySeller.entries())
+          .map(([name, v]) => ({ name, ...v }))
+          .sort((a, b) => b.count - a.count),
       };
     });
     return base.map((f, i) => {
@@ -207,7 +243,7 @@ export function DealsPerformanceView({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pipeline-desempeno-${periodMonth}.csv`;
+    a.download = `pipeline-desempeno-${periodMonth.replace(/[:]/g, "_")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -228,21 +264,8 @@ export function DealsPerformanceView({
 
   return (
     <div className="space-y-3">
-      {/* Period + lens */}
+      {/* Lens + export */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Select value={periodMonth} onValueChange={onPeriodMonth}>
-          <SelectTrigger className="h-9 w-[220px] capitalize" aria-label="Periodo">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="max-h-72">
-            {months.map((m) => (
-              <SelectItem key={m.key} value={m.key} className="capitalize">
-                {m.label}{m.key === currentMonthKey() ? " (actual)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <div className="flex items-center gap-2">
           <ToggleGroup
             type="single"
@@ -253,16 +276,37 @@ export function DealsPerformanceView({
             <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
             <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
           </ToggleGroup>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-3.5 w-3.5" /> Exportar CSV
-          </Button>
         </div>
+        <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Download className="h-3.5 w-3.5" /> Exportar CSV
+        </Button>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Filter bar: periodo, productos, usuarios, etapas — one row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <Select
+          value={presetKey}
+          onValueChange={(v) => {
+            if (v === "custom") {
+              const to = iso(new Date());
+              const from = iso(new Date(Date.now() - 29 * 86400000));
+              onPeriodMonth(`custom:${customFrom || from}:${customTo || to}`);
+            } else {
+              onPeriodMonth(v);
+            }
+          }}
+        >
+          <SelectTrigger className="h-9 w-full" aria-label="Periodo">
+            <SelectValue placeholder="Periodo" />
+          </SelectTrigger>
+          <SelectContent>
+            {PERIOD_PRESETS.map((p) => (
+              <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={productId} onValueChange={setProductId}>
-          <SelectTrigger className="h-9 w-[190px]" aria-label="Producto o servicio">
+          <SelectTrigger className="h-9 w-full" aria-label="Producto o servicio">
             <SelectValue placeholder="Producto/servicio" />
           </SelectTrigger>
           <SelectContent>
@@ -271,7 +315,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Usuario">
+          <SelectTrigger className="h-9 w-full" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
           </SelectTrigger>
           <SelectContent>
@@ -280,7 +324,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={stageId} onValueChange={setStageId}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Etapa">
+          <SelectTrigger className="h-9 w-full" aria-label="Etapa">
             <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>
@@ -288,12 +332,32 @@ export function DealsPerformanceView({
             {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(productId !== "all" || owner !== "all" || stageId !== "all") && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
+      </div>
+
+      {presetKey === "custom" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="date"
+            value={customFrom}
+            onChange={(e) => onPeriodMonth(`custom:${e.target.value}:${customTo}`)}
+            className="h-9 w-[160px] text-xs"
+          />
+          <Input
+            type="date"
+            value={customTo}
+            onChange={(e) => onPeriodMonth(`custom:${customFrom}:${e.target.value}`)}
+            className="h-9 w-[160px] text-xs"
+          />
+        </div>
+      )}
+
+      {(productId !== "all" || owner !== "all" || stageId !== "all") && (
+        <div>
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
             Limpiar filtros
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {lens === "created"
@@ -323,44 +387,83 @@ export function DealsPerformanceView({
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="text-sm font-semibold">Embudo de avance</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">% de paso entre etapas (anidado)</span>
-            {funnelTop > 0 && (
-              <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
-                Conversión total {funnelConversionPct}% ({funnelEnd}/{funnelTop})
-              </span>
-            )}
-          </div>
+          {funnelTop > 0 && (
+            <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
+              Conversión total {funnelConversionPct}%
+            </span>
+          )}
         </div>
         {funnelTop === 0 ? (
           <p className="text-sm text-muted-foreground">Sin oportunidades para calcular el embudo.</p>
         ) : (
-          <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
-            {funnel.map((f, i) => (
-              <div key={f.stage.id} className="flex items-center gap-2 shrink-0">
-                {i > 0 && (
-                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="text-[10px] font-semibold">{f.stepPct}%</span>
+          <>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {funnel.map((f, i) => {
+                const active = openStage === f.stage.id;
+                return (
+                  <div key={f.stage.id} className="flex items-center gap-1.5 shrink-0">
+                    {i > 0 && (
+                      <div className="flex items-center text-muted-foreground text-[10px] font-semibold">
+                        <ChevronRight className="h-3.5 w-3.5" />
+                        {f.stepPct}%
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setOpenStage(active ? null : f.stage.id)}
+                      className={cn(
+                        "min-w-[120px] text-left rounded-lg border px-3 py-2 transition-colors",
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-muted/30 hover:border-primary/40",
+                      )}
+                      title="Ver desglose por vendedor"
+                    >
+                      <div className="text-[11px] text-muted-foreground truncate">{f.stage.name}</div>
+                      <div className="text-lg font-bold leading-tight">{f.count}</div>
+                    </button>
                   </div>
-                )}
-                <div className="min-w-[140px] rounded-lg border border-border bg-muted/30 p-2.5">
-                  <div className="text-[11px] font-medium truncate" title={f.stage.name}>{f.stage.name}</div>
-                  <div className="text-lg font-bold leading-tight">{f.count}</div>
-                  <div className="text-[10px] text-muted-foreground">{formatMXN(f.amount)}</div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${Math.max(f.totalPct, f.count ? 3 : 0)}%` }}
-                    />
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Clic en una etapa para ver el desglose por vendedor.
+            </p>
+            {openStage && (() => {
+              const f = funnel.find((x) => x.stage.id === openStage);
+              if (!f) return null;
+              return (
+                <div className="mt-3 rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold">
+                      {f.stage.name} · {f.count} oportunidades · {formatMXN(f.amount)}
+                    </span>
+                    <button className="text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setOpenStage(null)}>
+                      Cerrar
+                    </button>
                   </div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {f.totalPct}% del total · {f.here} hoy
-                  </div>
+                  {f.sellers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Sin oportunidades en esta etapa.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {f.sellers.map((s) => (
+                        <div key={s.name} className="flex items-center gap-2">
+                          <span className="text-xs w-32 truncate">{s.name}</span>
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${f.count ? Math.max(3, (s.count / f.count) * 100) : 0}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium w-8 text-right">{s.count}</span>
+                          <span className="text-[11px] text-muted-foreground w-24 text-right">{formatMXN(s.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              );
+            })()}
+          </>
         )}
       </div>
 
