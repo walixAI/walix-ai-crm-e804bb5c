@@ -38,7 +38,12 @@ export function ProfitabilityCard({ compact = false }: { compact?: boolean }) {
             Ventas <span className="font-semibold text-foreground">{formatMXN0(data.sales)}</span> · Gastos <span className="font-semibold text-foreground">{formatMXN0(data.expenses)}</span> · Utilidad <span className={cn("font-semibold", t.text)}>{formatMXN0(data.profit)}</span>
           </div>
         </div>
-        <Link to="/gastos" className="text-xs text-primary hover:underline shrink-0">Ver gastos →</Link>
+        <Link
+          to="/gastos"
+          className="relative z-10 shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+        >
+          Ver gastos →
+        </Link>
         </div>
 
         {breakdown && (
