@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTasks, useToggleTask, useDeleteTask, type TaskRow, type TaskView } from "@/lib/queries/tasks";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const VIEWS: { id: TaskView; label: string }[] = [
   { id: "today", label: "Hoy" },
@@ -40,10 +41,12 @@ export default function TasksPage() {
   const [params, setParams] = useSearchParams();
   const initial = (params.get("view") as TaskView) || "today";
   const [view, setView] = useState<TaskView>(VIEWS.some(v => v.id === initial) ? initial : "today");
-  const [mineOnly, setMineOnly] = useState(false);
+  const { isTenantAdmin, isManager, isPlatform } = usePermissions();
+  const canSeeAll = isTenantAdmin || isManager || isPlatform;
+  const [mineOnly, setMineOnly] = useState(!canSeeAll);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TaskRow | null>(null);
-  const { data: tasks = [], isLoading } = useTasks({ view, mineOnly });
+  const { data: tasks = [], isLoading } = useTasks({ view, mineOnly: canSeeAll ? mineOnly : true });
   const toggle = useToggleTask();
   const remove = useDeleteTask();
 
@@ -59,12 +62,16 @@ export default function TasksPage() {
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Tareas</h1>
-          <p className="text-sm text-muted-foreground">Gestiona tus pendientes y los del equipo.</p>
+          <p className="text-sm text-muted-foreground">
+            {canSeeAll ? "Gestiona tus pendientes y los del equipo." : "Gestiona tus pendientes."}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant={mineOnly ? "default" : "outline"} size="sm" onClick={() => setMineOnly(!mineOnly)}>
-            <User className="h-4 w-4" /> {mineOnly ? "Solo mías" : "De todos"}
-          </Button>
+          {canSeeAll && (
+            <Button variant={mineOnly ? "default" : "outline"} size="sm" onClick={() => setMineOnly(!mineOnly)}>
+              <User className="h-4 w-4" /> {mineOnly ? "Solo mías" : "De todos"}
+            </Button>
+          )}
           <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
             <Plus className="h-4 w-4" /> Nueva tarea
           </Button>
