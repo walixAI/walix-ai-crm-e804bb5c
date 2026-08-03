@@ -264,26 +264,17 @@ export function DealsPerformanceView({
 
   return (
     <div className="space-y-3">
-      {/* Lens + export */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ToggleGroup
-            type="single"
-            value={lens}
-            onValueChange={(v) => v && onLens(v as PerformanceLens)}
-            className="border border-border rounded-md"
-          >
-            <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
-            <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download className="h-3.5 w-3.5" /> Exportar CSV
-        </Button>
-      </div>
-
-      {/* Filter bar: periodo, productos, usuarios, etapas — one row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* Toolbar: lente + filtros + export — one row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ToggleGroup
+          type="single"
+          value={lens}
+          onValueChange={(v) => v && onLens(v as PerformanceLens)}
+          className="border border-border rounded-md shrink-0"
+        >
+          <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
+          <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
+        </ToggleGroup>
         <Select
           value={presetKey}
           onValueChange={(v) => {
@@ -296,7 +287,7 @@ export function DealsPerformanceView({
             }
           }}
         >
-          <SelectTrigger className="h-9 w-full" aria-label="Periodo">
+          <SelectTrigger className="h-9 w-[150px]" aria-label="Periodo">
             <SelectValue placeholder="Periodo" />
           </SelectTrigger>
           <SelectContent>
@@ -306,7 +297,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={productId} onValueChange={setProductId}>
-          <SelectTrigger className="h-9 w-full" aria-label="Producto o servicio">
+          <SelectTrigger className="h-9 w-[170px]" aria-label="Producto o servicio">
             <SelectValue placeholder="Producto/servicio" />
           </SelectTrigger>
           <SelectContent>
@@ -315,7 +306,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="h-9 w-full" aria-label="Usuario">
+          <SelectTrigger className="h-9 w-[160px]" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
           </SelectTrigger>
           <SelectContent>
@@ -324,7 +315,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={stageId} onValueChange={setStageId}>
-          <SelectTrigger className="h-9 w-full" aria-label="Etapa">
+          <SelectTrigger className="h-9 w-[160px]" aria-label="Etapa">
             <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>
@@ -332,6 +323,9 @@ export function DealsPerformanceView({
             {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" className="h-9 ml-auto" onClick={exportCsv}>
+          <Download className="h-3.5 w-3.5" /> Exportar CSV
+        </Button>
       </div>
 
       {presetKey === "custom" && (
@@ -358,13 +352,6 @@ export function DealsPerformanceView({
           </Button>
         </div>
       )}
-
-      <p className="text-xs text-muted-foreground">
-        {lens === "created"
-          ? `Oportunidades creadas en ${periodLabel}, sin importar cuándo cierren.`
-          : `Oportunidades abiertas que estuvieron vivas durante ${periodLabel}, sin importar cuándo se crearon ni cuándo cierren.`}
-        {" "}La salud se calcula al día de hoy.
-      </p>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
