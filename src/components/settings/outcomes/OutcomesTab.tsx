@@ -89,7 +89,8 @@ export function OutcomesTab() {
         </div>
         <p className="text-xs text-muted-foreground">
           Cada tipificación se asocia a una etapa (o a todas) y puede mover automáticamente la oportunidad
-          a otra etapa cuando el usuario la selecciona al registrar un seguimiento.
+          a otra etapa cuando el usuario la selecciona al registrar un seguimiento. Las oportunidades solo
+          pueden avanzar: nunca regresan a una etapa anterior.
         </p>
       </Card>
 
@@ -136,6 +137,19 @@ export function OutcomesTab() {
             </div>
           </div>
         </div>
+        {newMoves !== "none" && (
+          <div className="max-w-xs">
+            <Label className="text-xs">Comportamiento</Label>
+            <Select value={newBehavior === "stay" ? "suggest" : newBehavior} onValueChange={(v) => setNewBehavior(v as StageBehavior)}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STAGE_BEHAVIORS.filter((b) => b.value !== "stay").map((b) => (
+                  <SelectItem key={b.value} value={b.value}>{b.label} — {b.hint}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </Card>
 
       {[...byStage.entries()].map(([key, list]) => (
