@@ -99,7 +99,6 @@ export function LogFollowUpDialog({
   const [outcomeId, setOutcomeId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [occurred, setOccurred] = useState(() => toLocalInput(new Date()));
-  const [editOccurred, setEditOccurred] = useState(false);
   const [hasNext, setHasNext] = useState(true);
   const [nextDay, setNextDay] = useState(() => dateInput(2));
   const [customNextDay, setCustomNextDay] = useState(false);
@@ -135,7 +134,6 @@ export function LogFollowUpDialog({
     setSelectedDealId(dealId);
     setDescription("");
     setOccurred(toLocalInput(new Date()));
-    setEditOccurred(false);
     setHasNext(true);
     setNextDay(dateInput(2));
     setCustomNextDay(false);
@@ -245,22 +243,6 @@ export function LogFollowUpDialog({
                 ))}
               </SelectContent>
             </Select>
-            {!editOccurred ? (
-              <button
-                type="button"
-                className="text-sm text-muted-foreground underline underline-offset-2"
-                onClick={() => setEditOccurred(true)}
-              >
-                Fue hoy · cambiar fecha
-              </button>
-            ) : (
-              <Input
-                type="datetime-local"
-                className="h-12 text-base"
-                value={occurred}
-                onChange={(e) => setOccurred(e.target.value)}
-              />
-            )}
           </div>
 
           {/* 2. ¿Qué pasó? */}
