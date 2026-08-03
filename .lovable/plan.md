@@ -1,32 +1,40 @@
-## Situación actual
+# Vista de Desempeño de oportunidades activas
 
-En el detalle del contacto, el panel **Oportunidades** (`src/components/contacts/detail/DealsSidePanel.tsx`) ya pinta la etapa actual de cada deal como una insignia, pero:
+Hoy el Pipeline tiene dos vistas: Kanban y Lista. La lista muestra datos (monto, etapa, probabilidad, días, cierre) pero no dice *cómo va* cada oportunidad. Se agrega una tercera vista, **Desempeño**, con el estado de salud de todas las oportunidades activas en un solo lugar.
 
-- la tarjeta no es clicable, así que no se puede abrir el deal ni su historial
-- no se ve el progreso dentro del pipeline (en qué paso va de cuántos)
-- el historial de cambios de etapa (con badge "Auto" de las reglas automáticas) solo existe dentro del `DealDrawer`, accesible únicamente desde Pipeline
+## Qué se agrega
 
-## Qué construir
+**1. Nueva vista "Desempeño" en Pipeline**
+Un tercer botón junto a Kanban / Lista. Reutiliza los mismos filtros (vendedor, pipeline, búsqueda) que ya existen.
 
-**1. Pestaña "Oportunidades" junto a Actividades**
-Agregar una pestaña propia en el detalle del contacto, al lado de Actividades / Tareas / Notas, con la lista completa de oportunidades del contacto: nombre, monto, probabilidad, etapa actual, pipeline al que pertenece, responsable y fecha de última actividad. Incluye las cerradas (ganadas/perdidas) con filtro Activas / Todas.
+**2. Franja resumen arriba**
+- Oportunidades activas y monto total
+- Ponderado por probabilidad (forecast)
+- Cuántas están En riesgo, Estancadas y Vencidas
+- Días promedio en etapa
 
-**2. Tarjeta de oportunidad clicable**
-Tanto en la pestaña nueva como en el panel lateral, al hacer clic se abre el `DealDrawer` (el mismo componente del Pipeline), directamente en la pestaña de historial cuando el usuario llega buscando etapas.
+**3. Tabla de desempeño**
+Una fila por oportunidad activa, ordenable, con:
+- Oportunidad / contacto / vendedor
+- Monto y probabilidad
+- Etapa + mini-stepper de avance (paso 3 de 6), reutilizando el `StageStepper` ya creado para la ficha de contacto
+- Días en la etapa actual y días desde la última actividad del contacto
+- Semáforo de salud usando la lógica ya existente (`computeDealHealth`): Hot, Cold, Stale, Overdue
+- Fecha estimada de cierre, marcada en rojo si ya pasó
 
-**3. Mini-stepper de etapas**
-Debajo del nombre del deal, una barra de pasos con las etapas del pipeline correspondiente: etapas completadas en color de marca, la actual resaltada, las pendientes en gris. Tooltip con el nombre de cada etapa y texto tipo "Etapa 3 de 6 · Contactado".
+**4. Agrupadores rápidos**
+Chips para filtrar la tabla: Todas · En riesgo · Estancadas (+14 días) · Vencidas · Cierran este mes.
 
-**4. Historial de etapas visible desde el contacto**
-Dentro del drawer, la línea de tiempo de `deal_stage_history` ya existente: fecha, etapa origen → destino, quién lo movió y badge **Auto** si fue una regla automática.
+**5. Exportar CSV**
+Mismo patrón que la vista Lista, incluyendo las columnas de salud.
 
-**5. Cambios de etapa en el timeline del contacto**
-Los movimientos de etapa aparecen intercalados en la pestaña Actividades (junto a mensajes, tareas y notas), para ver el avance sin abrir nada.
+Al hacer clic en una fila se abre el `DealDrawer` existente, igual que hoy.
 
 ## Detalles técnicos
 
-- Nuevo componente `src/components/contacts/detail/DealsTab.tsx` montado en el sistema de pestañas de `ContactDetail.tsx`.
-- Extender `useContactDeals` para traer `pipeline_id`, `stage_id`, estado de cierre y el orden de la etapa; cargar `pipeline_stages` para construir el stepper.
-- Reutilizar `DealDrawer` del módulo Pipeline, controlado por estado local (`selectedDealId`), sin duplicar lógica.
-- Nueva query de `deal_stage_history` filtrada por los deals del contacto para el timeline unificado.
-- Sin cambios de esquema: las tablas y triggers necesarios ya existen.
+- Nuevo componente `src/components/pipeline/DealsPerformanceView.tsx`.
+- `src/pages/app/Pipeline.tsx`: se amplía el estado `view` a `"kanban" | "list" | "performance"` y se pasa el mismo arreglo `filtered` ya calculado.
+- `PipelineHeader.tsx`: tercer botón en el selector de vista.
+- Salud por deal con `computeDealHealth` de `src/lib/dealHealth.ts` (ya usa la última actividad del contacto, que Pipeline ya carga en `contactLastActivityAt`).
+- Stepper de etapa con el componente `StageStepper` y las `stages` del pipeline activo.
+- Sin cambios en base de datos ni consultas nuevas: todo se calcula sobre los datos que Pipeline ya trae.
