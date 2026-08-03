@@ -99,7 +99,6 @@ export function LogFollowUpDialog({
   const [outcomeId, setOutcomeId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [occurred, setOccurred] = useState(() => toLocalInput(new Date()));
-  const [editOccurred, setEditOccurred] = useState(false);
   const [hasNext, setHasNext] = useState(true);
   const [nextDay, setNextDay] = useState(() => dateInput(2));
   const [customNextDay, setCustomNextDay] = useState(false);
