@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ArrowUpDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -10,6 +11,7 @@ import { StageStepper } from "@/components/contacts/detail/StageStepper";
 import { HealthBadges } from "./HealthBadges";
 import { computeDealHealth } from "@/lib/dealHealth";
 import { daysSince, formatMXN, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
+import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { cn } from "@/lib/utils";
 
 export type PerformanceLens = "created" | "active";
@@ -36,15 +38,29 @@ function monthRange(periodMonth: string) {
   return { start, end };
 }
 
-function shiftMonth(periodMonth: string, delta: number) {
-  const { start } = monthRange(periodMonth);
-  const d = new Date(start.getFullYear(), start.getMonth() + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 export function currentMonthKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthOptions(current: string) {
+  const now = new Date();
+  const list: { key: string; label: string }[] = [];
+  for (let i = -12; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    list.push({ key: monthKey(d), label: d.toLocaleDateString("es-MX", { month: "long", year: "numeric" }) });
+  }
+  if (!list.some((o) => o.key === current)) {
+    const [y, m] = current.split("-").map(Number);
+    const d = new Date(y, m - 1, 1);
+    list.push({ key: current, label: d.toLocaleDateString("es-MX", { month: "long", year: "numeric" }) });
+    list.sort((a, b) => (a.key < b.key ? -1 : 1));
+  }
+  return list;
 }
 
 export function DealsPerformanceView({
@@ -53,22 +69,35 @@ export function DealsPerformanceView({
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
   const [chip, setChip] = useState<Chip>("all");
+  const [productId, setProductId] = useState<string>("all");
+  const [owner, setOwner] = useState<string>("all");
+  const [stageId, setStageId] = useState<string>("all");
+  const { data: products = [] } = useProductCategories();
 
   const { start, end } = useMemo(() => monthRange(periodMonth), [periodMonth]);
-  const isCurrentMonth = periodMonth === currentMonthKey();
+  const months = useMemo(() => monthOptions(periodMonth), [periodMonth]);
 
   const periodLabel = start.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 
   // Base set according to lens
   const base = useMemo(() => {
-    return deals.filter((d) => {
+    const inPeriod = deals.filter((d) => {
       const created = new Date(d.createdAt);
       if (lens === "created") return created >= start && created < end;
       // active: open deals that existed during the period
       if (d.isWon || d.isLost) return false;
       return created < end;
     });
-  }, [deals, lens, start, end]);
+    return inPeriod.filter((d) =>
+      (productId === "all" || d.productCategoryId === productId) &&
+      (owner === "all" || d.ownerName === owner) &&
+      (stageId === "all" || d.stageId === stageId));
+  }, [deals, lens, start, end, productId, owner, stageId]);
+
+  const ownerNames = useMemo(
+    () => Array.from(new Set(deals.map((d) => d.ownerName).filter(Boolean))).sort(),
+    [deals],
+  );
 
   // Deals closed (won/lost) inside the period — shown apart, never in the open pipeline
   const closedInPeriod = useMemo(
@@ -123,6 +152,25 @@ export function DealsPerformanceView({
   const avgDays = rows.length ? Math.round(rows.reduce((s, r) => s + r.health.daysInStage, 0) / rows.length) : 0;
   const wonAmount = closedInPeriod.filter((d) => d.isWon).reduce((s, d) => s + d.amount, 0);
 
+  // Funnel: progression through open stages
+  const funnel = useMemo(() => {
+    const ordered = [...stages].sort((a, b) => a.position - b.position);
+    const idx = new Map(ordered.map((s, i) => [s.id, i]));
+    return ordered.map((s, i) => {
+      const reached = rows.filter((r) => {
+        const di = r.deal.stageId ? idx.get(r.deal.stageId) : undefined;
+        return di !== undefined && di >= i;
+      });
+      return {
+        stage: s,
+        count: reached.length,
+        amount: reached.reduce((sum, r) => sum + r.deal.amount, 0),
+        here: rows.filter((r) => r.deal.stageId === s.id).length,
+      };
+    });
+  }, [rows, stages]);
+  const funnelTop = funnel[0]?.count ?? 0;
+
   function toggle(k: SortKey) {
     setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
   }
@@ -172,20 +220,18 @@ export function DealsPerformanceView({
     <div className="space-y-3">
       {/* Period + lens */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onPeriodMonth(shiftMonth(periodMonth, -1))} aria-label="Mes anterior">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium capitalize min-w-[140px] text-center">{periodLabel}</span>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onPeriodMonth(shiftMonth(periodMonth, 1))} aria-label="Mes siguiente">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          {!isCurrentMonth && (
-            <Button variant="ghost" size="sm" className="h-8" onClick={() => onPeriodMonth(currentMonthKey())}>
-              Mes actual
-            </Button>
-          )}
-        </div>
+        <Select value={periodMonth} onValueChange={onPeriodMonth}>
+          <SelectTrigger className="h-9 w-[220px] capitalize" aria-label="Periodo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            {months.map((m) => (
+              <SelectItem key={m.key} value={m.key} className="capitalize">
+                {m.label}{m.key === currentMonthKey() ? " (actual)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex items-center gap-2">
           <ToggleGroup
@@ -195,12 +241,48 @@ export function DealsPerformanceView({
             className="border border-border rounded-md"
           >
             <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
-            <ToggleGroupItem value="created" size="sm">Activadas en el periodo</ToggleGroupItem>
+            <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
           </ToggleGroup>
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="h-3.5 w-3.5" /> Exportar CSV
           </Button>
         </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={productId} onValueChange={setProductId}>
+          <SelectTrigger className="h-9 w-[190px]" aria-label="Producto o servicio">
+            <SelectValue placeholder="Producto/servicio" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los productos</SelectItem>
+            {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={owner} onValueChange={setOwner}>
+          <SelectTrigger className="h-9 w-[170px]" aria-label="Usuario">
+            <SelectValue placeholder="Usuario" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los usuarios</SelectItem>
+            {ownerNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={stageId} onValueChange={setStageId}>
+          <SelectTrigger className="h-9 w-[170px]" aria-label="Etapa">
+            <SelectValue placeholder="Etapa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las etapas</SelectItem>
+            {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {(productId !== "all" || owner !== "all" || stageId !== "all") && (
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -226,6 +308,40 @@ export function DealsPerformanceView({
           {wonAmount > 0 ? ` · ${formatMXN(wonAmount)} ganados` : ""}.
         </p>
       )}
+
+      {/* Funnel */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Embudo de avance</h3>
+          <span className="text-[11px] text-muted-foreground">% de oportunidades que alcanzaron cada etapa</span>
+        </div>
+        {funnelTop === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin oportunidades para calcular el embudo.</p>
+        ) : (
+          <div className="space-y-2">
+            {funnel.map((f) => {
+              const pct = funnelTop ? Math.round((f.count / funnelTop) * 100) : 0;
+              return (
+                <div key={f.stage.id} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium">{f.stage.name}</span>
+                    <span className="text-muted-foreground">
+                      {f.count} · {formatMXN(f.amount)} · {pct}%
+                    </span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${Math.max(pct, f.count ? 2 : 0)}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">{f.here} en esta etapa hoy</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Chips */}
       <div className="flex flex-wrap gap-2">
