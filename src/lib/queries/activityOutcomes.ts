@@ -281,6 +281,9 @@ export function useUpsertActivityOutcome() {
         requires_next_action: input.requiresNextAction ?? true,
         position: input.position ?? 0,
         is_active: input.isActive ?? true,
+        stage_behavior: input.stageBehavior ?? "stay",
+        is_won: input.isWon ?? false,
+        is_lost: input.isLost ?? false,
       };
       if (input.id) {
         const { error } = await (supabase as any).from("activity_outcomes").update(row).eq("id", input.id);
