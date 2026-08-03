@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, CircleSlash, PauseCircle } from "lucide-react";
+import { ArrowRight, CircleSlash, PauseCircle, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WBadge } from "@/components/walix/Badge";
+import { cn } from "@/lib/utils";
 import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
 import { usePipelines, useStages, useContactPipelineDeals } from "@/lib/queries/pipeline";
 import {
@@ -29,17 +30,53 @@ interface Props {
   allowDealPicker?: boolean;
 }
 
-function defaultNext() {
-  const d = new Date();
-  d.setDate(d.getDate() + 2);
-  d.setHours(10, 0, 0, 0);
-  return toLocalInput(d);
-}
-
+/** Fecha (YYYY-MM-DD) a N días de hoy. */
 function dateInput(daysAhead: number) {
   const d = new Date();
   d.setDate(d.getDate() + daysAhead);
   return d.toISOString().slice(0, 10);
+}
+
+/** Convierte YYYY-MM-DD a ISO a las 10:00 locales. */
+function dayToIso(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d, 10, 0, 0, 0).toISOString();
+}
+
+function longDate(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-MX", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
+
+const DAY_PRESETS = [
+  { label: "Mañana", days: 1 },
+  { label: "En 3 días", days: 3 },
+  { label: "En 1 semana", days: 7 },
+  { label: "En 15 días", days: 15 },
+];
+
+/** Botón grande de opción, pensado para lectura fácil. */
+function BigChoice({
+  active, onClick, children, className,
+}: { active: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-base font-medium transition-colors",
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-background text-foreground hover:bg-muted",
+        className,
+      )}
+    >
+      {active && <Check className="h-4 w-4 shrink-0" />}
+      <span className="truncate">{children}</span>
+    </button>
+  );
 }
 
 /** Modo de diagnóstico elegido por el usuario. */
@@ -62,14 +99,15 @@ export function LogFollowUpDialog({
   const [outcomeId, setOutcomeId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [occurred, setOccurred] = useState(() => toLocalInput(new Date()));
+  const [editOccurred, setEditOccurred] = useState(false);
   const [hasNext, setHasNext] = useState(true);
-  const [nextAt, setNextAt] = useState(defaultNext);
-  const [nextTitle, setNextTitle] = useState("");
+  const [nextDay, setNextDay] = useState(() => dateInput(2));
+  const [customNextDay, setCustomNextDay] = useState(false);
   const [targetStage, setTargetStage] = useState<string>("none");
+  const [showStage, setShowStage] = useState(false);
   const [diagMode, setDiagMode] = useState<DiagMode>("none");
   const [blockerId, setBlockerId] = useState<string>("");
   const [blockerExpected, setBlockerExpected] = useState<string>(() => dateInput(7));
-  const [blockerNote, setBlockerNote] = useState("");
   const [lossReasonId, setLossReasonId] = useState<string>("");
   const [clearBlocker, setClearBlocker] = useState(false);
 
@@ -97,12 +135,13 @@ export function LogFollowUpDialog({
     setSelectedDealId(dealId);
     setDescription("");
     setOccurred(toLocalInput(new Date()));
+    setEditOccurred(false);
     setHasNext(true);
-    setNextAt(defaultNext());
-    setNextTitle("");
+    setNextDay(dateInput(2));
+    setCustomNextDay(false);
+    setShowStage(false);
     setDiagMode("none");
     setBlockerId("");
-    setBlockerNote("");
     setLossReasonId("");
     setClearBlocker(false);
     setBlockerExpected(dateInput(7));
@@ -118,6 +157,7 @@ export function LogFollowUpDialog({
   useEffect(() => {
     if (!outcome) { setTargetStage("none"); return; }
     setTargetStage(outcome.movesToStageId ?? "none");
+    if (outcome.movesToStageId) setShowStage(true);
     if (outcome.requiresNextAction) setHasNext(true);
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -128,13 +168,14 @@ export function LogFollowUpDialog({
 
   const suggestedStageName = stages.find((s) => s.id === outcome?.movesToStageId)?.name ?? null;
   const currentStageName = stages.find((s) => s.id === effectiveStageId)?.name ?? null;
+  const targetStageName = stages.find((s) => s.id === targetStage)?.name ?? null;
 
   async function save() {
-    if (!description.trim()) return toast.error("Describe el seguimiento");
-    if (!outcome) return toast.error("Selecciona una tipificación");
-    if (hasNext && !nextAt) return toast.error("Indica la fecha de la próxima acción");
-    if (diagMode === "blocked" && !blockerId) return toast.error("Indica qué está esperando el lead");
-    if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona el motivo de pérdida");
+    if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
+    if (!outcome) return toast.error("Selecciona el resultado");
+    if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
+    if (diagMode === "blocked" && !blockerId) return toast.error("Indica qué está esperando el cliente");
+    if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona por qué se perdió");
     try {
       await log.mutateAsync({
         contactId,
@@ -144,15 +185,15 @@ export function LogFollowUpDialog({
         outcome,
         description: description.trim(),
         occurredAt: fromLocalInput(occurred),
-        nextActionAt: hasNext ? fromLocalInput(nextAt) : null,
-        nextActionTitle: nextTitle,
+        nextActionAt: hasNext ? dayToIso(nextDay) : null,
+        nextActionTitle: hasNext ? `Seguimiento: ${outcome.label}` : "",
         moveToStageId: targetStage === "none" ? null : targetStage,
         blockerId: diagMode === "blocked" ? blockerId : null,
         blockerLabel: diagMode === "blocked"
           ? activeBlockers.find((b) => b.id === blockerId)?.label ?? null
           : null,
         blockerExpectedAt: diagMode === "blocked" ? blockerExpected || null : null,
-        blockerNote: diagMode === "blocked" ? blockerNote.trim() || null : null,
+        blockerNote: null,
         clearBlocker: clearBlocker || diagMode === "lost",
         lossReasonId: diagMode === "lost" ? lossReasonId : null,
         lossReasonLabel: diagMode === "lost"
@@ -173,14 +214,16 @@ export function LogFollowUpDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Registrar seguimiento</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-xl">Registrar seguimiento</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-5">
           {allowDealPicker && contactDeals.length > 0 && (
-            <div>
-              <Label className="text-xs">Oportunidad</Label>
+            <div className="space-y-1.5">
+              <Label className="text-base">Oportunidad</Label>
               <Select value={selectedDealId ?? "none"} onValueChange={(v) => setSelectedDealId(v === "none" ? null : v)}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin oportunidad</SelectItem>
                   {contactDeals.map((d: any) => (
@@ -191,210 +234,243 @@ export function LogFollowUpDialog({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Tipo de actividad</Label>
-              <Select value={kind} onValueChange={setKind}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ACTIVITY_KINDS.map((k) => (
-                    <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Fecha y hora</Label>
-              <Input type="datetime-local" className="h-9" value={occurred} onChange={(e) => setOccurred(e.target.value)} />
-            </div>
+          {/* 1. ¿Cómo lo contactaste? */}
+          <div className="space-y-1.5">
+            <Label className="text-base">1. ¿Cómo lo contactaste?</Label>
+            <Select value={kind} onValueChange={setKind}>
+              <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ACTIVITY_KINDS.map((k) => (
+                  <SelectItem key={k.value} value={k.value} className="text-base">{k.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!editOccurred ? (
+              <button
+                type="button"
+                className="text-sm text-muted-foreground underline underline-offset-2"
+                onClick={() => setEditOccurred(true)}
+              >
+                Fue hoy · cambiar fecha
+              </button>
+            ) : (
+              <Input
+                type="datetime-local"
+                className="h-12 text-base"
+                value={occurred}
+                onChange={(e) => setOccurred(e.target.value)}
+              />
+            )}
           </div>
 
-          <div>
-            <Label className="text-xs">Tipificación (resultado)</Label>
+          {/* 2. ¿Qué pasó? */}
+          <div className="space-y-1.5">
+            <Label className="text-base">2. ¿Qué pasó?</Label>
             {available.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2">
-                No hay tipificaciones configuradas para esta etapa. Configúralas en Ajustes → Seguimiento.
+              <p className="text-sm text-muted-foreground py-2">
+                No hay resultados configurados para esta etapa. Configúralos en Ajustes → Seguimiento.
               </p>
             ) : (
               <Select value={outcomeId} onValueChange={setOutcomeId}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+                <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
                 <SelectContent>
                   {available.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+                    <SelectItem key={o.id} value={o.id} className="text-base">{o.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
-          </div>
-
-          {selectedDealId && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Etapa</span>
-                <WBadge variant="info">{currentStageName ?? "—"}</WBadge>
-                {suggestedStageName && suggestedStageName !== currentStageName && (
-                  <>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                    <WBadge variant="success">{suggestedStageName}</WBadge>
-                    <span className="text-[11px] text-muted-foreground">sugerido</span>
-                  </>
-                )}
-              </div>
-              <Select value={targetStage} onValueChange={setTargetStage}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No mover la etapa</SelectItem>
-                  {stages.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>Mover a: {s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div>
-            <Label className="text-xs">Detalle del seguimiento</Label>
             <Textarea
               rows={3}
               maxLength={2000}
+              className="text-base"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="¿Qué pasó en esta interacción?"
+              placeholder="Escribe con tus palabras qué te dijo el cliente…"
             />
           </div>
 
+          {/* 3. ¿Cuándo le vuelves a hablar? */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-base">3. ¿Cuándo le vuelves a hablar?</Label>
+              <Switch checked={hasNext} onCheckedChange={setHasNext} />
+            </div>
+            {hasNext ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  {DAY_PRESETS.map((p) => {
+                    const day = dateInput(p.days);
+                    return (
+                      <BigChoice
+                        key={p.label}
+                        active={!customNextDay && nextDay === day}
+                        onClick={() => { setCustomNextDay(false); setNextDay(day); }}
+                      >
+                        {p.label}
+                      </BigChoice>
+                    );
+                  })}
+                  <BigChoice
+                    active={customNextDay}
+                    onClick={() => setCustomNextDay(true)}
+                    className="col-span-2"
+                  >
+                    Otro día
+                  </BigChoice>
+                </div>
+                {customNextDay && (
+                  <Input
+                    type="date"
+                    className="h-12 text-base"
+                    value={nextDay}
+                    onChange={(e) => setNextDay(e.target.value)}
+                  />
+                )}
+                {nextDay && (
+                  <p className="text-sm text-muted-foreground">
+                    Te lo recordaremos el <span className="font-medium text-foreground">{longDate(nextDay)}</span> a las 10:00.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin recordatorio para este contacto.</p>
+            )}
+          </div>
+
+          {/* 4. Diagnóstico */}
           {selectedDealId && (
-            <div className="rounded-lg border border-border p-3 space-y-3">
-              <div>
-                <Label className="text-sm">¿Por qué no avanza?</Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Ayuda a detectar patrones: qué frena a los leads y por qué se pierden.
-                </p>
-              </div>
+            <div className="space-y-3">
+              <Label className="text-base">4. ¿Por qué no avanza?</Label>
 
               {currentBlocker && (
-                <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
-                  <PauseCircle className="h-3.5 w-3.5 text-warning" />
-                  <span className="text-xs font-medium">{currentBlocker.label}</span>
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
+                  <PauseCircle className="h-4 w-4 text-warning" />
+                  <span className="text-sm font-medium">{currentBlocker.label}</span>
                   {blockerAge !== null && (
-                    <span className="text-[11px] text-muted-foreground">hace {blockerAge} d</span>
+                    <span className="text-sm text-muted-foreground">hace {blockerAge} días</span>
                   )}
-                  <div className="flex items-center gap-1 ml-auto">
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-sm text-muted-foreground">Ya se resolvió</span>
                     <Switch checked={clearBlocker} onCheckedChange={setClearBlocker} />
-                    <span className="text-[11px] text-muted-foreground">Ya se resolvió</span>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { v: "none", label: "Sin cambio" },
-                  { v: "blocked", label: "Está esperando" },
-                  { v: "lost", label: "Se perdió" },
-                ] as const).map((opt) => (
-                  <Button
-                    key={opt.v}
-                    type="button"
-                    size="sm"
-                    variant={diagMode === opt.v ? "default" : "outline"}
-                    className="h-8 text-xs"
-                    onClick={() => setDiagMode(opt.v)}
-                  >
-                    {opt.label}
-                  </Button>
-                ))}
+              <div className="grid gap-2">
+                <BigChoice active={diagMode === "none"} onClick={() => setDiagMode("none")}>
+                  Todo bien, sigue avanzando
+                </BigChoice>
+                <BigChoice active={diagMode === "blocked"} onClick={() => setDiagMode("blocked")}>
+                  Está esperando algo
+                </BigChoice>
+                <BigChoice active={diagMode === "lost"} onClick={() => setDiagMode("lost")}>
+                  Ya no quiere / se perdió
+                </BigChoice>
               </div>
 
               {diagMode === "blocked" && (
                 <div className="space-y-2">
-                  <Label className="text-xs">¿Qué está esperando el lead?</Label>
                   {activeBlockers.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       No hay bloqueos configurados. Agrégalos en Ajustes → Seguimiento.
                     </p>
                   ) : (
-                    <Select value={blockerId} onValueChange={setBlockerId}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
-                      <SelectContent>
-                        {activeBlockers.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <>
+                      <Label className="text-sm text-muted-foreground">¿Qué está esperando?</Label>
+                      <Select value={blockerId} onValueChange={setBlockerId}>
+                        <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+                        <SelectContent>
+                          {activeBlockers.map((b) => (
+                            <SelectItem key={b.id} value={b.id} className="text-base">{b.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {blockerId && (
+                        <p className="text-sm text-muted-foreground">
+                          Esperamos respuesta cerca del{" "}
+                          <span className="font-medium text-foreground">{longDate(blockerExpected)}</span>.
+                        </p>
+                      )}
+                    </>
                   )}
-                  <div>
-                    <Label className="text-xs">Se resuelve aproximadamente el</Label>
-                    <Input
-                      type="date"
-                      className="h-9"
-                      value={blockerExpected}
-                      onChange={(e) => setBlockerExpected(e.target.value)}
-                    />
-                  </div>
-                  <Input
-                    className="h-9"
-                    value={blockerNote}
-                    onChange={(e) => setBlockerNote(e.target.value)}
-                    maxLength={200}
-                    placeholder="Nota (opcional): ¿qué dijo textualmente?"
-                  />
                 </div>
               )}
 
               {diagMode === "lost" && (
                 <div className="space-y-2">
-                  <Label className="text-xs flex items-center gap-1">
-                    <CircleSlash className="h-3.5 w-3.5 text-danger" /> Motivo de pérdida
-                  </Label>
                   {activeLossReasons.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       No hay motivos configurados. Agrégalos en Ajustes → Seguimiento.
                     </p>
                   ) : (
-                    <Select value={lossReasonId} onValueChange={setLossReasonId}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
-                      <SelectContent>
-                        {activeLossReasons.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <>
+                      <Label className="text-sm text-muted-foreground flex items-center gap-1">
+                        <CircleSlash className="h-4 w-4 text-danger" /> ¿Por qué se perdió?
+                      </Label>
+                      <Select value={lossReasonId} onValueChange={setLossReasonId}>
+                        <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+                        <SelectContent>
+                          {activeLossReasons.map((r) => (
+                            <SelectItem key={r.id} value={r.id} className="text-base">{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
                   )}
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     La oportunidad se marcará como perdida.
-                    {currentBlocker && ` Se conservará "${currentBlocker.label}" como última señal conocida.`}
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          <div className="rounded-lg border border-border p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Programar próxima acción</Label>
-              <Switch checked={hasNext} onCheckedChange={setHasNext} />
-            </div>
-            {hasNext ? (
-              <div className="space-y-2">
-                <Input type="datetime-local" className="h-9" value={nextAt} onChange={(e) => setNextAt(e.target.value)} />
-                <Input
-                  className="h-9"
-                  value={nextTitle}
-                  onChange={(e) => setNextTitle(e.target.value)}
-                  placeholder={`Seguimiento: ${outcome?.label ?? "próximo contacto"}`}
-                  maxLength={200}
-                />
+          {/* Etapa: sólo si hay sugerencia o el usuario lo pide */}
+          {selectedDealId && (
+            showStage ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Etapa</span>
+                  <WBadge variant="info">{currentStageName ?? "—"}</WBadge>
+                  {targetStageName && targetStageName !== currentStageName && (
+                    <>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      <WBadge variant="success">{targetStageName}</WBadge>
+                      {suggestedStageName === targetStageName && (
+                        <span className="text-sm text-muted-foreground">sugerido</span>
+                      )}
+                    </>
+                  )}
+                </div>
+                <Select value={targetStage} onValueChange={setTargetStage}>
+                  <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-base">No mover la etapa</SelectItem>
+                    {stages.map((s) => (
+                      <SelectItem key={s.id} value={s.id} className="text-base">Mover a: {s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Sin próxima tarea para este contacto.</p>
-            )}
-          </div>
+              <button
+                type="button"
+                className="text-sm text-muted-foreground underline underline-offset-2"
+                onClick={() => setShowStage(true)}
+              >
+                Cambiar la etapa de la oportunidad
+              </button>
+            )
+          )}
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={log.isPending}>
-            {log.isPending ? "Registrando…" : "Registrar seguimiento"}
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="ghost" size="lg" className="text-base" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button size="lg" className="text-base" onClick={save} disabled={log.isPending}>
+            {log.isPending ? "Guardando…" : "Guardar"}
           </Button>
         </DialogFooter>
       </DialogContent>
