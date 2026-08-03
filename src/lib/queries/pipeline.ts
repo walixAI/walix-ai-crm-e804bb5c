@@ -189,6 +189,80 @@ export function useStageHistory(dealId: string | undefined) {
   });
 }
 
+/** Deals de un contacto en el mismo formato que usa el Pipeline (para reutilizar DealDrawer). */
+export function useContactPipelineDeals(contactId: string | undefined) {
+  const { data: users } = useTenantUsers();
+  return useQuery({
+    queryKey: ["contact-pipeline-deals", contactId, users?.length ?? 0],
+    enabled: !!contactId,
+    queryFn: async (): Promise<PipelineDeal[]> => {
+      const { data, error } = await supabase
+        .from("deals")
+        .select("*")
+        .eq("contact_id", contactId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r: any) => mapDeal(r, users));
+    },
+  });
+}
+
+export interface ContactStageChange extends StageHistoryRow {
+  dealId: string;
+}
+
+/** Historial de cambios de etapa de todos los deals de un contacto. */
+export function useContactStageHistory(contactId: string | undefined) {
+  const { data: deals = [] } = useContactPipelineDeals(contactId);
+  const dealIds = deals.map((d) => d.id).sort();
+  return useQuery({
+    queryKey: ["contact-stage-history", contactId, dealIds.join(",")],
+    enabled: !!contactId && dealIds.length > 0,
+    queryFn: async (): Promise<ContactStageChange[]> => {
+      const { data, error } = await supabase
+        .from("deal_stage_history")
+        .select("*")
+        .in("deal_id", dealIds)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        dealId: r.deal_id,
+        fromStageId: r.from_stage_id,
+        toStageId: r.to_stage_id,
+        fromStageName: r.from_stage_name,
+        toStageName: r.to_stage_name,
+        changedAt: r.changed_at,
+        metadata: r.metadata,
+      }));
+    },
+  });
+}
+
+function useStageHistoryLegacy(dealId: string | undefined) {
+  return useQuery({
+    queryKey: ["deal-stage-history", dealId],
+    enabled: !!dealId,
+    queryFn: async (): Promise<StageHistoryRow[]> => {
+      const { data, error } = await supabase
+        .from("deal_stage_history")
+        .select("*")
+        .eq("deal_id", dealId!)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        fromStageId: r.from_stage_id,
+        toStageId: r.to_stage_id,
+        fromStageName: r.from_stage_name,
+        toStageName: r.to_stage_name,
+        changedAt: r.changed_at,
+        metadata: r.metadata,
+      }));
+    },
+  });
+}
+
 export interface PipelineStageRule {
   id: string;
   pipelineId: string;
