@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Filter, Zap, Check } from "lucide-react";
+import { Plus, Trash2, Filter, Zap, Check, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   useExpenses, useExpenseCategories, useDeleteExpense, formatMXN0,
-  useDraftExpenses, useConfirmExpense, useConfirmAllDrafts,
+  useDraftExpenses, useConfirmExpense, useConfirmAllDrafts, useExpenseScope,
+  type Expense,
 } from "@/lib/queries/expenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
@@ -15,6 +16,8 @@ import { toast } from "sonner";
 
 export default function Expenses() {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const { canSeeAll, canManageFixed, canEdit } = useExpenseScope();
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -25,7 +28,8 @@ export default function Expenses() {
   const { data: expenses = [], isLoading } = useExpenses({
     month: monthDate, kind, categoryId: categoryId === "all" ? null : categoryId, status: "confirmed",
   });
-  const { data: cats = [] } = useExpenseCategories();
+  const { data: allCats = [] } = useExpenseCategories();
+  const cats = canManageFixed ? allCats : allCats.filter(c => c.kind === "variable");
   const del = useDeleteExpense();
   const { data: drafts = [] } = useDraftExpenses();
   const confirmOne = useConfirmExpense();
@@ -51,7 +55,9 @@ export default function Expenses() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gastos</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Captura gastos fijos y variables para monitorear tu rentabilidad.
+            {canSeeAll
+              ? "Captura gastos fijos y variables para monitorear tu rentabilidad."
+              : "Aquí ves y editas únicamente los gastos que te corresponden."}
           </p>
         </div>
         <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Nuevo gasto</Button>
@@ -84,6 +90,11 @@ export default function Expenses() {
                   try { await confirmOne.mutateAsync({ id: d.id }); toast.success("Confirmado"); }
                   catch (e: any) { toast.error(e.message); }
                 }}><Check className="h-4 w-4 mr-1" /> Confirmar</Button>
+                {canEdit(d) && (
+                  <Button size="icon" variant="ghost" onClick={() => setEditing(d)}>
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                )}
                 <Button size="icon" variant="ghost" onClick={async () => {
                   if (!confirm("¿Descartar este gasto borrador?")) return;
                   try { await del.mutateAsync(d.id); toast.success("Descartado"); }
@@ -103,6 +114,7 @@ export default function Expenses() {
         <CardContent className="flex flex-wrap gap-3">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm" />
+          {canManageFixed && (
           <Select value={kind} onValueChange={(v) => setKind(v as any)}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -111,6 +123,7 @@ export default function Expenses() {
               <SelectItem value="variable">Variables</SelectItem>
             </SelectContent>
           </Select>
+          )}
           <Select value={categoryId} onValueChange={setCategoryId}>
             <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -153,11 +166,18 @@ export default function Expenses() {
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${e.kind === "fijo" ? "bg-blue-500/10 text-blue-600" : "bg-purple-500/10 text-purple-600"}`}>{e.kind}</span>
                   <div className="text-right font-bold w-28">{formatMXN0(Number(e.amount))}</div>
+                  {canEdit(e) && (
+                    <Button variant="ghost" size="icon" onClick={() => setEditing(e)}>
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
+                  {canEdit(e) && (
                   <Button variant="ghost" size="icon" onClick={async () => {
                     if (!confirm("¿Eliminar este gasto?")) return;
                     try { await del.mutateAsync(e.id); toast.success("Eliminado"); }
                     catch (err: any) { toast.error(err.message ?? "Error"); }
                   }}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -166,6 +186,11 @@ export default function Expenses() {
       </Card>
 
       <ExpenseFormDialog open={open} onOpenChange={setOpen} />
+      <ExpenseFormDialog
+        open={!!editing}
+        onOpenChange={(v) => { if (!v) setEditing(null); }}
+        expense={editing}
+      />
     </div>
   );
 }
