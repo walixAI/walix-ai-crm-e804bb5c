@@ -4,6 +4,30 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { logAudit, fetchAuditLog, type AuditEntry } from "@/services/audit";
+
+const EXPENSE_TRACKED_FIELDS = ["amount", "category_id", "incurred_at", "description", "status", "kind"] as const;
+
+/** Deja solo los campos relevantes de un gasto para el historial. */
+function pickExpenseFields(row: any): Record<string, unknown> {
+  if (!row) return {};
+  const out: Record<string, unknown> = {};
+  for (const f of EXPENSE_TRACKED_FIELDS) if (f in row) out[f] = row[f];
+  return out;
+}
+
+/** Compara valores previos contra el parche y devuelve solo lo que cambió. */
+function diffFields(before: Record<string, unknown>, patch: Record<string, unknown>) {
+  const changes: Record<string, { before: unknown; after: unknown }> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    const prev = before[k];
+    const same = Number.isFinite(Number(prev)) && Number.isFinite(Number(v))
+      ? Number(prev) === Number(v)
+      : (prev ?? null) === (v ?? null);
+    if (!same) changes[k] = { before: prev ?? null, after: v ?? null };
+  }
+  return changes;
+}
 
 export interface ExpenseCategory {
   id: string;
