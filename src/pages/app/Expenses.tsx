@@ -192,6 +192,19 @@ export default function Expenses() {
         onOpenChange={(v) => { if (!v) setEditing(null); }}
         expense={editing}
       />
+
+      {canSeeAll && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-4 w-4" /> Historial de cambios
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExpenseHistoryList limit={40} emptyLabel="Aún no hay cambios registrados en gastos." />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
