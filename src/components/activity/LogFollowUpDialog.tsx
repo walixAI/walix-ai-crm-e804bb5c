@@ -387,12 +387,18 @@ export function LogFollowUpDialog({
             )}
           </div>
 
-          {/* 4. Diagnóstico */}
-          {selectedDealId && (
+          {/* 4. Diagnóstico — depende del resultado elegido */}
+          {selectedDealId && !outcome?.isWon && (
             <div className="space-y-3">
-              <Label className="text-base">4. ¿Por qué no avanza?</Label>
+              <Label className="text-base">
+                {outcome?.isLost
+                  ? "4. ¿Por qué se perdió?"
+                  : isAdvancing
+                    ? "4. ¿En qué quedaron?"
+                    : "4. ¿Por qué no avanza?"}
+              </Label>
 
-              {currentBlocker && (
+              {currentBlocker && !outcome?.isLost && (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
                   <PauseCircle className="h-4 w-4 text-warning" />
                   <span className="text-sm font-medium">{currentBlocker.label}</span>
@@ -406,17 +412,36 @@ export function LogFollowUpDialog({
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <BigChoice active={diagMode === "none"} onClick={() => setDiagMode("none")}>
-                  Todo bien, sigue avanzando
-                </BigChoice>
-                <BigChoice active={diagMode === "blocked"} onClick={() => setDiagMode("blocked")}>
-                  Está esperando algo
-                </BigChoice>
-                <BigChoice active={diagMode === "lost"} onClick={() => setDiagMode("lost")}>
-                  Ya no quiere / se perdió
-                </BigChoice>
-              </div>
+              {isAdvancing && !showProblem && !outcome?.isLost && (
+                <div className="space-y-2">
+                  <div className="rounded-lg bg-success/10 px-3 py-2.5 text-base text-foreground">
+                    El cliente sigue avanzando
+                    {targetStageName ? <> hacia <span className="font-medium">{targetStageName}</span></> : null}. Lo que te dijo queda
+                    guardado en la nota de arriba.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowProblem(true)}
+                    className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  >
+                    Reportar un problema
+                  </button>
+                </div>
+              )}
+
+              {!outcome?.isLost && (!isAdvancing || showProblem) && (
+                <div className="grid gap-2">
+                  <BigChoice active={diagMode === "none"} onClick={() => setDiagMode("none")}>
+                    Todo bien, sigue avanzando
+                  </BigChoice>
+                  <BigChoice active={diagMode === "blocked"} onClick={() => setDiagMode("blocked")}>
+                    Está esperando algo
+                  </BigChoice>
+                  <BigChoice active={diagMode === "lost"} onClick={() => setDiagMode("lost")}>
+                    Ya no quiere / se perdió
+                  </BigChoice>
+                </div>
+              )}
 
               {diagMode === "blocked" && (
                 <div className="space-y-2">
