@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ClipboardList, MessageCircle, Sparkles } from "lucide-react";
+import { ClipboardList, MessageCircle, Sparkles, PauseCircle, MessageSquareOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,6 +14,7 @@ import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { scoreDeal } from "@/services/ai";
 import { useEntityUrgency } from "@/hooks/useEntityUrgency";
+import { useDealBlockers, daysSince } from "@/lib/queries/dealDiagnostics";
 
 interface Props {
   deal: PipelineDeal;
@@ -47,6 +48,9 @@ function DealCardImpl({
   const pendingTask = (tasks ?? []).some(t => !t.completed);
   const health = computeDealHealth(deal, contactLastActivityAt);
   const { urgencyScore } = useEntityUrgency("deal", deal.id);
+  const { data: blockers = [] } = useDealBlockers();
+  const blocker = blockers.find((b) => b.id === deal.currentBlockerId) ?? null;
+  const blockerAge = daysSince(deal.blockerSetAt);
 
   // Tooltip explanation for the probability bar.
   // Reuses the shared `scoreDeal()` helper so the explanation phrasing
@@ -168,6 +172,23 @@ function DealCardImpl({
           </AvatarFallback>
         </Avatar>
       </div>
+
+      {(blocker || deal.noResponseSince) && (
+        <div className="flex flex-wrap items-center gap-1 mt-2">
+          {blocker && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 text-warning text-[10px] font-medium px-2 py-0.5">
+              <PauseCircle className="h-3 w-3" />
+              <span className="truncate max-w-[140px]">{blocker.label}</span>
+              {blockerAge !== null && <span className="opacity-70">· {blockerAge}d</span>}
+            </span>
+          )}
+          {deal.noResponseSince && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 text-danger text-[10px] font-medium px-2 py-0.5">
+              <MessageSquareOff className="h-3 w-3" /> Sin respuesta
+            </span>
+          )}
+        </div>
+      )}
 
       {aiSuggestion && (
         <div
