@@ -156,7 +156,7 @@ export function DealsPerformanceView({
   const funnel = useMemo(() => {
     const ordered = [...stages].sort((a, b) => a.position - b.position);
     const idx = new Map(ordered.map((s, i) => [s.id, i]));
-    return ordered.map((s, i) => {
+    const base = ordered.map((s, i) => {
       const reached = rows.filter((r) => {
         const di = r.deal.stageId ? idx.get(r.deal.stageId) : undefined;
         return di !== undefined && di >= i;
@@ -168,8 +168,18 @@ export function DealsPerformanceView({
         here: rows.filter((r) => r.deal.stageId === s.id).length,
       };
     });
+    return base.map((f, i) => {
+      const prev = i === 0 ? f.count : base[i - 1].count;
+      return {
+        ...f,
+        stepPct: i === 0 ? 100 : prev > 0 ? Math.round((f.count / prev) * 100) : 0,
+        totalPct: base[0]?.count ? Math.round((f.count / base[0].count) * 100) : 0,
+      };
+    });
   }, [rows, stages]);
   const funnelTop = funnel[0]?.count ?? 0;
+  const funnelEnd = funnel.length ? funnel[funnel.length - 1].count : 0;
+  const funnelConversionPct = funnelTop ? Math.round((funnelEnd / funnelTop) * 100) : 0;
 
   function toggle(k: SortKey) {
     setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
