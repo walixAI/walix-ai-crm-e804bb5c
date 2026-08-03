@@ -417,7 +417,7 @@ export function DealsPerformanceView({
           <>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
               {funnel.map((f, i) => {
-                const active = openStage === f.stage.id;
+                const color = `hsl(var(--funnel-${(i % 6) + 1}))`;
                 return (
                   <div key={f.stage.id} className="flex items-center gap-1.5 shrink-0">
                     {i > 0 && (
@@ -427,60 +427,68 @@ export function DealsPerformanceView({
                       </div>
                     )}
                     <button
-                      onClick={() => setOpenStage(active ? null : f.stage.id)}
-                      className={cn(
-                        "min-w-[120px] text-left rounded-lg border px-3 py-2 transition-colors",
-                        active
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-muted/30 hover:border-primary/40",
-                      )}
+                      onClick={() => setOpenStage(openStage ? null : "matrix")}
+                      className="min-w-[120px] text-left rounded-lg border px-3 py-2 transition-opacity hover:opacity-80"
+                      style={{ borderColor: color, backgroundColor: `hsl(var(--funnel-${(i % 6) + 1}) / 0.12)` }}
                       title="Ver desglose por vendedor"
                     >
-                      <div className="text-[11px] text-muted-foreground truncate">{f.stage.name}</div>
+                      <div className="text-[11px] truncate font-medium" style={{ color }}>{f.stage.name}</div>
                       <div className="text-lg font-bold leading-tight">{f.count}</div>
+                      <div className="text-[10px] text-muted-foreground">{f.totalPct}% del inicio</div>
                     </button>
                   </div>
                 );
               })}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-2">
-              Clic en una etapa para ver el desglose por vendedor.
-            </p>
-            {openStage && (() => {
-              const f = funnel.find((x) => x.stage.id === openStage);
-              if (!f) return null;
-              return (
-                <div className="mt-3 rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold">
-                      {f.stage.name} · {f.count} oportunidades · {formatMXN(f.amount)}
-                    </span>
-                    <button className="text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setOpenStage(null)}>
-                      Cerrar
-                    </button>
-                  </div>
-                  {f.sellers.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Sin oportunidades en esta etapa.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {f.sellers.map((s) => (
-                        <div key={s.name} className="flex items-center gap-2">
-                          <span className="text-xs w-32 truncate">{s.name}</span>
-                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${f.count ? Math.max(3, (s.count / f.count) * 100) : 0}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-medium w-8 text-right">{s.count}</span>
-                          <span className="text-[11px] text-muted-foreground w-24 text-right">{formatMXN(s.amount)}</span>
-                        </div>
+            <button
+              className="text-[11px] text-primary hover:underline mt-2"
+              onClick={() => setOpenStage(openStage ? null : "matrix")}
+            >
+              {openStage ? "Ocultar desglose por vendedor" : "Ver desglose por vendedor"}
+            </button>
+            {openStage && (
+              <div className="mt-3 rounded-lg border border-border overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left font-medium px-3 py-2">Vendedor</th>
+                      {funnel.map((f, i) => (
+                        <th
+                          key={f.stage.id}
+                          className="text-right font-medium px-3 py-2 whitespace-nowrap"
+                          style={{ color: `hsl(var(--funnel-${(i % 6) + 1}))` }}
+                        >
+                          {f.stage.name}
+                        </th>
                       ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sellerMatrix.map((s) => (
+                      <tr key={s.name} className="border-b border-border/60 last:border-0">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="font-medium">{s.name}</div>
+                          <div className="text-[10px] text-muted-foreground">{formatMXN(s.amount)}</div>
+                        </td>
+                        {s.cells.map((c, i) => (
+                          <td key={i} className="px-3 py-2 text-right whitespace-nowrap">
+                            <span className="font-semibold">{c.count}</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">({c.pct}%)</span>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                    {sellerMatrix.length === 0 && (
+                      <tr>
+                        <td colSpan={funnel.length + 1} className="px-3 py-4 text-center text-muted-foreground">
+                          Sin datos por vendedor.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </div>
