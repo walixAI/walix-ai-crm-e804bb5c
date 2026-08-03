@@ -113,10 +113,27 @@ export function useConversations() {
         const cid = (m as any).conversation_id as string;
         if (!lastInbound[cid]) lastInbound[cid] = (m as any).sent_at;
       }
+      // Último mensaje saliente por conversación (para detectar "por responder").
+      const lastOutbound: Record<string, string> = {};
+      const { data: outbound } = await supabase
+        .from("messages")
+        .select("conversation_id, sent_at")
+        .eq("direction", "outbound")
+        .eq("is_internal_note", false)
+        .order("sent_at", { ascending: false })
+        .limit(1000);
+      for (const m of outbound ?? []) {
+        const cid = (m as any).conversation_id as string;
+        if (!lastOutbound[cid]) lastOutbound[cid] = (m as any).sent_at;
+      }
       return (data ?? []).map((c: any) => {
         const contact = c.contacts ?? {};
         const fullName = [contact.name, contact.last_name].filter(Boolean).join(" ") || "Contacto";
         const owner = resolveOwner(users, c.assignee_id);
+        const inAt = lastInbound[c.id] ?? null;
+        const outAt = lastOutbound[c.id] ?? null;
+        const awaitingReply =
+          !!inAt && (!outAt || new Date(inAt).getTime() > new Date(outAt).getTime());
         return {
           id: c.id,
           contactId: c.contact_id,
@@ -129,7 +146,9 @@ export function useConversations() {
           preview: c.preview ?? "(sin mensajes)",
           unread: c.unread_count ?? 0,
           lastAt: c.last_message_at ?? c.updated_at ?? c.created_at,
-          lastInboundAt: lastInbound[c.id] ?? null,
+          lastInboundAt: inAt,
+          lastOutboundAt: outAt,
+          awaitingReply: awaitingReply && (c.status ?? "Nuevo") !== "Resuelto",
           status: (c.status ?? "Nuevo") as ConversationStatus,
           assigneeId: c.assignee_id,
           assigneeName: owner.name,
