@@ -1393,6 +1393,91 @@ export type Database = {
           },
         ]
       }
+      deal_blockers: {
+        Row: {
+          created_at: string
+          default_resolution_days: number
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_resolution_days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_resolution_days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_blockers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_loss_reasons: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_loss_reasons_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_stage_history: {
         Row: {
           changed_at: string
@@ -1436,9 +1521,13 @@ export type Database = {
         Row: {
           amount: number
           amount_paid: number | null
+          blocker_expected_at: string | null
+          blocker_note: string | null
+          blocker_set_at: string | null
           contact_id: string | null
           cost_amount: number | null
           created_at: string
+          current_blocker_id: string | null
           deal_type: string | null
           equipment_brand: string | null
           equipment_model: string | null
@@ -1446,9 +1535,13 @@ export type Database = {
           id: string
           is_lost: boolean
           is_won: boolean
+          last_inbound_at: string | null
+          last_known_blocker_id: string | null
+          loss_reason_id: string | null
           lost_comment: string | null
           lost_reason: string | null
           name: string
+          no_response_since: string | null
           notes: string | null
           owner_id: string | null
           payment_status: string | null
@@ -1465,9 +1558,13 @@ export type Database = {
         Insert: {
           amount?: number
           amount_paid?: number | null
+          blocker_expected_at?: string | null
+          blocker_note?: string | null
+          blocker_set_at?: string | null
           contact_id?: string | null
           cost_amount?: number | null
           created_at?: string
+          current_blocker_id?: string | null
           deal_type?: string | null
           equipment_brand?: string | null
           equipment_model?: string | null
@@ -1475,9 +1572,13 @@ export type Database = {
           id?: string
           is_lost?: boolean
           is_won?: boolean
+          last_inbound_at?: string | null
+          last_known_blocker_id?: string | null
+          loss_reason_id?: string | null
           lost_comment?: string | null
           lost_reason?: string | null
           name: string
+          no_response_since?: string | null
           notes?: string | null
           owner_id?: string | null
           payment_status?: string | null
@@ -1494,9 +1595,13 @@ export type Database = {
         Update: {
           amount?: number
           amount_paid?: number | null
+          blocker_expected_at?: string | null
+          blocker_note?: string | null
+          blocker_set_at?: string | null
           contact_id?: string | null
           cost_amount?: number | null
           created_at?: string
+          current_blocker_id?: string | null
           deal_type?: string | null
           equipment_brand?: string | null
           equipment_model?: string | null
@@ -1504,9 +1609,13 @@ export type Database = {
           id?: string
           is_lost?: boolean
           is_won?: boolean
+          last_inbound_at?: string | null
+          last_known_blocker_id?: string | null
+          loss_reason_id?: string | null
           lost_comment?: string | null
           lost_reason?: string | null
           name?: string
+          no_response_since?: string | null
           notes?: string | null
           owner_id?: string | null
           payment_status?: string | null
@@ -1526,6 +1635,27 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_current_blocker_id_fkey"
+            columns: ["current_blocker_id"]
+            isOneToOne: false
+            referencedRelation: "deal_blockers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_last_known_blocker_id_fkey"
+            columns: ["last_known_blocker_id"]
+            isOneToOne: false
+            referencedRelation: "deal_blockers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_loss_reason_id_fkey"
+            columns: ["loss_reason_id"]
+            isOneToOne: false
+            referencedRelation: "deal_loss_reasons"
             referencedColumns: ["id"]
           },
           {
@@ -2791,6 +2921,7 @@ export type Database = {
           monthly_goal_total: number
           mrr: number
           name: string
+          no_response_days: number
           nps: number | null
           organization_id: string
           plan: string
@@ -2818,6 +2949,7 @@ export type Database = {
           monthly_goal_total?: number
           mrr?: number
           name: string
+          no_response_days?: number
           nps?: number | null
           organization_id: string
           plan?: string
@@ -2845,6 +2977,7 @@ export type Database = {
           monthly_goal_total?: number
           mrr?: number
           name?: string
+          no_response_days?: number
           nps?: number | null
           organization_id?: string
           plan?: string
@@ -3216,6 +3349,7 @@ export type Database = {
         Returns: boolean
       }
       is_platform: { Args: { _user_id: string }; Returns: boolean }
+      mark_silent_deals: { Args: never; Returns: number }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -3252,6 +3386,10 @@ export type Database = {
         Returns: number
       }
       seed_default_ai_agents: {
+        Args: { _tenant_id: string }
+        Returns: undefined
+      }
+      seed_default_deal_diagnostics: {
         Args: { _tenant_id: string }
         Returns: undefined
       }
