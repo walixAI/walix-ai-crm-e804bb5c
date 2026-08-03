@@ -346,9 +346,39 @@ export function LogFollowUpDialog({
                     onChange={(e) => setNextDay(e.target.value)}
                   />
                 )}
+                <div className="space-y-2 pt-1">
+                  <Label className="text-sm text-muted-foreground">¿A qué hora?</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {TIME_PRESETS.map((t) => (
+                      <BigChoice
+                        key={t}
+                        active={!customNextTime && nextTime === t}
+                        onClick={() => { setCustomNextTime(false); setNextTime(t); }}
+                      >
+                        {t}
+                      </BigChoice>
+                    ))}
+                  </div>
+                  <BigChoice
+                    active={customNextTime}
+                    onClick={() => setCustomNextTime(true)}
+                    className="w-full"
+                  >
+                    Otra hora
+                  </BigChoice>
+                  {customNextTime && (
+                    <Input
+                      type="time"
+                      className="h-12 text-base"
+                      value={nextTime}
+                      onChange={(e) => setNextTime(e.target.value)}
+                    />
+                  )}
+                </div>
                 {nextDay && (
                   <p className="text-sm text-muted-foreground">
-                    Te lo recordaremos el <span className="font-medium text-foreground">{longDate(nextDay)}</span> a las 10:00.
+                    Te lo recordaremos el <span className="font-medium text-foreground">{longDate(nextDay)}</span> a las{" "}
+                    <span className="font-medium text-foreground">{nextTime}</span>.
                   </p>
                 )}
               </>
