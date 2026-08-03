@@ -167,7 +167,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           )}
         </SheetHeader>
 
-        <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs key={`${deal.id}-${defaultTab}`} defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="mx-5 mt-3 grid grid-cols-4">
             <TabsTrigger value="summary">Resumen</TabsTrigger>
             <TabsTrigger value="activity">Actividad</TabsTrigger>
