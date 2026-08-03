@@ -96,12 +96,14 @@ export function DealsPerformanceView({
   const [productId, setProductId] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
+  const [openStage, setOpenStage] = useState<string | null>(null);
   const { data: products = [] } = useProductCategories();
 
-  const { start, end } = useMemo(() => monthRange(periodMonth), [periodMonth]);
-  const months = useMemo(() => monthOptions(periodMonth), [periodMonth]);
-
-  const periodLabel = start.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  const { start, end, label: periodLabel } = useMemo(() => parsePeriod(periodMonth), [periodMonth]);
+  const presetKey = periodMonth.startsWith("custom:")
+    ? "custom"
+    : (PERIOD_PRESETS.some((p) => p.key === periodMonth) ? periodMonth : "month");
+  const [, customFrom = "", customTo = ""] = periodMonth.startsWith("custom:") ? periodMonth.split(":") : [];
 
   // Base set according to lens
   const base = useMemo(() => {
