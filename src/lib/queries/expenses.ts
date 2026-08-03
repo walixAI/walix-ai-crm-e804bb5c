@@ -196,17 +196,28 @@ export function useDraftExpenses() {
 
 export function useConfirmExpense() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (input: { id: string; amount?: number }) => {
       const patch: any = { status: "confirmed" };
       if (typeof input.amount === "number") patch.amount = input.amount;
+      const { data: before } = await supabase
+        .from("expenses" as any).select("*").eq("id", input.id).maybeSingle();
       const { error } = await supabase.from("expenses" as any).update(patch).eq("id", input.id);
       if (error) throw error;
+      await logAudit({
+        action: "expense.confirmed",
+        tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+        targetType: "expense",
+        targetId: input.id,
+        metadata: { changes: diffFields(pickExpenseFields(before), patch) },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
