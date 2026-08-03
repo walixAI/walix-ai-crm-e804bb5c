@@ -254,21 +254,8 @@ export function DealsPerformanceView({
 
   return (
     <div className="space-y-3">
-      {/* Period + lens */}
+      {/* Lens + export */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Select value={periodMonth} onValueChange={onPeriodMonth}>
-          <SelectTrigger className="h-9 w-[220px] capitalize" aria-label="Periodo">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="max-h-72">
-            {months.map((m) => (
-              <SelectItem key={m.key} value={m.key} className="capitalize">
-                {m.label}{m.key === currentMonthKey() ? " (actual)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <div className="flex items-center gap-2">
           <ToggleGroup
             type="single"
@@ -279,16 +266,37 @@ export function DealsPerformanceView({
             <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
             <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
           </ToggleGroup>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-3.5 w-3.5" /> Exportar CSV
-          </Button>
         </div>
+        <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Download className="h-3.5 w-3.5" /> Exportar CSV
+        </Button>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Filter bar: periodo, productos, usuarios, etapas — one row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <Select
+          value={presetKey}
+          onValueChange={(v) => {
+            if (v === "custom") {
+              const to = iso(new Date());
+              const from = iso(new Date(Date.now() - 29 * 86400000));
+              onPeriodMonth(`custom:${customFrom || from}:${customTo || to}`);
+            } else {
+              onPeriodMonth(v);
+            }
+          }}
+        >
+          <SelectTrigger className="h-9 w-full" aria-label="Periodo">
+            <SelectValue placeholder="Periodo" />
+          </SelectTrigger>
+          <SelectContent>
+            {PERIOD_PRESETS.map((p) => (
+              <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={productId} onValueChange={setProductId}>
-          <SelectTrigger className="h-9 w-[190px]" aria-label="Producto o servicio">
+          <SelectTrigger className="h-9 w-full" aria-label="Producto o servicio">
             <SelectValue placeholder="Producto/servicio" />
           </SelectTrigger>
           <SelectContent>
@@ -297,7 +305,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Usuario">
+          <SelectTrigger className="h-9 w-full" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
           </SelectTrigger>
           <SelectContent>
@@ -306,7 +314,7 @@ export function DealsPerformanceView({
           </SelectContent>
         </Select>
         <Select value={stageId} onValueChange={setStageId}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Etapa">
+          <SelectTrigger className="h-9 w-full" aria-label="Etapa">
             <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>
@@ -314,12 +322,32 @@ export function DealsPerformanceView({
             {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(productId !== "all" || owner !== "all" || stageId !== "all") && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
+      </div>
+
+      {presetKey === "custom" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="date"
+            value={customFrom}
+            onChange={(e) => onPeriodMonth(`custom:${e.target.value}:${customTo}`)}
+            className="h-9 w-[160px] text-xs"
+          />
+          <Input
+            type="date"
+            value={customTo}
+            onChange={(e) => onPeriodMonth(`custom:${customFrom}:${e.target.value}`)}
+            className="h-9 w-[160px] text-xs"
+          />
+        </div>
+      )}
+
+      {(productId !== "all" || owner !== "all" || stageId !== "all") && (
+        <div>
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
             Limpiar filtros
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {lens === "created"
