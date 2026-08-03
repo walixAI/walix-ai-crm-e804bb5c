@@ -38,6 +38,7 @@ export interface PipelineDeal {
   notes: string | null;
   isWon: boolean;
   isLost: boolean;
+  productCategoryId: string | null;
   createdAt: string;
   updatedAt: string;
 }
