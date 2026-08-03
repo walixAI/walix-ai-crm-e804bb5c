@@ -168,6 +168,14 @@ export function LogFollowUpDialog({
   const currentStageName = stages.find((s) => s.id === effectiveStageId)?.name ?? null;
   const targetStageName = stages.find((s) => s.id === targetStage)?.name ?? null;
 
+  // No se permiten retrocesos: solo etapas posteriores a la actual.
+  const currentPosition = stages.find((s) => s.id === effectiveStageId)?.position ?? -1;
+  const forwardStages = useMemo(
+    () => stages.filter((s) => s.position > currentPosition),
+    [stages, currentPosition],
+  );
+  const behavior = outcome?.stageBehavior ?? "stay";
+
   async function save() {
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
     if (!outcome) return toast.error("Selecciona el resultado");
