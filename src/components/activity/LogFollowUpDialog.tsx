@@ -425,7 +425,16 @@ export function LogFollowUpDialog({
 
           {/* Etapa: sólo si hay sugerencia o el usuario lo pide */}
           {selectedDealId && (
-            showStage ? (
+            behavior === "advance" && targetStage !== "none" ? (
+              <div className="rounded-lg border-2 border-success/40 bg-success/5 p-3">
+                <div className="flex flex-wrap items-center gap-2 text-base">
+                  <WBadge variant="info">{currentStageName ?? "—"}</WBadge>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <WBadge variant="success">{targetStageName}</WBadge>
+                  <span className="text-sm text-muted-foreground">se actualiza sola al guardar</span>
+                </div>
+              </div>
+            ) : showStage ? (
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Etapa</span>
@@ -444,21 +453,24 @@ export function LogFollowUpDialog({
                   <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none" className="text-base">No mover la etapa</SelectItem>
-                    {stages.map((s) => (
+                    {forwardStages.map((s) => (
                       <SelectItem key={s.id} value={s.id} className="text-base">Mover a: {s.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  La oportunidad solo puede avanzar; no se permite regresar a etapas anteriores.
+                </p>
               </div>
-            ) : (
+            ) : forwardStages.length > 0 ? (
               <button
                 type="button"
                 className="text-sm text-muted-foreground underline underline-offset-2"
                 onClick={() => setShowStage(true)}
               >
-                Cambiar la etapa de la oportunidad
+                Avanzar la etapa de la oportunidad
               </button>
-            )
+            ) : null
           )}
         </div>
 
