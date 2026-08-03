@@ -523,6 +523,15 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           </div>
         </Tabs>
       </SheetContent>
+
+      <LogFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        contactId={deal.contactId}
+        dealId={deal.id}
+        stageId={deal.stageId}
+        pipelineId={stages[0]?.pipelineId ?? null}
+      />
     </Sheet>
   );
 }
