@@ -33,9 +33,10 @@ interface Props {
   onClose: () => void;
   contactName?: string;
   contactLastActivityAt?: string | null;
+  defaultTab?: "summary" | "activity" | "history" | "ai";
 }
 
-export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt }: Props) {
+export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt, defaultTab = "summary" }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<any>({});
   const update = useUpdateDeal();
@@ -166,7 +167,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           )}
         </SheetHeader>
 
-        <Tabs defaultValue="summary" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs key={`${deal.id}-${defaultTab}`} defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="mx-5 mt-3 grid grid-cols-4">
             <TabsTrigger value="summary">Resumen</TabsTrigger>
             <TabsTrigger value="activity">Actividad</TabsTrigger>

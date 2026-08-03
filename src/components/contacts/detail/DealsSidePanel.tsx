@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { CheckCircle2, Plus } from "lucide-react";
-import { useContactDeals, useContactTasks } from "@/lib/queries/contacts";
+import { useContactTasks } from "@/lib/queries/contacts";
+import { DealDrawer } from "@/components/pipeline/DealDrawer";
+import { StageStepper } from "./StageStepper";
+import { useContactPipelineDeals, type PipelineDeal } from "@/lib/queries/pipeline";
+import { useContactStageMaps } from "./DealsTab";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +17,10 @@ function fmtDue(iso: string | null) {
 }
 
 export function DealsSidePanel({ contactId }: Props) {
-  const { data: deals = [] } = useContactDeals(contactId);
+  const { data: allDeals = [] } = useContactPipelineDeals(contactId);
+  const deals = allDeals.filter((d) => !d.isWon && !d.isLost);
+  const maps = useContactStageMaps();
+  const [selected, setSelected] = useState<PipelineDeal | null>(null);
   const { data: tasks = [] } = useContactTasks(contactId);
   const [taskOpen, setTaskOpen] = useState(false);
   const now = Date.now();
@@ -34,19 +41,26 @@ export function DealsSidePanel({ contactId }: Props) {
         </div>
         <div className="p-3 space-y-2">
           {deals.map(d => (
-            <div key={d.id} className="p-3 rounded-lg border border-border hover:border-primary/40 transition-colors cursor-pointer">
+            <button
+              key={d.id}
+              onClick={() => setSelected(d)}
+              className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/40 transition-colors cursor-pointer"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="font-medium text-sm leading-tight">{d.name}</div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0 whitespace-nowrap">{d.stage}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0 whitespace-nowrap">{d.stageName}</span>
               </div>
               <div className="text-lg font-bold text-gradient-brand mt-1">${d.amount.toLocaleString("es-MX")}</div>
+              <div className="mt-2">
+                <StageStepper stages={maps.stagesFor(d)} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
+              </div>
               <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1.5 mb-1">
                 <span>Probabilidad</span><span className="font-semibold">{d.probability}%</span>
               </div>
               <div className="h-1 rounded-full bg-muted overflow-hidden">
                 <div className="h-full bg-gradient-brand" style={{ width: `${d.probability}%` }} />
               </div>
-            </div>
+            </button>
           ))}
           {deals.length === 0 && (
             <div className="text-xs text-muted-foreground italic text-center py-4">Sin deals activos</div>
@@ -82,6 +96,13 @@ export function DealsSidePanel({ contactId }: Props) {
         </div>
       </div>
       <QuickTaskDialog open={taskOpen} contactId={contactId} onClose={() => setTaskOpen(false)} />
+      <DealDrawer
+        deal={selected}
+        stages={selected ? maps.stagesFor(selected) : []}
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        defaultTab="history"
+      />
     </div>
   );
 }

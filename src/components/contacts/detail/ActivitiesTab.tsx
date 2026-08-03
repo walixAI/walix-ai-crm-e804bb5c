@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Phone, Users, Mail, FileText, ListChecks, CheckSquare } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useContactActivity } from "@/lib/queries/contacts";
+import { useContactActivity, type ActivityRow } from "@/lib/queries/contacts";
+import { useContactPipelineDeals, useContactStageHistory } from "@/lib/queries/pipeline";
 import { ActivityItem } from "./ActivityItem";
 import { LogActivityDialog, type LogKind } from "./dialogs/LogActivityDialog";
 import { TasksTab } from "./TasksTab";
@@ -23,13 +24,39 @@ export function ActivitiesTab({ contactId }: Props) {
   const [logOpen, setLogOpen] = useState(false);
   const [logKind, setLogKind] = useState<LogKind>("note");
   const { data: activity = [] } = useContactActivity(contactId);
+  const { data: deals = [] } = useContactPipelineDeals(contactId);
+  const { data: stageHistory = [] } = useContactStageHistory(contactId);
+
+  const merged = useMemo(() => {
+    const dealName = new Map(deals.map((d) => [d.id, d.name]));
+    const stageRows: ActivityRow[] = stageHistory.map((h) => {
+      const auto = !!h.metadata?.automatic;
+      const from = h.fromStageName ? `${h.fromStageName} → ` : "";
+      return {
+        id: `stage-${h.id}`,
+        type: "deal",
+        description: `${dealName.get(h.dealId) ?? "Oportunidad"}: ${from}${h.toStageName ?? "—"}`,
+        timestamp: h.changedAt,
+        occurredAt: h.changedAt,
+        createdAt: h.changedAt,
+        updatedAt: null,
+        metadata: { result: auto ? "Avance automático" : "Cambio de etapa" },
+        agent: auto ? "Automatización" : "Sistema",
+        agentInitials: auto ? "IA" : "•",
+        agentId: null,
+      };
+    });
+    return [...activity, ...stageRows].sort(
+      (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+    );
+  }, [activity, stageHistory, deals]);
 
   function openLog(kind: LogKind) { setLogKind(kind); setLogOpen(true); }
 
   const current = FILTERS.find((f) => f.id === tab)!;
   const filtered = current.types
-    ? activity.filter((a) => current.types!.includes(a.type))
-    : activity;
+    ? merged.filter((a) => current.types!.includes(a.type))
+    : merged;
 
   return (
     <div className="space-y-4">
