@@ -243,7 +243,7 @@ export function DealsPerformanceView({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pipeline-desempeno-${periodMonth}.csv`;
+    a.download = `pipeline-desempeno-${periodMonth.replace(/[:]/g, "_")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
