@@ -239,30 +239,6 @@ export function useContactStageHistory(contactId: string | undefined) {
   });
 }
 
-function useStageHistoryLegacy(dealId: string | undefined) {
-  return useQuery({
-    queryKey: ["deal-stage-history", dealId],
-    enabled: !!dealId,
-    queryFn: async (): Promise<StageHistoryRow[]> => {
-      const { data, error } = await supabase
-        .from("deal_stage_history")
-        .select("*")
-        .eq("deal_id", dealId!)
-        .order("changed_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((r: any) => ({
-        id: r.id,
-        fromStageId: r.from_stage_id,
-        toStageId: r.to_stage_id,
-        fromStageName: r.from_stage_name,
-        toStageName: r.to_stage_name,
-        changedAt: r.changed_at,
-        metadata: r.metadata,
-      }));
-    },
-  });
-}
-
 export interface PipelineStageRule {
   id: string;
   pipelineId: string;
