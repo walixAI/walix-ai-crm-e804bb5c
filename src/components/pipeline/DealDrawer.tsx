@@ -29,7 +29,7 @@ import { AiContextPanel } from "@/components/walix/AiContextPanel";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
 import {
-  useDealNotes, useCreateDealNote, useUpdateDealNote, useDeleteDealNote,
+  useDealNotes, useCreateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
 import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
 
@@ -53,7 +53,6 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const [aiScore, setAiScore] = useState<ProbabilityScore | null>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
-  const [editingNote, setEditingNote] = useState<{ id: string; text: string } | null>(null);
 
   useEffect(() => {
     if (deal) {
@@ -69,7 +68,6 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
   const { data: fieldHistory = [] } = useDealFieldHistory(deal?.id);
   const logFieldChange = useLogDealFieldChange(deal?.id);
   const createNote = useCreateDealNote(deal?.id, deal?.contactId ?? null);
-  const updateNote = useUpdateDealNote(deal?.id);
   const deleteNote = useDeleteDealNote(deal?.id);
 
   const lastStageChangeAt = stageHistory[0]?.changedAt ?? deal?.updatedAt ?? null;
