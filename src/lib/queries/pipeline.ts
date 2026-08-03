@@ -61,6 +61,7 @@ function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
     notes: r.notes ?? null,
     isWon: !!r.is_won,
     isLost: !!r.is_lost,
+    productCategoryId: r.product_category_id ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
