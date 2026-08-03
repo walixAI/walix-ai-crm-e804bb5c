@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CircleSlash, PauseCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import { usePipelines, useStages, useContactPipelineDeals } from "@/lib/queries/
 import {
   ACTIVITY_KINDS, filterOutcomes, useActivityOutcomes, useLogFollowUp,
 } from "@/lib/queries/activityOutcomes";
+import {
+  useDealBlockers, useDealLossReasons, useDealDiagnostic, daysSince,
+} from "@/lib/queries/dealDiagnostics";
 
 interface Props {
   open: boolean;
@@ -33,6 +36,15 @@ function defaultNext() {
   return toLocalInput(d);
 }
 
+function dateInput(daysAhead: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Modo de diagnóstico elegido por el usuario. */
+type DiagMode = "none" | "blocked" | "lost";
+
 export function LogFollowUpDialog({
   open, onOpenChange, contactId, dealId = null, stageId = null, pipelineId = null, allowDealPicker = false,
 }: Props) {
@@ -42,6 +54,8 @@ export function LogFollowUpDialog({
   const { data: outcomes = [] } = useActivityOutcomes(resolvedPipelineId);
   const { data: contactDeals = [] } = useContactPipelineDeals(allowDealPicker ? contactId ?? undefined : undefined);
   const log = useLogFollowUp();
+  const { data: blockers = [] } = useDealBlockers();
+  const { data: lossReasons = [] } = useDealLossReasons();
 
   const [kind, setKind] = useState("llamada_saliente");
   const [selectedDealId, setSelectedDealId] = useState<string | null>(dealId);
@@ -52,12 +66,24 @@ export function LogFollowUpDialog({
   const [nextAt, setNextAt] = useState(defaultNext);
   const [nextTitle, setNextTitle] = useState("");
   const [targetStage, setTargetStage] = useState<string>("none");
+  const [diagMode, setDiagMode] = useState<DiagMode>("none");
+  const [blockerId, setBlockerId] = useState<string>("");
+  const [blockerExpected, setBlockerExpected] = useState<string>(() => dateInput(7));
+  const [blockerNote, setBlockerNote] = useState("");
+  const [lossReasonId, setLossReasonId] = useState<string>("");
+  const [clearBlocker, setClearBlocker] = useState(false);
 
   const effectiveDeal = useMemo(
     () => contactDeals.find((d: any) => d.id === selectedDealId) ?? null,
     [contactDeals, selectedDealId],
   );
   const effectiveStageId = effectiveDeal?.stageId ?? stageId ?? null;
+
+  const { data: diagnostic } = useDealDiagnostic(selectedDealId);
+  const activeBlockers = useMemo(() => blockers.filter((b) => b.isActive), [blockers]);
+  const activeLossReasons = useMemo(() => lossReasons.filter((r) => r.isActive), [lossReasons]);
+  const currentBlocker = activeBlockers.find((b) => b.id === diagnostic?.currentBlockerId) ?? null;
+  const blockerAge = daysSince(diagnostic?.blockerSetAt);
 
   const available = useMemo(
     () => filterOutcomes(outcomes, effectiveStageId, kind),
@@ -74,7 +100,19 @@ export function LogFollowUpDialog({
     setHasNext(true);
     setNextAt(defaultNext());
     setNextTitle("");
+    setDiagMode("none");
+    setBlockerId("");
+    setBlockerNote("");
+    setLossReasonId("");
+    setClearBlocker(false);
+    setBlockerExpected(dateInput(7));
   }, [open, dealId]);
+
+  // Al elegir un bloqueo, precargar su fecha esperada de resolución.
+  useEffect(() => {
+    const b = activeBlockers.find((x) => x.id === blockerId);
+    if (b) setBlockerExpected(dateInput(b.defaultResolutionDays));
+  }, [blockerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Al cambiar tipificación, precargar la etapa sugerida y la exigencia de próxima acción.
   useEffect(() => {
@@ -95,6 +133,8 @@ export function LogFollowUpDialog({
     if (!description.trim()) return toast.error("Describe el seguimiento");
     if (!outcome) return toast.error("Selecciona una tipificación");
     if (hasNext && !nextAt) return toast.error("Indica la fecha de la próxima acción");
+    if (diagMode === "blocked" && !blockerId) return toast.error("Indica qué está esperando el lead");
+    if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona el motivo de pérdida");
     try {
       await log.mutateAsync({
         contactId,
@@ -107,6 +147,17 @@ export function LogFollowUpDialog({
         nextActionAt: hasNext ? fromLocalInput(nextAt) : null,
         nextActionTitle: nextTitle,
         moveToStageId: targetStage === "none" ? null : targetStage,
+        blockerId: diagMode === "blocked" ? blockerId : null,
+        blockerLabel: diagMode === "blocked"
+          ? activeBlockers.find((b) => b.id === blockerId)?.label ?? null
+          : null,
+        blockerExpectedAt: diagMode === "blocked" ? blockerExpected || null : null,
+        blockerNote: diagMode === "blocked" ? blockerNote.trim() || null : null,
+        clearBlocker: clearBlocker || diagMode === "lost",
+        lossReasonId: diagMode === "lost" ? lossReasonId : null,
+        lossReasonLabel: diagMode === "lost"
+          ? activeLossReasons.find((r) => r.id === lossReasonId)?.label ?? null
+          : null,
       });
       toast.success(
         targetStage !== "none" && targetStage !== effectiveStageId
@@ -211,6 +262,112 @@ export function LogFollowUpDialog({
               placeholder="¿Qué pasó en esta interacción?"
             />
           </div>
+
+          {selectedDealId && (
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <div>
+                <Label className="text-sm">¿Por qué no avanza?</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Ayuda a detectar patrones: qué frena a los leads y por qué se pierden.
+                </p>
+              </div>
+
+              {currentBlocker && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
+                  <PauseCircle className="h-3.5 w-3.5 text-warning" />
+                  <span className="text-xs font-medium">{currentBlocker.label}</span>
+                  {blockerAge !== null && (
+                    <span className="text-[11px] text-muted-foreground">hace {blockerAge} d</span>
+                  )}
+                  <div className="flex items-center gap-1 ml-auto">
+                    <Switch checked={clearBlocker} onCheckedChange={setClearBlocker} />
+                    <span className="text-[11px] text-muted-foreground">Ya se resolvió</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { v: "none", label: "Sin cambio" },
+                  { v: "blocked", label: "Está esperando" },
+                  { v: "lost", label: "Se perdió" },
+                ] as const).map((opt) => (
+                  <Button
+                    key={opt.v}
+                    type="button"
+                    size="sm"
+                    variant={diagMode === opt.v ? "default" : "outline"}
+                    className="h-8 text-xs"
+                    onClick={() => setDiagMode(opt.v)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+
+              {diagMode === "blocked" && (
+                <div className="space-y-2">
+                  <Label className="text-xs">¿Qué está esperando el lead?</Label>
+                  {activeBlockers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No hay bloqueos configurados. Agrégalos en Ajustes → Seguimiento.
+                    </p>
+                  ) : (
+                    <Select value={blockerId} onValueChange={setBlockerId}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+                      <SelectContent>
+                        {activeBlockers.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <div>
+                    <Label className="text-xs">Se resuelve aproximadamente el</Label>
+                    <Input
+                      type="date"
+                      className="h-9"
+                      value={blockerExpected}
+                      onChange={(e) => setBlockerExpected(e.target.value)}
+                    />
+                  </div>
+                  <Input
+                    className="h-9"
+                    value={blockerNote}
+                    onChange={(e) => setBlockerNote(e.target.value)}
+                    maxLength={200}
+                    placeholder="Nota (opcional): ¿qué dijo textualmente?"
+                  />
+                </div>
+              )}
+
+              {diagMode === "lost" && (
+                <div className="space-y-2">
+                  <Label className="text-xs flex items-center gap-1">
+                    <CircleSlash className="h-3.5 w-3.5 text-danger" /> Motivo de pérdida
+                  </Label>
+                  {activeLossReasons.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No hay motivos configurados. Agrégalos en Ajustes → Seguimiento.
+                    </p>
+                  ) : (
+                    <Select value={lossReasonId} onValueChange={setLossReasonId}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+                      <SelectContent>
+                        {activeLossReasons.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    La oportunidad se marcará como perdida.
+                    {currentBlocker && ` Se conservará "${currentBlocker.label}" como última señal conocida.`}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="rounded-lg border border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
