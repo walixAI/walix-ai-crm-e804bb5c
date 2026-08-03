@@ -4,6 +4,30 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { logAudit, fetchAuditLog, type AuditEntry } from "@/services/audit";
+
+const EXPENSE_TRACKED_FIELDS = ["amount", "category_id", "incurred_at", "description", "status", "kind"] as const;
+
+/** Deja solo los campos relevantes de un gasto para el historial. */
+function pickExpenseFields(row: any): Record<string, unknown> {
+  if (!row) return {};
+  const out: Record<string, unknown> = {};
+  for (const f of EXPENSE_TRACKED_FIELDS) if (f in row) out[f] = row[f];
+  return out;
+}
+
+/** Compara valores previos contra el parche y devuelve solo lo que cambió. */
+function diffFields(before: Record<string, unknown>, patch: Record<string, unknown>) {
+  const changes: Record<string, { before: unknown; after: unknown }> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    const prev = before[k];
+    const same = Number.isFinite(Number(prev)) && Number.isFinite(Number(v))
+      ? Number(prev) === Number(v)
+      : (prev ?? null) === (v ?? null);
+    if (!same) changes[k] = { before: prev ?? null, after: v ?? null };
+  }
+  return changes;
+}
 
 export interface ExpenseCategory {
   id: string;
@@ -172,17 +196,28 @@ export function useDraftExpenses() {
 
 export function useConfirmExpense() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (input: { id: string; amount?: number }) => {
       const patch: any = { status: "confirmed" };
       if (typeof input.amount === "number") patch.amount = input.amount;
+      const { data: before } = await supabase
+        .from("expenses" as any).select("*").eq("id", input.id).maybeSingle();
       const { error } = await supabase.from("expenses" as any).update(patch).eq("id", input.id);
       if (error) throw error;
+      await logAudit({
+        action: "expense.confirmed",
+        tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+        targetType: "expense",
+        targetId: input.id,
+        metadata: { changes: diffFields(pickExpenseFields(before), patch) },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
@@ -266,37 +301,57 @@ export function useCreateExpense() {
       receipt_url?: string | null;
     }) => {
       if (!tenantId || !user?.id) throw new Error("Sin sesión");
-      const { error } = await supabase.from("expenses" as any).insert({
+      const { data, error } = await supabase.from("expenses" as any).insert({
         tenant_id: tenantId,
         owner_id: user.id,
         currency: "MXN",
         ...input,
-      } as any);
+      } as any).select("id").single();
       if (error) throw error;
+      await logAudit({
+        action: "expense.created",
+        tenantId,
+        targetType: "expense",
+        targetId: (data as any)?.id ?? null,
+        metadata: { after: input },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
 
 export function useDeleteExpense() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: before } = await supabase
+        .from("expenses" as any).select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("expenses" as any).delete().eq("id", id);
       if (error) throw error;
+      await logAudit({
+        action: "expense.deleted",
+        tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+        targetType: "expense",
+        targetId: id,
+        metadata: { before: pickExpenseFields(before) },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
 
 export function useUpdateExpense() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (input: {
       id: string;
@@ -306,14 +361,27 @@ export function useUpdateExpense() {
       description?: string | null;
     }) => {
       const { id, ...patch } = input;
+      const { data: before } = await supabase
+        .from("expenses" as any).select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("expenses" as any).update(patch as any).eq("id", id);
       if (error) throw error;
+      const changes = diffFields(pickExpenseFields(before), patch);
+      if (Object.keys(changes).length > 0) {
+        await logAudit({
+          action: "expense.updated",
+          tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+          targetType: "expense",
+          targetId: id,
+          metadata: { kind: (before as any)?.kind ?? null, changes },
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
       qc.invalidateQueries({ queryKey: ["month-expense-breakdown"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
@@ -535,33 +603,91 @@ export function useUpsertRecurring() {
     mutationFn: async (input: Partial<RecurringExpense> & { amount: number; day_of_month: number; category_id: string | null }) => {
       if (!tenantId) throw new Error("Sin tenant");
       if (input.id) {
+        const { data: before } = await supabase
+          .from("recurring_expenses" as any).select("*").eq("id", input.id).maybeSingle();
         const { error } = await supabase.from("recurring_expenses" as any).update({
           amount: input.amount, day_of_month: input.day_of_month,
           category_id: input.category_id, description: input.description ?? null,
           is_active: input.is_active ?? true,
         } as any).eq("id", input.id);
         if (error) throw error;
+        const changes = diffFields(
+          {
+            amount: (before as any)?.amount, day_of_month: (before as any)?.day_of_month,
+            category_id: (before as any)?.category_id, description: (before as any)?.description,
+            is_active: (before as any)?.is_active,
+          },
+          {
+            amount: input.amount, day_of_month: input.day_of_month,
+            category_id: input.category_id, description: input.description ?? null,
+            is_active: input.is_active ?? true,
+          },
+        );
+        if (Object.keys(changes).length > 0) {
+          await logAudit({
+            action: "recurring_expense.updated",
+            tenantId,
+            targetType: "recurring_expense",
+            targetId: input.id,
+            metadata: { changes },
+          });
+        }
       } else {
-        const { error } = await supabase.from("recurring_expenses" as any).insert({
+        const { data, error } = await supabase.from("recurring_expenses" as any).insert({
           tenant_id: tenantId,
           amount: input.amount, day_of_month: input.day_of_month,
           category_id: input.category_id, description: input.description ?? null,
-        } as any);
+        } as any).select("id").single();
         if (error) throw error;
+        await logAudit({
+          action: "recurring_expense.created",
+          tenantId,
+          targetType: "recurring_expense",
+          targetId: (data as any)?.id ?? null,
+          metadata: {
+            after: {
+              amount: input.amount, day_of_month: input.day_of_month,
+              category_id: input.category_id, description: input.description ?? null,
+            },
+          },
+        });
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recurring-expenses"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
+    },
   });
 }
 
 export function useDeleteRecurring() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: before } = await supabase
+        .from("recurring_expenses" as any).select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("recurring_expenses" as any).delete().eq("id", id);
       if (error) throw error;
+      await logAudit({
+        action: "recurring_expense.deleted",
+        tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+        targetType: "recurring_expense",
+        targetId: id,
+        metadata: {
+          before: {
+            amount: (before as any)?.amount ?? null,
+            day_of_month: (before as any)?.day_of_month ?? null,
+            category_id: (before as any)?.category_id ?? null,
+            description: (before as any)?.description ?? null,
+          },
+        },
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-expenses"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recurring-expenses"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
+    },
   });
 }
 
@@ -689,3 +815,74 @@ export function useMonthExpenseBreakdown() {
     },
   });
 }
+
+// ================ Historial de cambios de gastos ================
+
+export interface ExpenseHistoryEntry extends AuditEntry {}
+
+const EXPENSE_ACTIONS = [
+  "expense.created", "expense.updated", "expense.deleted", "expense.confirmed",
+  "recurring_expense.created", "recurring_expense.updated", "recurring_expense.deleted",
+];
+
+/** Historial de un gasto o plantilla recurrente en particular. */
+export function useExpenseHistory(targetId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["expense-history", targetId],
+    enabled: !!targetId,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_log")
+        .select("*")
+        .eq("target_id", targetId!)
+        .in("action", EXPENSE_ACTIONS)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpenseHistoryEntry[];
+    },
+  });
+}
+
+/** Historial completo de gastos del tenant (solo admin/gerente lo consulta). */
+export function useExpensesAuditLog(limit = 100) {
+  const { data: tenantId } = useTenantId();
+  return useQuery({
+    queryKey: ["expense-history", "tenant", tenantId, limit],
+    enabled: !!tenantId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_log")
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .in("action", EXPENSE_ACTIONS)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpenseHistoryEntry[];
+    },
+  });
+}
+
+export const EXPENSE_ACTION_LABEL: Record<string, string> = {
+  "expense.created": "Gasto registrado",
+  "expense.updated": "Gasto editado",
+  "expense.deleted": "Gasto eliminado",
+  "expense.confirmed": "Gasto confirmado",
+  "recurring_expense.created": "Plantilla fija creada",
+  "recurring_expense.updated": "Plantilla fija editada",
+  "recurring_expense.deleted": "Plantilla fija eliminada",
+};
+
+export const EXPENSE_FIELD_LABEL: Record<string, string> = {
+  amount: "Monto",
+  category_id: "Categoría",
+  incurred_at: "Fecha",
+  description: "Descripción",
+  status: "Estado",
+  kind: "Tipo",
+  day_of_month: "Día del mes",
+  is_active: "Activa",
+};

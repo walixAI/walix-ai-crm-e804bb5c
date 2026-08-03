@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Filter, Zap, Check, Pencil } from "lucide-react";
+import { Plus, Trash2, Filter, Zap, Check, Pencil, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,7 @@ import {
   type Expense,
 } from "@/lib/queries/expenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
+import { ExpenseHistoryList } from "@/components/expenses/ExpenseHistoryList";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -191,6 +192,19 @@ export default function Expenses() {
         onOpenChange={(v) => { if (!v) setEditing(null); }}
         expense={editing}
       />
+
+      {canSeeAll && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-4 w-4" /> Historial de cambios
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExpenseHistoryList limit={40} emptyLabel="Aún no hay cambios registrados en gastos." />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   type Expense,
 } from "@/lib/queries/expenses";
 import { toast } from "sonner";
+import { ExpenseHistoryList } from "@/components/expenses/ExpenseHistoryList";
 
 interface Props {
   open: boolean;
@@ -109,6 +110,14 @@ export function ExpenseFormDialog({ open, onOpenChange, expense = null }: Props)
             <Label>Descripción (opcional)</Label>
             <Textarea rows={2} value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalle del gasto..." />
           </div>
+          {isEdit && (
+            <div>
+              <Label>Historial de cambios</Label>
+              <div className="mt-2 max-h-48 overflow-y-auto">
+                <ExpenseHistoryList targetId={expense!.id} />
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
