@@ -1,4 +1,4 @@
-import { ChevronDown, KanbanSquare, List, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
+import { Activity, ChevronDown, KanbanSquare, List, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,8 +11,8 @@ import { RunRateChip } from "@/components/walix/RunRateChip";
 import type { Pipeline } from "@/lib/queries/pipeline";
 
 interface Props {
-  view: "kanban" | "list";
-  onView: (v: "kanban" | "list") => void;
+  view: "kanban" | "list" | "performance";
+  onView: (v: "kanban" | "list" | "performance") => void;
   filters: PipelineFiltersValue;
   onFilters: (v: PipelineFiltersValue) => void;
   search: string;
@@ -94,6 +94,9 @@ export function PipelineHeader({
             </ToggleGroupItem>
             <ToggleGroupItem value="list" size="sm" aria-label="Lista">
               <List className="h-3.5 w-3.5" /> Lista
+            </ToggleGroupItem>
+            <ToggleGroupItem value="performance" size="sm" aria-label="Desempeño">
+              <Activity className="h-3.5 w-3.5" /> Desempeño
             </ToggleGroupItem>
           </ToggleGroup>
 

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 export interface PipelinePrefs {
-  view: "kanban" | "list";
+  view: "kanban" | "list" | "performance";
   search: string;
   pipelineId: string | null;
+  perfLens: "created" | "active";
+  perfMonth: string | null; // "YYYY-MM"
   filters: {
     ownerName: string;
     amountMin: string;
@@ -18,6 +20,8 @@ const DEFAULT_PREFS: PipelinePrefs = {
   view: "kanban",
   search: "",
   pipelineId: null,
+  perfLens: "active",
+  perfMonth: null,
   filters: {
     ownerName: "all",
     amountMin: "",

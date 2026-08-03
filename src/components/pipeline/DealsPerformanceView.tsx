@@ -1,0 +1,326 @@
+import { useMemo, useState } from "react";
+import { ArrowUpDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { StageStepper } from "@/components/contacts/detail/StageStepper";
+import { HealthBadges } from "./HealthBadges";
+import { computeDealHealth } from "@/lib/dealHealth";
+import { daysSince, formatMXN, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
+import { cn } from "@/lib/utils";
+
+export type PerformanceLens = "created" | "active";
+
+interface Props {
+  deals: PipelineDeal[];
+  stages: PipelineStage[];
+  contactName: (id: string | null) => string | undefined;
+  contactLastActivityById: Map<string, string | null>;
+  onOpenDeal: (deal: PipelineDeal) => void;
+  lens: PerformanceLens;
+  onLens: (v: PerformanceLens) => void;
+  periodMonth: string; // "YYYY-MM"
+  onPeriodMonth: (v: string) => void;
+}
+
+type SortKey = "name" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
+type Chip = "all" | "risk" | "stale" | "overdue" | "closing";
+
+function monthRange(periodMonth: string) {
+  const [y, m] = periodMonth.split("-").map(Number);
+  const start = new Date(y, m - 1, 1);
+  const end = new Date(y, m, 1);
+  return { start, end };
+}
+
+function shiftMonth(periodMonth: string, delta: number) {
+  const { start } = monthRange(periodMonth);
+  const d = new Date(start.getFullYear(), start.getMonth() + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function DealsPerformanceView({
+  deals, stages, contactName, contactLastActivityById, onOpenDeal,
+  lens, onLens, periodMonth, onPeriodMonth,
+}: Props) {
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
+  const [chip, setChip] = useState<Chip>("all");
+
+  const { start, end } = useMemo(() => monthRange(periodMonth), [periodMonth]);
+  const isCurrentMonth = periodMonth === currentMonthKey();
+
+  const periodLabel = start.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+
+  // Base set according to lens
+  const base = useMemo(() => {
+    return deals.filter((d) => {
+      const created = new Date(d.createdAt);
+      if (lens === "created") return created >= start && created < end;
+      // active: open deals that existed during the period
+      if (d.isWon || d.isLost) return false;
+      return created < end;
+    });
+  }, [deals, lens, start, end]);
+
+  // Deals closed (won/lost) inside the period — shown apart, never in the open pipeline
+  const closedInPeriod = useMemo(
+    () => deals.filter((d) => (d.isWon || d.isLost) && new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end),
+    [deals, start, end],
+  );
+
+  const rows = useMemo(() => {
+    return base.map((d) => ({
+      deal: d,
+      health: computeDealHealth(d, d.contactId ? contactLastActivityById.get(d.contactId) : null),
+    }));
+  }, [base, contactLastActivityById]);
+
+  const closingInPeriod = (d: PipelineDeal) =>
+    !!d.expectedCloseDate && new Date(d.expectedCloseDate) >= start && new Date(d.expectedCloseDate) < end;
+
+  const chipped = useMemo(() => {
+    switch (chip) {
+      case "risk": return rows.filter((r) => r.health.signals.length > 0);
+      case "stale": return rows.filter((r) => r.health.daysInStage > 14);
+      case "overdue": return rows.filter((r) => r.health.isOverdue);
+      case "closing": return rows.filter((r) => closingInPeriod(r.deal));
+      default: return rows;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, chip, start, end]);
+
+  const sorted = useMemo(() => {
+    const arr = [...chipped];
+    arr.sort((a, b) => {
+      const dir = sort.dir === "asc" ? 1 : -1;
+      switch (sort.key) {
+        case "name": return a.deal.name.localeCompare(b.deal.name) * dir;
+        case "amount": return (a.deal.amount - b.deal.amount) * dir;
+        case "stage": return a.deal.stageName.localeCompare(b.deal.stageName) * dir;
+        case "probability": return (a.deal.probability - b.deal.probability) * dir;
+        case "owner": return a.deal.ownerName.localeCompare(b.deal.ownerName) * dir;
+        case "days": return (a.health.daysInStage - b.health.daysInStage) * dir;
+        case "close": return ((a.deal.expectedCloseDate ?? "") > (b.deal.expectedCloseDate ?? "") ? 1 : -1) * dir;
+      }
+    });
+    return arr;
+  }, [chipped, sort]);
+
+  // Summary over the lens set (not the chip filter)
+  const totalAmount = rows.reduce((s, r) => s + r.deal.amount, 0);
+  const weighted = rows.reduce((s, r) => s + (r.deal.amount * r.deal.probability) / 100, 0);
+  const riskCount = rows.filter((r) => r.health.signals.length > 0).length;
+  const staleCount = rows.filter((r) => r.health.daysInStage > 14).length;
+  const overdueCount = rows.filter((r) => r.health.isOverdue).length;
+  const avgDays = rows.length ? Math.round(rows.reduce((s, r) => s + r.health.daysInStage, 0) / rows.length) : 0;
+  const wonAmount = closedInPeriod.filter((d) => d.isWon).reduce((s, d) => s + d.amount, 0);
+
+  function toggle(k: SortKey) {
+    setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
+  }
+
+  function exportCsv() {
+    const headers = ["Deal", "Contacto", "Monto MXN", "Etapa", "Probabilidad", "Vendedor", "Días en etapa", "Días sin actividad", "Salud", "Fecha cierre"];
+    const rowsCsv = sorted.map(({ deal: d, health }) => [
+      d.name,
+      contactName(d.contactId) ?? "",
+      d.amount.toString(),
+      d.stageName,
+      `${d.probability}%`,
+      d.ownerName,
+      health.daysInStage.toString(),
+      health.daysSinceContactActivity?.toString() ?? "",
+      health.signals.join(" / "),
+      d.expectedCloseDate ?? "",
+    ]);
+    const meta = [[`Lente: ${lens === "created" ? "Activadas en el periodo" : "Activas en el periodo"}`], [`Periodo: ${periodLabel}`], []];
+    const csv = [...meta, headers, ...rowsCsv]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pipeline-desempeno-${periodMonth}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const SortBtn = ({ k, label }: { k: SortKey; label: string }) => (
+    <button onClick={() => toggle(k)} className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+      {label} <ArrowUpDown className={cn("h-3 w-3", sort.key === k ? "text-primary" : "text-muted-foreground/60")} />
+    </button>
+  );
+
+  const chips: { key: Chip; label: string; count: number }[] = [
+    { key: "all", label: "Todas", count: rows.length },
+    { key: "risk", label: "En riesgo", count: riskCount },
+    { key: "stale", label: "Estancadas +14d", count: staleCount },
+    { key: "overdue", label: "Vencidas", count: overdueCount },
+    { key: "closing", label: "Cierran en el periodo", count: rows.filter((r) => closingInPeriod(r.deal)).length },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {/* Period + lens */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onPeriodMonth(shiftMonth(periodMonth, -1))} aria-label="Mes anterior">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium capitalize min-w-[140px] text-center">{periodLabel}</span>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onPeriodMonth(shiftMonth(periodMonth, 1))} aria-label="Mes siguiente">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          {!isCurrentMonth && (
+            <Button variant="ghost" size="sm" className="h-8" onClick={() => onPeriodMonth(currentMonthKey())}>
+              Mes actual
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={lens}
+            onValueChange={(v) => v && onLens(v as PerformanceLens)}
+            className="border border-border rounded-md"
+          >
+            <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
+            <ToggleGroupItem value="created" size="sm">Activadas en el periodo</ToggleGroupItem>
+          </ToggleGroup>
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download className="h-3.5 w-3.5" /> Exportar CSV
+          </Button>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {lens === "created"
+          ? `Oportunidades creadas en ${periodLabel}, sin importar cuándo cierren.`
+          : `Oportunidades abiertas que estuvieron vivas durante ${periodLabel}, sin importar cuándo se crearon ni cuándo cierren.`}
+        {" "}La salud se calcula al día de hoy.
+      </p>
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <SummaryCell label="Oportunidades" value={String(rows.length)} />
+        <SummaryCell label="Monto total" value={formatMXN(totalAmount)} tone="success" />
+        <SummaryCell label="Ponderado" value={formatMXN(weighted)} />
+        <SummaryCell label="En riesgo" value={String(riskCount)} tone={riskCount ? "warning" : undefined} />
+        <SummaryCell label="Vencidas" value={String(overdueCount)} tone={overdueCount ? "danger" : undefined} />
+        <SummaryCell label="Días prom. en etapa" value={`${avgDays}d`} />
+      </div>
+
+      {closedInPeriod.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Aparte: {closedInPeriod.length} oportunidad{closedInPeriod.length === 1 ? "" : "es"} cerrada{closedInPeriod.length === 1 ? "" : "s"} en {periodLabel}
+          {wonAmount > 0 ? ` · ${formatMXN(wonAmount)} ganados` : ""}.
+        </p>
+      )}
+
+      {/* Chips */}
+      <div className="flex flex-wrap gap-2">
+        {chips.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setChip(c.key)}
+            className={cn(
+              "text-xs rounded-full border px-2.5 py-1 transition-colors",
+              chip === c.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:text-foreground",
+            )}
+          >
+            {c.label} · {c.count}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead><SortBtn k="name" label="Oportunidad" /></TableHead>
+              <TableHead className="text-right"><SortBtn k="amount" label="Monto" /></TableHead>
+              <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
+              <TableHead className="min-w-[160px]"><SortBtn k="stage" label="Etapa" /></TableHead>
+              <TableHead><SortBtn k="days" label="Días" /></TableHead>
+              <TableHead>Salud</TableHead>
+              <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
+              <TableHead><SortBtn k="close" label="Cierre" /></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.map(({ deal: d, health }) => (
+              <TableRow key={d.id} className="cursor-pointer" onClick={() => onOpenDeal(d)}>
+                <TableCell>
+                  <div className="font-medium">{d.name}</div>
+                  <div className="text-xs text-muted-foreground">{contactName(d.contactId) ?? "Sin contacto"}</div>
+                </TableCell>
+                <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
+                <TableCell className="text-sm">{d.probability}%</TableCell>
+                <TableCell className="min-w-[160px]">
+                  <StageStepper stages={stages} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
+                </TableCell>
+                <TableCell className="text-xs">
+                  <div>{health.daysInStage}d en etapa</div>
+                  <div className="text-muted-foreground">
+                    {health.daysSinceContactActivity === null ? "Sin actividad" : `${health.daysSinceContactActivity}d sin contacto`}
+                  </div>
+                </TableCell>
+                <TableCell><HealthBadges health={health} /></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[9px] text-white" style={{ backgroundColor: d.ownerColor }}>
+                        {d.ownerInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs">{d.ownerName}</span>
+                  </div>
+                </TableCell>
+                <TableCell className={cn("text-sm", health.isOverdue && "text-destructive font-medium")}>
+                  {d.expectedCloseDate ? new Date(d.expectedCloseDate).toLocaleDateString("es-MX") : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {sorted.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                  Sin oportunidades para este periodo y lente.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function SummaryCell({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" | "danger" }) {
+  return (
+    <div className="rounded-xl border border-border bg-card px-3 py-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div
+        className={cn(
+          "text-lg font-bold tracking-tight",
+          tone === "success" && "text-success",
+          tone === "warning" && "text-warning",
+          tone === "danger" && "text-destructive",
+        )}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
