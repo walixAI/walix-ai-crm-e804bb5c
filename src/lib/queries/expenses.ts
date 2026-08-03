@@ -266,37 +266,57 @@ export function useCreateExpense() {
       receipt_url?: string | null;
     }) => {
       if (!tenantId || !user?.id) throw new Error("Sin sesión");
-      const { error } = await supabase.from("expenses" as any).insert({
+      const { data, error } = await supabase.from("expenses" as any).insert({
         tenant_id: tenantId,
         owner_id: user.id,
         currency: "MXN",
         ...input,
-      } as any);
+      } as any).select("id").single();
       if (error) throw error;
+      await logAudit({
+        action: "expense.created",
+        tenantId,
+        targetType: "expense",
+        targetId: (data as any)?.id ?? null,
+        metadata: { after: input },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
 
 export function useDeleteExpense() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: before } = await supabase
+        .from("expenses" as any).select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("expenses" as any).delete().eq("id", id);
       if (error) throw error;
+      await logAudit({
+        action: "expense.deleted",
+        tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+        targetType: "expense",
+        targetId: id,
+        metadata: { before: pickExpenseFields(before) },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
 
 export function useUpdateExpense() {
   const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (input: {
       id: string;
@@ -306,14 +326,27 @@ export function useUpdateExpense() {
       description?: string | null;
     }) => {
       const { id, ...patch } = input;
+      const { data: before } = await supabase
+        .from("expenses" as any).select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("expenses" as any).update(patch as any).eq("id", id);
       if (error) throw error;
+      const changes = diffFields(pickExpenseFields(before), patch);
+      if (Object.keys(changes).length > 0) {
+        await logAudit({
+          action: "expense.updated",
+          tenantId: (before as any)?.tenant_id ?? tenantId ?? null,
+          targetType: "expense",
+          targetId: id,
+          metadata: { kind: (before as any)?.kind ?? null, changes },
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
       qc.invalidateQueries({ queryKey: ["month-profit"] });
       qc.invalidateQueries({ queryKey: ["month-expense-breakdown"] });
+      qc.invalidateQueries({ queryKey: ["expense-history"] });
     },
   });
 }
