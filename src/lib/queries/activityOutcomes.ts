@@ -185,6 +185,15 @@ export function useLogFollowUp() {
           patch.is_lost = true;
           patch.lost_reason = input.lossReasonLabel ?? null;
         }
+        // Tipificación terminal: cierra la oportunidad
+        if (input.outcome?.isWon) {
+          patch.is_won = true;
+          patch.is_lost = false;
+        }
+        if (input.outcome?.isLost) {
+          patch.is_lost = true;
+          patch.is_won = false;
+        }
         // Una actividad entrante significa que el cliente sí respondió
         if (k?.direction === "in") {
           patch.last_inbound_at = input.occurredAt;
