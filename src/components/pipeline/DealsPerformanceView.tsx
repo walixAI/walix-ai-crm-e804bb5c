@@ -384,23 +384,6 @@ export function DealsPerformanceView({
         </div>
       )}
 
-      {/* Summary strip */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <SummaryCell label="Oportunidades" value={String(rows.length)} />
-        <SummaryCell label="Monto total" value={formatMXN(totalAmount)} tone="success" />
-        <SummaryCell label="Ponderado" value={formatMXN(weighted)} />
-        <SummaryCell label="En riesgo" value={String(riskCount)} tone={riskCount ? "warning" : undefined} />
-        <SummaryCell label="Vencidas" value={String(overdueCount)} tone={overdueCount ? "danger" : undefined} />
-        <SummaryCell label="Días prom. en etapa" value={`${avgDays}d`} />
-      </div>
-
-      {closedInPeriod.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Aparte: {closedInPeriod.length} oportunidad{closedInPeriod.length === 1 ? "" : "es"} cerrada{closedInPeriod.length === 1 ? "" : "s"} en {periodLabel}
-          {wonAmount > 0 ? ` · ${formatMXN(wonAmount)} ganados` : ""}.
-        </p>
-      )}
-
       {/* Funnel */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -415,26 +398,26 @@ export function DealsPerformanceView({
           <p className="text-sm text-muted-foreground">Sin oportunidades para calcular el embudo.</p>
         ) : (
           <>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <div className="flex items-stretch gap-1 w-full">
               {funnel.map((f, i) => {
                 const color = `hsl(var(--funnel-${(i % 6) + 1}))`;
                 return (
-                  <div key={f.stage.id} className="flex items-center gap-1.5 shrink-0">
+                  <div key={f.stage.id} className="flex-1 min-w-0 flex items-center gap-1">
                     {i > 0 && (
-                      <div className="flex items-center text-muted-foreground text-[10px] font-semibold">
+                      <div className="flex items-center text-muted-foreground text-[10px] font-semibold shrink-0">
                         <ChevronRight className="h-3.5 w-3.5" />
                         {f.stepPct}%
                       </div>
                     )}
                     <button
                       onClick={() => setOpenStage(openStage ? null : "matrix")}
-                      className="min-w-[120px] text-left rounded-lg border px-3 py-2 transition-opacity hover:opacity-80"
+                      className="flex-1 min-w-0 text-left rounded-lg border px-2 py-1 transition-opacity hover:opacity-80"
                       style={{ borderColor: color, backgroundColor: `hsl(var(--funnel-${(i % 6) + 1}) / 0.12)` }}
                       title="Ver desglose por vendedor"
                     >
-                      <div className="text-[11px] truncate font-medium" style={{ color }}>{f.stage.name}</div>
-                      <div className="text-lg font-bold leading-tight">{f.count}</div>
-                      <div className="text-[10px] text-muted-foreground">{f.totalPct}% del inicio</div>
+                      <div className="text-[10px] truncate font-medium" style={{ color }}>{f.stage.name}</div>
+                      <div className="text-base font-bold leading-none">{f.count}</div>
+                      <div className="text-[9px] text-muted-foreground">{f.totalPct}% del inicio</div>
                     </button>
                   </div>
                 );
@@ -569,6 +552,23 @@ export function DealsPerformanceView({
           </TableBody>
         </Table>
       </div>
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <SummaryCell label="Oportunidades" value={String(rows.length)} />
+        <SummaryCell label="Monto total" value={formatMXN(totalAmount)} tone="success" />
+        <SummaryCell label="Ponderado" value={formatMXN(weighted)} />
+        <SummaryCell label="En riesgo" value={String(riskCount)} tone={riskCount ? "warning" : undefined} />
+        <SummaryCell label="Vencidas" value={String(overdueCount)} tone={overdueCount ? "danger" : undefined} />
+        <SummaryCell label="Días prom. en etapa" value={`${avgDays}d`} />
+      </div>
+
+      {closedInPeriod.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Aparte: {closedInPeriod.length} oportunidad{closedInPeriod.length === 1 ? "" : "es"} cerrada{closedInPeriod.length === 1 ? "" : "s"} en {periodLabel}
+          {wonAmount > 0 ? ` · ${formatMXN(wonAmount)} ganados` : ""}.
+        </p>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {lens === "created"
