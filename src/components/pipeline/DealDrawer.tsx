@@ -372,6 +372,26 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 
               <div className="space-y-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Cambios de monto y fecha
+                </div>
+                {fieldHistory.length === 0 && (
+                  <div className="text-sm text-muted-foreground italic py-3 text-center">
+                    Sin cambios registrados.
+                  </div>
+                )}
+                {fieldHistory.map((h) => (
+                  <div key={h.id} className="rounded-md border border-border bg-card px-3 py-2">
+                    <div className="text-sm">{h.description}</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {format(new Date(h.changedAt), "PPP HH:mm", { locale: es })}
+                      {h.changedByName ? ` · ${h.changedByName}` : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
                   Cambios de etapa
                 </div>
                 {stageHistory.length === 0 && (
