@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useUpdateDeal, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
+import { useDealLossReasons } from "@/lib/queries/dealDiagnostics";
 
+/** Catálogo de respaldo cuando el tenant aún no tiene motivos configurados. */
 export const LOST_REASONS = [
   { value: "price", label: "Precio" },
   { value: "timing", label: "Timing" },
@@ -19,7 +21,7 @@ export const LOST_REASONS = [
 ] as const;
 
 const schema = z.object({
-  reason: z.enum(["price", "timing", "competition", "no_response", "other"]),
+  reason: z.string().trim().min(1, "Selecciona un motivo"),
   comment: z.string().trim().max(500, "Máximo 500 caracteres").optional(),
 });
 
@@ -31,16 +33,19 @@ interface Props {
 }
 
 export function LostReasonDialog({ open, deal, lostStage, onClose }: Props) {
-  const [reason, setReason] = useState<string>("price");
+  const { data: catalog = [] } = useDealLossReasons();
+  const options = catalog.filter((r) => r.isActive);
+  const useCatalog = options.length > 0;
+  const [reason, setReason] = useState<string>("");
   const [comment, setComment] = useState("");
   const update = useUpdateDeal();
 
   useEffect(() => {
     if (open) {
-      setReason("price");
+      setReason(useCatalog ? options[0]?.id ?? "" : "price");
       setComment("");
     }
-  }, [open]);
+  }, [open, useCatalog, options.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function confirm() {
     if (!deal || !lostStage) return;
@@ -49,6 +54,9 @@ export function LostReasonDialog({ open, deal, lostStage, onClose }: Props) {
       toast.error(parsed.error.issues[0]?.message ?? "Datos inválidos");
       return;
     }
+    const label = useCatalog
+      ? options.find((r) => r.id === parsed.data.reason)?.label ?? parsed.data.reason
+      : LOST_REASONS.find((r) => r.value === parsed.data.reason)?.label ?? parsed.data.reason;
     try {
       await update.mutateAsync({
         dealId: deal.id,
@@ -57,9 +65,10 @@ export function LostReasonDialog({ open, deal, lostStage, onClose }: Props) {
           stage_name: lostStage.name,
           is_won: false,
           is_lost: true,
-          lost_reason: parsed.data.reason,
+          lost_reason: label,
           lost_comment: parsed.data.comment ?? null,
-        },
+          ...(useCatalog ? { loss_reason_id: parsed.data.reason } : {}),
+        } as any,
       });
       toast.success("Deal marcado como perdido");
       onClose(true);
@@ -82,7 +91,10 @@ export function LostReasonDialog({ open, deal, lostStage, onClose }: Props) {
           <div className="space-y-2">
             <Label className="text-sm font-medium">Motivo principal</Label>
             <RadioGroup value={reason} onValueChange={setReason} className="grid grid-cols-2 gap-2">
-              {LOST_REASONS.map((r) => (
+              {(useCatalog
+                ? options.map((o) => ({ value: o.id, label: o.label }))
+                : LOST_REASONS.map((o) => ({ value: o.value, label: o.label }))
+              ).map((r) => (
                 <label
                   key={r.value}
                   htmlFor={`lr-${r.value}`}
