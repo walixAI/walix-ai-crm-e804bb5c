@@ -217,6 +217,37 @@ export function DealsPerformanceView({
   const funnelEnd = funnel.length ? funnel[funnel.length - 1].count : 0;
   const funnelConversionPct = funnelTop ? Math.round((funnelEnd / funnelTop) * 100) : 0;
 
+  // Matriz por vendedor: filas = vendedor, columnas = etapas alcanzadas
+  const sellerMatrix = useMemo(() => {
+    const ordered = [...stages].sort((a, b) => a.position - b.position);
+    const idx = new Map(ordered.map((s, i) => [s.id, i]));
+    const bySeller = new Map<string, PipelineDeal[]>();
+    for (const r of rows) {
+      const key = r.deal.ownerName || "Sin asignar";
+      const arr = bySeller.get(key) ?? [];
+      arr.push(r.deal);
+      bySeller.set(key, arr);
+    }
+    return Array.from(bySeller.entries())
+      .map(([name, ds]) => {
+        const cells = ordered.map((_, i) => {
+          const count = ds.filter((d) => {
+            const di = d.stageId ? idx.get(d.stageId) : undefined;
+            return di !== undefined && di >= i;
+          }).length;
+          return count;
+        });
+        const top = cells[0] ?? 0;
+        return {
+          name,
+          total: ds.length,
+          amount: ds.reduce((s, d) => s + d.amount, 0),
+          cells: cells.map((c) => ({ count: c, pct: top ? Math.round((c / top) * 100) : 0 })),
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [rows, stages]);
+
   function toggle(k: SortKey) {
     setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
   }
