@@ -202,6 +202,8 @@ export function LogFollowUpDialog({
     [stages, currentPosition],
   );
   const behavior = outcome?.stageBehavior ?? "stay";
+  /** El resultado elegido mueve la oportunidad hacia adelante. */
+  const isAdvancing = !!outcome && !outcome.isWon && !outcome.isLost && targetStage !== "none";
 
   async function save() {
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
