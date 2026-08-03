@@ -171,7 +171,18 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 label="Monto MXN"
                 display={formatMXN(deal.amount)}
                 value={String(deal.amount)}
-                onSave={(v) => savePatch({ amount: Number(v) || 0 })}
+                onSave={async (v) => {
+                  const next = Number(v) || 0;
+                  if (next === deal.amount) return;
+                  await savePatch({ amount: next });
+                  await logFieldChange.mutateAsync({
+                    field: "amount",
+                    from: String(deal.amount),
+                    to: String(next),
+                    contactId: deal.contactId,
+                    description: `Monto actualizado de ${formatMXN(deal.amount)} a ${formatMXN(next)}`,
+                  });
+                }}
                 render={(v, set) => <Input type="number" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
@@ -186,7 +197,19 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 label="Fecha estimada de cierre"
                 display={deal.expectedCloseDate ? format(new Date(deal.expectedCloseDate), "PPP", { locale: es }) : "—"}
                 value={deal.expectedCloseDate ?? ""}
-                onSave={(v) => savePatch({ expected_close_date: v || null })}
+                onSave={async (v) => {
+                  const next = v || null;
+                  if ((deal.expectedCloseDate ?? null) === next) return;
+                  await savePatch({ expected_close_date: next });
+                  const fmt = (d: string | null) => (d ? format(new Date(d), "PPP", { locale: es }) : "sin fecha");
+                  await logFieldChange.mutateAsync({
+                    field: "expected_close_date",
+                    from: deal.expectedCloseDate ?? null,
+                    to: next,
+                    contactId: deal.contactId,
+                    description: `Fecha estimada de cierre cambiada de ${fmt(deal.expectedCloseDate ?? null)} a ${fmt(next)}`,
+                  });
+                }}
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
