@@ -527,6 +527,61 @@ function ReadValue({ children }: { children: React.ReactNode }) {
   return <div className="text-sm font-medium px-3 py-2 rounded-md bg-muted/40">{children}</div>;
 }
 
+/** Campo editable en línea: clic en "Editar" para modificar y guardar el cambio al instante. */
+function EditableField({
+  label, display, value, onSave, render,
+}: {
+  label: string;
+  display: React.ReactNode;
+  value: string;
+  onSave: (v: string) => Promise<void> | void;
+  render: (v: string, set: (v: string) => void) => React.ReactNode;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => { setDraft(value); setEditing(true); }}
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <Pencil className="h-3 w-3" /> Editar
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div className="space-y-2">
+          {render(draft, setDraft)}
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(value); }}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                try { await onSave(draft); setEditing(false); } catch { /* toast en el caller */ }
+                finally { setSaving(false); }
+              }}
+            >
+              <Save className="h-3.5 w-3.5" /> Guardar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        typeof display === "string" ? <ReadValue>{display}</ReadValue> : display
+      )}
+    </div>
+  );
+}
+
 // Helper avatar for contact (kept here in case we want to display it later)
 export function ContactAvatar({ name, color }: { name: string; color: string }) {
   return (
