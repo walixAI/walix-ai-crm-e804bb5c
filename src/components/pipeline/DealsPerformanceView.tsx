@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, Download } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -156,7 +156,7 @@ export function DealsPerformanceView({
   const funnel = useMemo(() => {
     const ordered = [...stages].sort((a, b) => a.position - b.position);
     const idx = new Map(ordered.map((s, i) => [s.id, i]));
-    return ordered.map((s, i) => {
+    const base = ordered.map((s, i) => {
       const reached = rows.filter((r) => {
         const di = r.deal.stageId ? idx.get(r.deal.stageId) : undefined;
         return di !== undefined && di >= i;
@@ -168,8 +168,18 @@ export function DealsPerformanceView({
         here: rows.filter((r) => r.deal.stageId === s.id).length,
       };
     });
+    return base.map((f, i) => {
+      const prev = i === 0 ? f.count : base[i - 1].count;
+      return {
+        ...f,
+        stepPct: i === 0 ? 100 : prev > 0 ? Math.round((f.count / prev) * 100) : 0,
+        totalPct: base[0]?.count ? Math.round((f.count / base[0].count) * 100) : 0,
+      };
+    });
   }, [rows, stages]);
   const funnelTop = funnel[0]?.count ?? 0;
+  const funnelEnd = funnel.length ? funnel[funnel.length - 1].count : 0;
+  const funnelConversionPct = funnelTop ? Math.round((funnelEnd / funnelTop) * 100) : 0;
 
   function toggle(k: SortKey) {
     setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
@@ -311,34 +321,45 @@ export function DealsPerformanceView({
 
       {/* Funnel */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="text-sm font-semibold">Embudo de avance</h3>
-          <span className="text-[11px] text-muted-foreground">% de oportunidades que alcanzaron cada etapa</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">% de paso entre etapas (anidado)</span>
+            {funnelTop > 0 && (
+              <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
+                Conversión total {funnelConversionPct}% ({funnelEnd}/{funnelTop})
+              </span>
+            )}
+          </div>
         </div>
         {funnelTop === 0 ? (
           <p className="text-sm text-muted-foreground">Sin oportunidades para calcular el embudo.</p>
         ) : (
-          <div className="space-y-2">
-            {funnel.map((f) => {
-              const pct = funnelTop ? Math.round((f.count / funnelTop) * 100) : 0;
-              return (
-                <div key={f.stage.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium">{f.stage.name}</span>
-                    <span className="text-muted-foreground">
-                      {f.count} · {formatMXN(f.amount)} · {pct}%
-                    </span>
+          <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+            {funnel.map((f, i) => (
+              <div key={f.stage.id} className="flex items-center gap-2 shrink-0">
+                {i > 0 && (
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="text-[10px] font-semibold">{f.stepPct}%</span>
                   </div>
-                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                )}
+                <div className="min-w-[140px] rounded-lg border border-border bg-muted/30 p-2.5">
+                  <div className="text-[11px] font-medium truncate" title={f.stage.name}>{f.stage.name}</div>
+                  <div className="text-lg font-bold leading-tight">{f.count}</div>
+                  <div className="text-[10px] text-muted-foreground">{formatMXN(f.amount)}</div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${Math.max(pct, f.count ? 2 : 0)}%` }}
+                      style={{ width: `${Math.max(f.totalPct, f.count ? 3 : 0)}%` }}
                     />
                   </div>
-                  <div className="text-[10px] text-muted-foreground">{f.here} en esta etapa hoy</div>
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    {f.totalPct}% del total · {f.here} hoy
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>
