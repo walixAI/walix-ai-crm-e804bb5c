@@ -295,6 +295,29 @@ export function useDeleteExpense() {
   });
 }
 
+export function useUpdateExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      amount?: number;
+      category_id?: string | null;
+      incurred_at?: string;
+      description?: string | null;
+    }) => {
+      const { id, ...patch } = input;
+      const { error } = await supabase.from("expenses" as any).update(patch as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["expenses-drafts"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
+      qc.invalidateQueries({ queryKey: ["month-expense-breakdown"] });
+    },
+  });
+}
+
 export function useUpsertCategory() {
   const qc = useQueryClient();
   const { data: tenantId } = useTenantId();
