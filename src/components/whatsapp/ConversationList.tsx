@@ -175,6 +175,11 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{c.preview}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <StatusBadge status={c.status} />
+                      {c.awaitingReply && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-warning/10 text-warning border-warning/30">
+                          Por responder
+                        </span>
+                      )}
                       <span
                         title={win.description}
                         className={cn(
