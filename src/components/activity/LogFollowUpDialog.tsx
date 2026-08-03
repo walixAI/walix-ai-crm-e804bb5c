@@ -105,6 +105,8 @@ export function LogFollowUpDialog({
   const [hasNext, setHasNext] = useState(true);
   const [nextDay, setNextDay] = useState(() => dateInput(2));
   const [customNextDay, setCustomNextDay] = useState(false);
+  const [nextTime, setNextTime] = useState("10:00");
+  const [customNextTime, setCustomNextTime] = useState(false);
   const [targetStage, setTargetStage] = useState<string>("none");
   const [showStage, setShowStage] = useState(false);
   const [diagMode, setDiagMode] = useState<DiagMode>("none");
@@ -112,6 +114,7 @@ export function LogFollowUpDialog({
   const [blockerExpected, setBlockerExpected] = useState<string>(() => dateInput(7));
   const [lossReasonId, setLossReasonId] = useState<string>("");
   const [clearBlocker, setClearBlocker] = useState(false);
+  const [showProblem, setShowProblem] = useState(false);
 
   const effectiveDeal = useMemo(
     () => contactDeals.find((d: any) => d.id === selectedDealId) ?? null,
@@ -140,6 +143,9 @@ export function LogFollowUpDialog({
     setHasNext(true);
     setNextDay(dateInput(2));
     setCustomNextDay(false);
+    setNextTime("10:00");
+    setCustomNextTime(false);
+    setShowProblem(false);
     setShowStage(false);
     setDiagMode("none");
     setBlockerId("");
@@ -167,8 +173,17 @@ export function LogFollowUpDialog({
       setShowStage(true);
     }
     if (outcome.requiresNextAction) setHasNext(true);
-    if (outcome.isLost) setDiagMode("lost");
-    if (outcome.isWon) { setDiagMode("none"); setHasNext(false); }
+    setShowProblem(false);
+    if (outcome.isLost) {
+      setDiagMode("lost");
+    } else if (outcome.isWon) {
+      setDiagMode("none");
+      setHasNext(false);
+    } else if (isForward && outcome.stageBehavior !== "stay") {
+      // El resultado hace avanzar: no se pregunta por bloqueos.
+      setDiagMode("none");
+      if (diagnostic?.currentBlockerId) setClearBlocker(true);
+    }
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -203,7 +218,7 @@ export function LogFollowUpDialog({
         outcome,
         description: description.trim(),
         occurredAt: fromLocalInput(occurred),
-        nextActionAt: hasNext ? dayToIso(nextDay) : null,
+        nextActionAt: hasNext ? dayToIso(nextDay, nextTime) : null,
         nextActionTitle: hasNext ? `Seguimiento: ${outcome.label}` : "",
         moveToStageId: targetStage === "none" ? null : targetStage,
         blockerId: diagMode === "blocked" ? blockerId : null,
