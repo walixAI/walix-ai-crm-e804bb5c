@@ -30,6 +30,12 @@ Mismo patrón que la vista Lista, incluyendo las columnas de salud.
 
 Al hacer clic en una fila se abre el `DealDrawer` existente, igual que hoy.
 
+## Sobre el periodo seleccionado
+
+La vista Desempeño se enfoca en **oportunidades activas hoy**, con métricas de salud actuales. Para analizar el pipeline de un periodo histórico o futuro (por ejemplo "¿cuánto pipeline teníamos el 15 de julio?"), se usa la página **Reportes** (`/reportes`), que ya permite filtrar por periodo y vendedor y muestra funnel, cierres, actividad y desempeño por vendedor.
+
+Si el usuario quiere ver oportunidades cuya **fecha estimada de cierre cae dentro del mes/periodo seleccionado**, la vista Desempeño incluirá un filtro rápido "Cierran este mes" y se podrá extender con un selector de rango de fechas de cierre en una siguiente iteración.
+
 ## Detalles técnicos
 
 - Nuevo componente `src/components/pipeline/DealsPerformanceView.tsx`.
