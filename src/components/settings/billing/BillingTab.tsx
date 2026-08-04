@@ -93,9 +93,6 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
               </div>
               <div className="text-sm font-semibold">{fmt(limit?.monthly_price ?? 0)}</div>
               <WBadge variant="success"><Check className="h-3 w-3" /> Pagado</WBadge>
-              <Button variant="ghost" size="sm">
-                <Download className="h-4 w-4 mr-2" /> PDF
-              </Button>
             </div>
           ))}
         </div>
