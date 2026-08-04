@@ -477,6 +477,95 @@ export type Database = {
           },
         ]
       }
+      ai_model_catalog: {
+        Row: {
+          commercial_name: string
+          created_at: string
+          credit_factor: number
+          id: string
+          is_active: boolean
+          model_id: string
+          sort_order: number
+          updated_at: string
+          vendor: string
+        }
+        Insert: {
+          commercial_name: string
+          created_at?: string
+          credit_factor?: number
+          id?: string
+          is_active?: boolean
+          model_id: string
+          sort_order?: number
+          updated_at?: string
+          vendor: string
+        }
+        Update: {
+          commercial_name?: string
+          created_at?: string
+          credit_factor?: number
+          id?: string
+          is_active?: boolean
+          model_id?: string
+          sort_order?: number
+          updated_at?: string
+          vendor?: string
+        }
+        Relationships: []
+      }
+      ai_model_change_requests: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string | null
+          requested_by: string | null
+          requested_model: string | null
+          requested_vendor: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          requested_by?: string | null
+          requested_model?: string | null
+          requested_vendor: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string | null
+          requested_by?: string | null
+          requested_model?: string | null
+          requested_vendor?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_change_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_outcome_feedback: {
         Row: {
           action_taken: string
@@ -1354,6 +1443,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      credit_packs: {
+        Row: {
+          code: string
+          created_at: string
+          credits: number
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          price: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          credits: number
+          id?: string
+          is_active?: boolean
+          kind: string
+          name: string
+          price: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          credits?: number
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name?: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       dashboard_layouts: {
         Row: {
@@ -2710,25 +2838,37 @@ export type Database = {
       }
       plan_limits: {
         Row: {
+          ai_credits: number
+          allowed_ai_vendors: string[]
+          annual_price: number
           max_active_automations: number
           max_pipelines: number
           max_users: number
           monthly_price: number
           plan: string
+          whatsapp_credits: number
         }
         Insert: {
+          ai_credits?: number
+          allowed_ai_vendors?: string[]
+          annual_price?: number
           max_active_automations: number
           max_pipelines: number
           max_users: number
           monthly_price?: number
           plan: string
+          whatsapp_credits?: number
         }
         Update: {
+          ai_credits?: number
+          allowed_ai_vendors?: string[]
+          annual_price?: number
           max_active_automations?: number
           max_pipelines?: number
           max_users?: number
           monthly_price?: number
           plan?: string
+          whatsapp_credits?: number
         }
         Relationships: []
       }
@@ -3260,6 +3400,56 @@ export type Database = {
           },
         ]
       }
+      tenant_credit_balances: {
+        Row: {
+          ai_included: number
+          ai_purchased: number
+          ai_used: number
+          created_at: string
+          id: string
+          period_start: string
+          tenant_id: string
+          updated_at: string
+          whatsapp_included: number
+          whatsapp_purchased: number
+          whatsapp_used: number
+        }
+        Insert: {
+          ai_included?: number
+          ai_purchased?: number
+          ai_used?: number
+          created_at?: string
+          id?: string
+          period_start: string
+          tenant_id: string
+          updated_at?: string
+          whatsapp_included?: number
+          whatsapp_purchased?: number
+          whatsapp_used?: number
+        }
+        Update: {
+          ai_included?: number
+          ai_purchased?: number
+          ai_used?: number
+          created_at?: string
+          id?: string
+          period_start?: string
+          tenant_id?: string
+          updated_at?: string
+          whatsapp_included?: number
+          whatsapp_purchased?: number
+          whatsapp_used?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_credit_balances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_modules: {
         Row: {
           activated_at: string
@@ -3348,6 +3538,8 @@ export type Database = {
       }
       tenants: {
         Row: {
+          ai_model: string
+          ai_vendor: string
           brand_name: string | null
           brand_primary: string | null
           contact_inactivity_days: number | null
@@ -3376,6 +3568,8 @@ export type Database = {
           whatsapp_phone: string | null
         }
         Insert: {
+          ai_model?: string
+          ai_vendor?: string
           brand_name?: string | null
           brand_primary?: string | null
           contact_inactivity_days?: number | null
@@ -3404,6 +3598,8 @@ export type Database = {
           whatsapp_phone?: string | null
         }
         Update: {
+          ai_model?: string
+          ai_vendor?: string
           brand_name?: string | null
           brand_primary?: string | null
           contact_inactivity_days?: number | null

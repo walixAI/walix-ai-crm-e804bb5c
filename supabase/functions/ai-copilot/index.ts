@@ -6,6 +6,7 @@
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserProfile } from "../_shared/ai-tools.ts";
+import { resolveTenantModel, creditsForRun, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "google/gemini-2.5-pro";
+const FALLBACK_MODEL = DEFAULT_MODEL;
 const MAX_ITERATIONS = 5;
 
 // ────────────────────────────────────────────────────────────────────────
@@ -894,6 +895,10 @@ Deno.serve(async (req) => {
     const tenantId = profile?.active_tenant_id ?? profile?.tenant_id;
     if (!tenantId) return json({ error: "Sin tenant activo" }, 400);
 
+    // Motor de IA asignado a este tenant por la plataforma
+    const engine = await resolveTenantModel(sb, tenantId);
+    const MODEL = engine.model || FALLBACK_MODEL;
+
     const body = await req.json() as {
       message: string;
       conversationKey?: string;
@@ -1081,6 +1086,31 @@ Deno.serve(async (req) => {
         total_tokens: usageTotal || (usageInput + usageOutput),
         iterations: usageIters,
       });
+    } catch { /* noop */ }
+
+    // Consumo de créditos de IA del periodo (best-effort, con rol de servicio)
+    try {
+      const svc = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const now = new Date();
+      const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+      const credits = creditsForRun(usageIters, engine.creditFactor);
+      const { data: bal } = await svc.from("tenant_credit_balances")
+        .select("id, ai_used").eq("tenant_id", tenantId).eq("period_start", period).maybeSingle();
+      if (bal?.id) {
+        await svc.from("tenant_credit_balances")
+          .update({ ai_used: Number(bal.ai_used ?? 0) + credits }).eq("id", bal.id);
+      } else {
+        const { data: t } = await svc.from("tenants").select("plan").eq("id", tenantId).maybeSingle();
+        const { data: pl } = await svc.from("plan_limits")
+          .select("whatsapp_credits, ai_credits").eq("plan", t?.plan ?? "pyme").maybeSingle();
+        await svc.from("tenant_credit_balances").insert({
+          tenant_id: tenantId,
+          period_start: period,
+          whatsapp_included: pl?.whatsapp_credits ?? 0,
+          ai_included: pl?.ai_credits ?? 0,
+          ai_used: credits,
+        });
+      }
     } catch { /* noop */ }
 
     return json({

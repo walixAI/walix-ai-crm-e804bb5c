@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type PlanKey = "starter" | "pyme" | "growth" | "enterprise";
+type PlanKey = "pyme" | "growth" | "enterprise";
 
 interface Plan {
   key: PlanKey;
@@ -40,41 +40,23 @@ interface Plan {
 
 const PLANS: Plan[] = [
   {
-    key: "starter",
-    name: "Starter",
-    tagline: "Para conocer el producto",
-    monthly: 0,
-    annual: 0,
-    badge: "Gratis para siempre",
-    cta: "Comenzar gratis",
-    ctaTo: "/login?mode=signup",
-    ctaVariant: "outline",
-    icon: Sparkles,
-    features: [
-      "2 usuarios",
-      "100 contactos",
-      "1 pipeline",
-      "WhatsApp API básico (1 agente)",
-      "IA básica (preview)",
-    ],
-  },
-  {
     key: "pyme",
     name: "PyME",
     tagline: "Lo que el 70% del mercado necesita",
-    monthly: 499,
-    annual: 399,
+    monthly: 899,
+    annual: 719,
     badge: "⭐ Recomendado",
     highlight: true,
-    cta: "Empezar 21 días gratis",
+    cta: "Empezar 14 días gratis",
     ctaTo: "/login?mode=signup&plan=pyme",
     icon: Star,
     features: [
       "5 usuarios",
       "Contactos ilimitados",
       "2 pipelines",
-      "WhatsApp API Core (5 agentes)",
-      "IA incluida (sugerencias + scoring)",
+      "100 créditos WhatsApp / mes",
+      "1,000 créditos de IA / mes",
+      "Motor Walix IA · Estándar",
       "3 automatizaciones activas",
       "Clip + Mercado Libre",
       "Soporte prioritario + onboarding 48h",
@@ -84,15 +66,17 @@ const PLANS: Plan[] = [
     key: "growth",
     name: "Growth",
     tagline: "Para equipos que escalan",
-    monthly: 999,
-    annual: 799,
-    cta: "Empezar 21 días gratis",
+    monthly: 1499,
+    annual: 1199,
+    cta: "Empezar 14 días gratis",
     ctaTo: "/login?mode=signup&plan=growth",
     icon: Zap,
     features: [
       "15 usuarios",
       "Todo lo de PyME",
-      "IA completa (scoring + resúmenes + propuestas)",
+      "150 créditos WhatsApp / mes",
+      "4,000 créditos de IA / mes",
+      "Motor Walix IA · Avanzado",
       "Automatizaciones ilimitadas",
       "Soporte dedicado + CSM",
     ],
@@ -101,8 +85,8 @@ const PLANS: Plan[] = [
     key: "enterprise",
     name: "Enterprise",
     tagline: "Para operaciones complejas",
-    monthly: 1999,
-    annual: 1599,
+    monthly: 2500,
+    annual: 2000,
     cta: "Contactar ventas",
     ctaTo: "mailto:ventas@walix.ai?subject=Plan%20Enterprise",
     ctaVariant: "outline",
@@ -110,7 +94,9 @@ const PLANS: Plan[] = [
     features: [
       "Usuarios ilimitados",
       "Todo lo de Growth",
-      "IA premium + fine-tuning",
+      "250 créditos WhatsApp / mes",
+      "10,000 créditos de IA / mes",
+      "Motor Walix IA · Premium",
       "Todas las integraciones + API propia",
       "Soporte 24/7 + SLA",
     ],
@@ -121,35 +107,41 @@ const DIFFERENTIATORS = [
   { icon: Globe, text: "Precio en MXN (no USD)" },
   { icon: MessageCircle, text: "WhatsApp API incluida (no add-on)" },
   { icon: Bot, text: "IA incluida en todos los planes" },
-  { icon: Sparkles, text: "Primer mes gratis" },
+  { icon: Sparkles, text: "14 días de prueba gratis" },
   { icon: ShieldCheck, text: "Onboarding gratuito 48h" },
   { icon: CreditCard, text: "Sin costos ocultos" },
 ];
 
 const COMPARISON_ROWS: { feature: string; values: Record<PlanKey, string | boolean> }[] = [
-  { feature: "Usuarios incluidos", values: { starter: "2", pyme: "5", growth: "15", enterprise: "Ilimitados" } },
-  { feature: "Contactos", values: { starter: "100", pyme: "Ilimitados", growth: "Ilimitados", enterprise: "Ilimitados" } },
-  { feature: "Pipelines", values: { starter: "1", pyme: "2", growth: "5", enterprise: "Ilimitados" } },
-  { feature: "Agentes WhatsApp", values: { starter: "1", pyme: "5", growth: "15", enterprise: "Ilimitados" } },
-  { feature: "IA - Sugerencias", values: { starter: "Preview", pyme: true, growth: true, enterprise: true } },
-  { feature: "IA - Scoring de leads", values: { starter: false, pyme: true, growth: true, enterprise: true } },
-  { feature: "IA - Resúmenes y propuestas", values: { starter: false, pyme: false, growth: true, enterprise: true } },
-  { feature: "IA - Fine-tuning con tus datos", values: { starter: false, pyme: false, growth: false, enterprise: true } },
-  { feature: "Automatizaciones activas", values: { starter: "0", pyme: "3", growth: "Ilimitadas", enterprise: "Ilimitadas" } },
-  { feature: "Integraciones (Clip, ML)", values: { starter: false, pyme: true, growth: true, enterprise: true } },
-  { feature: "API propia", values: { starter: false, pyme: false, growth: false, enterprise: true } },
-  { feature: "Soporte", values: { starter: "Comunidad", pyme: "Prioritario", growth: "Dedicado + CSM", enterprise: "24/7 + SLA" } },
-  { feature: "Onboarding asistido", values: { starter: false, pyme: "48h", growth: "Premium", enterprise: "White glove" } },
+  { feature: "Usuarios incluidos", values: { pyme: "5", growth: "15", enterprise: "Ilimitados" } },
+  { feature: "Contactos", values: { pyme: "Ilimitados", growth: "Ilimitados", enterprise: "Ilimitados" } },
+  { feature: "Pipelines", values: { pyme: "2", growth: "5", enterprise: "Ilimitados" } },
+  { feature: "Créditos WhatsApp / mes", values: { pyme: "100", growth: "150", enterprise: "250" } },
+  { feature: "Créditos de IA / mes", values: { pyme: "1,000", growth: "4,000", enterprise: "10,000" } },
+  { feature: "Motor de IA incluido", values: { pyme: "Estándar", growth: "Avanzado", enterprise: "Premium" } },
+  { feature: "Motores alternos (OpenAI / Claude)", values: { pyme: false, growth: "OpenAI", enterprise: "OpenAI + Claude" } },
+  { feature: "IA - Sugerencias", values: { pyme: true, growth: true, enterprise: true } },
+  { feature: "IA - Scoring de leads", values: { pyme: true, growth: true, enterprise: true } },
+  { feature: "IA - Resúmenes y propuestas", values: { pyme: false, growth: true, enterprise: true } },
+  { feature: "Automatizaciones activas", values: { pyme: "3", growth: "Ilimitadas", enterprise: "Ilimitadas" } },
+  { feature: "Integraciones (Clip, ML)", values: { pyme: true, growth: true, enterprise: true } },
+  { feature: "API propia", values: { pyme: false, growth: false, enterprise: true } },
+  { feature: "Soporte", values: { pyme: "Prioritario", growth: "Dedicado + CSM", enterprise: "24/7 + SLA" } },
+  { feature: "Onboarding asistido", values: { pyme: "48h", growth: "Premium", enterprise: "White glove" } },
 ];
 
 const FAQ = [
   {
     q: "¿Necesito tarjeta de crédito para empezar?",
-    a: "No. Puedes empezar con el plan Starter gratis sin tarjeta. Si pruebas un plan pagado, tienes 21 días gratis sin cargo y sin tarjeta.",
+    a: "No. Todos los planes incluyen 14 días de prueba gratis sin tarjeta ni cargo.",
   },
   {
     q: "¿Qué pasa cuando termina el trial?",
-    a: "Tu cuenta se mueve automáticamente al plan Starter (gratis para siempre). Mantienes tus contactos y conversaciones, sólo se ajustan los límites.",
+    a: "Tu cuenta queda en pausa hasta que actives un plan. Conservamos tus contactos y conversaciones; al activar el plan recuperas el acceso completo.",
+  },
+  {
+    q: "¿Qué es un crédito de WhatsApp y uno de IA?",
+    a: "Un crédito de WhatsApp equivale a un mensaje de plantilla enviado fuera de la ventana de 24 horas (responder dentro de la ventana no consume créditos). Un crédito de IA equivale a una acción del Copiloto o de un agente IA; los motores más potentes consumen más créditos por acción. Puedes comprar paquetes adicionales cuando los necesites.",
   },
   {
     q: "¿Puedo cancelar cuando quiera?",
@@ -245,7 +237,7 @@ export default function Pricing() {
 
       {/* Plans grid */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch max-w-5xl mx-auto">
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const price = annual ? plan.annual : plan.monthly;

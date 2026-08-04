@@ -5,20 +5,22 @@ import { WBadge } from "@/components/walix/Badge";
 import { Download, ArrowRight, Check } from "lucide-react";
 import { fetchTenant } from "@/services/tenant";
 import { usePlanLimits } from "@/lib/queries/planLimits";
-import { tenantPlanLabel, limitLabel } from "@/lib/plans";
+import { tenantPlanLabel, limitLabel, formatMXN } from "@/lib/plans";
+import { CreditsCard } from "./CreditsCard";
+import { AiEngineCard } from "./AiEngineCard";
 
 const INVOICES = [
-  { id: "INV-2026-04", date: "2026-04-01", amount: 990, status: "paid" },
-  { id: "INV-2026-03", date: "2026-03-01", amount: 990, status: "paid" },
-  { id: "INV-2026-02", date: "2026-02-01", amount: 990, status: "paid" },
+  { id: "INV-2026-04", date: "2026-04-01", status: "paid" },
+  { id: "INV-2026-03", date: "2026-03-01", status: "paid" },
+  { id: "INV-2026-02", date: "2026-02-01", status: "paid" },
 ];
 
 export function BillingTab({ tenantId }: { tenantId: string }) {
   const { data: tenant } = useQuery({ queryKey: ["tenant", tenantId], queryFn: () => fetchTenant(tenantId) });
   const { data: limits } = usePlanLimits();
-  const currentPlan = tenant?.plan ?? "starter";
+  const currentPlan = tenant?.plan ?? "pyme";
   const limit = limits?.[currentPlan];
-  const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+  const fmt = formatMXN;
 
   const renewDate = new Date(); renewDate.setDate(1); renewDate.setMonth(renewDate.getMonth() + 1);
 
@@ -41,13 +43,24 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
         </div>
 
         {limit && (
-          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-6 border-t border-border">
             <Stat label="Usuarios" value={limitLabel(limit.max_users)} />
             <Stat label="Automatizaciones" value={limitLabel(limit.max_active_automations, "Ilimitadas")} />
             <Stat label="Pipelines" value={limitLabel(limit.max_pipelines)} />
+            <Stat label="Créditos WhatsApp" value={`${limit.whatsapp_credits}/mes`} />
+            <Stat label="Créditos IA" value={`${limit.ai_credits.toLocaleString("es-MX")}/mes`} />
           </div>
         )}
       </Card>
+
+      <CreditsCard tenantId={tenantId} plan={currentPlan} />
+
+      <AiEngineCard
+        tenantId={tenantId}
+        plan={currentPlan}
+        vendor={tenant?.ai_vendor ?? "gemini"}
+        model={tenant?.ai_model ?? null}
+      />
 
       <Card className="overflow-hidden">
         <div className="px-5 py-3 border-b border-border bg-muted/30 text-xs uppercase tracking-wider font-semibold text-muted-foreground">
@@ -60,7 +73,7 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
                 <div className="text-sm font-medium">{inv.id}</div>
                 <div className="text-xs text-muted-foreground">{new Date(inv.date).toLocaleDateString("es-MX")}</div>
               </div>
-              <div className="text-sm font-semibold">{fmt(inv.amount)}</div>
+              <div className="text-sm font-semibold">{fmt(limit?.monthly_price ?? 0)}</div>
               <WBadge variant="success"><Check className="h-3 w-3" /> Pagado</WBadge>
               <Button variant="ghost" size="sm">
                 <Download className="h-4 w-4 mr-2" /> PDF

@@ -6,6 +6,7 @@ import { usePlatformOrgs, usePlatformKpis } from "@/lib/queries/platform";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { TenantAiModelTable } from "@/components/platform/TenantAiModelTable";
 
 export default function Platform() {
   const { data: orgs = [], isLoading } = usePlatformOrgs();
@@ -90,6 +91,8 @@ export default function Platform() {
           </div>
         )}
       </Card>
+
+      <TenantAiModelTable />
     </div>
   );
 }

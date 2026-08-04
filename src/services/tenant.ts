@@ -15,6 +15,8 @@ export interface Tenant {
   mrr: number;
   nps: number | null;
   created_at: string;
+  ai_vendor?: string | null;
+  ai_model?: string | null;
 }
 
 export interface Member {
