@@ -31,10 +31,21 @@ Davila  +525537224837  Acuario #36, El Prado Churubusco  G.E.D.
 ## Cambios técnicos necesarios
 
 ### 1. Migración de base de datos
-Agregar a la tabla de contactos:
-- `address` (dirección de servicio)
-- `equipment_model` (marca/modelo del refrigerador)
+**Campos genéricos, no exclusivos de este tenant.**
+
+A la tabla de contactos:
+- `address` (texto) — dirección. Es útil para cualquier negocio, así que se agrega como campo estándar del CRM.
+- `custom_fields` (JSON) — bolsa de campos personalizados por tenant. Aquí se guarda el modelo del refrigerador como `{"modelo_equipo": "S.Z. 500"}`.
 - Índice por tenant y teléfono para deduplicar rápido.
+
+Nueva tabla `contact_custom_fields` (definiciones por tenant, con RLS y GRANTs):
+```text
+tenant_id | key           | label             | type   | position | is_active
+----------+---------------+-------------------+--------+----------+----------
+ G&R      | modelo_equipo | Modelo de equipo  | text   | 0        | true
+```
+
+Así cualquier tenant puede definir sus propios campos (número de póliza, placas, RFC, talla, etc.) sin tocar la base. Para Refrigeración G&R se crea una sola definición: **Modelo de equipo**.
 
 ### 2. Corregir el importador existente (bug encontrado)
 `import-runner` usa columnas que **no existen** en la base:
@@ -61,7 +72,9 @@ Fase 4  Ciclos recurrentes     282
 La función temporal se elimina al terminar.
 
 ### 4. Mostrar los campos nuevos
-Agregar dirección y modelo de equipo en la ficha del contacto y en su formulario de edición.
+- **Dirección**: campo estándar en la ficha y el formulario del contacto, para todos los tenants.
+- **Campos personalizados**: la ficha y el formulario del contacto leen las definiciones del tenant y muestran/editan dinámicamente solo los campos que ese tenant haya definido. Si un tenant no define ninguno, no aparece nada extra.
+- Un panel en Ajustes para que el administrador cree, renombre, reordene o desactive sus campos personalizados.
 
 ## Asignación
 Todo queda asignado al **administrador del tenant** (Adriana Ruiz) para no distorsionar las métricas de los vendedores. Se puede reasignar después desde Contactos.
