@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WBadge } from "@/components/walix/Badge";
-import { Download, ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { fetchTenant } from "@/services/tenant";
 import { usePlanLimits } from "@/lib/queries/planLimits";
 import { tenantPlanLabel, limitLabel, formatMXN } from "@/lib/plans";
@@ -93,9 +93,6 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
               </div>
               <div className="text-sm font-semibold">{fmt(limit?.monthly_price ?? 0)}</div>
               <WBadge variant="success"><Check className="h-3 w-3" /> Pagado</WBadge>
-              <Button variant="ghost" size="sm">
-                <Download className="h-4 w-4 mr-2" /> PDF
-              </Button>
             </div>
           ))}
         </div>
