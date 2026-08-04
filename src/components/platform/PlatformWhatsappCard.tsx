@@ -71,7 +71,8 @@ export function PlatformWhatsappCard() {
     }
   };
 
-  const statusVariant = channel?.status === "connected" ? "success" : channel?.status === "error" ? "danger" : "muted";
+  const statusVariant: "success" | "danger" | "neutral" =
+    channel?.status === "connected" ? "success" : channel?.status === "error" ? "danger" : "neutral";
 
   return (
     <Card className="overflow-hidden">
@@ -82,7 +83,7 @@ export function PlatformWhatsappCard() {
             WhatsApp global de Walix (Copilot)
           </span>
         </div>
-        <WBadge variant={statusVariant as any}>{channel?.status ?? "sin configurar"}</WBadge>
+        <WBadge variant={statusVariant}>{channel?.status ?? "sin configurar"}</WBadge>
       </div>
 
       <div className="p-5 space-y-6">
