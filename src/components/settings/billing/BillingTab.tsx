@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WBadge } from "@/components/walix/Badge";
-import { Download, ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { fetchTenant } from "@/services/tenant";
 import { usePlanLimits } from "@/lib/queries/planLimits";
 import { tenantPlanLabel, limitLabel, formatMXN } from "@/lib/plans";
