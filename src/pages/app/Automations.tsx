@@ -18,10 +18,13 @@ import { PlanLimitBanner, usePlanLimits } from "@/components/automations/PlanLim
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
+import { RecurrenceList } from "@/components/automations/recurrence/RecurrenceList";
+import { RecurrenceBuilderSheet } from "@/components/automations/recurrence/RecurrenceBuilderSheet";
 import type { AutomationTemplate } from "@/lib/automations/templates";
 import type { AutomationDraft } from "@/services/automations";
+import type { RecurrenceDefinition } from "@/lib/queries/recurrence";
 
-type Tab = "active" | "paused" | "drafts" | "all";
+type Tab = "active" | "paused" | "drafts" | "all" | "recurrence";
 
 export default function Automations() {
   const { toast } = useToast();
@@ -39,6 +42,8 @@ export default function Automations() {
   const [historyFor, setHistoryFor] = useState<Automation | null>(null);
   const [dryFor, setDryFor] = useState<Automation | null>(null);
   const [deleteFor, setDeleteFor] = useState<Automation | null>(null);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [editingRecurrence, setEditingRecurrence] = useState<RecurrenceDefinition | null>(null);
   const { data: tenant } = useTenant();
   const tenantPlan = tenant?.plan ?? "starter";
 
@@ -110,10 +115,16 @@ export default function Automations() {
           <p className="text-sm text-muted-foreground mt-1">Pon tu CRM en piloto automático.</p>
         </div>
         <div className="flex items-center gap-2">
-          <PlanLimitBanner plan={tenant.plan} active={activeCount} />
-          <Button onClick={() => setGalleryOpen(true)} disabled={limits.locked}>
-            <Plus className="h-4 w-4 mr-1.5" /> Nueva automatización
-          </Button>
+          <PlanLimitBanner plan={tenantPlan} active={activeCount} />
+          {tab === "recurrence" ? (
+            <Button onClick={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1.5" /> Nuevo servicio recurrente
+            </Button>
+          ) : (
+            <Button onClick={() => setGalleryOpen(true)} disabled={limits.locked}>
+              <Plus className="h-4 w-4 mr-1.5" /> Nueva automatización
+            </Button>
+          )}
         </div>
       </div>
 
@@ -123,10 +134,16 @@ export default function Automations() {
           <TabsTrigger value="paused">Pausadas ({counts.paused})</TabsTrigger>
           <TabsTrigger value="drafts">Borradores ({counts.drafts})</TabsTrigger>
           <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
+          <TabsTrigger value="recurrence">Servicios recurrentes</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {isLoading ? (
+      {tab === "recurrence" ? (
+        <RecurrenceList
+          onNew={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}
+          onEdit={(r) => { setEditingRecurrence(r); setRecurrenceOpen(true); }}
+        />
+      ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-44 rounded-xl border border-border bg-card animate-pulse" />
@@ -213,6 +230,11 @@ export default function Automations() {
           conditions={dryFor.conditions}
         />
       )}
+      <RecurrenceBuilderSheet
+        open={recurrenceOpen}
+        onClose={() => { setRecurrenceOpen(false); setEditingRecurrence(null); }}
+        editing={editingRecurrence}
+      />
     </div>
   );
 }

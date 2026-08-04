@@ -17,7 +17,9 @@ export type TriggerType =
   | "deal_won"
   | "deal_lost"
   | "deal_close_date_near"
-  | "contact_no_reply";
+  | "contact_no_reply"
+  | "recurrence_due"
+  | "recurrence_completed";
 
 export type ActionType =
   | "send_whatsapp"
@@ -25,7 +27,9 @@ export type ActionType =
   | "create_task"
   | "reassign_contact"
   | "add_tag"
-  | "move_deal_stage";
+  | "move_deal_stage"
+  | "create_recurrence_occurrence"
+  | "schedule_next_recurrence";
 
 export type ConditionOperator =
   | "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "in";
@@ -116,6 +120,22 @@ export const TRIGGERS: TriggerDef[] = [
     scheduled: true,
     config: [{ key: "days", label: "Días sin respuesta", kind: "number", default: 7, suffix: "días" }],
   },
+  {
+    type: "recurrence_due",
+    icon: CalendarClock,
+    title: "Una recurrencia está por vencer",
+    description: "Se dispara N días antes de la próxima fecha de un servicio recurrente.",
+    scheduled: true,
+    config: [{ key: "days", label: "Días de anticipación", kind: "number", default: 15, suffix: "días" }],
+  },
+  {
+    type: "recurrence_completed",
+    icon: Trophy,
+    title: "Se completó una recurrencia",
+    description: "Cuando una ocurrencia de servicio se marca como ejecutada.",
+    scheduled: false,
+    config: [],
+  },
 ];
 
 export const ACTIONS: ActionDef[] = [
@@ -125,6 +145,8 @@ export const ACTIONS: ActionDef[] = [
   { type: "reassign_contact", icon: Users, title: "Reasignar el contacto", description: "Cambia el responsable o usa round-robin." },
   { type: "add_tag", icon: Tag, title: "Agregar una etiqueta", description: "Etiqueta al contacto para segmentar." },
   { type: "move_deal_stage", icon: ArrowRightCircle, title: "Mover deal de etapa", description: "Avanza el deal al siguiente paso del pipeline." },
+  { type: "create_recurrence_occurrence", icon: CalendarClock, title: "Crear ocurrencia de recurrencia", description: "Genera la tarea u oportunidad del servicio programado." },
+  { type: "schedule_next_recurrence", icon: CalendarClock, title: "Programar siguiente fecha", description: "Calcula y agenda la próxima ocurrencia si no existe otra futura." },
 ];
 
 export const OPERATORS: { value: ConditionOperator; label: string }[] = [
