@@ -157,9 +157,7 @@ export default function Marketplace() {
               key={mod.id}
               module={mod}
               status={status as ModuleStatus}
-              onActivate={() => setActivateMod(mod)}
               onManage={() => setManageMod(mod)}
-              onUpgrade={() => navigate("/pricing")}
             />
           ))}
         </div>
