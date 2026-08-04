@@ -18,10 +18,13 @@ import { PlanLimitBanner, usePlanLimits } from "@/components/automations/PlanLim
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
+import { RecurrenceList } from "@/components/automations/recurrence/RecurrenceList";
+import { RecurrenceBuilderSheet } from "@/components/automations/recurrence/RecurrenceBuilderSheet";
 import type { AutomationTemplate } from "@/lib/automations/templates";
 import type { AutomationDraft } from "@/services/automations";
+import type { RecurrenceDefinition } from "@/lib/queries/recurrence";
 
-type Tab = "active" | "paused" | "drafts" | "all";
+type Tab = "active" | "paused" | "drafts" | "all" | "recurrence";
 
 export default function Automations() {
   const { toast } = useToast();
