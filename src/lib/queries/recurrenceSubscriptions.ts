@@ -21,11 +21,11 @@ export const useRecurrenceSubscriptions = (recurrenceId?: string) => {
     queryKey: ["recurrence-subscriptions", tenant?.id, recurrenceId],
     queryFn: async () => {
       if (!tenant?.id) return [];
-      let q = supabase.from("recurrence_subscriptions").select("*, contact:contact_id(full_name, phone)").eq("tenant_id", tenant.id);
+      let q = supabase.from("recurrence_subscriptions").select("*, contacts:contact_id(full_name, phone)").eq("tenant_id", tenant.id);
       if (recurrenceId) q = q.eq("recurrence_id", recurrenceId);
       const { data, error } = await q.order("next_due_date", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as (RecurrenceSubscription & { contact?: { full_name: string; phone: string } | null })[];
+      return (data ?? []) as unknown as (RecurrenceSubscription & { contacts?: { full_name: string; phone: string } | null })[];
     },
     enabled: !!tenant?.id,
   });
