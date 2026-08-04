@@ -103,6 +103,7 @@ export default function Settings() {
         <TabsContent value="goals"><GoalsTab /></TabsContent>
         <TabsContent value="expenses"><ExpenseCategoriesTab /></TabsContent>
         <TabsContent value="widgets"><WidgetsTab /></TabsContent>
+        <TabsContent value="import"><ImportTab /></TabsContent>
         <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>
         <TabsContent value="modules"><ModulesTab /></TabsContent>
         <TabsContent value="agents"><AgentsTab tenantId={tenantId} /></TabsContent>
