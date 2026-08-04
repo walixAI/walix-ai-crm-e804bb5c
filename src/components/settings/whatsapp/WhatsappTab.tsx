@@ -19,7 +19,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useWhatsappChannels, useDisconnectChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
+import { useWhatsappChannels, useDisconnectChannel, useSetDefaultChannel, type ChannelKind, type WhatsappChannel } from "@/lib/queries/whatsappChannels";
 import { ConnectChannelDialog } from "./ConnectChannelDialog";
 import { ByoWabaWizard } from "./ByoWabaWizard";
 import { EmbeddedSignupButton } from "./EmbeddedSignupButton";
@@ -34,7 +34,9 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { isTenantAdmin } = usePermissions();
   const { data: channels = [] } = useWhatsappChannels(tenantId);
   const disconnect = useDisconnectChannel(tenantId);
+  const setDefault = useSetDefaultChannel(tenantId);
   const [dialogKind, setDialogKind] = useState<ChannelKind | null>(null);
+  const [addingNumber, setAddingNumber] = useState(false);
   const [wizardKind, setWizardKind] = useState<ChannelKind | null>(null);
   const [testChannel, setTestChannel] = useState<WhatsappChannel | null>(null);
 
@@ -70,7 +72,9 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
     qc.invalidateQueries({ queryKey: ["wa-templates", tenantId] });
   }
 
-  const clientsCh = channels.find((c) => c.kind === "clients");
+  const clientChannels = channels.filter((c) => c.kind === "clients");
+  const clientsCh = clientChannels.find((c) => c.is_default) ?? clientChannels[0];
+  const extraClientChannels = clientChannels.filter((c) => c.id !== clientsCh?.id);
   const teamCh = channels.find((c) => c.kind === "team");
 
   function renderChannelCard(kind: ChannelKind, ch: WhatsappChannel | undefined) {
@@ -208,6 +212,51 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           <p className="text-sm text-muted-foreground">Dos canales independientes vía Meta Cloud API.</p>
         </div>
         {renderChannelCard("clients", clientsCh)}
+
+        {clientsCh && (
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Números para clientes</h3>
+                <p className="text-xs text-muted-foreground">
+                  Puedes tener varios números. Las conversaciones responden siempre por el número donde iniciaron; las nuevas salen por el predeterminado.
+                </p>
+              </div>
+              {isTenantAdmin && (
+                <Button size="sm" variant="outline" onClick={() => setAddingNumber(true)}>
+                  <Plus className="h-4 w-4 mr-2" /> Agregar número
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {[clientsCh, ...extraClientChannels].map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">{c.label || c.display_name || "Número de clientes"}</span>
+                      {c.is_default && <WBadge variant="info">Predeterminado</WBadge>}
+                      {c.status === "disabled" && <WBadge variant="neutral">Desconectado</WBadge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">{c.phone_number ?? "Sin número"}</p>
+                  </div>
+                  {isTenantAdmin && !c.is_default && c.status !== "disabled" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        await setDefault.mutateAsync({ id: c.id, kind: "clients" });
+                        toast({ title: "Número predeterminado actualizado" });
+                      }}
+                    >
+                      Hacer predeterminado
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {renderChannelCard("team", teamCh)}
       </div>
 
@@ -289,6 +338,16 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           tenantId={tenantId}
           kind={dialogKind}
           existing={dialogKind === "clients" ? clientsCh : teamCh}
+        />
+      )}
+
+      {addingNumber && (
+        <ConnectChannelDialog
+          open
+          onClose={() => setAddingNumber(false)}
+          tenantId={tenantId}
+          kind="clients"
+          channelId="new"
         />
       )}
 
