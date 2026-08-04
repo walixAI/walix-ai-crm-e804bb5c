@@ -89,3 +89,26 @@ export const aiVendorLabel = (v?: string | null) =>
 
 export const formatMXN = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+
+/** Paquetes adicionales de créditos (compra puntual, no expiran en el ciclo). */
+export interface CreditPack {
+  id: string;
+  kind: "whatsapp" | "ai";
+  credits: number;
+  price: number;
+  label: string;
+}
+
+export const WHATSAPP_PACKS: CreditPack[] = [
+  { id: "wa-100", kind: "whatsapp", credits: 100, price: 249, label: "100 mensajes" },
+  { id: "wa-300", kind: "whatsapp", credits: 300, price: 649, label: "300 mensajes" },
+  { id: "wa-600", kind: "whatsapp", credits: 600, price: 1149, label: "600 mensajes" },
+  { id: "wa-1000", kind: "whatsapp", credits: 1000, price: 1749, label: "1,000 mensajes" },
+];
+
+export const AI_PACKS: CreditPack[] = [
+  { id: "ai-5k", kind: "ai", credits: 5000, price: 299, label: "5,000 créditos IA" },
+  { id: "ai-15k", kind: "ai", credits: 15000, price: 749, label: "15,000 créditos IA" },
+  { id: "ai-30k", kind: "ai", credits: 30000, price: 1299, label: "30,000 créditos IA" },
+  { id: "ai-50k", kind: "ai", credits: 50000, price: 1899, label: "50,000 créditos IA" },
+];
