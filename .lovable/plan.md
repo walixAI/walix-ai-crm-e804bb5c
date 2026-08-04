@@ -22,42 +22,47 @@ Flujo por archivo (Excel o CSV):
 
 Cada importación queda registrada (quién, cuándo, cuántas filas, cuántos errores) y todo lo importado se marca con el lote de origen para poder revertirlo.
 
-## Parte 2 — Servicios recurrentes (mantenimientos y filtros)
+## Parte 2 — Constructor de recurrencias (lo crea y configura cada tenant)
 
-Funcionalidad nueva y reutilizable por cualquier tenant, que resuelve el caso de Refrigeración:
+No se programa un módulo de "mantenimientos". Se construye un **constructor genérico de compromisos recurrentes** dentro de Automatizaciones, con el que cualquier tenant arma sus propios ciclos sin ayuda de nadie.
 
-- **Plan de servicio por cliente/equipo**: tipo (mantenimiento o cambio de filtro), periodicidad (6 meses por defecto), última ejecución y próxima fecha programada.
-- **Calendario de filtros 2026–2029**: se carga desde la hoja "Filtros" como fechas programadas del plan, no como periodicidad calculada.
-- **Sustitución**: si un cambio de filtro cae cerca de un mantenimiento programado, el sistema marca que uno sustituye al otro y deja una sola visita.
+El tenant crea una **recurrencia** contestando un formulario corto:
+1. **¿Cómo se llama?** — ej. "Mantenimiento semestral", "Cambio de filtro", "Renovación de póliza".
+2. **¿A quién aplica?** — contactos con cierta etiqueta, cierto producto comprado, o los que el tenant marque uno por uno.
+3. **¿Cada cuánto?** — cada N meses/semanas, o **fechas fijas de calendario** cargadas por importación (ese es el caso de los filtros 2026-2029).
+4. **¿Con cuánta anticipación avisar?** — N días antes.
+5. **¿Qué pasa cuando toca?** — crear tarea, crear oportunidad en el pipeline que el tenant elija, notificar al responsable, o combinación.
+6. **¿Y al terminarla?** — el sistema propone la siguiente fecha sólo si no hay otra futura, y el usuario confirma o la cambia.
+7. **¿Una recurrencia puede sustituir a otra?** — regla opcional: si dos caen dentro de X días, se conserva una sola visita.
 
-Ciclo de vida de cada servicio, como oportunidad en un pipeline dedicado:
-```text
-Por contactar -> Fecha propuesta -> Cotizado -> Aceptado -> Agendado -> Ejecutado
-```
-- **Aviso anticipado**: X días antes (configurable por tenant, por defecto 15) se crea tarea y notificación para contactar al cliente.
-- **Retrasos**: el usuario reagenda desde el mismo seguimiento; la fecha se actualiza y queda el registro de por qué se movió.
-- **Al ejecutar**: el sistema propone la siguiente fecha (a 6 meses) sólo si no existe ya una futura, y el usuario confirma o cambia el día.
+Cada tenant define sus propias etapas del ciclo usando los pipelines que ya existen; no se impone ninguna. Todo lo anterior vive en tablas de configuración por tenant, no en código.
 
-## Parte 3 — Automatizaciones que lo mueven
+## Parte 3 — Configuración inicial de Refrigeración (datos, no código)
 
-Plantillas nuevas listas para activar:
-- Mantenimiento próximo → tarea + aviso al responsable.
-- Cambio de filtro próximo → tarea + aviso, con nota si sustituye un mantenimiento.
-- Servicio propuesto sin respuesta X días → recordatorio.
-- Cotización enviada sin aceptar X días → aviso al vendedor.
-- Servicio ejecutado sin siguiente fecha → tarea para programarlo.
+Con el constructor listo, el tenant de Refrigeración queda armado sólo con configuración e importación:
+- Recurrencia "Mantenimiento semestral" cada 6 meses, aviso 15 días antes, crea oportunidad en el pipeline de mantenimiento.
+- Recurrencia "Cambio de filtro" con fechas fijas importadas de la hoja Filtros (2026-2029), aviso 15 días antes, con la regla de sustitución activada frente al mantenimiento.
+- Hoja "Pendiente Refacciones" importada como oportunidades del pipeline de refacciones con su estado.
+- Hoja "Actividades Diarias" importada como historial de actividades por contacto.
 
-Estas plantillas necesitan el motor de ejecución de automatizaciones, que hoy no existe: se construye la edge function que evalúa por cron los disparadores de fecha, ejecuta las acciones y registra cada corrida en el historial.
+Si mañana otro tenant vende pólizas anuales o revisiones trimestrales, usa el mismo constructor sin tocar código.
+
+## Parte 4 — Motor de automatizaciones
+
+Hoy la pantalla de Automatizaciones existe pero nada las ejecuta. Se construye el motor: una función que corre por cron, evalúa las recurrencias y disparadores por fecha, ejecuta las acciones configuradas y deja registro de cada corrida (qué se disparó, sobre qué registro, con qué resultado).
+
+La IA es opcional y va encima: redactar el mensaje de WhatsApp para agendar y ordenar la lista del día por prioridad. Nunca decide si recordar o no.
 
 ## Detalles técnicos
 
-- Tablas nuevas: `import_batches` y `import_rows` (trazabilidad y deshacer), `service_plans` (plan recurrente por contacto/equipo) y `service_events` (cada visita programada, con enlace al deal y al plan). Todas con RLS por `get_user_tenant(auth.uid())` y GRANTs.
+- Tablas nuevas: `import_batches` e `import_rows` (trazabilidad y deshacer); `recurrence_definitions` (la recurrencia que configura el tenant: audiencia, periodicidad o calendario fijo, anticipación, acciones, regla de sustitución), `recurrence_subscriptions` (a qué contacto/equipo aplica y su próxima fecha) y `recurrence_occurrences` (cada ocurrencia programada, con enlace a la tarea u oportunidad generada y su estado). Todas con RLS por `get_user_tenant(auth.uid())` y GRANTs.
+- Nada del comportamiento de Refrigeración queda en código: es contenido de esas tablas más el importador.
 - Parseo de Excel/CSV en el navegador con SheetJS; la inserción va por lotes a la base con validación también del lado servidor.
-- Pipeline "Servicios" sembrado con las etapas del ciclo, más tipificaciones de seguimiento propias (reagendó, no contesta, aceptó cotización).
-- Edge function `automations-run` con modo cron (disparadores por fecha) y modo evento; los avisos usan el sistema de notificaciones y tareas existente.
-- La hoja "Pendiente Refacciones" se importa como oportunidades del pipeline de refacciones con su estado (ganada/perdida/activa); "Actividades Diarias" como historial de actividades ligado a cada contacto.
+- Edge function `automations-run` con modo cron (disparadores por fecha y recurrencias) y modo evento; los avisos usan el sistema de notificaciones y tareas existente.
+- El asistente de creación de recurrencias vive en Automatizaciones, con lenguaje simple y pasos numerados, igual que el diálogo de seguimiento.
 
 ## Orden de entrega
 1. Importador (contactos, productos, oportunidades, actividades) — desbloquea la carga de datos.
-2. Planes de servicio y pipeline de servicios, con la carga de mantenimientos y filtros.
-3. Motor de automatizaciones y plantillas de recordatorio.
+2. Constructor de recurrencias configurable por cualquier tenant.
+3. Motor de automatizaciones que ejecuta recurrencias y recordatorios.
+4. Configuración de Refrigeración usando el constructor y el importador.
