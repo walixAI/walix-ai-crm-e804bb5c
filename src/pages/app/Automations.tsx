@@ -138,7 +138,12 @@ export default function Automations() {
         </TabsList>
       </Tabs>
 
-      {isLoading ? (
+      {tab === "recurrence" ? (
+        <RecurrenceList
+          onNew={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}
+          onEdit={(r) => { setEditingRecurrence(r); setRecurrenceOpen(true); }}
+        />
+      ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-44 rounded-xl border border-border bg-card animate-pulse" />
