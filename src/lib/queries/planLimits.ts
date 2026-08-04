@@ -7,6 +7,10 @@ export interface PlanLimit {
   max_active_automations: number;
   max_pipelines: number;
   monthly_price: number;
+  annual_price: number;
+  whatsapp_credits: number;
+  ai_credits: number;
+  allowed_ai_vendors: string[];
 }
 
 export function usePlanLimits() {
