@@ -237,7 +237,7 @@ export default function Pricing() {
 
       {/* Plans grid */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch max-w-5xl mx-auto">
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const price = annual ? plan.annual : plan.monthly;
