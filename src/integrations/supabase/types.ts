@@ -1971,6 +1971,115 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_rows: number | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          imported_rows: number | null
+          kind: string
+          reverted_at: string | null
+          reverted_by: string | null
+          skipped_rows: number | null
+          status: string
+          tenant_id: string
+          total_rows: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_rows?: number | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          imported_rows?: number | null
+          kind: string
+          reverted_at?: string | null
+          reverted_by?: string | null
+          skipped_rows?: number | null
+          status?: string
+          tenant_id: string
+          total_rows?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_rows?: number | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          imported_rows?: number | null
+          kind?: string
+          reverted_at?: string | null
+          reverted_by?: string | null
+          skipped_rows?: number | null
+          status?: string
+          tenant_id?: string
+          total_rows?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          mapped_data: Json
+          raw_data: Json
+          row_index: number
+          status: string
+          target_id: string | null
+          target_table: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          mapped_data?: Json
+          raw_data?: Json
+          row_index: number
+          status?: string
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          mapped_data?: Json
+          raw_data?: Json
+          row_index?: number
+          status?: string
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -2672,6 +2781,221 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurrence_definitions: {
+        Row: {
+          actions: Json
+          anticipation_days: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          id: string
+          kind: string
+          name: string
+          period_months: number | null
+          substitution_rule: Json
+          target_pipeline_id: string | null
+          target_stage_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          anticipation_days?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          kind?: string
+          name: string
+          period_months?: number | null
+          substitution_rule?: Json
+          target_pipeline_id?: string | null
+          target_stage_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          anticipation_days?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          kind?: string
+          name?: string
+          period_months?: number | null
+          substitution_rule?: Json
+          target_pipeline_id?: string | null
+          target_stage_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurrence_definitions_target_pipeline_id_fkey"
+            columns: ["target_pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_definitions_target_stage_id_fkey"
+            columns: ["target_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurrence_occurrences: {
+        Row: {
+          created_at: string
+          due_date: string
+          generated_deal_id: string | null
+          generated_task_id: string | null
+          id: string
+          recurrence_id: string
+          status: string
+          subscription_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          generated_deal_id?: string | null
+          generated_task_id?: string | null
+          id?: string
+          recurrence_id: string
+          status?: string
+          subscription_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          generated_deal_id?: string | null
+          generated_task_id?: string | null
+          id?: string
+          recurrence_id?: string
+          status?: string
+          subscription_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurrence_occurrences_generated_deal_id_fkey"
+            columns: ["generated_deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_occurrences_generated_task_id_fkey"
+            columns: ["generated_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_occurrences_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "recurrence_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_occurrences_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "recurrence_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_occurrences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurrence_subscriptions: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          last_executed_date: string | null
+          metadata: Json
+          next_due_date: string | null
+          recurrence_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type?: string
+          id?: string
+          last_executed_date?: string | null
+          metadata?: Json
+          next_due_date?: string | null
+          recurrence_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          last_executed_date?: string | null
+          metadata?: Json
+          next_due_date?: string | null
+          recurrence_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurrence_subscriptions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_subscriptions_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "recurrence_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurrence_subscriptions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
