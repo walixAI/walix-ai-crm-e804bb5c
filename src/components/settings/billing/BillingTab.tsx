@@ -9,11 +9,21 @@ import { tenantPlanLabel, limitLabel, formatMXN } from "@/lib/plans";
 import { CreditsCard } from "./CreditsCard";
 import { AiEngineCard } from "./AiEngineCard";
 
-const INVOICES = [
-  { id: "INV-2026-04", date: "2026-04-01", status: "paid" },
-  { id: "INV-2026-03", date: "2026-03-01", status: "paid" },
-  { id: "INV-2026-02", date: "2026-02-01", status: "paid" },
-];
+/** Genera el historial de facturas desde el mes de inicio de facturación del tenant hasta hoy. */
+function buildInvoices(startDate: string | null | undefined) {
+  if (!startDate) return [];
+  const [y, m] = startDate.slice(0, 10).split("-").map(Number);
+  if (!y || !m) return [];
+  const now = new Date();
+  const out: { id: string; date: string }[] = [];
+  let cur = new Date(y, m - 1, 1);
+  while (cur.getFullYear() < now.getFullYear() || (cur.getFullYear() === now.getFullYear() && cur.getMonth() <= now.getMonth())) {
+    const mm = String(cur.getMonth() + 1).padStart(2, "0");
+    out.push({ id: `INV-${cur.getFullYear()}-${mm}`, date: `${cur.getFullYear()}-${mm}-01` });
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+  return out.reverse();
+}
 
 export function BillingTab({ tenantId }: { tenantId: string }) {
   const { data: tenant } = useQuery({ queryKey: ["tenant", tenantId], queryFn: () => fetchTenant(tenantId) });
@@ -23,6 +33,7 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
   const fmt = formatMXN;
 
   const renewDate = new Date(); renewDate.setDate(1); renewDate.setMonth(renewDate.getMonth() + 1);
+  const invoices = buildInvoices(tenant?.billing_start_date);
 
   return (
     <div className="space-y-6">
@@ -67,11 +78,18 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
           Historial de facturas
         </div>
         <div className="divide-y divide-border">
-          {INVOICES.map((inv) => (
+          {invoices.length === 0 && (
+            <div className="px-5 py-6 text-sm text-muted-foreground text-center">
+              Aún no hay facturas emitidas.
+            </div>
+          )}
+          {invoices.map((inv) => (
             <div key={inv.id} className="flex items-center gap-4 px-5 py-3">
               <div className="flex-1">
                 <div className="text-sm font-medium">{inv.id}</div>
-                <div className="text-xs text-muted-foreground">{new Date(inv.date).toLocaleDateString("es-MX")}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(`${inv.date}T00:00:00`).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" })}
+                </div>
               </div>
               <div className="text-sm font-semibold">{fmt(limit?.monthly_price ?? 0)}</div>
               <WBadge variant="success"><Check className="h-3 w-3" /> Pagado</WBadge>

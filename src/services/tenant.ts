@@ -17,6 +17,7 @@ export interface Tenant {
   created_at: string;
   ai_vendor?: string | null;
   ai_model?: string | null;
+  billing_start_date?: string | null;
 }
 
 export interface Member {
