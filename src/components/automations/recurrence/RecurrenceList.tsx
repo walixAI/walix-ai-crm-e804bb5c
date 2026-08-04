@@ -22,10 +22,16 @@ const ACTION_ICONS: Record<string, any> = {
 
 export function RecurrenceList({ onEdit, onNew }: Props) {
   const { data: recurrences = [], isLoading } = useRecurrences();
+  const { data: subscriptions = [] } = useRecurrenceSubscriptions();
   const update = useUpdateRecurrence();
   const del = useDeleteRecurrence();
   const { toast } = useToast();
   const [subscribeRecurrence, setSubscribeRecurrence] = useState<RecurrenceDefinition | null>(null);
+
+  const countByRecurrence = subscriptions.reduce((acc, s) => {
+    acc[s.recurrence_id] = (acc[s.recurrence_id] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   const toggle = async (r: RecurrenceDefinition) => {
     try {
