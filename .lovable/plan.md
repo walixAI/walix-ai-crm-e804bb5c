@@ -35,6 +35,7 @@ Davila  +525537224837  Acuario #36, El Prado Churubusco  G.E.D.
 
 A la tabla de contactos:
 - `address` (texto) — dirección. Es útil para cualquier negocio, así que se agrega como campo estándar del CRM.
+- `phone_alt` (texto) — segundo teléfono. En el Excel viene como "Teléfono de casa" y lo tienen **72 contactos**. Es un campo universal, no del giro.
 - `custom_fields` (JSON) — bolsa de campos personalizados por tenant. Aquí se guarda el modelo del refrigerador como `{"modelo_equipo": "S.Z. 500"}`.
 - Índice por tenant y teléfono para deduplicar rápido.
 
@@ -46,6 +47,38 @@ tenant_id | key           | label             | type   | position | is_active
 ```
 
 Así cualquier tenant puede definir sus propios campos (número de póliza, placas, RFC, talla, etc.) sin tocar la base. Para Refrigeración G&R se crea una sola definición: **Modelo de equipo**.
+
+> Nota: la tabla de **oportunidades** ya trae `equipment_brand`, `equipment_model` y `service_type` de una implementación previa. Son campos de este giro que quedaron en el esquema base. Se aprovechan para las refacciones y filtros, y más adelante conviene migrarlos también a campos personalizados por tenant.
+
+## Datos del Excel que requieren una decisión
+
+### a) Cotizaciones en texto libre — 34 de 353 filas
+El resto son números limpios, pero estas traen texto:
+```text
+$3,800 y $6,800      -> dos precios en una celda
+$3,800 C/U           -> precio por pieza, no total
+$300 Dólares         -> moneda distinta (USD)
+T/P $15000           -> abreviatura del negocio
+GARANTIA / CLIENTE TRAE DE USA / Se pidio evaporador   -> sin monto
+```
+Sin tratarlas, `$3,800 y $6,800` se leería como **$38,006,800**. Propuesta:
+- Tomar el **primer monto** de la celda como valor de la oportunidad.
+- Guardar el **texto original completo** en las notas de la oportunidad.
+- Convertir los montos en dólares a pesos y anotarlo en la nota.
+- Las que no tengan monto quedan en $0 con el texto en notas.
+- Marcar esas 34 oportunidades con la etiqueta **"Revisar cotización"** para que las validen a mano.
+
+### b) Modelos de equipo sin catálogo — 228 variantes
+Hay 1,201 contactos con modelo, pero escrito de muchas formas: `s.z.`, `S.Z.`, `s,z,`, `S.Z. 500`, `mabe d.`, `Whirlpool, Samsung`. Propuesta: **importar el texto tal cual** para no perder información, y dejar la limpieza del catálogo para después con la lista de valores reales a la vista.
+
+### c) Nombres — 482 contactos tienen un solo nombre
+Muchos registros son solo apellido (`Davila`, `Tami`). Todo el texto va al campo **Nombre** y **Apellido** queda vacío, para no partir mal los nombres.
+
+### d) Direcciones — solo 222 de 1,212
+La dirección solo viene en las hojas de mantenimientos, filtros y recuperación. El resto queda sin dirección y se puede completar con el uso diario.
+
+### e) Periodos "Enero / Julio"
+Los periodos de mantenimiento y filtros vienen como nombre de mes, sin día. Se agendan el **día 1 del mes** correspondiente y el técnico ajusta la fecha exacta al confirmar.
 
 ### 2. Corregir el importador existente (bug encontrado)
 `import-runner` usa columnas que **no existen** en la base:
@@ -73,6 +106,7 @@ La función temporal se elimina al terminar.
 
 ### 4. Mostrar los campos nuevos
 - **Dirección**: campo estándar en la ficha y el formulario del contacto, para todos los tenants.
+- **Segundo teléfono**: campo estándar junto al teléfono principal.
 - **Campos personalizados**: la ficha y el formulario del contacto leen las definiciones del tenant y muestran/editan dinámicamente solo los campos que ese tenant haya definido. Si un tenant no define ninguno, no aparece nada extra.
 - Un panel en Ajustes para que el administrador cree, renombre, reordene o desactive sus campos personalizados.
 
