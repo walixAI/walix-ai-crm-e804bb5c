@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useContacts } from "@/lib/queries/contacts";
 import { useCreateRecurrenceSubscription, type RecurrenceSubscription } from "@/lib/queries/recurrenceSubscriptions";
-import { useTenantUsers } from "@/lib/queries/tenant";
 import type { RecurrenceDefinition } from "@/lib/queries/recurrence";
 import { CalendarDays, UserPlus, Loader2 } from "lucide-react";
 
@@ -19,7 +18,6 @@ interface Props {
 export function RecurrenceSubscribeDialog({ open, onClose, recurrence }: Props) {
   const { toast } = useToast();
   const { data: contacts = [] } = useContacts();
-  const { data: users = [] } = useTenantUsers();
   const create = useCreateRecurrenceSubscription();
 
   const [selectedContactId, setSelectedContactId] = useState("");
@@ -85,7 +83,7 @@ export function RecurrenceSubscribeDialog({ open, onClose, recurrence }: Props) 
             >
               <option value="">Selecciona un contacto...</option>
               {contacts.map((c) => (
-                <option key={c.id} value={c.id}>{c.full_name} · {c.phone}</option>
+                <option key={c.id} value={c.id}>{c.name} {c.lastName ?? ""} · {c.phone}</option>
               ))}
             </select>
           </div>
