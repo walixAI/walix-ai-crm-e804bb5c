@@ -17,94 +17,117 @@ function addDays(d: Date, days: number) {
   return nd;
 }
 
+function toDateStr(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const auth = req.headers.get("Authorization") ?? "";
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     const now = new Date();
+    const today = toDateStr(now);
 
-    // 1. Procesar recurrencias genéricas (nuevo constructor de servicios recurrentes)
-    const { data: recurrences } = await admin
-      .from("recurrence_definitions")
-      .select("*, tenants:tenant_id(organization_id)")
-      .eq("is_active", true)
-      .lte("next_run_at", now.toISOString());
+    // 1. Procesar recurrencias genéricas (constructor de servicios recurrentes)
+    const { data: subs } = await admin
+      .from("recurrence_subscriptions")
+      .select("*, recurrence:recurrence_id(*)")
+      .lte("next_due_date", today)
+      .order("next_due_date", { ascending: true });
 
-    for (const rec of recurrences ?? []) {
+    for (const sub of subs ?? []) {
+      const rec = sub.recurrence as any;
+      if (!rec || !rec.enabled) continue;
       try {
-        const tenantId = rec.tenant_id;
-        const payload = rec.payload || {};
+        const tenantId = sub.tenant_id;
+        const actions: any[] = rec.actions || [];
 
         // Crear ocurrencia
         const { data: occ } = await admin.from("recurrence_occurrences").insert({
           recurrence_id: rec.id,
+          subscription_id: sub.id,
           tenant_id: tenantId,
-          scheduled_for: rec.next_run_at,
+          due_date: sub.next_due_date,
           status: "pending",
-          metadata: payload,
         }).select("id").single();
 
-        // Crear tarea asociada si aplica
-        if (rec.action_type === "create_task" || payload.create_task) {
-          const taskPayload = payload.task || payload;
-          await admin.from("tasks").insert({
-            tenant_id: tenantId,
-            title: taskPayload.title || `Seguimiento: ${rec.name}`,
-            description: taskPayload.description || rec.description,
-            due_date: rec.next_run_at,
-            assigned_to: rec.assigned_to,
-            status: "pending",
-            recurrence_occurrence_id: occ?.id,
-            created_by: rec.created_by,
-          });
+        let generatedTaskId: string | null = null;
+        let generatedDealId: string | null = null;
+
+        // Ejecutar acciones configuradas
+        for (const action of actions) {
+          try {
+            if (action.type === "create_task") {
+              const { data: task } = await admin.from("tasks").insert({
+                tenant_id: tenantId,
+                title: action.config?.title || `Seguimiento: ${rec.name}`,
+                description: action.config?.description || rec.description || "",
+                due_date: sub.next_due_date,
+                assigned_to: action.config?.assigned_to || null,
+                status: "pending",
+                recurrence_occurrence_id: occ?.id,
+                created_by: rec.created_by,
+              }).select("id").single();
+              generatedTaskId = task?.id ?? null;
+            } else if (action.type === "create_deal") {
+              const { data: contact } = await admin.from("contacts").select("id, owner_id").eq("id", sub.contact_id).maybeSingle();
+              const { data: deal } = await admin.from("deals").insert({
+                tenant_id: tenantId,
+                contact_id: sub.contact_id,
+                title: action.config?.title || `${rec.name} - ${sub.next_due_date}`,
+                stage_id: rec.target_stage_id,
+                owner_id: contact?.owner_id,
+                expected_close_date: sub.next_due_date,
+                source: "Recurrencia",
+                created_by: rec.created_by,
+              }).select("id").single();
+              generatedDealId = deal?.id ?? null;
+            } else if (action.type === "notify_owner") {
+              const { data: contact } = await admin.from("contacts").select("owner_id").eq("id", sub.contact_id).maybeSingle();
+              if (contact?.owner_id) {
+                await admin.from("notifications").insert({
+                  tenant_id: tenantId,
+                  user_id: contact.owner_id,
+                  title: rec.name,
+                  message: action.config?.message || `Vence el servicio recurrente el ${sub.next_due_date}`,
+                  category: "operational",
+                  severity: "info",
+                });
+              }
+            }
+          } catch (e) {
+            console.error("recurrence action error", rec.id, action.type, e);
+          }
         }
 
-        // Crear actividad de recordatorio si aplica
-        if (rec.action_type === "create_activity" || payload.create_activity) {
-          const actPayload = payload.activity || payload;
-          await admin.from("activities").insert({
-            tenant_id: tenantId,
-            type: "manual",
-            notes: actPayload.notes || `Recordatorio programado: ${rec.name}`,
-            owner_id: rec.assigned_to,
-            created_by: rec.created_by,
-          });
+        // Actualizar ocurrencia con referencias generadas
+        if (occ) {
+          await admin.from("recurrence_occurrences").update({
+            generated_task_id: generatedTaskId,
+            generated_deal_id: generatedDealId,
+          }).eq("id", occ.id);
         }
 
-        // Calcular siguiente ejecución
-        const freq = rec.frequency;
-        const interval = rec.interval || 1;
-        const base = new Date(rec.next_run_at);
-        let next = base;
-        if (freq === "daily") next = addDays(base, interval);
-        else if (freq === "weekly") next = addDays(base, 7 * interval);
-        else if (freq === "biweekly") next = addDays(base, 14 * interval);
-        else if (freq === "monthly") next = addMonths(base, interval);
-        else if (freq === "quarterly") next = addMonths(base, 3 * interval);
-        else if (freq === "semiannual") next = addMonths(base, 6 * interval);
-        else if (freq === "yearly") next = addMonths(base, 12 * interval);
-        else next = addMonths(base, interval);
+        // Calcular siguiente fecha de vencimiento
+        const period = rec.period_months || rec.kind === "calendar" ? 12 : 1;
+        const nextDue = addMonths(new Date(sub.next_due_date + "T00:00:00"), period);
+        await admin.from("recurrence_subscriptions").update({
+          last_executed_date: sub.next_due_date,
+          next_due_date: toDateStr(nextDue),
+        }).eq("id", sub.id);
 
-        await admin.from("recurrence_definitions").update({
-          last_run_at: now.toISOString(),
-          next_run_at: next.toISOString(),
-        }).eq("id", rec.id);
-
-        // Registrar ejecución de automatización
         await admin.from("automation_runs").insert({
-          automation_id: null,
           tenant_id: tenantId,
-          trigger_snapshot: { recurrence_id: rec.id, type: "recurrence_due" },
-          actions_executed: [{ type: rec.action_type, recurrence_occurrence_id: occ?.id }],
+          trigger_snapshot: { recurrence_id: rec.id, subscription_id: sub.id, type: "recurrence_due" },
+          actions_executed: actions.map((a) => ({ type: a.type })),
           status: "success",
         });
       } catch (e) {
-        console.error("recurrence run error", rec.id, e);
+        console.error("recurrence subscription error", sub.id, e);
       }
     }
 
@@ -113,11 +136,7 @@ Deno.serve(async (req) => {
       .from("automations")
       .select("*")
       .eq("is_active", true)
-      .neq("trigger_type", "new_whatsapp_lead")
-      .neq("trigger_type", "new_contact")
-      .neq("trigger_type", "deal_stage_changed")
-      .neq("trigger_type", "deal_won")
-      .neq("trigger_type", "deal_lost");
+      .in("trigger_type", ["deal_inactive", "deal_close_date_near", "contact_no_reply"]);
 
     for (const auto of automations ?? []) {
       try {
@@ -164,7 +183,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed_recurrences: recurrences?.length ?? 0, processed_automations: automations?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, processed_subscriptions: subs?.length ?? 0, processed_automations: automations?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("automations-run error", e);
     return new Response(JSON.stringify({ error: e?.message ?? "Error interno" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
