@@ -10,23 +10,17 @@ import {
 interface Props {
   module: ModuleDef;
   status: ModuleStatus;
-  onActivate: () => void;
   onManage: () => void;
-  onUpgrade: () => void;
 }
 
-export function ModuleCard({ module: mod, status, onActivate, onManage, onUpgrade }: Props) {
+export function ModuleCard({ module: mod, status, onManage }: Props) {
   const Icon = mod.icon;
 
   const statusBadge = () => {
     switch (status) {
       case "active":
         return <WBadge variant="success">Activo</WBadge>;
-      case "available":
-        return <WBadge variant="info">Disponible</WBadge>;
-      case "plan_locked":
-        return <WBadge variant="warning">Requiere {PLAN_LABEL[mod.minPlan]}</WBadge>;
-      case "coming_soon":
+      default:
         return <WBadge variant="neutral">Próximamente</WBadge>;
     }
   };
