@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { TenantAiModelTable } from "@/components/platform/TenantAiModelTable";
+import { PlatformWhatsappCard } from "@/components/platform/PlatformWhatsappCard";
 
 export default function Platform() {
   const { data: orgs = [], isLoading } = usePlatformOrgs();
@@ -91,6 +92,8 @@ export default function Platform() {
           </div>
         )}
       </Card>
+
+      <PlatformWhatsappCard />
 
       <TenantAiModelTable />
     </div>
