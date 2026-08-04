@@ -24,6 +24,7 @@ export function RecurrenceList({ onEdit, onNew }: Props) {
   const update = useUpdateRecurrence();
   const del = useDeleteRecurrence();
   const { toast } = useToast();
+  const [subscribeRecurrence, setSubscribeRecurrence] = useState<RecurrenceDefinition | null>(null);
 
   const toggle = async (r: RecurrenceDefinition) => {
     try {
