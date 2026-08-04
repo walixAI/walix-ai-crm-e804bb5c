@@ -230,6 +230,11 @@ export default function Automations() {
           conditions={dryFor.conditions}
         />
       )}
+      <RecurrenceBuilderSheet
+        open={recurrenceOpen}
+        onClose={() => { setRecurrenceOpen(false); setEditingRecurrence(null); }}
+        editing={editingRecurrence}
+      />
     </div>
   );
 }
