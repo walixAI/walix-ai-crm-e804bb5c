@@ -17,7 +17,9 @@ export type TriggerType =
   | "deal_won"
   | "deal_lost"
   | "deal_close_date_near"
-  | "contact_no_reply";
+  | "contact_no_reply"
+  | "recurrence_due"
+  | "recurrence_completed";
 
 export type ActionType =
   | "send_whatsapp"
@@ -25,7 +27,9 @@ export type ActionType =
   | "create_task"
   | "reassign_contact"
   | "add_tag"
-  | "move_deal_stage";
+  | "move_deal_stage"
+  | "create_recurrence_occurrence"
+  | "schedule_next_recurrence";
 
 export type ConditionOperator =
   | "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "in";
