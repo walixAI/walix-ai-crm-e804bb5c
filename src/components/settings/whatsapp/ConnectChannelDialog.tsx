@@ -15,9 +15,11 @@ interface Props {
   tenantId: string;
   kind: ChannelKind;
   existing?: WhatsappChannel;
+  /** "new" fuerza la creación de un número adicional del mismo tipo. */
+  channelId?: string | "new";
 }
 
-export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }: Props) {
+export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing, channelId }: Props) {
   const { toast } = useToast();
   const upsert = useUpsertChannel(tenantId);
   const test = useTestChannel(tenantId);
@@ -43,7 +45,7 @@ export function ConnectChannelDialog({ open, onClose, tenantId, kind, existing }
       return toast({ title: "Faltan datos", variant: "destructive" });
     }
     try {
-      const r = await upsert.mutateAsync({ ...form, kind });
+      const r = await upsert.mutateAsync({ ...form, kind, channelId: channelId ?? existing?.id });
       setVerifyToken(r.verify_token);
       setStep(3);
     } catch (e: any) {
