@@ -42,6 +42,8 @@ export default function Automations() {
   const [historyFor, setHistoryFor] = useState<Automation | null>(null);
   const [dryFor, setDryFor] = useState<Automation | null>(null);
   const [deleteFor, setDeleteFor] = useState<Automation | null>(null);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [editingRecurrence, setEditingRecurrence] = useState<RecurrenceDefinition | null>(null);
   const { data: tenant } = useTenant();
   const tenantPlan = tenant?.plan ?? "starter";
 
