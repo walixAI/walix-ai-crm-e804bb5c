@@ -131,7 +131,7 @@ export function PlatformWhatsappCard() {
                 <span>
                   Último webhook:{" "}
                   {channel?.last_webhook_at
-                    ? formatDistanceToNow(new Date(channel.last_webhook_at as any), { locale: es, addSuffix: true })
+                    ? formatDistanceToNow(new Date(channel.last_webhook_at), { locale: es, addSuffix: true })
                     : "—"}
                 </span>
                 <span>
