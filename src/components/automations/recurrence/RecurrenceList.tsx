@@ -83,11 +83,16 @@ export function RecurrenceList({ onEdit, onNew }: Props) {
                 <Switch checked={r.enabled} onCheckedChange={() => toggle(r)} />
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2">{r.description || "Sin descripción"}</p>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <CalendarClock className="h-3.5 w-3.5" />
-                {r.kind === "periodic" ? `Cada ${r.period_months} mes(es)` : "Anual (calendario)"}
-                <span className="mx-1">·</span>
-                {r.anticipation_days}d de anticipación
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {r.kind === "periodic" ? `Cada ${r.period_months} mes(es)` : "Anual (calendario)"}
+                </span>
+                <span>{r.anticipation_days}d de anticipación</span>
+                <span className="flex items-center gap-1" title="Contactos suscritos">
+                  <Users className="h-3.5 w-3.5" />
+                  {countByRecurrence[r.id] ?? 0}
+                </span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {r.actions.map((a, i) => {
