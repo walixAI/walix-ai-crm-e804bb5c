@@ -3540,6 +3540,7 @@ export type Database = {
         Row: {
           ai_model: string
           ai_vendor: string
+          billing_start_date: string
           brand_name: string | null
           brand_primary: string | null
           contact_inactivity_days: number | null
@@ -3570,6 +3571,7 @@ export type Database = {
         Insert: {
           ai_model?: string
           ai_vendor?: string
+          billing_start_date?: string
           brand_name?: string | null
           brand_primary?: string | null
           contact_inactivity_days?: number | null
@@ -3600,6 +3602,7 @@ export type Database = {
         Update: {
           ai_model?: string
           ai_vendor?: string
+          billing_start_date?: string
           brand_name?: string | null
           brand_primary?: string | null
           contact_inactivity_days?: number | null
