@@ -1,93 +1,73 @@
-# Plan: qué hacer si la importación de Excel sale mal
+# Importación de datos históricos — Refrigeración González y Rodríguez
 
-## Objetivo
-Definir un protocolo seguro para cargar los datos históricos de Refrigeración González y Rodríguez (y cualquier tenant futuro) de forma que, si el Excel tiene errores, se pueda detectar, contener y deshacer sin dejar la base de datos mezclada.
+Ya procesé las 5 hojas del Excel. Estos son los datos reales listos para cargar.
 
-## Estado actual confirmado
-- Ya existe el **Importador Universal** (`/settings?tab=import`) con 4 tipos: contactos, productos, oportunidades y actividades.
-- Cada importe crea un **lote** (`import_batches`) y guarda cada fila (`import_rows`) con su estado: `pending`, `imported`, `error`, `skipped`.
-- Existe el botón **Deshacer** en el historial que invoca `import-revert`: elimina los registros creados por ese lote y lo marca como `reverted`.
-- El motor detecta duplicados de contactos por teléfono normalizado y los salta (`skipped`) en lugar de crear repetidos.
+## Qué se va a importar
 
-## Protocolo de importación segura
+| Concepto | Cantidad |
+|---|---|
+| Contactos únicos (con teléfono) | **1,212** |
+| Contactos omitidos (sin teléfono) | 38 |
+| Oportunidades (filtros agendados + refacciones) | **695** |
+| Actividades históricas | **22,557** |
+| Ciclos recurrentes (mantenimiento semestral y filtros) | **282** |
 
-### 1. Preparar el Excel antes de subirlo
-- Guardar una copia de respaldo del archivo original.
-- Elegir un nombre descriptivo por hoja, por ejemplo:
-  - `contactos.csv`
-  - `oportunidades_refacciones.csv`
-  - `actividades_diarias.csv`
-  - `mantenimientos_programados.csv`
-- Limpiar encabezados: una sola fila de títulos, sin celdas vacías arriba, sin columnas ocultas.
-- Normalizar teléfonos en el Excel a 10 dígitos mexicanos (el sistema agrega el prefijo `52`).
-- Revisar que cada contacto tenga **nombre y teléfono o email**; las filas sin datos de contacto se descartan.
+### Deduplicación
+Un mismo cliente aparece hasta en 4 hojas. Se unifica en cascada: **teléfono normalizado** (`+52` + 10 dígitos, quitando el "1" legado) y, si no hay teléfono, **nombre normalizado**. Se conserva el nombre más completo y se enriquece con dirección y modelo de la hoja que los tenga.
 
-### 2. Importar en fases, nunca todo de golpe
+Ejemplo real ya validado:
 ```text
-Fase 1 → Contactos (base de todo)
-Fase 2 → Productos (si aplica)
-Fase 3 → Oportunidades / Deals (se vinculan por teléfono)
-Fase 4 → Actividades históricas (se vinculan por teléfono)
-Fase 5 → Servicios recurrentes (mantenimientos y filtros)
+Davila  +525537224837  Acuario #36, El Prado Churubusco  G.E.D.
+        aparece en: mantenimientos, filtros, refacciones, actividades  ->  1 solo contacto
 ```
 
-Cada fase genera su propio lote. Si una fase falla, las anteriores quedan intactas y se pueden revertir por separado.
+### Origen de cada dato
+- **Mantenimientos cada 6 meses** → contacto + dirección + modelo + ciclo semestral + observaciones como nota.
+- **Filtros** → contacto + una oportunidad por cada periodo agendado 2026-2029 (los pasados quedan como completados, los futuros como agendados) + ciclo de filtro.
+- **Pendientes refacciones** → una oportunidad por pendiente, con la cotización como monto y su fecha; marcada como completada si tiene fecha de realización. Observaciones como nota.
+- **Actividades Diarias** → llamadas de salida/entrada, visitas y WhatsApp como actividades fechadas. **No** genera oportunidades, para no inflar el pipeline con 8,000 registros sin monto.
+- **Recuperación de Clientes** → intentos de contacto fechados como actividades de llamada.
 
-### 3. Usar la vista previa y una prueba piloto
-- Subir primero un archivo de **10 a 20 filas** de muestra.
-- Revisar en la pantalla de preview:
-  - Cuántos se importarán.
-  - Cuántos están duplicados.
-  - Cuántos tienen error.
-- Si la muestra se ve bien, subir el archivo completo.
+## Cambios técnicos necesarios
 
-### 4. Revisar el resultado inmediatamente
-Después de confirmar cada importe, revisar en **Historial**:
-- Filas importadas (verde).
-- Filas con error (rojo): se puede hacer clic para ver el mensaje de error.
-- Filas omitidas (ámbar): normalmente duplicados.
+### 1. Migración de base de datos
+Agregar a la tabla de contactos:
+- `address` (dirección de servicio)
+- `equipment_model` (marca/modelo del refrigerador)
+- Índice por tenant y teléfono para deduplicar rápido.
 
-Si hay errores, **no seguir con la siguiente fase** hasta corregir el Excel.
+### 2. Corregir el importador existente (bug encontrado)
+`import-runner` usa columnas que **no existen** en la base:
+- contactos: `full_name`, `whatsapp`, `lifecycle`, `created_by` → deben ser `name`, `phone`, `status`.
+- oportunidades: `title` → debe ser `name`.
+- actividades: `direction`, `notes`, `performed_at`, `owner_id` → deben ser `description`, `occurred_at`, `metadata`.
 
-### 5. Si algo sale mal: opciones de recuperación
+Tal como está hoy, **cualquier importe desde la UI falla**. Se corrige antes de cargar.
 
-#### Opción A: el lote completo está mal
-- Ir a `/settings?tab=import` → pestaña **Historial**.
-- Buscar el lote y presionar **Deshacer**.
-- `import-revert` borra los contactos, deals, actividades o productos creados por ese lote.
-- El lote queda marcado como `Revertido` y no se puede deshacer otra vez.
+### 3. Carga masiva revertible
+Se despliega una función temporal `bulk-seed` protegida por token que:
+- Crea un lote de importación por tipo (contactos, oportunidades, actividades).
+- Registra cada fila con el identificador del registro creado.
+- Deja disponible el botón **Deshacer** en `/settings?tab=import` → Historial.
 
-#### Opción B: solo algunas filas fallaron
-- Descargar o anotar los errores del historial.
-- Corregir esas filas en el Excel.
-- Volver a subir el archivo. Los contactos ya existentes se saltan como duplicados, y solo se importan los faltantes.
+Se ejecuta por fases, verificando cada una antes de seguir:
+```text
+Fase 1  Contactos            1,212
+Fase 2  Oportunidades          695
+Fase 3  Actividades         22,557
+Fase 4  Ciclos recurrentes     282
+```
 
-#### Opción C: ya se hicieron seguimientos o ventas sobre los datos importados
-- **No usar "Deshacer"** porque borraría contactos que ya tienes actividad real.
-- Se hará una limpieza selectiva:
-  - Buscar duplicados por teléfono u nombre.
-  - Fusionar el contacto correcto y eliminar el sobrante.
-  - Reasignar deals/actividades al contacto correcto.
-- Esta limpieza se hará con un asistente de "Fusión de duplicados" que construiremos si se necesita.
+La función temporal se elimina al terminar.
 
-### 6. Consideraciones especiales para Refrigeración G&R
-- Las hojas **Mantenimientos cada 6 meses** y **Filtros** no son importes directos: son **servicios recurrentes** que se generan a partir de los contactos ya cargados.
-- Si los contactos se importan mal, los servicios recurrentes también quedarán mal. Por eso la Fase 1 (contactos) debe quedar validada antes de crear recurrencias.
-- Las **Actividades diarias** son históricas: se importan como actividades vinculadas al teléfono. Si un teléfono no coincide con ningún contacto, esa fila marcará error.
+### 4. Mostrar los campos nuevos
+Agregar dirección y modelo de equipo en la ficha del contacto y en su formulario de edición.
 
-### 7. Checklist antes de cada importe
-- [ ] Tengo una copia del Excel original.
-- [ ] Los teléfonos están en formato limpio (10 dígitos).
-- [ ] No hay filas en blanco al inicio ni entre los datos.
-- [ ] Ya revisé la muestra piloto.
-- [ ] Sé qué fase estoy importando y las anteriores ya están correctas.
-- [ ] Tengo tiempo de revisar el historial antes de importar la siguiente fase.
+## Asignación
+Todo queda asignado al **administrador del tenant** (Adriana Ruiz) para no distorsionar las métricas de los vendedores. Se puede reasignar después desde Contactos.
 
-## Entregables de este plan
-1. Documento de mapeo de columnas por hoja del Excel de Refrigeración G&R.
-2. Archivos CSV limpios y listos para subir (contactos, oportunidades, actividades).
-3. Configuración de servicios recurrentes para mantenimientos y filtros.
-4. Reporte final de importación: cuántos registros se crearon, omitidos y con error.
+## Si algo sale mal
+Cada fase es un lote independiente con botón **Deshacer**. Si la Fase 1 queda mal, se revierte y las siguientes no se ejecutan.
 
 ## Próximo paso
-Aprobar este protocolo y subir el Excel para comenzar con la Fase 1 (contactos) de muestra.
+Aprobar para ejecutar la migración y la carga por fases.
