@@ -38,7 +38,7 @@ export const useRecurrences = () => {
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as RecurrenceDefinition[];
+      return (data ?? []) as unknown as RecurrenceDefinition[];
     },
     enabled: !!tenant?.id,
   });
@@ -49,13 +49,14 @@ export const useCreateRecurrence = () => {
   const { data: tenant } = useTenant();
   return useMutation({
     mutationFn: async (input: Partial<RecurrenceDefinition>) => {
+      const payload = { ...input, tenant_id: tenant?.id } as any;
       const { data, error } = await supabase
         .from("recurrence_definitions")
-        .insert({ ...input, tenant_id: tenant?.id })
+        .insert(payload)
         .select()
         .single();
       if (error) throw error;
-      return data as RecurrenceDefinition;
+      return data as unknown as RecurrenceDefinition;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recurrences", tenant?.id] }),
   });
@@ -68,12 +69,12 @@ export const useUpdateRecurrence = () => {
     mutationFn: async ({ id, ...rest }: Partial<RecurrenceDefinition> & { id: string }) => {
       const { data, error } = await supabase
         .from("recurrence_definitions")
-        .update(rest)
+        .update(rest as any)
         .eq("id", id)
         .select()
         .single();
       if (error) throw error;
-      return data as RecurrenceDefinition;
+      return data as unknown as RecurrenceDefinition;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recurrences", tenant?.id] }),
   });
