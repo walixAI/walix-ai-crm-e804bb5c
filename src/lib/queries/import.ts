@@ -70,12 +70,15 @@ function mapRow(r: any): ImportRow {
 }
 
 export function useImportBatches() {
+  const { data: tenantId } = useTenantId();
   return useQuery({
-    queryKey: ["import-batches"],
+    queryKey: ["import-batches", tenantId],
+    enabled: !!tenantId,
     queryFn: async (): Promise<ImportBatch[]> => {
       const { data, error } = await supabase
         .from("import_batches")
         .select("*")
+        .eq("tenant_id", tenantId!)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;

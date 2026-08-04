@@ -115,7 +115,7 @@ export default function Automations() {
           <p className="text-sm text-muted-foreground mt-1">Pon tu CRM en piloto automático.</p>
         </div>
         <div className="flex items-center gap-2">
-          <PlanLimitBanner plan={tenant.plan} active={activeCount} />
+          <PlanLimitBanner plan={tenantPlan} active={activeCount} />
           {tab === "recurrence" ? (
             <Button onClick={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}>
               <Plus className="h-4 w-4 mr-1.5" /> Nuevo servicio recurrente
