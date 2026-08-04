@@ -116,9 +116,15 @@ export default function Automations() {
         </div>
         <div className="flex items-center gap-2">
           <PlanLimitBanner plan={tenant.plan} active={activeCount} />
-          <Button onClick={() => setGalleryOpen(true)} disabled={limits.locked}>
-            <Plus className="h-4 w-4 mr-1.5" /> Nueva automatización
-          </Button>
+          {tab === "recurrence" ? (
+            <Button onClick={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1.5" /> Nuevo servicio recurrente
+            </Button>
+          ) : (
+            <Button onClick={() => setGalleryOpen(true)} disabled={limits.locked}>
+              <Plus className="h-4 w-4 mr-1.5" /> Nueva automatización
+            </Button>
+          )}
         </div>
       </div>
 
@@ -128,6 +134,7 @@ export default function Automations() {
           <TabsTrigger value="paused">Pausadas ({counts.paused})</TabsTrigger>
           <TabsTrigger value="drafts">Borradores ({counts.drafts})</TabsTrigger>
           <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
+          <TabsTrigger value="recurrence">Servicios recurrentes</TabsTrigger>
         </TabsList>
       </Tabs>
 
