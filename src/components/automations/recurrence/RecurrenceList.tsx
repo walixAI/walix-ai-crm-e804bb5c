@@ -111,6 +111,14 @@ export function RecurrenceList({ onEdit, onNew }: Props) {
           </Card>
         ))}
       </div>
+
+      {subscribeRecurrence && (
+        <RecurrenceSubscribeDialog
+          open={!!subscribeRecurrence}
+          recurrence={subscribeRecurrence}
+          onClose={() => setSubscribeRecurrence(null)}
+        />
+      )}
     </div>
   );
 }
