@@ -8,6 +8,7 @@ import { switchTenant } from "@/services/organizations";
 import { useToast } from "@/hooks/use-toast";
 import type { OrgTenant } from "@/lib/queries/organizations";
 import { useQueryClient } from "@tanstack/react-query";
+import { tenantPlanLabel } from "@/lib/plans";
 
 const fmt = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
@@ -68,7 +69,7 @@ export function OrgTenantsTable({ tenants, activeTenantId }: Props) {
                       </WBadge>
                     )}
                   </td>
-                  <td className="px-5 py-3 capitalize">{t.plan}</td>
+                  <td className="px-5 py-3">{tenantPlanLabel(t.plan)}</td>
                   <td className="px-5 py-3">{t.active_users}</td>
                   <td className="px-5 py-3 text-muted-foreground">
                     {t.last_activity_at
