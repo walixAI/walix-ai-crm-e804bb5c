@@ -2,22 +2,26 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "./tenant";
 
-export type Frequency = "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "semiannual" | "yearly";
+export type RecurrenceKind = "periodic" | "calendar";
+
+export interface RecurrenceAction {
+  type: "create_task" | "create_deal" | "send_whatsapp" | "notify_owner";
+  config?: Record<string, any>;
+}
 
 export interface RecurrenceDefinition {
   id: string;
   tenant_id: string;
   name: string;
   description: string | null;
-  frequency: Frequency;
-  interval: number;
+  kind: RecurrenceKind;
+  period_months: number | null;
   anticipation_days: number;
-  action_type: string;
-  payload: Record<string, any>;
-  assigned_to: string | null;
-  next_run_at: string;
-  last_run_at: string | null;
-  is_active: boolean;
+  target_pipeline_id: string | null;
+  target_stage_id: string | null;
+  actions: RecurrenceAction[];
+  substitution_rule: Record<string, any>;
+  enabled: boolean;
   created_by: string;
   created_at: string;
 }
@@ -30,11 +34,11 @@ export const useRecurrences = () => {
       if (!tenant?.id) return [];
       const { data, error } = await supabase
         .from("recurrence_definitions")
-        .select("*, assigned:assigned_to(full_name)")
+        .select("*")
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as (RecurrenceDefinition & { assigned?: { full_name: string } | null })[];
+      return (data ?? []) as RecurrenceDefinition[];
     },
     enabled: !!tenant?.id,
   });
@@ -51,7 +55,7 @@ export const useCreateRecurrence = () => {
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return data as RecurrenceDefinition;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recurrences", tenant?.id] }),
   });
@@ -69,7 +73,7 @@ export const useUpdateRecurrence = () => {
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return data as RecurrenceDefinition;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recurrences", tenant?.id] }),
   });
