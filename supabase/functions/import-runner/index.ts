@@ -95,12 +95,13 @@ Deno.serve(async (req) => {
           if (!phone) {
             throw new Error("Teléfono inválido");
           }
+          const e164 = "+" + phone;
 
           const { data: existing } = await admin
             .from("contacts")
             .select("id")
             .eq("tenant_id", tenantId)
-            .or(`phone.eq.${phone},whatsapp.eq.${phone}`)
+            .eq("phone", e164)
             .maybeSingle();
 
           if (existing) {
@@ -109,20 +110,21 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const lifecycle = ["prospecto", "cliente", "cliente_inactivo", "inactivo"].includes(String(mapped.lifecycle).toLowerCase())
-            ? String(mapped.lifecycle).toLowerCase()
+          const status = ["prospecto", "cliente", "cliente_inactivo", "inactivo"].includes(String(mapped.lifecycle ?? mapped.status).toLowerCase())
+            ? String(mapped.lifecycle ?? mapped.status).toLowerCase()
             : "prospecto";
 
           const { data: contact, error: insertErr } = await admin.from("contacts").insert({
             tenant_id: tenantId,
-            full_name: mapped.full_name || "Sin nombre",
-            phone,
-            whatsapp: phone,
+            name: mapped.name || mapped.full_name || "Sin nombre",
+            last_name: mapped.last_name || null,
+            phone: e164,
+            phone_alt: normalizePhone(mapped.phone_alt) ? "+" + normalizePhone(mapped.phone_alt) : null,
             email: mapped.email || null,
             company: mapped.company || null,
+            address: mapped.address || null,
             source: mapped.source || "Manual",
-            lifecycle,
-            created_by: u.user.id,
+            status,
           }).select("id").single();
 
           if (insertErr) throw insertErr;
@@ -134,16 +136,17 @@ Deno.serve(async (req) => {
             }
           }
 
-          contactCache.set(phone, contact);
+          contactCache.set(e164, contact);
           await admin.from("import_rows").update({ status: "imported", target_table: "contacts", target_id: contact.id, mapped_data: mapped }).eq("id", row.id);
           imported++;
         } else if (batch.kind === "deals") {
           const phone = normalizePhone(mapped.contact_phone);
           if (!phone) throw new Error("Teléfono de contacto inválido");
+          const e164 = "+" + phone;
 
-          let contact = contactCache.get(phone);
+          let contact = contactCache.get(e164);
           if (!contact) {
-            const { data: c } = await admin.from("contacts").select("id, owner_id").eq("tenant_id", tenantId).or(`phone.eq.${phone},whatsapp.eq.${phone}`).maybeSingle();
+            const { data: c } = await admin.from("contacts").select("id, owner_id").eq("tenant_id", tenantId).eq("phone", e164).maybeSingle();
             contact = c;
           }
           if (!contact) {
@@ -151,21 +154,23 @@ Deno.serve(async (req) => {
           }
 
           let stageId: string | null = null;
+          let stageName: string | null = null;
           if (mapped.stage_name) {
             const { data: stage } = await admin.from("pipeline_stages").select("id, name, pipeline_id").eq("tenant_id", tenantId).ilike("name", mapped.stage_name).maybeSingle();
-            if (stage) stageId = stage.id;
+            if (stage) { stageId = stage.id; stageName = stage.name; }
           }
+          if (!stageId) throw new Error("Etapa no encontrada: " + (mapped.stage_name ?? "(vacía)"));
 
           const { data: deal, error: dealErr } = await admin.from("deals").insert({
             tenant_id: tenantId,
             contact_id: contact.id,
-            title: mapped.title || "Oportunidad importada",
+            name: mapped.name || mapped.title || "Oportunidad importada",
             amount: parseAmount(mapped.amount),
             stage_id: stageId,
+            stage_name: stageName,
             owner_id: contact.owner_id,
             expected_close_date: parseDate(mapped.close_date)?.slice(0, 10),
             source: mapped.source || "Manual",
-            created_by: u.user.id,
           }).select("id").single();
 
           if (dealErr) throw dealErr;
@@ -174,10 +179,11 @@ Deno.serve(async (req) => {
         } else if (batch.kind === "activities") {
           const phone = normalizePhone(mapped.contact_phone);
           if (!phone) throw new Error("Teléfono de contacto inválido");
+          const e164 = "+" + phone;
 
-          let contact = contactCache.get(phone);
+          let contact = contactCache.get(e164);
           if (!contact) {
-            const { data: c } = await admin.from("contacts").select("id, owner_id").eq("tenant_id", tenantId).or(`phone.eq.${phone},whatsapp.eq.${phone}`).maybeSingle();
+            const { data: c } = await admin.from("contacts").select("id, owner_id").eq("tenant_id", tenantId).eq("phone", e164).maybeSingle();
             contact = c;
           }
           if (!contact) {
@@ -195,11 +201,9 @@ Deno.serve(async (req) => {
             tenant_id: tenantId,
             contact_id: contact.id,
             type,
-            direction,
-            notes: mapped.notes || "Actividad importada",
-            performed_at: parseDate(mapped.performed_at) || new Date().toISOString(),
-            owner_id: contact.owner_id,
-            created_by: u.user.id,
+            description: mapped.description || mapped.notes || "Actividad importada",
+            occurred_at: parseDate(mapped.occurred_at ?? mapped.performed_at) || new Date().toISOString(),
+            metadata: { direction, imported: true },
           }).select("id").single();
 
           if (actErr) throw actErr;

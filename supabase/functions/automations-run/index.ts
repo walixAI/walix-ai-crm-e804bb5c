@@ -78,12 +78,11 @@ Deno.serve(async (req) => {
               const { data: deal } = await admin.from("deals").insert({
                 tenant_id: tenantId,
                 contact_id: sub.contact_id,
-                title: action.config?.title || `${rec.name} - ${sub.next_due_date}`,
+                name: action.config?.title || `${rec.name} - ${sub.next_due_date}`,
                 stage_id: rec.target_stage_id,
                 owner_id: contact?.owner_id,
                 expected_close_date: sub.next_due_date,
                 source: "Recurrencia",
-                created_by: rec.created_by,
               }).select("id").single();
               generatedDealId = deal?.id ?? null;
             } else if (action.type === "notify_owner") {
@@ -113,7 +112,7 @@ Deno.serve(async (req) => {
         }
 
         // Calcular siguiente fecha de vencimiento
-        const period = rec.period_months || rec.kind === "calendar" ? 12 : 1;
+        const period = rec.period_months ?? (rec.kind === "calendar" ? 12 : 1);
         const nextDue = addMonths(new Date(sub.next_due_date + "T00:00:00"), period);
         await admin.from("recurrence_subscriptions").update({
           last_executed_date: sub.next_due_date,
