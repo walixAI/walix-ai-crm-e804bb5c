@@ -94,6 +94,9 @@ export function RecurrenceList({ onEdit, onNew }: Props) {
                 })}
               </div>
               <div className="flex items-center justify-end gap-1 pt-1">
+                <Button variant="ghost" size="icon" title="Suscribir contacto" onClick={() => setSubscribeRecurrence(r)}>
+                  <UserPlus className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => onEdit(r)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
