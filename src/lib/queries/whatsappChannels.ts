@@ -21,6 +21,10 @@ export interface WhatsappChannel {
   access_token: string | null;
   last_inbound_at: string | null;
   last_inbound_from: string | null;
+  is_default: boolean;
+  label: string | null;
+  position: number;
+  is_platform: boolean;
 }
 
 export interface WhatsappUserAccess {
@@ -47,10 +51,28 @@ export function useWhatsappChannels(tenantId: string | null | undefined) {
         .from("whatsapp_channels")
         .select("*")
         .eq("tenant_id", tenantId!)
-        .order("kind");
+        .order("kind")
+        .order("is_default", { ascending: false })
+        .order("position", { ascending: true });
       if (error) throw error;
       return data as WhatsappChannel[];
     },
+  });
+}
+
+/** Marca un número como predeterminado para su tipo de canal. */
+export function useSetDefaultChannel(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, kind }: { id: string; kind: ChannelKind }) => {
+      const { error: e1 } = await supabase.from("whatsapp_channels")
+        .update({ is_default: false }).eq("tenant_id", tenantId).eq("kind", kind).neq("id", id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("whatsapp_channels")
+        .update({ is_default: true }).eq("id", id);
+      if (e2) throw e2;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
   });
 }
 
@@ -64,10 +86,22 @@ export function useUpsertChannel(tenantId: string) {
       phone_number_id: string;
       business_account_id: string;
       access_token?: string;
+      /** Si se indica, actualiza ese número; si es "new", crea uno adicional. */
+      channelId?: string | "new";
+      label?: string;
     }) => {
-      // Find existing
-      const { data: existing } = await supabase.from("whatsapp_channels").select("id, verify_token")
-        .eq("tenant_id", tenantId).eq("kind", input.kind).maybeSingle();
+      // Find existing (por id explícito, o el predeterminado del tipo)
+      let existing: { id: string; verify_token: string } | null = null;
+      if (input.channelId && input.channelId !== "new") {
+        const { data } = await supabase.from("whatsapp_channels").select("id, verify_token")
+          .eq("id", input.channelId).maybeSingle();
+        existing = data as any;
+      } else if (input.channelId !== "new") {
+        const { data } = await supabase.from("whatsapp_channels").select("id, verify_token")
+          .eq("tenant_id", tenantId).eq("kind", input.kind)
+          .order("is_default", { ascending: false }).limit(1).maybeSingle();
+        existing = data as any;
+      }
       const verify_token = existing?.verify_token ?? genVerifyToken();
       if (existing) {
         const hasNewToken = !!(input.access_token && input.access_token.trim().length > 0);
@@ -78,6 +112,7 @@ export function useUpsertChannel(tenantId: string) {
           business_account_id: input.business_account_id,
           status: "pending" as const,
           last_error: null,
+          ...(input.label !== undefined ? { label: input.label } : {}),
           ...(hasNewToken ? { access_token: input.access_token! } : {}),
         };
         const { error } = await supabase.from("whatsapp_channels").update(update).eq("id", existing.id);
@@ -85,6 +120,9 @@ export function useUpsertChannel(tenantId: string) {
         return { id: existing.id, verify_token };
       } else {
         if (!input.access_token) throw new Error("access_token requerido");
+        const { count } = await supabase.from("whatsapp_channels")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", tenantId).eq("kind", input.kind);
         const { data, error } = await supabase.from("whatsapp_channels").insert({
           tenant_id: tenantId,
           kind: input.kind,
@@ -96,6 +134,9 @@ export function useUpsertChannel(tenantId: string) {
           access_token: input.access_token,
           verify_token,
           status: "pending",
+          label: input.label ?? null,
+          position: count ?? 0,
+          is_default: (count ?? 0) === 0,
         }).select("id, verify_token").single();
         if (error) throw error;
         return data;
