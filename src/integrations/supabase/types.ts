@@ -3823,6 +3823,10 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _tenant_id: string }
         Returns: string
       }
+      run_import_batch: {
+        Args: { _batch_id: string; _historical?: boolean }
+        Returns: Json
+      }
       seed_default_activity_outcomes: {
         Args: { _pipeline_id: string; _tenant_id: string }
         Returns: number
