@@ -3,19 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Crown } from "lucide-react";
 import type { OrgPlanLimit } from "@/lib/queries/organizations";
+import { orgPlanLabel } from "@/lib/plans";
 
 interface Props {
   plan: string;
   tenantCount: number;
   limit?: OrgPlanLimit;
 }
-
-const PLAN_LABEL: Record<string, string> = {
-  org_starter: "Starter",
-  org_pyme: "PYME",
-  org_growth: "Growth",
-  org_enterprise: "Enterprise",
-};
 
 export function OrgPlanCard({ plan, tenantCount, limit }: Props) {
   const max = limit?.max_tenants ?? 1;
@@ -31,7 +25,7 @@ export function OrgPlanCard({ plan, tenantCount, limit }: Props) {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Plan de organización</p>
-            <p className="text-lg font-bold">{PLAN_LABEL[plan] ?? plan}</p>
+            <p className="text-lg font-bold">{orgPlanLabel(plan)}</p>
           </div>
         </div>
         <Button variant="outline" size="sm">
