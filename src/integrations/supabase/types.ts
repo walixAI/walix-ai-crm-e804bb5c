@@ -1262,6 +1262,7 @@ export type Database = {
       conversations: {
         Row: {
           assignee_id: string | null
+          channel_id: string | null
           contact_id: string
           created_at: string
           deal_id: string | null
@@ -1276,6 +1277,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          channel_id?: string | null
           contact_id: string
           created_at?: string
           deal_id?: string | null
@@ -1290,6 +1292,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          channel_id?: string | null
           contact_id?: string
           created_at?: string
           deal_id?: string | null
@@ -1303,6 +1306,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_contact_id_fkey"
             columns: ["contact_id"]
@@ -3566,6 +3576,7 @@ export type Database = {
           team_size: string | null
           timezone: string
           trial_ends_at: string | null
+          wa_team_dedicated: boolean
           whatsapp_phone: string | null
         }
         Insert: {
@@ -3597,6 +3608,7 @@ export type Database = {
           team_size?: string | null
           timezone?: string
           trial_ends_at?: string | null
+          wa_team_dedicated?: boolean
           whatsapp_phone?: string | null
         }
         Update: {
@@ -3628,6 +3640,7 @@ export type Database = {
           team_size?: string | null
           timezone?: string
           trial_ends_at?: string | null
+          wa_team_dedicated?: boolean
           whatsapp_phone?: string | null
         }
         Relationships: [
@@ -3681,7 +3694,10 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_default: boolean
+          is_platform: boolean
           kind: Database["public"]["Enums"]["whatsapp_channel_kind"]
+          label: string | null
           last_error: string | null
           last_inbound_at: string | null
           last_inbound_from: string | null
@@ -3689,9 +3705,10 @@ export type Database = {
           last_webhook_payload: Json | null
           phone_number: string | null
           phone_number_id: string | null
+          position: number
           provider: string
           status: Database["public"]["Enums"]["whatsapp_channel_status"]
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string
           verify_token: string
         }
@@ -3703,7 +3720,10 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_default?: boolean
+          is_platform?: boolean
           kind: Database["public"]["Enums"]["whatsapp_channel_kind"]
+          label?: string | null
           last_error?: string | null
           last_inbound_at?: string | null
           last_inbound_from?: string | null
@@ -3711,9 +3731,10 @@ export type Database = {
           last_webhook_payload?: Json | null
           phone_number?: string | null
           phone_number_id?: string | null
+          position?: number
           provider?: string
           status?: Database["public"]["Enums"]["whatsapp_channel_status"]
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string
           verify_token: string
         }
@@ -3725,7 +3746,10 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_default?: boolean
+          is_platform?: boolean
           kind?: Database["public"]["Enums"]["whatsapp_channel_kind"]
+          label?: string | null
           last_error?: string | null
           last_inbound_at?: string | null
           last_inbound_from?: string | null
@@ -3733,9 +3757,10 @@ export type Database = {
           last_webhook_payload?: Json | null
           phone_number?: string | null
           phone_number_id?: string | null
+          position?: number
           provider?: string
           status?: Database["public"]["Enums"]["whatsapp_channel_status"]
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string
           verify_token?: string
         }
@@ -3786,6 +3811,106 @@ export type Database = {
           status?: Database["public"]["Enums"]["whatsapp_command_status"]
           tenant_id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_conversation_billing: {
+        Row: {
+          category: string
+          channel_id: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          credits_charged: number
+          direction: string
+          id: string
+          provider_cost_mxn: number
+          tenant_id: string
+          updated_at: string
+          window_expires_at: string
+          window_start: string
+        }
+        Insert: {
+          category?: string
+          channel_id?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          credits_charged?: number
+          direction?: string
+          id?: string
+          provider_cost_mxn?: number
+          tenant_id: string
+          updated_at?: string
+          window_expires_at?: string
+          window_start?: string
+        }
+        Update: {
+          category?: string
+          channel_id?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          credits_charged?: number
+          direction?: string
+          id?: string
+          provider_cost_mxn?: number
+          tenant_id?: string
+          updated_at?: string
+          window_expires_at?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_billing_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_billing_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_billing_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_rate_card: {
+        Row: {
+          category: string
+          country_code: string
+          created_at: string
+          credit_factor: number
+          id: string
+          provider_cost_mxn: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          country_code?: string
+          created_at?: string
+          credit_factor?: number
+          id?: string
+          provider_cost_mxn?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          country_code?: string
+          created_at?: string
+          credit_factor?: number
+          id?: string
+          provider_cost_mxn?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -4061,6 +4186,21 @@ export type Database = {
       }
       tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
       trial_days_left: { Args: { _tenant_id: string }; Returns: number }
+      wa_charge_conversation: {
+        Args: {
+          _category?: string
+          _channel_id: string
+          _contact_id: string
+          _conversation_id: string
+          _direction?: string
+          _tenant_id: string
+        }
+        Returns: Json
+      }
+      wa_open_window: {
+        Args: { _contact_id: string; _tenant_id: string }
+        Returns: string
+      }
     }
     Enums: {
       activity_type:
