@@ -43,13 +43,29 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const tenantName = tenant?.brand_name || tenant?.name || "tu empresa";
 
-    // Canal Equipo conectado
-    const { data: channel } = await sb
+    // Canal Equipo propio del tenant; si no existe, el número global de Walix.
+    const { data: ownChannel } = await sb
       .from("whatsapp_channels")
       .select("access_token, phone_number_id, status")
       .eq("tenant_id", access.tenant_id)
       .eq("kind", "team")
+      .order("is_default", { ascending: false })
+      .limit(1)
       .maybeSingle();
+
+    let channel = ownChannel as { access_token: string | null; phone_number_id: string | null; status: string } | null;
+
+    if (!channel || channel.status !== "connected" || !channel.access_token || !channel.phone_number_id) {
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+        auth: { persistSession: false },
+      });
+      const { data: platformChannel } = await admin
+        .from("whatsapp_channels")
+        .select("access_token, phone_number_id, status")
+        .eq("is_platform", true)
+        .maybeSingle();
+      channel = platformChannel as any;
+    }
 
     if (!channel || channel.status !== "connected" || !channel.access_token || !channel.phone_number_id) {
       return json({ ok: false, skipped: true, reason: "team_channel_not_connected" });

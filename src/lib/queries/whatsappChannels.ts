@@ -21,6 +21,7 @@ export interface WhatsappChannel {
   access_token: string | null;
   last_inbound_at: string | null;
   last_inbound_from: string | null;
+  last_webhook_at: string | null;
   is_default: boolean;
   label: string | null;
   position: number;
