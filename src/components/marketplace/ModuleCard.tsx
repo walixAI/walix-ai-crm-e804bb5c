@@ -1,9 +1,8 @@
-import { Lock, Sparkles } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WBadge } from "@/components/walix/Badge";
 import { cn } from "@/lib/utils";
 import {
-  PLAN_LABEL,
   type ModuleDef,
   type ModuleStatus,
 } from "@/lib/marketplace/catalog";
@@ -40,24 +39,9 @@ export function ModuleCard({ module: mod, status, onActivate, onManage, onUpgrad
         </Button>
       );
     }
-    if (status === "available") {
-      return (
-        <Button className="w-full" onClick={onActivate}>
-          Activar
-        </Button>
-      );
-    }
-    if (status === "plan_locked") {
-      return (
-        <Button variant="outline" className="w-full gap-2" onClick={onUpgrade}>
-          <Sparkles className="h-4 w-4" />
-          Upgrade a {PLAN_LABEL[mod.minPlan]}
-        </Button>
-      );
-    }
     return (
       <Button variant="ghost" className="w-full" disabled>
-        Notificarme
+        Próximamente
       </Button>
     );
   };
@@ -92,12 +76,7 @@ export function ModuleCard({ module: mod, status, onActivate, onManage, onUpgrad
 
       <p className="text-sm text-muted-foreground line-clamp-2">{mod.shortDescription}</p>
 
-      <div className="flex items-baseline gap-2 mt-auto">
-        <span className="font-semibold text-foreground">{mod.priceLabel}</span>
-        {mod.priceUnitLabel && (
-          <span className="text-xs text-muted-foreground">{mod.priceUnitLabel}</span>
-        )}
-      </div>
+      <div className="mt-auto" />
 
       {cta()}
     </div>
