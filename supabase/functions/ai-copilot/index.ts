@@ -6,6 +6,7 @@
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserProfile } from "../_shared/ai-tools.ts";
+import { resolveTenantModel, creditsForRun, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const MODEL = "google/gemini-2.5-pro";
+const FALLBACK_MODEL = DEFAULT_MODEL;
 const MAX_ITERATIONS = 5;
 
 // ────────────────────────────────────────────────────────────────────────
