@@ -19,14 +19,16 @@ Refrigeración González y Rodríguez queda en **Enterprise, $2,500/mes, 250 cr�
 - **Crédito de WhatsApp** = 1 conversación iniciada por la empresa (plantilla fuera de la ventana de 24 h). Las respuestas dentro de la ventana de 24 h no consumen crédito.
 - **Crédito de IA** = 1 acción del Copiloto o agente (sugerencia, resumen, propuesta, scoring, comando por WhatsApp). Una acción típica consume ~3,000 tokens de entrada y ~800 de salida.
 
-### Costo real con Gemini (base del precio)
-Precios de referencia de Gemini Flash: ~$0.30 USD por millón de tokens de entrada y ~$2.50 USD por millón de salida.
+### Costo real para Walix (base Gemini Flash Lite, tipo de cambio 18 MXN/USD)
+Precios de referencia: Flash Lite ~$0.10 USD/M tokens de entrada y ~$0.40 USD/M de salida; Flash ~$0.30 / ~$2.50; Pro ~$1.25 / ~$10.
 
-- Acción típica ≈ (3,000 × 0.30 + 800 × 2.50) / 1,000,000 ≈ **$0.0029 USD ≈ $0.055 MXN por crédito**.
-- Gemini Flash Lite cuesta ~3–4 veces menos (≈ $0.015 MXN por crédito) → se usa en PyME.
-- Gemini Pro cuesta ~8–10 veces más (≈ $0.45 MXN por crédito) → en Enterprise se cobra **1 acción Pro = 8 créditos**.
+- Acción típica (3,000 in + 800 out) en **Flash Lite** ≈ $0.00062 USD ≈ **$0.011 MXN por crédito** (1x).
+- En **Flash** ≈ $0.0029 USD ≈ $0.052 MXN, pero se cobran 2x créditos → costo efectivo ≈ $0.026 MXN por crédito.
+- En **Pro** ≈ $0.012 USD ≈ $0.22 MXN, cobrado a 8x → costo efectivo ≈ $0.027 MXN por crédito.
 
-Costo mensual estimado de IA incluida: PyME ≈ $15 MXN, Growth ≈ $220 MXN, Enterprise ≈ $550 MXN. Margen superior al 75 % en los tres planes.
+Los factores de consumo mantienen el costo por crédito entre **$0.011 y $0.027 MXN** sin importar el motor asignado.
+
+Costo mensual de la IA incluida (Flash Lite): PyME ≈ $11 MXN, Growth ≈ $44 MXN, Enterprise ≈ $110 MXN. Si el tenant se mueve a Flash/Pro, el techo sube a ~$270 MXN en Enterprise. Margen superior al 90 % en los tres planes.
 
 ### Plan de consumo de IA para Enterprise (recomendado)
 - 10,000 créditos incluidos al mes (≈ 330/día) para 15+ usuarios con Copiloto, resúmenes diarios y agentes automáticos.
@@ -62,11 +64,11 @@ Costo mensual estimado de IA incluida: PyME ≈ $15 MXN, Growth ≈ $220 MXN, En
 
 **IA (créditos de consumo, tarifados sobre Gemini)**
 
-| Paquete | Créditos | Precio | Unitario | Costo real aprox. |
-|---|---|---|---|---|
-| IA 2K | 2,000 | $349 MXN | $0.175 | $110 MXN |
-| IA 5K | 5,000 | $749 MXN | $0.150 | $275 MXN |
-| IA 15K | 15,000 | $1,890 MXN | $0.126 | $825 MXN |
+| Paquete | Créditos | Precio | Unitario | Costo Walix (Flash Lite) | Costo Walix (techo Flash/Pro) | Margen |
+|---|---|---|---|---|---|---|
+| IA 2K | 2,000 | $349 MXN | $0.175 | $22 MXN | $54 MXN | 84–94 % |
+| IA 5K | 5,000 | $749 MXN | $0.150 | $55 MXN | $135 MXN | 82–93 % |
+| IA 15K | 15,000 | $1,890 MXN | $0.126 | $165 MXN | $405 MXN | 79–91 % |
 
 Los paquetes no expiran durante el ciclo de facturación en curso + 1 mes.
 
