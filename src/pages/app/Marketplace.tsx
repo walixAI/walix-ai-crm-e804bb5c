@@ -56,10 +56,8 @@ export default function Marketplace() {
     return true;
   });
 
-  const monthlyTotal = useMemo(
-    () => active.reduce((sum, m) => sum + Number(m.monthly_price_mxn ?? 0), 0),
-    [active],
-  );
+  // Por ahora no se muestran totales de add-ons porque todo está próximamente.
+  const monthlyTotal = 0;
 
   const handleActivate = async () => {
     if (!activateMod) return;
@@ -101,17 +99,11 @@ export default function Marketplace() {
           </div>
         </div>
 
-        {active.length > 0 && (
-          <div className="rounded-xl border border-border bg-card px-4 py-3 text-right">
-            <div className="text-xs text-muted-foreground">Add-ons activos</div>
-            <div className="font-semibold">
-              ${monthlyTotal.toLocaleString("es-MX")} MXN/mes
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {active.length} {active.length === 1 ? "módulo activo" : "módulos activos"}
-            </div>
-          </div>
-        )}
+        <div className="rounded-xl border border-border bg-card px-4 py-3 text-right">
+          <div className="text-xs text-muted-foreground">Add-ons activos</div>
+          <div className="font-semibold">—</div>
+          <div className="text-xs text-muted-foreground">Próximamente</div>
+        </div>
       </div>
 
       {/* Status tabs */}
@@ -139,15 +131,13 @@ export default function Marketplace() {
       </div>
 
       {/* Active modules summary (only on Active tab) */}
-      {tab === "active" && active.length > 0 && (
+      {tab === "active" && (
         <div className="rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between">
           <div>
             <div className="text-sm font-medium">Total de add-ons</div>
             <div className="text-xs text-muted-foreground">Adicional a tu plan base</div>
           </div>
-          <div className="text-xl font-bold">
-            ${monthlyTotal.toLocaleString("es-MX")} MXN/mes
-          </div>
+          <div className="text-xl font-bold">—</div>
         </div>
       )}
 
@@ -167,9 +157,7 @@ export default function Marketplace() {
               key={mod.id}
               module={mod}
               status={status as ModuleStatus}
-              onActivate={() => setActivateMod(mod)}
               onManage={() => setManageMod(mod)}
-              onUpgrade={() => navigate("/pricing")}
             />
           ))}
         </div>

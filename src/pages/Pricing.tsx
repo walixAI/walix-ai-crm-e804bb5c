@@ -277,22 +277,28 @@ export default function Pricing() {
                 <p className="text-xs text-muted-foreground mb-5 min-h-[2.5em]">{plan.tagline}</p>
 
                 <div className="mb-5">
-                  {price === 0 ? (
-                    <div className="text-4xl font-bold tracking-tight">$0</div>
-                  ) : (
-                    <div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-4xl font-bold tracking-tight">{formatMXN(price)}</span>
-                        <span className="text-sm text-muted-foreground">/mes</span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
-                        + IVA · {annual ? "facturado anualmente" : "facturado mensualmente"}
-                      </div>
-                      {annual && (
-                        <div className="text-[11px] text-success mt-0.5 font-medium">
-                          Ahorras {formatMXN((plan.monthly - plan.annual) * 12)} al año
+                  {plan.highlight ? (
+                    price === 0 ? (
+                      <div className="text-4xl font-bold tracking-tight">$0</div>
+                    ) : (
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-4xl font-bold tracking-tight">{formatMXN(price)}</span>
+                          <span className="text-sm text-muted-foreground">/mes</span>
                         </div>
-                      )}
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          + IVA · {annual ? "facturado anualmente" : "facturado mensualmente"}
+                        </div>
+                        {annual && (
+                          <div className="text-[11px] text-success mt-0.5 font-medium">
+                            Ahorras {formatMXN((plan.monthly - plan.annual) * 12)} al año
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Precio disponible bajo cotización
                     </div>
                   )}
                 </div>

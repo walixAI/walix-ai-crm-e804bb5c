@@ -55,39 +55,21 @@ export function ModuleActivationDialog({ module: mod, open, onClose, onConfirm, 
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Requisitos</h4>
-            <div className="flex flex-wrap gap-2 text-sm">
-              <WBadge variant="brand">Plan mínimo: {PLAN_LABEL[mod.minPlan]}</WBadge>
-              {mod.notes && <WBadge variant="neutral">{mod.notes}</WBadge>}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm text-muted-foreground">Precio</span>
-              <div className="text-right">
-                <div className="font-semibold">{mod.priceLabel}</div>
-                <div className="text-xs text-muted-foreground">{mod.priceUnitLabel}</div>
-              </div>
-            </div>
-          </div>
-
           <div className="flex items-start gap-2 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>
-              El cobro se activará cuando conectemos facturación. Por ahora la activación es
-              sin costo durante la beta.
+              Este módulo estará disponible próximamente. Mientras tanto puedes explorar
+              sus funciones.
             </span>
           </div>
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose} disabled={loading}>
-            Cancelar
+            Cerrar
           </Button>
-          <Button onClick={onConfirm} disabled={loading}>
-            {loading ? "Activando..." : `Activar módulo${mod.monthlyPriceMxn > 0 ? ` — $${mod.monthlyPriceMxn} MXN/mes` : ""}`}
+          <Button disabled>
+            Próximamente
           </Button>
         </DialogFooter>
       </DialogContent>

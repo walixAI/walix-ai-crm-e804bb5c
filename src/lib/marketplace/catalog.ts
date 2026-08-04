@@ -323,13 +323,10 @@ export function getModule(id: string): ModuleDef | undefined {
 export type ModuleStatus = "active" | "available" | "plan_locked" | "coming_soon";
 
 export function resolveStatus(
-  mod: ModuleDef,
-  isActive: boolean,
-  currentPlan: string | null | undefined,
+  _mod: ModuleDef,
+  _isActive: boolean,
+  _currentPlan: string | null | undefined,
 ): ModuleStatus {
-  if (mod.comingSoon) return "coming_soon";
-  if (isActive) return "active";
-  const planRank = PLAN_RANK[(currentPlan as MinPlan) ?? "starter"] ?? 0;
-  if (planRank < PLAN_RANK[mod.minPlan]) return "plan_locked";
-  return "available";
+  // Por ahora todos los módulos se muestran como próximamente.
+  return "coming_soon";
 }
