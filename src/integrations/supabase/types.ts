@@ -975,6 +975,56 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_custom_fields: {
+        Row: {
+          created_at: string
+          field_type: string
+          id: string
+          is_active: boolean
+          key: string
+          label: string
+          placeholder: string | null
+          position: number
+          show_in_list: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          label: string
+          placeholder?: string | null
+          position?: number
+          show_in_list?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          label?: string
+          placeholder?: string | null
+          position?: number
+          show_in_list?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_custom_fields_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_sources: {
         Row: {
           created_at: string
@@ -1042,10 +1092,12 @@ export type Database = {
       }
       contacts: {
         Row: {
+          address: string | null
           avatar_color: string | null
           company: string | null
           company_id: string | null
           created_at: string
+          custom_fields: Json
           email: string | null
           id: string
           last_activity_at: string | null
@@ -1053,6 +1105,7 @@ export type Database = {
           name: string
           owner_id: string | null
           phone: string | null
+          phone_alt: string | null
           position: string | null
           source: string
           source_id: string | null
@@ -1062,10 +1115,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
           avatar_color?: string | null
           company?: string | null
           company_id?: string | null
           created_at?: string
+          custom_fields?: Json
           email?: string | null
           id?: string
           last_activity_at?: string | null
@@ -1073,6 +1128,7 @@ export type Database = {
           name: string
           owner_id?: string | null
           phone?: string | null
+          phone_alt?: string | null
           position?: string | null
           source?: string
           source_id?: string | null
@@ -1082,10 +1138,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
           avatar_color?: string | null
           company?: string | null
           company_id?: string | null
           created_at?: string
+          custom_fields?: Json
           email?: string | null
           id?: string
           last_activity_at?: string | null
@@ -1093,6 +1151,7 @@ export type Database = {
           name?: string
           owner_id?: string | null
           phone?: string | null
+          phone_alt?: string | null
           position?: string | null
           source?: string
           source_id?: string | null
@@ -3763,6 +3822,10 @@ export type Database = {
       recent_acted_suggestion: {
         Args: { _entity_id: string; _entity_type: string; _tenant_id: string }
         Returns: string
+      }
+      run_import_batch: {
+        Args: { _batch_id: string; _historical?: boolean }
+        Returns: Json
       }
       seed_default_activity_outcomes: {
         Args: { _pipeline_id: string; _tenant_id: string }

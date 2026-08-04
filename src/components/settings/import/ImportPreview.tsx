@@ -14,10 +14,13 @@ interface Props {
 
 const FIELD_SUGGESTIONS: Record<ImportKind, { value: string; label: string; required?: boolean }[]> = {
   contacts: [
-    { value: "full_name", label: "Nombre completo", required: true },
+    { value: "name", label: "Nombre", required: true },
+    { value: "last_name", label: "Apellidos" },
     { value: "phone", label: "Teléfono", required: true },
+    { value: "phone_alt", label: "Teléfono alterno" },
     { value: "email", label: "Correo" },
     { value: "company", label: "Empresa" },
+    { value: "address", label: "Dirección" },
     { value: "source", label: "Fuente" },
     { value: "lifecycle", label: "Ciclo de vida" },
     { value: "owner_email", label: "Email del responsable" },
@@ -29,10 +32,10 @@ const FIELD_SUGGESTIONS: Record<ImportKind, { value: string; label: string; requ
     { value: "category", label: "Categoría" },
   ],
   deals: [
-    { value: "title", label: "Título", required: true },
+    { value: "name", label: "Nombre de la oportunidad", required: true },
     { value: "contact_phone", label: "Teléfono del contacto", required: true },
     { value: "amount", label: "Monto" },
-    { value: "stage_name", label: "Etapa" },
+    { value: "stage_name", label: "Etapa", required: true },
     { value: "owner_email", label: "Email del responsable" },
     { value: "close_date", label: "Fecha estimada de cierre" },
   ],
@@ -40,8 +43,8 @@ const FIELD_SUGGESTIONS: Record<ImportKind, { value: string; label: string; requ
     { value: "contact_phone", label: "Teléfono del contacto", required: true },
     { value: "type", label: "Tipo" },
     { value: "direction", label: "Dirección" },
-    { value: "notes", label: "Notas" },
-    { value: "performed_at", label: "Fecha" },
+    { value: "description", label: "Descripción" },
+    { value: "occurred_at", label: "Fecha" },
     { value: "owner_email", label: "Email del responsable" },
   ],
 };
@@ -55,7 +58,10 @@ function suggestMapping(headers: string[], kind: ImportKind): Record<string, str
       h.includes(f.value.toLowerCase()) ||
       h.includes(f.label.toLowerCase()) ||
       (f.value === "phone" && (h.includes("telefono") || h.includes("teléfono") || h.includes("celular") || h.includes("mobile"))) ||
-      (f.value === "full_name" && (h.includes("nombre") || h.includes("name"))) ||
+      (f.value === "name" && (h.includes("nombre") || h.includes("name"))) ||
+      (f.value === "last_name" && (h.includes("apellido") || h.includes("last"))) ||
+      (f.value === "address" && (h.includes("direccion") || h.includes("dirección") || h.includes("domicilio"))) ||
+      (f.value === "occurred_at" && (h.includes("fecha") || h.includes("date"))) ||
       (f.value === "amount" && (h.includes("monto") || h.includes("amount") || h.includes("valor")))
     );
     if (idx >= 0) suggestions[f.value] = headers[idx];
