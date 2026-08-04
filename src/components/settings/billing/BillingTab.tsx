@@ -5,16 +5,13 @@ import { WBadge } from "@/components/walix/Badge";
 import { Download, ArrowRight, Check } from "lucide-react";
 import { fetchTenant } from "@/services/tenant";
 import { usePlanLimits } from "@/lib/queries/planLimits";
+import { tenantPlanLabel, limitLabel } from "@/lib/plans";
 
 const INVOICES = [
   { id: "INV-2026-04", date: "2026-04-01", amount: 990, status: "paid" },
   { id: "INV-2026-03", date: "2026-03-01", amount: 990, status: "paid" },
   { id: "INV-2026-02", date: "2026-02-01", amount: 990, status: "paid" },
 ];
-
-const PLAN_LABEL: Record<string, string> = {
-  starter: "Starter", pyme: "PyME", growth: "Growth", enterprise: "Enterprise",
-};
 
 export function BillingTab({ tenantId }: { tenantId: string }) {
   const { data: tenant } = useQuery({ queryKey: ["tenant", tenantId], queryFn: () => fetchTenant(tenantId) });
@@ -31,7 +28,7 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Plan actual</p>
-            <h2 className="text-3xl font-bold mt-1">{PLAN_LABEL[currentPlan] ?? currentPlan}</h2>
+            <h2 className="text-3xl font-bold mt-1">{tenantPlanLabel(currentPlan)}</h2>
             {limit && (
               <p className="text-sm text-muted-foreground mt-1">
                 {fmt(limit.monthly_price)} / mes · próximo cargo {renewDate.toLocaleDateString("es-MX")}
@@ -45,9 +42,9 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
 
         {limit && (
           <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border">
-            <Stat label="Usuarios" value={limit.max_users === 999 ? "Ilimitados" : `${limit.max_users}`} />
-            <Stat label="Automatizaciones" value={limit.max_active_automations === 99 ? "Ilimitadas" : `${limit.max_active_automations}`} />
-            <Stat label="Pipelines" value={limit.max_pipelines === 99 ? "Ilimitados" : `${limit.max_pipelines}`} />
+            <Stat label="Usuarios" value={limitLabel(limit.max_users)} />
+            <Stat label="Automatizaciones" value={limitLabel(limit.max_active_automations, "Ilimitadas")} />
+            <Stat label="Pipelines" value={limitLabel(limit.max_pipelines)} />
           </div>
         )}
       </Card>
