@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRecurrences, useUpdateRecurrence, useDeleteRecurrence, type RecurrenceDefinition } from "@/lib/queries/recurrence";
 import { useToast } from "@/hooks/use-toast";
-import { Repeat, Plus, Pencil, Trash2, CalendarClock, CheckCircle2, Bell, Briefcase, MessageCircle } from "lucide-react";
+import { RecurrenceSubscribeDialog } from "./RecurrenceSubscribeDialog";
+import { Repeat, Plus, Pencil, Trash2, CalendarClock, CheckCircle2, Bell, Briefcase, MessageCircle, UserPlus } from "lucide-react";
 
 interface Props {
   onEdit: (r: RecurrenceDefinition) => void;
