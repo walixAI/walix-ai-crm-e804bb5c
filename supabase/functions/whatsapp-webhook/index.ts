@@ -232,15 +232,26 @@ Deno.serve(async (req) => {
             if (!convId) {
               const { data: c2 } = await sb
                 .from("conversations")
-                .insert({ tenant_id: channel.tenant_id, contact_id: contactId, status: "Nuevo", preview: body, last_message_at: new Date().toISOString(), unread_count: 1 })
+                .insert({ tenant_id: channel.tenant_id, contact_id: contactId, channel_id: channel.id, status: "Nuevo", preview: body, last_message_at: new Date().toISOString(), unread_count: 1 })
                 .select("id").single();
               convId = c2?.id;
             } else {
               await sb.from("conversations").update({
-                preview: body, last_message_at: new Date().toISOString(),
+                preview: body, last_message_at: new Date().toISOString(), channel_id: channel.id,
               }).eq("id", convId);
             }
             if (!convId) continue;
+
+            // Abre (o refresca) la ventana de servicio de 24 h sin costo:
+            // un mensaje entrante del cliente inicia una conversación de servicio gratuita.
+            await sb.rpc("wa_charge_conversation", {
+              _tenant_id: channel.tenant_id,
+              _contact_id: contactId,
+              _conversation_id: convId,
+              _channel_id: channel.id,
+              _category: "service",
+              _direction: "inbound",
+            });
 
             await sb.from("messages").insert({
               tenant_id: channel.tenant_id,

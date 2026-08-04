@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
       conversationId: string;
       body: string;
       internal?: boolean;
+      category?: "service" | "utility" | "marketing" | "authentication";
     };
     if (!body.conversationId || !body.body?.trim()) {
       return new Response(JSON.stringify({ error: "Faltan parámetros" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
     // Load conversation + contact phone (RLS scopes)
     const { data: conv, error: cErr } = await sb
       .from("conversations")
-      .select("id, tenant_id, contact_id, contacts:contact_id(phone)")
+      .select("id, tenant_id, contact_id, channel_id, contacts:contact_id(phone)")
       .eq("id", body.conversationId)
       .maybeSingle();
     if (cErr || !conv) {
@@ -69,13 +70,50 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, internal: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Find clients channel for tenant
-    const { data: channel } = await sb
-      .from("whatsapp_channels")
-      .select("id, access_token, phone_number_id, status")
-      .eq("tenant_id", conv.tenant_id)
-      .eq("kind", "clients")
-      .maybeSingle();
+    // Resolve channel: el de la conversación, si no el predeterminado de clientes.
+    let channel: { id: string; access_token: string | null; phone_number_id: string | null; status: string } | null = null;
+    if ((conv as any).channel_id) {
+      const { data } = await sb
+        .from("whatsapp_channels")
+        .select("id, access_token, phone_number_id, status")
+        .eq("id", (conv as any).channel_id)
+        .maybeSingle();
+      channel = data as any;
+    }
+    if (!channel || channel.status !== "connected") {
+      const { data } = await sb
+        .from("whatsapp_channels")
+        .select("id, access_token, phone_number_id, status, is_default")
+        .eq("tenant_id", conv.tenant_id)
+        .eq("kind", "clients")
+        .neq("status", "disabled")
+        .order("is_default", { ascending: false })
+        .order("position", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (data) channel = data as any;
+    }
+
+    // Cobro por conversación (ventana de 24 h). Si ya hay ventana abierta no cobra.
+    let billing: any = null;
+    if (channel?.status === "connected" && conv.contact_id) {
+      const { data: charge, error: chargeErr } = await sb.rpc("wa_charge_conversation", {
+        _tenant_id: conv.tenant_id,
+        _contact_id: conv.contact_id,
+        _conversation_id: conv.id,
+        _channel_id: channel.id,
+        _category: body.category ?? "service",
+        _direction: "outbound",
+      });
+      if (chargeErr) throw chargeErr;
+      billing = charge;
+      if (billing?.reason === "insufficient_credits") {
+        return new Response(
+          JSON.stringify({ error: "Sin créditos de WhatsApp disponibles. Compra un paquete para seguir enviando.", code: "insufficient_credits" }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     let wamid: string | null = null;
     let providerError: string | null = null;
@@ -111,10 +149,10 @@ Deno.serve(async (req) => {
       direction: "outbound",
       body: body.body,
       type: "text",
-      metadata: { wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected", sent_by_user_id: userData.user.id },
+      metadata: { wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected", sent_by_user_id: userData.user.id, billing },
     });
     if (insErr) throw insErr;
-    await sb.from("conversations").update({ preview: previewWithSender(body.body), last_message_at: new Date().toISOString() }).eq("id", conv.id);
+    await sb.from("conversations").update({ preview: previewWithSender(body.body), last_message_at: new Date().toISOString(), ...(channel ? { channel_id: channel.id } : {}) }).eq("id", conv.id);
 
     // Memoria de IA: doble evento para mensaje saliente (no para notas internas).
     if (!body.internal && conv.contact_id) {
@@ -141,7 +179,7 @@ Deno.serve(async (req) => {
     if (providerError) {
       return new Response(JSON.stringify({ error: providerError }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    return new Response(JSON.stringify({ ok: true, wamid, simulated: !channel || channel.status !== "connected" }), {
+    return new Response(JSON.stringify({ ok: true, wamid, simulated: !channel || channel.status !== "connected", billing }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
