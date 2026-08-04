@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
 
         const { data: channels } = await sb
           .from("whatsapp_channels")
-          .select("id, tenant_id, kind, access_token, phone_number_id, connected_at")
+          .select("id, tenant_id, kind, access_token, phone_number_id, connected_at, is_platform")
           .eq("phone_number_id", phoneNumberId);
 
         if (!channels || channels.length === 0) {
@@ -191,6 +191,52 @@ Deno.serve(async (req) => {
               update.status = "connected";
             }
             await sb.from("whatsapp_channels").update(update).eq("id", channel.id);
+          }
+
+          // Canal global de Walix: el tenant se resuelve por el teléfono del remitente.
+          if (channel.is_platform) {
+            const variants = phoneMatchVariants(from);
+            const { data: access } = await sb
+              .from("whatsapp_user_access")
+              .select("user_id, enabled, permission_level, tenant_id")
+              .in("phone_e164", variants)
+              .limit(1)
+              .maybeSingle();
+
+            if (!access || !access.enabled) {
+              if (channel.access_token) {
+                await sendWhatsappText(channel.access_token, channel.phone_number_id, from,
+                  "🚫 Este número no está autorizado para usar Walix por WhatsApp. Pide a tu administrador que te dé acceso.");
+              }
+              continue;
+            }
+
+            try {
+              const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-ai-command`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  tenant_id: access.tenant_id,
+                  user_id: access.user_id,
+                  permission_level: access.permission_level,
+                  prompt: body,
+                  from_phone: from,
+                  channel_id: channel.id,
+                }),
+              });
+              const aiJson = await aiRes.json().catch(() => ({}));
+              const reply = aiJson?.reply ?? "Listo.";
+              if (channel.access_token) {
+                await sendWhatsappText(channel.access_token, channel.phone_number_id, from, reply);
+              }
+            } catch (e) {
+              console.error("platform ai-command invocation failed", e);
+              if (channel.access_token) {
+                await sendWhatsappText(channel.access_token, channel.phone_number_id, from,
+                  "⚠️ Error procesando tu solicitud. Intenta de nuevo.");
+              }
+            }
+            continue;
           }
 
           if (channel.kind === "clients") {
