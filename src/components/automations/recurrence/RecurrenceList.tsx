@@ -3,7 +3,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRecurrences, useUpdateRecurrence, useDeleteRecurrence, type RecurrenceDefinition } from "@/lib/queries/recurrence";
 import { useToast } from "@/hooks/use-toast";
-import { Repeat, Pencil, Trash2, CalendarClock, CheckCircle2, Bell, Briefcase, MessageCircle } from "lucide-react";
+import { Repeat, Plus, Pencil, Trash2, CalendarClock, CheckCircle2, Bell, Briefcase, MessageCircle } from "lucide-react";
 
 interface Props {
   onEdit: (r: RecurrenceDefinition) => void;
@@ -108,6 +108,3 @@ export function RecurrenceList({ onEdit, onNew }: Props) {
     </div>
   );
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Plus } from "lucide-react";
