@@ -7,6 +7,7 @@ import { Loader2, Sparkles } from "lucide-react";
 
 interface Row {
   user_id: string | null;
+  actor_label: string | null;
   surface: string;
   total_tokens: number | null;
   iterations: number | null;
@@ -25,7 +26,7 @@ export function AiUsageBreakdown({ tenantId }: { tenantId: string }) {
       const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
       const { data: rows, error } = await supabase
         .from("ai_usage_log")
-        .select("user_id, surface, total_tokens, iterations")
+        .select("user_id, actor_label, surface, total_tokens, iterations")
         .eq("tenant_id", tenantId)
         .gte("created_at", since)
         .limit(5000);
@@ -41,9 +42,13 @@ export function AiUsageBreakdown({ tenantId }: { tenantId: string }) {
 
       const map = new Map<string, { name: string; tokens: number; runs: number; web: number; wa: number }>();
       for (const r of (rows ?? []) as Row[]) {
-        const key = r.user_id ?? "sistema";
+        const key = r.user_id ?? (r.actor_label ? `wa:${r.actor_label}` : "sistema");
         const entry = map.get(key) ?? {
-          name: r.user_id ? names[r.user_id] ?? "Usuario" : "Automatizaciones / agentes",
+          name: r.user_id
+            ? names[r.user_id] ?? "Usuario"
+            : r.actor_label
+              ? `${r.actor_label} (WhatsApp)`
+              : "Automatizaciones / agentes",
           tokens: 0, runs: 0, web: 0, wa: 0,
         };
         entry.tokens += r.total_tokens ?? 0;
