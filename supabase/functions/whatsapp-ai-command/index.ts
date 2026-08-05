@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
       : Promise.resolve({ data: null } as any),
     sb.from("whatsapp_command_log").select("prompt, reply, created_at")
       .eq("tenant_id", input.tenant_id).eq("from_phone", input.from_phone)
-      .order("created_at", { ascending: false }).limit(10),
+      .order("created_at", { ascending: false }).limit(6),
   ]);
 
   const today = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "America/Mexico_City" });
@@ -468,13 +468,19 @@ Deno.serve(async (req) => {
     reply = "⚠️ Algo salió mal procesando tu solicitud. Intenta de nuevo.";
   }
 
-  await sb.from("whatsapp_command_log").insert({
+  const logPromise = sb.from("whatsapp_command_log").insert({
     tenant_id: input.tenant_id, user_id: input.user_id, channel_id: input.channel_id,
     from_phone: input.from_phone, prompt: input.prompt, intent: "agent",
     action_payload: {}, reply,
     result_entity_type: lastEntity?.type ?? null, result_entity_id: lastEntity?.id ?? null,
     status: "executed", executed_at: new Date().toISOString(),
   });
+  // No bloquear la respuesta al usuario por el registro de auditoría
+  try {
+    // @ts-ignore EdgeRuntime existe en Supabase Edge Functions
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(logPromise);
+    else await logPromise;
+  } catch { await logPromise; }
 
   return json(reply);
 });
