@@ -170,10 +170,8 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
           const existing = !isNew ? accessData?.find((a) => a.id === r.id) : undefined;
           const newIdx = isNew ? newRows.indexOf(r) : -1;
           return (
-            <div
-              key={r.id ?? `new-${idx}`}
-              className="grid gap-2 p-3 rounded-lg border border-border md:grid-cols-[1.4fr_1.4fr_1.2fr_auto_auto_auto] items-center"
-            >
+            <div key={r.id ?? `new-${idx}`} className="p-3 rounded-lg border border-border space-y-3">
+              <div className="grid gap-2 md:grid-cols-[1.2fr_1.3fr_1.2fr_1.2fr] items-start">
               <Input
                 value={r.display_name}
                 onChange={(e) =>
@@ -181,7 +179,7 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
                     ? patchNew(newIdx, { display_name: e.target.value })
                     : existing && patchExisting(r.id!, existing, { display_name: e.target.value })
                 }
-                placeholder="Nombre del vendedor"
+                placeholder="Nombre de la persona"
               />
               <div className="space-y-1">
                 <PhoneInput
@@ -220,14 +218,57 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
                   <SelectItem value="write_strong">Escritura fuerte (con confirmación)</SelectItem>
                 </SelectContent>
               </Select>
-              <Switch
-                checked={r.enabled}
-                onCheckedChange={(v) =>
+              <Select
+                value={r.user_id ?? "none"}
+                onValueChange={(v) => {
+                  const uid = v === "none" ? null : v;
                   isNew
-                    ? patchNew(newIdx, { enabled: v })
-                    : existing && patchExisting(r.id!, existing, { enabled: v })
-                }
-              />
+                    ? patchNew(newIdx, { user_id: uid })
+                    : existing && patchExisting(r.id!, existing, { user_id: uid });
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Usuario del CRM (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin usuario del CRM</SelectItem>
+                  {tenantUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id={`wa-${r.id ?? idx}`}
+                    checked={r.enabled}
+                    onCheckedChange={(v) =>
+                      isNew
+                        ? patchNew(newIdx, { enabled: v })
+                        : existing && patchExisting(r.id!, existing, { enabled: v })
+                    }
+                  />
+                  <Label htmlFor={`wa-${r.id ?? idx}`} className="text-xs">Copiloto por WhatsApp</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id={`web-${r.id ?? idx}`}
+                    checked={r.web_enabled}
+                    disabled={!r.user_id}
+                    onCheckedChange={(v) =>
+                      isNew
+                        ? patchNew(newIdx, { web_enabled: v })
+                        : existing && patchExisting(r.id!, existing, { web_enabled: v })
+                    }
+                  />
+                  <Label htmlFor={`web-${r.id ?? idx}`} className="text-xs">
+                    Copiloto en la web
+                    {!r.user_id && <span className="text-muted-foreground"> · vincula un usuario</span>}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
               <Button
                 size="sm"
                 variant={r.dirty ? "default" : "outline"}
