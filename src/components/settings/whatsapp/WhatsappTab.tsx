@@ -80,9 +80,9 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const teamCh = channels.find((c) => c.kind === "team");
 
   function renderChannelCard(kind: ChannelKind, ch: WhatsappChannel | undefined) {
-    const title = kind === "clients" ? "Canal Clientes" : "Canal Equipo (Walix Bot)";
+    const title = kind === "clients" ? "Canal Clientes (tu número de WhatsApp Business)" : "Canal Equipo (Walix Bot)";
     const desc = kind === "clients"
-      ? "Recibe y responde conversaciones con leads."
+      ? "Tu propio número de WhatsApp Business para recibir y responder conversaciones con tus clientes. No es el número del Copiloto."
       : "Tu equipo envía comandos a la IA y opera el CRM por WhatsApp.";
     const icon = kind === "clients" ? <MessageCircle className="h-6 w-6 text-success" /> : <Users className="h-6 w-6 text-primary" />;
 
