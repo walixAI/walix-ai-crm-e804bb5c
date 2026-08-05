@@ -909,18 +909,17 @@ Deno.serve(async (req) => {
     if (!body.message?.trim()) return json({ error: "Mensaje vacío" }, 400);
 
     const sessionId = body.conversationKey ?? "global";
-    const historyLimit = Math.min(40, body.historyLimit ?? 20);
+    const historyLimit = Math.min(40, body.historyLimit ?? 14);
 
-    // 1. Cargar historial previo
-    const { data: prevHistory } = await sb
-      .from("ai_conversation_history")
-      .select("role, content, tool_calls")
-      .eq("user_id", userId).eq("session_id", sessionId)
-      .order("created_at", { ascending: false }).limit(historyLimit);
+    // 1 + 2. Historial y contexto del sistema en paralelo (menor latencia)
+    const [{ data: prevHistory }, systemPrompt] = await Promise.all([
+      sb.from("ai_conversation_history")
+        .select("role, content, tool_calls")
+        .eq("user_id", userId).eq("session_id", sessionId)
+        .order("created_at", { ascending: false }).limit(historyLimit),
+      buildSystemPrompt(sb, tenantId, userId, body.entityType ?? null, body.entityId ?? null),
+    ]);
     const history = (prevHistory ?? []).reverse();
-
-    // 2. Construir mensajes (con saneo defensivo del historial)
-    const systemPrompt = await buildSystemPrompt(sb, tenantId, userId, body.entityType ?? null, body.entityId ?? null);
     const rebuilt: any[] = [];
     for (const h of history) {
       if (h.role === "assistant") {
