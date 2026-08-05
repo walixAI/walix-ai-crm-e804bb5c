@@ -19,6 +19,15 @@ Deno.serve(async (req) => {
     for (let i = 0; i < oldDeals.length; i += 200) await admin.from("deals").delete().in("id", oldDeals.slice(i, i + 200));
     log.deleted = { occurrences: old?.length ?? 0, tasks: oldTasks.length, deals: oldDeals.length };
 
+    // limpieza de oportunidades de recurrencia huérfanas (reintentos previos)
+    const { data: orphan } = await admin.from("deals").select("id").eq("source", "Recurrencia");
+    const orphanIds = (orphan ?? []).map((d) => d.id);
+    for (let i = 0; i < orphanIds.length; i += 200) {
+      await admin.from("tasks").delete().in("deal_id", orphanIds.slice(i, i + 200));
+      await admin.from("deals").delete().in("id", orphanIds.slice(i, i + 200));
+    }
+    log.orphans = orphanIds.length;
+
     for (const [table, rows] of [["deals", body.deals], ["tasks", body.tasks], ["recurrence_occurrences", body.occurrences]] as const) {
       for (let i = 0; i < rows.length; i += 200) {
         const { error } = await admin.from(table).insert(rows.slice(i, i + 200));
