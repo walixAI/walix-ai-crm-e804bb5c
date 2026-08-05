@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { WBadge } from "@/components/walix/Badge";
-import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, AlertCircle, Send, Unplug, Wand2, Settings2, ChevronDown, Zap } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, Send, Unplug, Wand2, Settings2, ChevronDown, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +27,14 @@ import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
 import { WebhookDiagnosticsPanel } from "./WebhookDiagnosticsPanel";
 import { relativeTime } from "@/lib/format/relativeTime";
+import { usePlatformBotPublic } from "@/lib/queries/platformWhatsapp";
 
 export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { isTenantAdmin } = usePermissions();
   const { data: channels = [] } = useWhatsappChannels(tenantId);
+  const { data: platformBot } = usePlatformBotPublic();
   const disconnect = useDisconnectChannel(tenantId);
   const setDefault = useSetDefaultChannel(tenantId);
   const [dialogKind, setDialogKind] = useState<ChannelKind | null>(null);
@@ -209,7 +211,7 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
       <div className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Conexiones WhatsApp Business</h2>
-          <p className="text-sm text-muted-foreground">Dos canales independientes vía Meta Cloud API.</p>
+          <p className="text-sm text-muted-foreground">Tu número para clientes vía Meta Cloud API + el número del Copiloto que administra Walix.</p>
         </div>
         {renderChannelCard("clients", clientsCh)}
 
@@ -257,20 +259,39 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           </Card>
         )}
 
-        {renderChannelCard("team", teamCh)}
+        <Card className="p-6">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 rounded-2xl grid place-items-center bg-primary/10">
+              <Users className="h-6 w-6 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-semibold">Copiloto por WhatsApp (Walix Bot)</h3>
+                <WBadge variant="success"><CheckCircle2 className="h-3 w-3" /> Configurado por Walix</WBadge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Tu equipo opera el CRM desde el número oficial de Walix. Este número lo administra Walix:
+                no requiere configuración ni credenciales de tu parte.
+              </p>
+              <p className="text-sm mt-2">
+                Número para tu equipo:{" "}
+                <span className="font-mono font-semibold">
+                  {platformBot?.phone_number ?? "Pendiente de activación"}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Solo pueden usarlo los teléfonos que autorices abajo.
+              </p>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {isTenantAdmin && teamCh && (
+      {isTenantAdmin && (
         <TeamAccessTable tenantId={tenantId} />
       )}
       {isTenantAdmin && (clientsCh || teamCh) && (
         <WebhookDiagnosticsPanel tenantId={tenantId} />
-      )}
-      {isTenantAdmin && !teamCh && (
-        <Card className="p-4 flex items-center gap-3 bg-muted/30">
-          <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Conecta el canal "Equipo" para autorizar a tus vendedores.</p>
-        </Card>
       )}
 
       {/* Plantillas */}

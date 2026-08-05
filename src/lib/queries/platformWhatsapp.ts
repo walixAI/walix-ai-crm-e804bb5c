@@ -129,3 +129,26 @@ export function useToggleAccess() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["platform-wa-access"] }),
   });
 }
+export interface PlatformBotPublic {
+  id: string;
+  phone_number: string | null;
+  display_name: string | null;
+  label: string | null;
+  status: string | null;
+}
+
+/** Datos públicos (sin credenciales) del número global de Walix, visibles para cualquier tenant. */
+export function usePlatformBotPublic() {
+  return useQuery({
+    queryKey: ["platform-wa-bot-public"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("platform_whatsapp_bot" as any)
+        .select("id, phone_number, display_name, label, status")
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as unknown as PlatformBotPublic | null;
+    },
+  });
+}

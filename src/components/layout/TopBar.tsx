@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useCopilot } from "@/store/copilot";
+import { useCopilotWebAccess } from "@/hooks/useCopilotAccess";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AgentsActivityIndicator } from "@/components/agents/AgentsActivityIndicator";
@@ -29,6 +30,7 @@ export function TopBar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const openCopilot = useCopilot((s) => s.openDrawer);
+  const { allowed: copilotWebAllowed } = useCopilotWebAccess();
   const proactiveCount = useCopilot((s) => s.proactiveCount);
   const refreshProactiveCount = useCopilot((s) => s.refreshProactiveCount);
   const [phIndex, setPhIndex] = useState(0);
@@ -67,6 +69,7 @@ export function TopBar() {
       <AgentsActivityIndicator />
 
       <div className="flex-1 max-w-2xl" data-tour="ai-prompt">
+        {copilotWebAllowed && (
         <button
           type="button"
           onClick={openCopilot}
@@ -97,6 +100,7 @@ export function TopBar() {
             ⌘ K
           </kbd>
         </button>
+        )}
       </div>
 
       <div data-tour="notifications">

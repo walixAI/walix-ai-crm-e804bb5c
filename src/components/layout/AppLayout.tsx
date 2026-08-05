@@ -14,12 +14,14 @@ import { applyBrandPrimary, removeBrandPrimary } from "@/lib/branding";
 import { TrialBanner } from "@/components/walix/TrialBanner";
 import { useCopilot } from "@/store/copilot";
 import { deriveConversationKey, deriveEntity } from "@/lib/constants/copilotSuggestions";
+import { useCopilotWebAccess } from "@/hooks/useCopilotAccess";
 
 export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const tour = useAutoOnboardingTour();
   const { user } = useAuth();
   const location = useLocation();
+  const { allowed: copilotWebAllowed } = useCopilotWebAccess();
   const openCopilot = useCopilot((s) => s.openDrawer);
   const setCopilotContext = useCopilot((s) => s.setContext);
   const { data: tenantId } = useTenantId();
@@ -39,7 +41,7 @@ export function AppLayout() {
       const k = e.key.toLowerCase();
       if ((e.metaKey || e.ctrlKey) && k === "k") {
         e.preventDefault();
-        openCopilot();
+        if (copilotWebAllowed) openCopilot();
       } else if ((e.metaKey || e.ctrlKey) && k === "j") {
         e.preventDefault();
         setPaletteOpen((v) => !v);
@@ -47,7 +49,7 @@ export function AppLayout() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openCopilot]);
+  }, [openCopilot, copilotWebAllowed]);
 
   // Sync copilot context to current route/entity.
   useEffect(() => {
@@ -78,7 +80,7 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
-      <CopilotDrawer />
+      {copilotWebAllowed && <CopilotDrawer />}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <OnboardingTour open={tour.open} onClose={tour.close} />
     </div>

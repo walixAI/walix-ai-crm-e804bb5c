@@ -1310,6 +1310,13 @@ export type Database = {
             foreignKeyName: "conversations_channel_id_fkey"
             columns: ["channel_id"]
             isOneToOne: false
+            referencedRelation: "platform_whatsapp_bot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
             referencedRelation: "whatsapp_channels"
             referencedColumns: ["id"]
           },
@@ -3865,6 +3872,13 @@ export type Database = {
             foreignKeyName: "whatsapp_conversation_billing_channel_id_fkey"
             columns: ["channel_id"]
             isOneToOne: false
+            referencedRelation: "platform_whatsapp_bot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_billing_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
             referencedRelation: "whatsapp_channels"
             referencedColumns: ["id"]
           },
@@ -3925,6 +3939,7 @@ export type Database = {
           tenant_id: string
           updated_at: string
           user_id: string | null
+          web_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -3936,6 +3951,7 @@ export type Database = {
           tenant_id: string
           updated_at?: string
           user_id?: string | null
+          web_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -3947,6 +3963,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           user_id?: string | null
+          web_enabled?: boolean
         }
         Relationships: []
       }
@@ -3985,6 +4002,30 @@ export type Database = {
       }
     }
     Views: {
+      platform_whatsapp_bot: {
+        Row: {
+          display_name: string | null
+          id: string | null
+          label: string | null
+          phone_number: string | null
+          status: Database["public"]["Enums"]["whatsapp_channel_status"] | null
+        }
+        Insert: {
+          display_name?: string | null
+          id?: string | null
+          label?: string | null
+          phone_number?: string | null
+          status?: Database["public"]["Enums"]["whatsapp_channel_status"] | null
+        }
+        Update: {
+          display_name?: string | null
+          id?: string | null
+          label?: string | null
+          phone_number?: string | null
+          status?: Database["public"]["Enums"]["whatsapp_channel_status"] | null
+        }
+        Relationships: []
+      }
       v_ai_draft_ab: {
         Row: {
           abs_char_delta: number | null
