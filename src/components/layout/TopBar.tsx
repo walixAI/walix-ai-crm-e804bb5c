@@ -69,6 +69,7 @@ export function TopBar() {
       <AgentsActivityIndicator />
 
       <div className="flex-1 max-w-2xl" data-tour="ai-prompt">
+        {copilotWebAllowed && (
         <button
           type="button"
           onClick={openCopilot}
@@ -99,6 +100,7 @@ export function TopBar() {
             ⌘ K
           </kbd>
         </button>
+        )}
       </div>
 
       <div data-tour="notifications">
