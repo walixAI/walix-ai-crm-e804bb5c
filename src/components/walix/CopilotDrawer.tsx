@@ -53,7 +53,7 @@ function renderMarkdown(md: string): ReactNode {
       );
     }
   }
-  return <div className="space-y-2">{out}</div>;
+  return <div className="space-y-2 break-words">{out}</div>;
 }
 
 function renderInline(s: string): ReactNode {
