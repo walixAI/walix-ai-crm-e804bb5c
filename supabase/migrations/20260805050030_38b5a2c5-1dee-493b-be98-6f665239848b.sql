@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_usage_log ADD COLUMN IF NOT EXISTS actor_label text;

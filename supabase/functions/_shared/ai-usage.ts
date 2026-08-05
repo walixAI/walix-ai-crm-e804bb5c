@@ -6,6 +6,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 export interface AiUsageInput {
   tenantId: string;
   userId?: string | null;
+  /** Nombre visible cuando el consumo no está ligado a una cuenta (p. ej. teléfono del Copiloto). */
+  actorLabel?: string | null;
   surface: "copilot" | "whatsapp" | "agent" | string;
   model: string;
   inputTokens?: number;
@@ -47,6 +49,7 @@ export async function recordAiUsage(u: AiUsageInput) {
     const logPromise = svc.from("ai_usage_log").insert({
       tenant_id: u.tenantId,
       user_id: u.userId ?? null,
+      actor_label: u.actorLabel ?? null,
       surface: u.surface,
       model: u.model,
       input_tokens: inputTokens,
