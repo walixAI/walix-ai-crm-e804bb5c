@@ -9,6 +9,8 @@ import { tenantPlanLabel, limitLabel, formatMXN } from "@/lib/plans";
 import { CreditsCard } from "./CreditsCard";
 import { AiEngineCard } from "./AiEngineCard";
 import { AiUsageBreakdown } from "./AiUsageBreakdown";
+import { WhatsappUsageBreakdown } from "./WhatsappUsageBreakdown";
+import { usePermissions } from "@/hooks/usePermissions";
 
 /** Genera el historial de facturas desde el mes de inicio de facturación del tenant hasta hoy. */
 function buildInvoices(startDate: string | null | undefined) {
@@ -27,6 +29,7 @@ function buildInvoices(startDate: string | null | undefined) {
 }
 
 export function BillingTab({ tenantId }: { tenantId: string }) {
+  const { can, isTenantAdmin } = usePermissions();
   const { data: tenant } = useQuery({ queryKey: ["tenant", tenantId], queryFn: () => fetchTenant(tenantId) });
   const { data: limits } = usePlanLimits();
   const currentPlan = tenant?.plan ?? "pyme";
@@ -49,9 +52,11 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
               </p>
             )}
           </div>
-          <Button>
-            Cambiar plan <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
+          {can("billing.manage") && (
+            <Button>
+              Cambiar plan <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          )}
         </div>
 
         {limit && (
@@ -68,6 +73,8 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
       <CreditsCard tenantId={tenantId} plan={currentPlan} />
 
       <AiUsageBreakdown tenantId={tenantId} />
+
+      {isTenantAdmin && <WhatsappUsageBreakdown tenantId={tenantId} />}
 
       <AiEngineCard
         tenantId={tenantId}

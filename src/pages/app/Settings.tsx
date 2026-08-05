@@ -19,8 +19,10 @@ import { WidgetsTab } from "@/components/settings/widgets/WidgetsTab";
 import { OutcomesTab } from "@/components/settings/outcomes/OutcomesTab";
 import { ImportTab } from "@/components/settings/import/ImportTab";
 import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
+import { usePermissions } from "@/hooks/usePermissions";
+import { SETTINGS_TAB_PERMISSIONS } from "@/constants/permissions";
 
-const TABS = [
+const ALL_TABS = [
   { id: "general", label: "General" },
   { id: "team", label: "Equipo" },
   { id: "pipeline", label: "Pipeline" },
@@ -41,15 +43,21 @@ const TABS = [
 
 export default function Settings() {
   const { data: tenantId, isLoading } = useTenantId();
+  const { can } = usePermissions();
+  const TABS = ALL_TABS.filter((t) => can(SETTINGS_TAB_PERMISSIONS[t.id] ?? "settings.read"));
   const [params, setParams] = useSearchParams();
   const initial = params.get("tab") ?? "general";
-  const [tab, setTab] = useState(TABS.some((t) => t.id === initial) ? initial : "general");
+  const [tab, setTab] = useState(
+    TABS.some((t) => t.id === initial) ? initial : TABS[0]?.id ?? "me"
+  );
 
   useEffect(() => {
     const p = params.get("tab");
     if (p && p !== tab && TABS.some((t) => t.id === p)) setTab(p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
+
+  const visible = (id: string) => TABS.some((t) => t.id === id);
 
   function changeTab(v: string) {
     setTab(v);
@@ -95,22 +103,22 @@ export default function Settings() {
           ))}
         </TabsList>
 
-        <TabsContent value="general"><GeneralTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="team"><TeamTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="pipeline"><PipelineSettingsTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="contacts"><ContactsSettingsTab /></TabsContent>
-        <TabsContent value="outcomes"><OutcomesTab /></TabsContent>
-        <TabsContent value="goals"><GoalsTab /></TabsContent>
-        <TabsContent value="expenses"><ExpenseCategoriesTab /></TabsContent>
-        <TabsContent value="widgets"><WidgetsTab /></TabsContent>
-        <TabsContent value="import"><ImportTab /></TabsContent>
-        <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="modules"><ModulesTab /></TabsContent>
-        <TabsContent value="agents"><AgentsTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="copilot"><CopilotCapabilitiesTab /></TabsContent>
-        <TabsContent value="me"><MyAIProfileTab /></TabsContent>
-        <TabsContent value="billing"><BillingTab tenantId={tenantId} /></TabsContent>
-        <TabsContent value="activity"><ActivityTab tenantId={tenantId} /></TabsContent>
+        {visible("general") && <TabsContent value="general"><GeneralTab tenantId={tenantId} /></TabsContent>}
+        {visible("team") && <TabsContent value="team"><TeamTab tenantId={tenantId} /></TabsContent>}
+        {visible("pipeline") && <TabsContent value="pipeline"><PipelineSettingsTab tenantId={tenantId} /></TabsContent>}
+        {visible("contacts") && <TabsContent value="contacts"><ContactsSettingsTab /></TabsContent>}
+        {visible("outcomes") && <TabsContent value="outcomes"><OutcomesTab /></TabsContent>}
+        {visible("goals") && <TabsContent value="goals"><GoalsTab /></TabsContent>}
+        {visible("expenses") && <TabsContent value="expenses"><ExpenseCategoriesTab /></TabsContent>}
+        {visible("widgets") && <TabsContent value="widgets"><WidgetsTab /></TabsContent>}
+        {visible("import") && <TabsContent value="import"><ImportTab /></TabsContent>}
+        {visible("whatsapp") && <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>}
+        {visible("modules") && <TabsContent value="modules"><ModulesTab /></TabsContent>}
+        {visible("agents") && <TabsContent value="agents"><AgentsTab tenantId={tenantId} /></TabsContent>}
+        {visible("copilot") && <TabsContent value="copilot"><CopilotCapabilitiesTab /></TabsContent>}
+        {visible("me") && <TabsContent value="me"><MyAIProfileTab /></TabsContent>}
+        {visible("billing") && <TabsContent value="billing"><BillingTab tenantId={tenantId} /></TabsContent>}
+        {visible("activity") && <TabsContent value="activity"><ActivityTab tenantId={tenantId} /></TabsContent>}
       </Tabs>
     </div>
   );
