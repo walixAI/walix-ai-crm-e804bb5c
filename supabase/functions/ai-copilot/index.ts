@@ -971,9 +971,12 @@ Deno.serve(async (req) => {
 
     // 3. Persistir mensaje del usuario (no bloquea la respuesta)
     const pendingWrites: Promise<any>[] = [];
+    const t0 = Date.now();
+    let writeSeq = 0;
+    const stamp = () => new Date(t0 + writeSeq++).toISOString();
     pendingWrites.push(sb.from("ai_conversation_history").insert({
       tenant_id: tenantId, user_id: userId, session_id: sessionId,
-      role: "user", content: body.message,
+      role: "user", content: body.message, created_at: stamp(),
     }) as unknown as Promise<any>);
 
     // 4. Loop agéntico
@@ -1042,7 +1045,7 @@ Deno.serve(async (req) => {
         messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
         pendingWrites.push(sb.from("ai_conversation_history").insert({
           tenant_id: tenantId, user_id: userId, session_id: sessionId,
-          role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls,
+          role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls, created_at: stamp(),
         }) as unknown as Promise<any>);
 
         // Ejecutar todas las herramientas del turno en paralelo
@@ -1062,7 +1065,7 @@ Deno.serve(async (req) => {
           toolRows.push({
             tenant_id: tenantId, user_id: userId, session_id: sessionId,
             role: "tool", content: JSON.stringify(result),
-            tool_calls: { tool_call_id: tc.id, name: tc.function.name },
+            tool_calls: { tool_call_id: tc.id, name: tc.function.name }, created_at: stamp(),
           });
         }
         if (toolRows.length) {
@@ -1074,7 +1077,7 @@ Deno.serve(async (req) => {
       finalText = msg.content ?? "";
       pendingWrites.push(sb.from("ai_conversation_history").insert({
         tenant_id: tenantId, user_id: userId, session_id: sessionId,
-        role: "assistant", content: finalText,
+        role: "assistant", content: finalText, created_at: stamp(),
       }) as unknown as Promise<any>);
       break;
     }
@@ -1092,6 +1095,9 @@ Deno.serve(async (req) => {
         iterations: usageIters,
       });
     } catch { /* noop */ }
+
+    // Asegurar que el historial quedó persistido antes de responder
+    try { await Promise.all(pendingWrites); } catch (e) { console.error("[ai-copilot] history write", e); }
 
     // Consumo de créditos de IA del periodo (best-effort, con rol de servicio)
     try {
