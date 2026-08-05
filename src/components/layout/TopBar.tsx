@@ -30,6 +30,7 @@ export function TopBar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const openCopilot = useCopilot((s) => s.openDrawer);
+  const { allowed: copilotWebAllowed } = useCopilotWebAccess();
   const proactiveCount = useCopilot((s) => s.proactiveCount);
   const refreshProactiveCount = useCopilot((s) => s.refreshProactiveCount);
   const [phIndex, setPhIndex] = useState(0);
