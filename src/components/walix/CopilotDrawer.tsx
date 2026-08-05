@@ -496,7 +496,7 @@ export function CopilotDrawer() {
         </ScrollArea>
 
         {/* Suggestions + composer */}
-        <div className="border-t border-border bg-card p-3 space-y-2">
+        <div className="border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2 shrink-0">
           {suggestions.length > 0 && messages.length === 0 && status === "idle" && (
             <div className="flex flex-wrap gap-1.5">
               {suggestions.map((s) => (
@@ -516,7 +516,7 @@ export function CopilotDrawer() {
               Escuchando…
             </div>
           )}
-          <div className="flex items-end gap-1.5">
+          <div className="flex items-end gap-1.5 min-w-0">
             <Textarea
               ref={composerRef}
               value={composer}
@@ -524,12 +524,12 @@ export function CopilotDrawer() {
               onKeyDown={onComposerKey}
               placeholder="Pregúntame cualquier cosa…"
               rows={1}
-              className="resize-none min-h-[40px] max-h-[96px] text-sm py-2"
+              className="flex-1 min-w-0 resize-none min-h-[44px] max-h-[96px] text-base sm:text-sm py-2.5 rounded-xl"
             />
             <Button
               size="icon"
               variant={voice.listening ? "destructive" : "outline"}
-              className="h-10 w-10 shrink-0"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl"
               onClick={voice.toggle}
               disabled={!voice.supported}
               title={voice.supported ? "Hablar" : "Voz no disponible en este navegador"}
@@ -538,7 +538,7 @@ export function CopilotDrawer() {
             </Button>
             <Button
               size="icon"
-              className="h-10 w-10 shrink-0 bg-gradient-brand text-primary-foreground"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl bg-gradient-brand text-primary-foreground"
               onClick={onSend}
               disabled={!composer.trim() || status !== "idle"}
               title="Enviar (Enter)"
@@ -548,7 +548,7 @@ export function CopilotDrawer() {
                 : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="text-[10px] text-muted-foreground text-center">
+          <div className="hidden sm:block text-[10px] text-muted-foreground text-center">
             Enter para enviar · Shift+Enter para salto de línea
           </div>
         </div>
