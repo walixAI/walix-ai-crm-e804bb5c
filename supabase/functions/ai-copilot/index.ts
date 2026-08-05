@@ -969,11 +969,12 @@ Deno.serve(async (req) => {
     const messages: any[] = [{ role: "system", content: systemPrompt }, ...sanitized];
     messages.push({ role: "user", content: body.message });
 
-    // 3. Persistir mensaje del usuario
-    await sb.from("ai_conversation_history").insert({
+    // 3. Persistir mensaje del usuario (no bloquea la respuesta)
+    const pendingWrites: Promise<any>[] = [];
+    pendingWrites.push(sb.from("ai_conversation_history").insert({
       tenant_id: tenantId, user_id: userId, session_id: sessionId,
       role: "user", content: body.message,
-    });
+    }) as unknown as Promise<any>);
 
     // 4. Loop agéntico
     const toolsUsed: { name: string; args: any; result: any }[] = [];
@@ -993,6 +994,7 @@ Deno.serve(async (req) => {
           messages,
           tools: CRM_TOOLS,
           tool_choice: "auto",
+          parallel_tool_calls: true,
         }),
       });
 
@@ -1038,38 +1040,42 @@ Deno.serve(async (req) => {
       // ¿Tool calls?
       if (msg.tool_calls?.length) {
         messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
-        await sb.from("ai_conversation_history").insert({
+        pendingWrites.push(sb.from("ai_conversation_history").insert({
           tenant_id: tenantId, user_id: userId, session_id: sessionId,
           role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls,
-        });
+        }) as unknown as Promise<any>);
 
-        for (const tc of msg.tool_calls) {
+        // Ejecutar todas las herramientas del turno en paralelo
+        const executed = await Promise.all(msg.tool_calls.map(async (tc: any) => {
           let parsedArgs: any = {};
           try { parsedArgs = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* noop */ }
           const result = await executeTool(tc.function.name, parsedArgs, sb, tenantId, userId);
+          return { tc, parsedArgs, result };
+        }));
+        const toolRows: any[] = [];
+        for (const { tc, parsedArgs, result } of executed) {
           toolsUsed.push({ name: tc.function.name, args: parsedArgs, result });
           if (tc.function.name === "prepare_whatsapp_message" && result?.ok) {
             pendingWhatsapp = result.pending_whatsapp;
           }
-          messages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: JSON.stringify(result),
-          });
-          await sb.from("ai_conversation_history").insert({
+          messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
+          toolRows.push({
             tenant_id: tenantId, user_id: userId, session_id: sessionId,
             role: "tool", content: JSON.stringify(result),
             tool_calls: { tool_call_id: tc.id, name: tc.function.name },
           });
         }
+        if (toolRows.length) {
+          pendingWrites.push(sb.from("ai_conversation_history").insert(toolRows) as unknown as Promise<any>);
+        }
         continue; // re-llamar al modelo
       }
 
       finalText = msg.content ?? "";
-      await sb.from("ai_conversation_history").insert({
+      pendingWrites.push(sb.from("ai_conversation_history").insert({
         tenant_id: tenantId, user_id: userId, session_id: sessionId,
         role: "assistant", content: finalText,
-      });
+      }) as unknown as Promise<any>);
       break;
     }
 
