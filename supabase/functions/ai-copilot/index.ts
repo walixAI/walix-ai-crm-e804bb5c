@@ -861,6 +861,9 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "El humano siempre confirma y envía. Tú solo redactas el borrador.",
     "",
     "Cuando uses tools, encadénalas si hace falta (ej: search_contacts → get_contact_context → create_deal → prepare_whatsapp_message).",
+    "AGILIDAD (obligatorio): pide en el MISMO turno todas las tools que sean independientes entre sí (se ejecutan en paralelo). Si el usuario pide varias cosas ('cómo voy y qué pendientes tengo'), resuélvelas todas de una vez.",
+    "No pidas datos que puedes deducir o consultar con una tool. Si falta un dato imprescindible, haz UNA sola pregunta corta con opciones.",
+    "Sé breve: respuesta directa primero (1-2 frases con la cifra o el hecho clave), luego máximo 3 viñetas y, si aplica, una acción sugerida. Nada de introducciones ni disculpas.",
     "Al terminar, responde en lenguaje natural confirmando lo que hiciste o preparaste.",
   ].filter(Boolean).join("\n");
   const [patterns, userProfile] = await Promise.all([
@@ -909,18 +912,17 @@ Deno.serve(async (req) => {
     if (!body.message?.trim()) return json({ error: "Mensaje vacío" }, 400);
 
     const sessionId = body.conversationKey ?? "global";
-    const historyLimit = Math.min(40, body.historyLimit ?? 20);
+    const historyLimit = Math.min(40, body.historyLimit ?? 14);
 
-    // 1. Cargar historial previo
-    const { data: prevHistory } = await sb
-      .from("ai_conversation_history")
-      .select("role, content, tool_calls")
-      .eq("user_id", userId).eq("session_id", sessionId)
-      .order("created_at", { ascending: false }).limit(historyLimit);
+    // 1 + 2. Historial y contexto del sistema en paralelo (menor latencia)
+    const [{ data: prevHistory }, systemPrompt] = await Promise.all([
+      sb.from("ai_conversation_history")
+        .select("role, content, tool_calls")
+        .eq("user_id", userId).eq("session_id", sessionId)
+        .order("created_at", { ascending: false }).limit(historyLimit),
+      buildSystemPrompt(sb, tenantId, userId, body.entityType ?? null, body.entityId ?? null),
+    ]);
     const history = (prevHistory ?? []).reverse();
-
-    // 2. Construir mensajes (con saneo defensivo del historial)
-    const systemPrompt = await buildSystemPrompt(sb, tenantId, userId, body.entityType ?? null, body.entityId ?? null);
     const rebuilt: any[] = [];
     for (const h of history) {
       if (h.role === "assistant") {
@@ -970,11 +972,15 @@ Deno.serve(async (req) => {
     const messages: any[] = [{ role: "system", content: systemPrompt }, ...sanitized];
     messages.push({ role: "user", content: body.message });
 
-    // 3. Persistir mensaje del usuario
-    await sb.from("ai_conversation_history").insert({
+    // 3. Persistir mensaje del usuario (no bloquea la respuesta)
+    const pendingWrites: Promise<any>[] = [];
+    const t0 = Date.now();
+    let writeSeq = 0;
+    const stamp = () => new Date(t0 + writeSeq++).toISOString();
+    pendingWrites.push(sb.from("ai_conversation_history").insert({
       tenant_id: tenantId, user_id: userId, session_id: sessionId,
-      role: "user", content: body.message,
-    });
+      role: "user", content: body.message, created_at: stamp(),
+    }) as unknown as Promise<any>);
 
     // 4. Loop agéntico
     const toolsUsed: { name: string; args: any; result: any }[] = [];
@@ -994,6 +1000,7 @@ Deno.serve(async (req) => {
           messages,
           tools: CRM_TOOLS,
           tool_choice: "auto",
+          parallel_tool_calls: true,
         }),
       });
 
@@ -1039,38 +1046,42 @@ Deno.serve(async (req) => {
       // ¿Tool calls?
       if (msg.tool_calls?.length) {
         messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
-        await sb.from("ai_conversation_history").insert({
+        pendingWrites.push(sb.from("ai_conversation_history").insert({
           tenant_id: tenantId, user_id: userId, session_id: sessionId,
-          role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls,
-        });
+          role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls, created_at: stamp(),
+        }) as unknown as Promise<any>);
 
-        for (const tc of msg.tool_calls) {
+        // Ejecutar todas las herramientas del turno en paralelo
+        const executed = await Promise.all(msg.tool_calls.map(async (tc: any) => {
           let parsedArgs: any = {};
           try { parsedArgs = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* noop */ }
           const result = await executeTool(tc.function.name, parsedArgs, sb, tenantId, userId);
+          return { tc, parsedArgs, result };
+        }));
+        const toolRows: any[] = [];
+        for (const { tc, parsedArgs, result } of executed) {
           toolsUsed.push({ name: tc.function.name, args: parsedArgs, result });
           if (tc.function.name === "prepare_whatsapp_message" && result?.ok) {
             pendingWhatsapp = result.pending_whatsapp;
           }
-          messages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: JSON.stringify(result),
-          });
-          await sb.from("ai_conversation_history").insert({
+          messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
+          toolRows.push({
             tenant_id: tenantId, user_id: userId, session_id: sessionId,
             role: "tool", content: JSON.stringify(result),
-            tool_calls: { tool_call_id: tc.id, name: tc.function.name },
+            tool_calls: { tool_call_id: tc.id, name: tc.function.name }, created_at: stamp(),
           });
+        }
+        if (toolRows.length) {
+          pendingWrites.push(sb.from("ai_conversation_history").insert(toolRows) as unknown as Promise<any>);
         }
         continue; // re-llamar al modelo
       }
 
       finalText = msg.content ?? "";
-      await sb.from("ai_conversation_history").insert({
+      pendingWrites.push(sb.from("ai_conversation_history").insert({
         tenant_id: tenantId, user_id: userId, session_id: sessionId,
-        role: "assistant", content: finalText,
-      });
+        role: "assistant", content: finalText, created_at: stamp(),
+      }) as unknown as Promise<any>);
       break;
     }
 
@@ -1087,6 +1098,9 @@ Deno.serve(async (req) => {
         iterations: usageIters,
       });
     } catch { /* noop */ }
+
+    // Asegurar que el historial quedó persistido antes de responder
+    try { await Promise.all(pendingWrites); } catch (e) { console.error("[ai-copilot] history write", e); }
 
     // Consumo de créditos de IA del periodo (best-effort, con rol de servicio)
     try {

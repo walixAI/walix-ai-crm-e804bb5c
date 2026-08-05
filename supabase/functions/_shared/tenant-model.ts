@@ -1,7 +1,8 @@
 // Resolución del motor de IA asignado a cada tenant (lo define el dueño de la plataforma).
 // Por defecto todos los tenants usan el motor más económico.
 
-export const DEFAULT_MODEL = "google/gemini-3.1-flash-lite";
+// Modelo por defecto: rápido y con buen razonamiento para uso agéntico (tools).
+export const DEFAULT_MODEL = "google/gemini-3.6-flash";
 export const DEFAULT_VENDOR = "gemini";
 
 export interface TenantModel {

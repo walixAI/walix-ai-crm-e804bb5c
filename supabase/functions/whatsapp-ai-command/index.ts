@@ -100,6 +100,14 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "crear_contacto",
+      description: "Crea un contacto nuevo cuando buscar_contacto no encontró a la persona. Basta el nombre; teléfono/empresa son opcionales.",
+      parameters: { type: "object", properties: { nombre: { type: "string" }, telefono: { type: "string" }, empresa: { type: "string" } }, required: ["nombre"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "registrar_nota",
       description: "Registra una nota/seguimiento en el historial de un contacto. Requiere contact_id obtenido de buscar_contacto.",
       parameters: { type: "object", properties: { contact_id: { type: "string" }, texto: { type: "string" } }, required: ["contact_id", "texto"] },
@@ -170,10 +178,11 @@ REGLAS CRÍTICAS:
 1. NUNCA inventes ni adivines un contacto. Antes de registrar algo, llama a buscar_contacto con el nombre tal como lo escribió el usuario (puede venir mal escrito, ej. "Rossi wingd" = "Rosi Guindi").
 2. Si el mejor candidato tiene score >= 0.55 y es claramente el único razonable, úsalo y menciona el nombre exacto que usaste ("Anoté en *Rosi Guindi*…").
 3. Si hay varios candidatos parecidos o el score es bajo, NO registres: pregunta corto y ofrece opciones numeradas ("¿Te refieres a 1) Rosi Guindi 2) Ambrossi?"). Recuerda el contexto: si el usuario responde "1" o el nombre, continúa con la acción pendiente.
-4. Si no existe el contacto, dilo y ofrece crearlo (pide solo nombre y teléfono).
+4. Si no existe el contacto, créalo tú con crear_contacto (basta el nombre) y continúa con lo que pidió el usuario en el MISMO turno; no lo dejes esperando.
 5. Pide SOLO los datos imprescindibles. Para una oportunidad basta el contacto y una descripción; monto/fecha son opcionales. Nunca pidas listas largas de campos.
 6. Si el usuario dice que te equivocaste o pide borrar/corregir lo último, llama a deshacer_ultimo y luego rehaz la acción correcta.
 7. Usa el historial de la conversación para entender mensajes cortos ("ya quedó", "corrige", "sí", "el 1").
+7b. AGILIDAD: pide varias herramientas a la vez cuando son independientes (buscar dos contactos, resumen + tareas). Si el usuario dicta varias cosas en un mensaje ("anota X y agéndame Y"), resuélvelas TODAS en el mismo turno. Nada de preguntas de cortesía ni relleno.
 8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. Confirma siempre QUÉ registraste y EN QUIÉN.
 9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
 }
@@ -182,7 +191,7 @@ async function callGateway(messages: any[]) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
+    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto", parallel_tool_calls: true }),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -274,7 +283,7 @@ Deno.serve(async (req) => {
       : Promise.resolve({ data: null } as any),
     sb.from("whatsapp_command_log").select("prompt, reply, created_at")
       .eq("tenant_id", input.tenant_id).eq("from_phone", input.from_phone)
-      .order("created_at", { ascending: false }).limit(10),
+      .order("created_at", { ascending: false }).limit(6),
   ]);
 
   const today = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "America/Mexico_City" });
@@ -305,7 +314,7 @@ Deno.serve(async (req) => {
       if (!calls.length) { reply = (msg.content ?? "").trim() || "¿En qué te ayudo?"; break; }
       messages.push(msg);
 
-      for (const call of calls) {
+      const toolMsgs = await Promise.all(calls.map(async (call: any) => {
         const name = call.function?.name;
         let a: any = {};
         try { a = JSON.parse(call.function?.arguments ?? "{}"); } catch { /* ignore */ }
@@ -315,6 +324,17 @@ Deno.serve(async (req) => {
           if (name === "buscar_contacto") {
             const rows = await findContacts(sb, input.tenant_id, ownerFilter, a.query ?? "");
             result = { candidatos: rows.map((c: any) => ({ id: c.id, nombre: c.name, empresa: c.company, telefono: c.phone, estatus: c.status, score: Number(c.score ?? 0).toFixed(2) })) };
+          } else if (name === "crear_contacto") {
+            if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
+            else {
+              const { data: c, error } = await sb.from("contacts").insert({
+                tenant_id: input.tenant_id, owner_id: input.user_id ?? null,
+                name: a.nombre, phone: a.telefono ?? null, company: a.empresa ?? null,
+                status: "prospecto", source: "WhatsApp Copiloto",
+              }).select("id, name").single();
+              if (error) result = { error: error.message };
+              else result = { ok: true, contact_id: c.id, nombre: c.name };
+            }
           } else if (name === "registrar_nota") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
             else {
@@ -438,8 +458,9 @@ Deno.serve(async (req) => {
           result = { error: String(e) };
         }
 
-        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
-      }
+        return { role: "tool", tool_call_id: call.id, content: JSON.stringify(result) };
+      }));
+      messages.push(...toolMsgs);
     }
     if (!reply) reply = "Listo.";
   } catch (e) {
@@ -447,13 +468,19 @@ Deno.serve(async (req) => {
     reply = "⚠️ Algo salió mal procesando tu solicitud. Intenta de nuevo.";
   }
 
-  await sb.from("whatsapp_command_log").insert({
+  const logPromise = sb.from("whatsapp_command_log").insert({
     tenant_id: input.tenant_id, user_id: input.user_id, channel_id: input.channel_id,
     from_phone: input.from_phone, prompt: input.prompt, intent: "agent",
     action_payload: {}, reply,
     result_entity_type: lastEntity?.type ?? null, result_entity_id: lastEntity?.id ?? null,
     status: "executed", executed_at: new Date().toISOString(),
   });
+  // No bloquear la respuesta al usuario por el registro de auditoría
+  try {
+    // @ts-ignore EdgeRuntime existe en Supabase Edge Functions
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(logPromise);
+    else await logPromise;
+  } catch { await logPromise; }
 
   return json(reply);
 });
