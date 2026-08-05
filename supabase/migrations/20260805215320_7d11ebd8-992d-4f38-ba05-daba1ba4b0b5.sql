@@ -1,0 +1,3 @@
+insert into public.dashboard_widgets (tenant_id, key, name, description, surface, kind, native_key, config, min_role, is_active, is_mandatory, default_position)
+values (null, 'dash.recurrences_month', 'Recurrencias del mes', 'Resumen de servicios o compromisos recurrentes programados para el mes en curso', 'dashboard', 'native', 'recurrences_month', '{}'::jsonb, 'user', true, false, 26)
+on conflict do nothing;
