@@ -178,7 +178,6 @@ export default function MiDia() {
             </Widget>
             <Widget k="midia.services">
             <div ref={columnRefs.services} className="scroll-mt-28 space-y-3">
-              <MonthServicesCard />
               <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
             </div>
             </Widget>
