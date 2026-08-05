@@ -761,6 +761,7 @@ export type Database = {
       }
       ai_usage_log: {
         Row: {
+          actor_label: string | null
           agent_id: string | null
           created_at: string
           id: string
@@ -774,6 +775,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          actor_label?: string | null
           agent_id?: string | null
           created_at?: string
           id?: string
@@ -787,6 +789,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          actor_label?: string | null
           agent_id?: string | null
           created_at?: string
           id?: string
