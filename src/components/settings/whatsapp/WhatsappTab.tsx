@@ -27,12 +27,14 @@ import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
 import { WebhookDiagnosticsPanel } from "./WebhookDiagnosticsPanel";
 import { relativeTime } from "@/lib/format/relativeTime";
+import { usePlatformBotPublic } from "@/lib/queries/platformWhatsapp";
 
 export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { isTenantAdmin } = usePermissions();
   const { data: channels = [] } = useWhatsappChannels(tenantId);
+  const { data: platformBot } = usePlatformBotPublic();
   const disconnect = useDisconnectChannel(tenantId);
   const setDefault = useSetDefaultChannel(tenantId);
   const [dialogKind, setDialogKind] = useState<ChannelKind | null>(null);
