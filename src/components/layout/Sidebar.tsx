@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Logo } from "@/components/walix/Logo";
 import { WBadge } from "@/components/walix/Badge";
 import { useAiInboxCount } from "@/pages/app/AiInbox";
@@ -15,6 +16,7 @@ export function Sidebar() {
   const expanded = hovered;
   const collapsed = !expanded;
   const { roles } = useAuth();
+  const { can, canAccess } = usePermissions();
   const isAdmin =
     roles.includes("tenant_admin") ||
     roles.includes("tenant_owner") ||
@@ -40,12 +42,12 @@ export function Sidebar() {
     { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle, badge: 12 },
     { to: "/reports", label: "Reportes", icon: BarChart3 },
     { to: "/automations", label: "Automatizaciones", icon: Zap },
-  ];
+  ].filter((i) => canAccess(i.to));
 
   const adminItems = [
     ...(isOrgOwner ? [{ to: "/org", label: "Mi organización", icon: Building2 }] : []),
-    ...(isAdmin ? [{ to: "/settings?tab=agents", label: "Agentes IA", icon: Bot }] : []),
-    ...(isAdmin ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
+    ...(can("ai.manage") ? [{ to: "/settings?tab=agents", label: "Agentes IA", icon: Bot }] : []),
+    ...(canAccess("/settings") ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
     ...(isPlatform ? [{ to: "/platform", label: "Plataforma", icon: Globe2 }] : []),
     ...(isPlatform ? [{ to: "/admin", label: "SuperAdmin", icon: Shield }] : []),
     { to: "/marketplace", label: "Marketplace", icon: Store },
