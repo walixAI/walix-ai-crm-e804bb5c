@@ -553,9 +553,18 @@ Deno.serve(async (req) => {
   if (logError) console.error("command log error", logError);
 
   // Consumo de IA del Copiloto por WhatsApp (bitácora + créditos del periodo)
+  // Atribución: si el teléfono aún no está ligado a una cuenta, se registra su nombre visible.
+  const { data: accessRow } = await sb
+    .from("whatsapp_user_access")
+    .select("user_id, display_name")
+    .eq("tenant_id", input.tenant_id)
+    .eq("phone_e164", input.from_phone)
+    .maybeSingle();
+
   await recordAiUsage({
     tenantId: input.tenant_id,
-    userId: input.user_id,
+    userId: input.user_id ?? accessRow?.user_id ?? null,
+    actorLabel: input.user_id ? null : (accessRow?.display_name ?? input.from_phone),
     surface: "whatsapp",
     model: MODEL,
     inputTokens: usage.input,
