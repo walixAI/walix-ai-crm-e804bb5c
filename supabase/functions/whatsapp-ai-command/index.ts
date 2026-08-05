@@ -100,6 +100,14 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "crear_contacto",
+      description: "Crea un contacto nuevo cuando buscar_contacto no encontró a la persona. Basta el nombre; teléfono/empresa son opcionales.",
+      parameters: { type: "object", properties: { nombre: { type: "string" }, telefono: { type: "string" }, empresa: { type: "string" } }, required: ["nombre"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "registrar_nota",
       description: "Registra una nota/seguimiento en el historial de un contacto. Requiere contact_id obtenido de buscar_contacto.",
       parameters: { type: "object", properties: { contact_id: { type: "string" }, texto: { type: "string" } }, required: ["contact_id", "texto"] },
