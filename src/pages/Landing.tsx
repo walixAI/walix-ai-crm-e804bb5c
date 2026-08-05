@@ -33,7 +33,7 @@ function Header() {
         <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
           <a href="#producto" className="hover:text-foreground transition-colors">Producto</a>
           <a href="#como-funciona" className="hover:text-foreground transition-colors">Cómo funciona</a>
-          <a href="#precios" className="hover:text-foreground transition-colors">Precios</a>
+          <a href="#paquetes" className="hover:text-foreground transition-colors">Paquetes</a>
           <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
         </nav>
         <div className="flex items-center gap-2">
@@ -566,7 +566,7 @@ function Footer() {
             El CRM con WhatsApp + IA hecho para PyMEs mexicanas.
           </p>
         </div>
-        <FCol title="Producto" links={["Funciones", "Precios", "Integraciones", "Novedades"]} />
+        <FCol title="Producto" links={["Funciones", "Paquetes", "Integraciones", "Novedades"]} />
         <FCol title="Empresa" links={["Sobre nosotros", "Blog", "Clientes", "Contacto"]} />
         <FCol title="Legal" links={["Términos", "Privacidad", "Aviso LFPDPPP", "Seguridad"]} />
       </div>
