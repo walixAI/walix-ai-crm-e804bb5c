@@ -1,11 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MessageCircle, Sparkles, ShoppingCart } from "lucide-react";
+import { useState } from "react";
+import { MessageCircle, Sparkles, Send } from "lucide-react";
 import { useCreditBalance } from "@/lib/queries/aiModels";
 import { usePlanLimits } from "@/lib/queries/planLimits";
-import { WHATSAPP_PACKS, AI_PACKS, formatMXN, type CreditPack } from "@/lib/plans";
-import { toast } from "sonner";
+import { WHATSAPP_PACKS, AI_PACKS, type CreditPack } from "@/lib/plans";
+import { RequestPackDialog } from "./RequestPackDialog";
 
 export function CreditsCard({ tenantId, plan }: { tenantId: string; plan: string }) {
   const { data: balance } = useCreditBalance(tenantId);
@@ -29,6 +30,8 @@ export function CreditsCard({ tenantId, plan }: { tenantId: string; plan: string
         included={waIncluded}
         extra={waExtra}
         packs={WHATSAPP_PACKS}
+        tipo="Créditos WhatsApp"
+        tenantId={tenantId}
       />
       <CreditBlock
         icon={Sparkles}
@@ -38,17 +41,21 @@ export function CreditsCard({ tenantId, plan }: { tenantId: string; plan: string
         included={aiIncluded}
         extra={aiExtra}
         packs={AI_PACKS}
+        tipo="Créditos de IA"
+        tenantId={tenantId}
       />
     </div>
   );
 }
 
 function CreditBlock({
-  icon: Icon, title, hint, used, included, extra, packs,
+  icon: Icon, title, hint, used, included, extra, packs, tipo, tenantId,
 }: {
   icon: typeof MessageCircle; title: string; hint: string;
   used: number; included: number; extra: number; packs: CreditPack[];
+  tipo: string; tenantId: string;
 }) {
+  const [requested, setRequested] = useState<CreditPack | null>(null);
   const total = included + extra;
   const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
   return (
@@ -81,19 +88,21 @@ function CreditBlock({
         {packs.map((p) => (
           <div key={p.id} className="flex items-center justify-between gap-2">
             <span className="text-sm">{p.label}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">{formatMXN(p.price)}</span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => toast.info("Solicitud enviada", { description: `Soporte Walix activará tu paquete de ${p.label}.` })}
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" onClick={() => setRequested(p)}>
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Solicitar a Walix
+            </Button>
           </div>
         ))}
       </div>
+
+      <RequestPackDialog
+        open={!!requested}
+        onOpenChange={(v) => !v && setRequested(null)}
+        packLabel={requested?.label ?? ""}
+        tipo={tipo}
+        tenantId={tenantId}
+      />
     </Card>
   );
 }

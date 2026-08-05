@@ -6,7 +6,8 @@
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserProfile } from "../_shared/ai-tools.ts";
-import { resolveTenantModel, creditsForRun, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
+import { resolveTenantModel, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
+import { recordAiUsage } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1085,47 +1086,21 @@ Deno.serve(async (req) => {
       break;
     }
 
-    // Registro de uso (best-effort)
-    try {
-      await sb.from("ai_usage_log").insert({
-        tenant_id: tenantId,
-        user_id: userId,
-        surface: "copilot",
-        model: MODEL,
-        input_tokens: usageInput,
-        output_tokens: usageOutput,
-        total_tokens: usageTotal || (usageInput + usageOutput),
-        iterations: usageIters,
-      });
-    } catch { /* noop */ }
-
     // Asegurar que el historial quedó persistido antes de responder
     try { await Promise.all(pendingWrites); } catch (e) { console.error("[ai-copilot] history write", e); }
 
-    // Consumo de créditos de IA del periodo (best-effort, con rol de servicio)
-    try {
-      const svc = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      const now = new Date();
-      const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
-      const credits = creditsForRun(usageIters, engine.creditFactor);
-      const { data: bal } = await svc.from("tenant_credit_balances")
-        .select("id, ai_used").eq("tenant_id", tenantId).eq("period_start", period).maybeSingle();
-      if (bal?.id) {
-        await svc.from("tenant_credit_balances")
-          .update({ ai_used: Number(bal.ai_used ?? 0) + credits }).eq("id", bal.id);
-      } else {
-        const { data: t } = await svc.from("tenants").select("plan").eq("id", tenantId).maybeSingle();
-        const { data: pl } = await svc.from("plan_limits")
-          .select("whatsapp_credits, ai_credits").eq("plan", t?.plan ?? "pyme").maybeSingle();
-        await svc.from("tenant_credit_balances").insert({
-          tenant_id: tenantId,
-          period_start: period,
-          whatsapp_included: pl?.whatsapp_credits ?? 0,
-          ai_included: pl?.ai_credits ?? 0,
-          ai_used: credits,
-        });
-      }
-    } catch { /* noop */ }
+    // Bitácora de uso + consumo de créditos del periodo (rol de servicio)
+    await recordAiUsage({
+      tenantId,
+      userId,
+      surface: "copilot",
+      model: MODEL,
+      inputTokens: usageInput,
+      outputTokens: usageOutput,
+      totalTokens: usageTotal,
+      iterations: usageIters,
+      creditFactor: engine.creditFactor,
+    });
 
     return json({
       text: finalText || "(sin respuesta)",

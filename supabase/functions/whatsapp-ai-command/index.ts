@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { recordAiUsage } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -189,7 +190,11 @@ REGLAS CRÍTICAS:
 9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
 }
 
-async function callGateway(messages: any[]) {
+// Acumulador de consumo por invocación (no global: habría fugas entre peticiones).
+type Usage = { input: number; output: number; total: number; iterations: number };
+const newUsage = (): Usage => ({ input: 0, output: 0, total: 0, iterations: 0 });
+
+async function callGateway(messages: any[], usage: Usage) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -199,7 +204,12 @@ async function callGateway(messages: any[]) {
     const t = await res.text();
     throw new Error(`AI gateway ${res.status}: ${t.slice(0, 300)}`);
   }
-  return await res.json();
+  const data = await res.json();
+  usage.iterations += 1;
+  usage.input += Number(data?.usage?.prompt_tokens ?? 0);
+  usage.output += Number(data?.usage?.completion_tokens ?? 0);
+  usage.total += Number(data?.usage?.total_tokens ?? 0);
+  return data;
 }
 
 // ================= Strong actions =================
@@ -304,6 +314,7 @@ Deno.serve(async (req) => {
   }
   messages.push({ role: "user", content: input.prompt });
 
+  const usage = newUsage();
   let lastEntity: { type: string; id: string } | null = null;
   const mutationReceipts: Array<{ type: string; id: string; label: string; contactName?: string; contactId?: string; dueAt?: string }> = [];
   const toolErrors: string[] = [];
@@ -311,7 +322,7 @@ Deno.serve(async (req) => {
 
   try {
     for (let step = 0; step < 6; step++) {
-      const res = await callGateway(messages);
+      const res = await callGateway(messages, usage);
       const msg = res?.choices?.[0]?.message;
       if (!msg) { reply = "⚠️ No pude procesar tu mensaje."; break; }
       const calls = msg.tool_calls ?? [];
@@ -540,6 +551,18 @@ Deno.serve(async (req) => {
   // El historial es parte de la consistencia conversacional: debe persistir antes de responder.
   const { error: logError } = await logPromise;
   if (logError) console.error("command log error", logError);
+
+  // Consumo de IA del Copiloto por WhatsApp (bitácora + créditos del periodo)
+  await recordAiUsage({
+    tenantId: input.tenant_id,
+    userId: input.user_id,
+    surface: "whatsapp",
+    model: MODEL,
+    inputTokens: usage.input,
+    outputTokens: usage.output,
+    totalTokens: usage.total,
+    iterations: usage.iterations,
+  });
 
   return json(reply);
 });
