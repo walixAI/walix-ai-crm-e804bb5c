@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/walix/Logo";
+import { PackageRequestForm } from "@/components/walix/PackageRequestForm";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +34,7 @@ function Header() {
         <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
           <a href="#producto" className="hover:text-foreground transition-colors">Producto</a>
           <a href="#como-funciona" className="hover:text-foreground transition-colors">Cómo funciona</a>
-          <a href="#precios" className="hover:text-foreground transition-colors">Precios</a>
+          <a href="#paquetes" className="hover:text-foreground transition-colors">Paquetes</a>
           <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
         </nav>
         <div className="flex items-center gap-2">
@@ -410,45 +411,30 @@ function Testimonials() {
   );
 }
 
-/* ---------- Pricing ---------- */
+/* ---------- Paquetes ---------- */
 function Pricing() {
   const tiers = [
-    {
-      name: "Starter", price: "$499", per: "/mes",
-      desc: "Para el dueño que vende solo.",
-      features: ["1 número de WhatsApp", "1 usuario", "Pipeline + contactos", "100 sugerencias IA / mes"],
-      cta: "Empezar gratis", highlight: false,
-    },
-    {
-      name: "Growth", price: "$1,499", per: "/mes",
-      desc: "Para equipos que ya cierran en serio.",
-      features: ["3 números WhatsApp", "Hasta 8 usuarios", "Automatizaciones ilimitadas", "IA ilimitada", "Reportes avanzados"],
-      cta: "Probar 14 días", highlight: true,
-    },
-    {
-      name: "Scale", price: "Custom", per: "",
-      desc: "Para PyMEs en expansión nacional.",
-      features: ["Números ilimitados", "Usuarios ilimitados", "Roles y permisos", "Soporte dedicado", "SLA 99.9%"],
-      cta: "Hablar con ventas", highlight: false,
-    },
+    { name: "PyME", desc: "Para el negocio que empieza a organizar sus ventas." },
+    { name: "Growth", desc: "Para equipos que ya cierran en serio.", highlight: true },
+    { name: "Enterprise", desc: "Para operaciones con varios equipos y números." },
   ];
   return (
-    <section id="precios" className="container py-20 lg:py-28">
-      <div className="max-w-2xl mx-auto text-center mb-14">
-        <div className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">Precios</div>
+    <section id="paquetes" className="container py-20 lg:py-28">
+      <div className="max-w-2xl mx-auto text-center mb-12">
+        <div className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">Paquetes</div>
         <h2 className="text-3xl lg:text-5xl font-bold tracking-tight">
-          Paga menos que un vendedor junior.
+          Armamos el paquete a la medida de tu operación.
         </h2>
         <p className="mt-4 text-lg text-muted-foreground">
-          Y vende como si tuvieras tres.
+          Déjanos tus datos y un asesor te comparte la propuesta.
         </p>
       </div>
-      <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+      <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto mb-10">
         {tiers.map((t) => (
           <div
             key={t.name}
             className={cn(
-              "relative rounded-2xl border bg-card p-7 flex flex-col",
+              "relative rounded-2xl border bg-card p-7",
               t.highlight ? "border-primary shadow-glow" : "border-border",
             )}
           >
@@ -457,25 +443,13 @@ function Pricing() {
                 Más popular
               </span>
             )}
-            <div className="mb-1 text-sm font-semibold">{t.name}</div>
-            <div className="text-xs text-muted-foreground mb-5">{t.desc}</div>
-            <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-4xl font-bold tracking-tight">{t.price}</span>
-              <span className="text-sm text-muted-foreground">{t.per}</span>
-            </div>
-            <ul className="space-y-2.5 mb-7 flex-1">
-              {t.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm">
-                  <Check className="h-4 w-4 text-success mt-0.5 shrink-0" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <Button asChild className={cn(t.highlight ? "bg-gradient-brand hover:opacity-90 shadow-glow" : "", "w-full")} variant={t.highlight ? "default" : "outline"}>
-              <Link to="/login">{t.cta}</Link>
-            </Button>
+            <div className="mb-1 text-base font-semibold">{t.name}</div>
+            <div className="text-sm text-muted-foreground">{t.desc}</div>
           </div>
         ))}
+      </div>
+      <div className="max-w-3xl mx-auto">
+        <PackageRequestForm />
       </div>
     </section>
   );
@@ -566,7 +540,7 @@ function Footer() {
             El CRM con WhatsApp + IA hecho para PyMEs mexicanas.
           </p>
         </div>
-        <FCol title="Producto" links={["Funciones", "Precios", "Integraciones", "Novedades"]} />
+        <FCol title="Producto" links={["Funciones", "Paquetes", "Integraciones", "Novedades"]} />
         <FCol title="Empresa" links={["Sobre nosotros", "Blog", "Clientes", "Contacto"]} />
         <FCol title="Legal" links={["Términos", "Privacidad", "Aviso LFPDPPP", "Seguridad"]} />
       </div>

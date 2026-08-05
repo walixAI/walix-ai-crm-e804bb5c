@@ -1,18 +1,16 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Logo } from "@/components/walix/Logo";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { PackageRequestForm } from "@/components/walix/PackageRequestForm";
 import {
-  Check,
   Sparkles,
   Star,
   ShieldCheck,
   MessageCircle,
   Zap,
   Crown,
-  Building2,
   HelpCircle,
   Globe,
   CreditCard,
@@ -21,143 +19,75 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type PlanKey = "pyme" | "growth" | "enterprise";
-
-interface Plan {
-  key: PlanKey;
+interface Pack {
+  key: string;
   name: string;
   tagline: string;
-  monthly: number;
-  annual: number; // por mes pagando anual
+  desc: string;
   badge?: string;
   highlight?: boolean;
-  cta: string;
-  ctaTo: string;
-  ctaVariant?: "default" | "outline";
-  features: string[];
   icon: typeof Sparkles;
 }
 
-const PLANS: Plan[] = [
+const PACKS: Pack[] = [
   {
     key: "pyme",
     name: "PyME",
     tagline: "Lo que el 70% del mercado necesita",
-    monthly: 899,
-    annual: 719,
+    desc: "Para negocios que quieren ordenar sus ventas y atender WhatsApp desde un solo lugar.",
     badge: "⭐ Recomendado",
     highlight: true,
-    cta: "Empezar 14 días gratis",
-    ctaTo: "/login?mode=signup&plan=pyme",
     icon: Star,
-    features: [
-      "5 usuarios",
-      "Contactos ilimitados",
-      "2 pipelines",
-      "100 créditos WhatsApp / mes",
-      "1,000 créditos de IA / mes",
-      "Motor Walix IA · Estándar",
-      "3 automatizaciones activas",
-      "Clip + Mercado Libre",
-      "Soporte prioritario + onboarding 48h",
-    ],
   },
   {
     key: "growth",
     name: "Growth",
     tagline: "Para equipos que escalan",
-    monthly: 1499,
-    annual: 1199,
-    cta: "Empezar 14 días gratis",
-    ctaTo: "/login?mode=signup&plan=growth",
+    desc: "Para equipos comerciales con varios asesores, automatizaciones e IA en el día a día.",
     icon: Zap,
-    features: [
-      "15 usuarios",
-      "Todo lo de PyME",
-      "150 créditos WhatsApp / mes",
-      "4,000 créditos de IA / mes",
-      "Motor Walix IA · Avanzado",
-      "Automatizaciones ilimitadas",
-      "Soporte dedicado + CSM",
-    ],
   },
   {
     key: "enterprise",
     name: "Enterprise",
     tagline: "Para operaciones complejas",
-    monthly: 2500,
-    annual: 2000,
-    cta: "Contactar ventas",
-    ctaTo: "mailto:ventas@walix.ai?subject=Plan%20Enterprise",
-    ctaVariant: "outline",
+    desc: "Para operaciones con múltiples equipos, números de WhatsApp e integraciones a la medida.",
     icon: Crown,
-    features: [
-      "Usuarios ilimitados",
-      "Todo lo de Growth",
-      "250 créditos WhatsApp / mes",
-      "10,000 créditos de IA / mes",
-      "Motor Walix IA · Premium",
-      "Todas las integraciones + API propia",
-      "Soporte 24/7 + SLA",
-    ],
   },
 ];
 
 const DIFFERENTIATORS = [
-  { icon: Globe, text: "Precio en MXN (no USD)" },
+  { icon: Globe, text: "Hecho en México, en español" },
   { icon: MessageCircle, text: "WhatsApp API incluida (no add-on)" },
-  { icon: Bot, text: "IA incluida en todos los planes" },
-  { icon: Sparkles, text: "14 días de prueba gratis" },
-  { icon: ShieldCheck, text: "Onboarding gratuito 48h" },
+  { icon: Bot, text: "IA incluida en todos los paquetes" },
+  { icon: Sparkles, text: "Prueba guiada con tu equipo" },
+  { icon: ShieldCheck, text: "Onboarding asistido" },
   { icon: CreditCard, text: "Sin costos ocultos" },
-];
-
-const COMPARISON_ROWS: { feature: string; values: Record<PlanKey, string | boolean> }[] = [
-  { feature: "Usuarios incluidos", values: { pyme: "5", growth: "15", enterprise: "Ilimitados" } },
-  { feature: "Contactos", values: { pyme: "Ilimitados", growth: "Ilimitados", enterprise: "Ilimitados" } },
-  { feature: "Pipelines", values: { pyme: "2", growth: "5", enterprise: "Ilimitados" } },
-  { feature: "Créditos WhatsApp / mes", values: { pyme: "100", growth: "150", enterprise: "250" } },
-  { feature: "Créditos de IA / mes", values: { pyme: "1,000", growth: "4,000", enterprise: "10,000" } },
-  { feature: "Motor de IA incluido", values: { pyme: "Estándar", growth: "Avanzado", enterprise: "Premium" } },
-  { feature: "Motores alternos (OpenAI / Claude)", values: { pyme: false, growth: "OpenAI", enterprise: "OpenAI + Claude" } },
-  { feature: "IA - Sugerencias", values: { pyme: true, growth: true, enterprise: true } },
-  { feature: "IA - Scoring de leads", values: { pyme: true, growth: true, enterprise: true } },
-  { feature: "IA - Resúmenes y propuestas", values: { pyme: false, growth: true, enterprise: true } },
-  { feature: "Automatizaciones activas", values: { pyme: "3", growth: "Ilimitadas", enterprise: "Ilimitadas" } },
-  { feature: "Integraciones (Clip, ML)", values: { pyme: true, growth: true, enterprise: true } },
-  { feature: "API propia", values: { pyme: false, growth: false, enterprise: true } },
-  { feature: "Soporte", values: { pyme: "Prioritario", growth: "Dedicado + CSM", enterprise: "24/7 + SLA" } },
-  { feature: "Onboarding asistido", values: { pyme: "48h", growth: "Premium", enterprise: "White glove" } },
 ];
 
 const FAQ = [
   {
-    q: "¿Necesito tarjeta de crédito para empezar?",
-    a: "No. Todos los planes incluyen 14 días de prueba gratis sin tarjeta ni cargo.",
+    q: "¿Cómo sé qué paquete me conviene?",
+    a: "Déjanos tus datos en el formulario y un asesor revisa contigo tu operación: cuántas personas venden, cuánto WhatsApp usas y qué quieres automatizar. Con eso armamos la propuesta.",
   },
   {
-    q: "¿Qué pasa cuando termina el trial?",
-    a: "Tu cuenta queda en pausa hasta que actives un plan. Conservamos tus contactos y conversaciones; al activar el plan recuperas el acceso completo.",
+    q: "¿Qué incluye Walix.ai?",
+    a: "CRM con contactos y pipeline, inbox de WhatsApp Business, Copiloto con IA, automatizaciones, reportes y control de gastos y cobranza.",
   },
   {
-    q: "¿Qué es un crédito de WhatsApp y uno de IA?",
-    a: "Un crédito de WhatsApp equivale a un mensaje de plantilla enviado fuera de la ventana de 24 horas (responder dentro de la ventana no consume créditos). Un crédito de IA equivale a una acción del Copiloto o de un agente IA; los motores más potentes consumen más créditos por acción. Puedes comprar paquetes adicionales cuando los necesites.",
-  },
-  {
-    q: "¿Puedo cancelar cuando quiera?",
-    a: "Sí. No hay contratos forzosos ni penalizaciones. Cancelas desde tu panel y mantienes acceso hasta el fin del periodo pagado.",
+    q: "¿Puedo usar mi propio número de WhatsApp Business?",
+    a: "Sí. Cada empresa conecta su propio número de WhatsApp Business y conserva su historial y su marca.",
   },
   {
     q: "¿Mis datos están seguros?",
-    a: "Sí. Encriptación en tránsito y en reposo, RLS por tenant, respaldos diarios y servidores en la región LATAM.",
+    a: "Sí. Encriptación en tránsito y en reposo, aislamiento por empresa a nivel base de datos y respaldos diarios.",
   },
   {
-    q: "¿Cobran por agente de WhatsApp como otros?",
-    a: "No. Los agentes incluidos en cada plan no tienen costo adicional. WhatsApp API es parte del producto, no un add-on.",
+    q: "¿Hay contratos forzosos?",
+    a: "No. Trabajamos con planes flexibles; lo definimos junto contigo en la propuesta.",
   },
   {
-    q: "¿Qué incluye el onboarding 48h?",
-    a: "Una sesión 1:1 con nuestro equipo para configurar tu pipeline, conectar WhatsApp, importar tus contactos y dejar lista la primera automatización en menos de 48 horas.",
+    q: "¿Qué incluye el onboarding?",
+    a: "Una sesión 1:1 para configurar tu pipeline, conectar WhatsApp, importar tus contactos y dejar lista tu primera automatización.",
   },
 ];
 
@@ -178,12 +108,12 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function Pricing() {
-  const [annual, setAnnual] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
-  const navigate = useNavigate();
+  const [selected, setSelected] = useState<string | undefined>();
 
-  const formatMXN = (n: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+  const scrollToForm = (name: string) => {
+    setSelected(name);
+    document.getElementById("solicitud")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -200,11 +130,9 @@ export default function Pricing() {
             <Link to="/login" className="hidden sm:block">
               <Button variant="ghost" size="sm">Iniciar sesión</Button>
             </Link>
-            <Link to="/login?mode=signup">
-              <Button size="sm" className="bg-gradient-brand text-primary-foreground">
-                Empezar gratis
-              </Button>
-            </Link>
+            <Button size="sm" className="bg-gradient-brand text-primary-foreground" onClick={() => scrollToForm("Aún no lo sé")}>
+              Solicitar información
+            </Button>
           </div>
         </div>
       </header>
@@ -212,122 +140,62 @@ export default function Pricing() {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-4 md:px-6 pt-12 md:pt-20 pb-8 text-center">
         <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/15 mb-4">
-          🇲🇽 Hecho en México · Precios en MXN
+          🇲🇽 Hecho en México
         </Badge>
         <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-          Planes simples,{" "}
-          <span className="bg-gradient-brand bg-clip-text text-transparent">sin sorpresas</span>
+          Paquetes{" "}
+          <span className="bg-gradient-brand bg-clip-text text-transparent">a la medida</span>
         </h1>
         <p className="mt-4 text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
-          WhatsApp API + IA + CRM, todo incluido. Sin add-ons, sin cobros por agente, sin contratos forzosos.
+          WhatsApp API + IA + CRM en un solo lugar. Cuéntanos de tu operación y te enviamos la propuesta ideal para tu empresa.
         </p>
-
-        {/* Toggle mensual/anual */}
-        <div className="mt-8 inline-flex items-center gap-3 bg-card border border-border rounded-full px-4 py-2 shadow-sm">
-          <span className={cn("text-sm font-medium", !annual && "text-foreground", annual && "text-muted-foreground")}>
-            Mensual
-          </span>
-          <Switch checked={annual} onCheckedChange={setAnnual} />
-          <span className={cn("text-sm font-medium flex items-center gap-2", annual && "text-foreground", !annual && "text-muted-foreground")}>
-            Anual
-            <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/20 text-[10px]">−20%</Badge>
-          </span>
-        </div>
       </section>
 
-      {/* Plans grid */}
+      {/* Packs grid */}
       <section className="max-w-7xl mx-auto px-4 md:px-6 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch max-w-5xl mx-auto">
-          {PLANS.map((plan) => {
-            const Icon = plan.icon;
-            const price = annual ? plan.annual : plan.monthly;
-            const isContact = plan.key === "enterprise";
+          {PACKS.map((pack) => {
+            const Icon = pack.icon;
             return (
               <div
-                key={plan.key}
+                key={pack.key}
                 className={cn(
                   "relative rounded-2xl border bg-card p-6 flex flex-col",
-                  plan.highlight
+                  pack.highlight
                     ? "border-primary border-2 shadow-glow lg:scale-[1.03] lg:-translate-y-1 z-10"
                     : "border-border shadow-card"
                 )}
               >
-                {plan.highlight && (
+                {pack.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge className="bg-gradient-brand text-primary-foreground border-0 shadow-glow">
-                      {plan.badge}
+                      {pack.badge}
                     </Badge>
                   </div>
-                )}
-                {plan.badge && !plan.highlight && (
-                  <Badge variant="secondary" className="self-start mb-2 text-[10px]">
-                    {plan.badge}
-                  </Badge>
                 )}
 
                 <div className="flex items-center gap-2 mb-1">
                   <div className={cn(
                     "h-9 w-9 rounded-lg grid place-items-center",
-                    plan.highlight ? "bg-gradient-brand text-primary-foreground" : "bg-muted text-foreground"
+                    pack.highlight ? "bg-gradient-brand text-primary-foreground" : "bg-muted text-foreground"
                   )}>
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <h3 className="text-xl font-bold">{pack.name}</h3>
                 </div>
-                <p className="text-xs text-muted-foreground mb-5 min-h-[2.5em]">{plan.tagline}</p>
-
-                <div className="mb-5">
-                  {plan.highlight ? (
-                    price === 0 ? (
-                      <div className="text-4xl font-bold tracking-tight">$0</div>
-                    ) : (
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-4xl font-bold tracking-tight">{formatMXN(price)}</span>
-                          <span className="text-sm text-muted-foreground">/mes</span>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          + IVA · {annual ? "facturado anualmente" : "facturado mensualmente"}
-                        </div>
-                        {annual && (
-                          <div className="text-[11px] text-success mt-0.5 font-medium">
-                            Ahorras {formatMXN((plan.monthly - plan.annual) * 12)} al año
-                          </div>
-                        )}
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      Precio disponible bajo cotización
-                    </div>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground mb-4">{pack.tagline}</p>
+                <p className="text-sm text-muted-foreground flex-1">{pack.desc}</p>
 
                 <Button
-                  variant={plan.ctaVariant ?? "default"}
+                  variant={pack.highlight ? "default" : "outline"}
                   className={cn(
-                    "w-full mb-5",
-                    plan.highlight && "bg-gradient-brand text-primary-foreground hover:opacity-90 shadow-glow"
+                    "w-full mt-6",
+                    pack.highlight && "bg-gradient-brand text-primary-foreground hover:opacity-90 shadow-glow"
                   )}
-                  onClick={() => {
-                    if (isContact) window.location.href = plan.ctaTo;
-                    else navigate(plan.ctaTo);
-                  }}
+                  onClick={() => scrollToForm(pack.name)}
                 >
-                  {plan.cta}
+                  Solicitar información
                 </Button>
-
-                <ul className="space-y-2.5 text-sm flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check className={cn(
-                        "h-4 w-4 mt-0.5 shrink-0",
-                        plan.highlight ? "text-primary" : "text-success"
-                      )} />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
             );
           })}
@@ -349,70 +217,17 @@ export default function Pricing() {
             ))}
           </div>
         </div>
-
-        {/* Comparativa */}
-        <div className="mt-10 text-center">
-          <Button variant="outline" onClick={() => setShowCompare((v) => !v)}>
-            {showCompare ? "Ocultar" : "Ver"} comparativa completa
-            <ChevronDown className={cn("h-4 w-4 ml-2 transition-transform", showCompare && "rotate-180")} />
-          </Button>
-        </div>
-
-        {showCompare && (
-          <div className="mt-6 rounded-2xl border border-border bg-card overflow-hidden animate-fade-in">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-semibold">Característica</th>
-                    {PLANS.map((p) => (
-                      <th key={p.key} className={cn("text-center px-4 py-3 font-semibold", p.highlight && "text-primary")}>
-                        {p.name}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {COMPARISON_ROWS.map((row) => (
-                    <tr key={row.feature} className="border-t border-border">
-                      <td className="px-4 py-3 text-muted-foreground">{row.feature}</td>
-                      {PLANS.map((p) => {
-                        const v = row.values[p.key];
-                        return (
-                          <td key={p.key} className={cn("text-center px-4 py-3", p.highlight && "bg-primary/5")}>
-                            {typeof v === "boolean" ? (
-                              v ? <Check className="h-4 w-4 text-success mx-auto" /> : <span className="text-muted-foreground">—</span>
-                            ) : (
-                              <span className="font-medium">{v}</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </section>
 
-      {/* Banda contacto */}
-      <section className="max-w-5xl mx-auto px-4 md:px-6 pb-12">
-        <div className="rounded-2xl border border-border bg-gradient-soft p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
-              <Building2 className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <div className="font-semibold">¿No estás seguro qué plan elegir?</div>
-              <div className="text-sm text-muted-foreground">Habla 15 min con un humano y te recomendamos el ideal.</div>
-            </div>
-          </div>
-          <Button variant="outline" asChild>
-            <a href="mailto:hola@walix.ai?subject=Quiero%20asesor%C3%ADa">Agendar llamada</a>
-          </Button>
+      {/* Formulario */}
+      <section id="solicitud" className="max-w-3xl mx-auto px-4 md:px-6 pb-16 scroll-mt-20">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold">Cuéntanos qué necesitas</h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            Respondemos con una propuesta personalizada para tu empresa.
+          </p>
         </div>
+        <PackageRequestForm key={selected} defaultPaquete={selected} />
       </section>
 
       {/* FAQ */}
@@ -439,7 +254,7 @@ export default function Pricing() {
           </div>
           <div className="flex gap-4">
             <Link to="/login" className="hover:text-foreground">Iniciar sesión</Link>
-            <a href="mailto:hola@walix.ai" className="hover:text-foreground">Contacto</a>
+            <a href="mailto:hola@walix.app" className="hover:text-foreground">Contacto</a>
           </div>
         </div>
       </footer>
