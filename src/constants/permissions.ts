@@ -97,7 +97,6 @@ export const ROLE_CAPABILITIES: Record<Role, PermissionToken[]> = {
     "pipeline.read",
     "reports.read.team",
     "automations.read",
-    "team.read",
     "settings.me",
     "settings.read",
     "whatsapp.use",
