@@ -19,6 +19,7 @@ export default function ContactDetailSimple() {
   const { data: activity = [] } = useContactActivity(id);
   const { data: tasks = [] } = useContactTasks(id);
   const tour = useContactSimpleTour();
+  const [showHistory, setShowHistory] = useState(false);
 
   if (isLoading) return <div className="p-6"><ContactDetailSkeleton /></div>;
   if (!contact) {
@@ -51,7 +52,6 @@ export default function ContactDetailSimple() {
   const recent = activity
     .filter((a) => a.type === "note" || a.type === "wa_sent" || a.type === "wa_received")
     .slice(0, 6);
-  const [showHistory, setShowHistory] = useState(false);
 
   return (
     <div className="min-h-screen bg-background -mx-4 md:-mx-6 -my-6 pb-16">
