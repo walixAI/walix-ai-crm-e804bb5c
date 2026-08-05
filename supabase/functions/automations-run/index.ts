@@ -21,6 +21,11 @@ function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+// Normaliza cualquier fecha al día 1 de su mes (la base sólo conoce el mes del servicio).
+function monthStart(dateStr: string) {
+  return `${dateStr.slice(0, 7)}-01`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -32,11 +37,13 @@ Deno.serve(async (req) => {
     const now = new Date();
     const today = toDateStr(now);
 
-    // 1. Procesar recurrencias genéricas (constructor de servicios recurrentes)
+    // 1. Procesar recurrencias genéricas (constructor de servicios recurrentes).
+    // Se anticipa: se genera la agenda cuando faltan <= anticipation_days para el inicio del mes.
+    const horizon = toDateStr(addDays(now, 45));
     const { data: subs } = await admin
       .from("recurrence_subscriptions")
       .select("*, recurrence:recurrence_id(*)")
-      .lte("next_due_date", today)
+      .lte("next_due_date", horizon)
       .order("next_due_date", { ascending: true });
 
     for (const sub of subs ?? []) {
@@ -45,54 +52,89 @@ Deno.serve(async (req) => {
       try {
         const tenantId = sub.tenant_id;
         const actions: any[] = rec.actions || [];
+        const dueDate = monthStart(sub.next_due_date);
+        const anticipation = Number(rec.anticipation_days ?? 5);
+        // Sólo disparar dentro de la ventana de anticipación
+        const trigger = toDateStr(addDays(new Date(dueDate + "T00:00:00"), -anticipation));
+        if (today < trigger) continue;
+
+        // Evitar duplicados: si ya existe la ocurrencia de ese mes, no rehacer nada
+        const { data: existing } = await admin
+          .from("recurrence_occurrences")
+          .select("id")
+          .eq("subscription_id", sub.id)
+          .eq("due_date", dueDate)
+          .maybeSingle();
+        if (existing) continue;
+
+        const { data: contact } = await admin
+          .from("contacts")
+          .select("id, owner_id")
+          .eq("id", sub.contact_id)
+          .maybeSingle();
 
         // Crear ocurrencia
         const { data: occ } = await admin.from("recurrence_occurrences").insert({
           recurrence_id: rec.id,
           subscription_id: sub.id,
           tenant_id: tenantId,
-          due_date: sub.next_due_date,
+          due_date: dueDate,
           status: "pending",
+          assigned_to: contact?.owner_id ?? null,
         }).select("id").single();
 
         let generatedTaskId: string | null = null;
         let generatedDealId: string | null = null;
 
+        // Etapa inicial del pipeline objetivo (el servicio aún no se ha acordado con el cliente)
+        let initialStage: { id: string; name: string } | null = null;
+        if (rec.target_pipeline_id) {
+          const { data: stage } = await admin
+            .from("pipeline_stages")
+            .select("id, name")
+            .eq("pipeline_id", rec.target_pipeline_id)
+            .order("position", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          initialStage = stage ?? null;
+        }
+
         // Ejecutar acciones configuradas
         for (const action of actions) {
           try {
-            if (action.type === "create_task") {
+            if (action.type === "create_deal") {
+              const { data: deal } = await admin.from("deals").insert({
+                tenant_id: tenantId,
+                contact_id: sub.contact_id,
+                name: action.config?.title || rec.name,
+                stage_id: initialStage?.id ?? rec.target_stage_id,
+                stage_name: initialStage?.name ?? null,
+                owner_id: contact?.owner_id,
+                expected_close_date: dueDate,
+                source: "Recurrencia",
+              }).select("id").single();
+              generatedDealId = deal?.id ?? null;
+            } else if (action.type === "create_task") {
+              // La tarea vence 5 días (anticipación) antes del inicio del mes del servicio
+              const taskDue = toDateStr(addDays(new Date(dueDate + "T00:00:00"), -anticipation));
               const { data: task } = await admin.from("tasks").insert({
                 tenant_id: tenantId,
                 contact_id: sub.contact_id,
-                title: action.config?.title || `Seguimiento: ${rec.name}`,
-                due_at: `${sub.next_due_date}T09:00:00`,
-                assignee_id: action.config?.assigned_to || null,
+                deal_id: generatedDealId,
+                title: action.config?.title || `${rec.name} — contactar y agendar`,
+                due_at: `${taskDue}T09:00:00`,
+                assignee_id: action.config?.assigned_to || contact?.owner_id || null,
                 completed: false,
                 task_kind: "seguimiento",
               }).select("id").single();
               generatedTaskId = task?.id ?? null;
-            } else if (action.type === "create_deal") {
-              const { data: contact } = await admin.from("contacts").select("id, owner_id").eq("id", sub.contact_id).maybeSingle();
-              const { data: deal } = await admin.from("deals").insert({
-                tenant_id: tenantId,
-                contact_id: sub.contact_id,
-                name: action.config?.title || `${rec.name} - ${sub.next_due_date}`,
-                stage_id: rec.target_stage_id,
-                stage_name: rec.target_stage_id ? "Agendado" : null,
-                owner_id: contact?.owner_id,
-                expected_close_date: sub.next_due_date,
-                source: "Recurrencia",
-              }).select("id").single();
-              generatedDealId = deal?.id ?? null;
             } else if (action.type === "notify_owner") {
-              const { data: contact } = await admin.from("contacts").select("owner_id").eq("id", sub.contact_id).maybeSingle();
               if (contact?.owner_id) {
                 await admin.from("notifications").insert({
                   tenant_id: tenantId,
                   user_id: contact.owner_id,
                   title: rec.name,
-                  message: action.config?.message || `Vence el servicio recurrente el ${sub.next_due_date}`,
+                  message: action.config?.message || `Servicio programado para ${dueDate.slice(0, 7)}. Contacta al cliente para acordar precio y día.`,
                   category: "operational",
                   severity: "info",
                 });
@@ -111,13 +153,15 @@ Deno.serve(async (req) => {
           }).eq("id", occ.id);
         }
 
-        // Calcular siguiente fecha de vencimiento
+        // El siguiente ciclo se programa al marcar el servicio como ejecutado.
+        // Respaldo: si el mes del servicio ya pasó por completo sin cierre, avanzar el ciclo.
         const period = rec.period_months ?? (rec.kind === "calendar" ? 12 : 1);
-        const nextDue = addMonths(new Date(sub.next_due_date + "T00:00:00"), period);
-        await admin.from("recurrence_subscriptions").update({
-          last_executed_date: sub.next_due_date,
-          next_due_date: toDateStr(nextDue),
-        }).eq("id", sub.id);
+        const monthEnd = addMonths(new Date(dueDate + "T00:00:00"), 1);
+        if (now >= monthEnd) {
+          await admin.from("recurrence_subscriptions").update({
+            next_due_date: toDateStr(addMonths(new Date(dueDate + "T00:00:00"), period)),
+          }).eq("id", sub.id);
+        }
 
         await admin.from("automation_runs").insert({
           tenant_id: tenantId,
