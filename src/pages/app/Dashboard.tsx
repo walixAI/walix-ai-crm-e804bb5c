@@ -174,8 +174,11 @@ export default function Dashboard() {
           </div>
         </Widget>
 
-        <Widget k="dash.kpi_cards">
+        <Widget k="dash.recurrences_month">
+          <RecurrencesMonthCard />
         </Widget>
+
+        <Widget k="dash.kpi_cards">
           {kpisLoading && !kpis ? (
             <KpiCardsSkeleton />
           ) : (
