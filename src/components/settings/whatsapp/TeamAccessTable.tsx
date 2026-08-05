@@ -14,6 +14,8 @@ import {
 } from "@/lib/queries/whatsappChannels";
 import { useToast } from "@/hooks/use-toast";
 import { PhoneInput, isValidPhoneNumber } from "@/components/ui/phone-input";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DraftRow {
@@ -22,6 +24,8 @@ interface DraftRow {
   phone: string;
   level: PermLevel;
   enabled: boolean;
+  web_enabled: boolean;
+  user_id: string | null;
   dirty: boolean;
 }
 
@@ -32,12 +36,15 @@ function toDraft(a: WhatsappUserAccess): DraftRow {
     phone: a.phone_e164,
     level: a.permission_level,
     enabled: a.enabled,
+    web_enabled: a.web_enabled ?? true,
+    user_id: a.user_id ?? null,
     dirty: false,
   };
 }
 
 export function TeamAccessTable({ tenantId }: { tenantId: string }) {
   const { data: accessData } = useWhatsappUserAccess(tenantId);
+  const { data: tenantUsers = [] } = useTenantUsers();
   const upsert = useUpsertUserAccess(tenantId);
   const remove = useDeleteUserAccess(tenantId);
   const { toast } = useToast();
@@ -74,6 +81,8 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
         display_name: r.display_name.trim(),
         phone_e164: normalized,
         enabled: r.enabled,
+        web_enabled: r.web_enabled,
+        user_id: r.user_id,
         permission_level: r.level,
       });
       if (isNew && idx !== undefined) {
@@ -84,7 +93,7 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
           return rest;
         });
       }
-      toast({ title: "Vendedor guardado" });
+      toast({ title: "Acceso guardado" });
 
       // Enviar invitación automática solo en creación
       if (result?.created && result.id) {
@@ -93,13 +102,13 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
         });
         if (invErr) {
           toast({
-            title: "Vendedor agregado, pero no se envió la invitación",
+            title: "Acceso agregado, pero no se envió la invitación",
             description: invErr.message ?? "Revisa que el canal Equipo esté conectado.",
             variant: "destructive",
           });
         } else if (inv?.skipped) {
           toast({
-            title: "Vendedor agregado",
+            title: "Acceso agregado",
             description: "Conecta el canal Equipo (Walix Bot) para enviar la invitación por WhatsApp.",
           });
         } else if (inv?.ok) {
@@ -121,7 +130,7 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
         const { [id]: _, ...rest } = e;
         return rest;
       });
-      toast({ title: "Vendedor eliminado" });
+      toast({ title: "Acceso eliminado" });
     } catch (e) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo eliminar", variant: "destructive" });
     }
@@ -130,7 +139,7 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
   function addRow() {
     setNewRows((rs) => [
       ...rs,
-      { display_name: "", phone: "", level: "write_light", enabled: true, dirty: true },
+      { display_name: "", phone: "", level: "write_light", enabled: true, web_enabled: true, user_id: null, dirty: true },
     ]);
   }
 
@@ -138,20 +147,20 @@ export function TeamAccessTable({ tenantId }: { tenantId: string }) {
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Vendedores autorizados (canal Equipo)</h2>
+          <h2 className="text-lg font-semibold">Accesos al Copiloto</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Agrega cualquier teléfono de WhatsApp que pueda enviar comandos a Walix Bot.
-            No necesitan ser usuarios del CRM.
+            Define quién puede usar el Copiloto por <strong>WhatsApp</strong> (teléfono autorizado ante el número de Walix)
+            y quién puede usarlo <strong>en la web</strong> (requiere vincular un usuario del CRM).
           </p>
         </div>
         <Button size="sm" onClick={addRow}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> Agregar vendedor
+          <Plus className="h-3.5 w-3.5 mr-1" /> Agregar persona
         </Button>
       </div>
 
       {rows.length === 0 && (
         <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
-          No hay vendedores autorizados. Agrega el primero con el botón de arriba.
+          No hay personas autorizadas. Agrega la primera con el botón de arriba.
         </p>
       )}
 

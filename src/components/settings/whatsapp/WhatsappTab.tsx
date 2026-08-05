@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { WBadge } from "@/components/walix/Badge";
-import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, AlertCircle, Send, Unplug, Wand2, Settings2, ChevronDown, Zap } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, MessageCircle, Users, Lock, Send, Unplug, Wand2, Settings2, ChevronDown, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
