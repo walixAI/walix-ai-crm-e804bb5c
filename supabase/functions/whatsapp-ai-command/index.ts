@@ -143,6 +143,20 @@ const TOOLS = [
   { type: "function", function: { name: "resumen_dia", description: "Tareas de hoy y oportunidades activas.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "estatus_pipeline", description: "Resumen del pipeline por etapa.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "listar_oportunidades", description: "Lista oportunidades, opcionalmente filtradas.", parameters: { type: "object", properties: { query: { type: "string" } } } } },
+  {
+    type: "function",
+    function: {
+      name: "mantenimientos_programados",
+      description: "Servicios recurrentes programados (mantenimientos, cambios de filtro) por mes. Úsala cuando pregunten por mantenimientos o servicios del mes.",
+      parameters: {
+        type: "object",
+        properties: {
+          mes_offset: { type: "number", description: "0 = mes en curso, 1 = próximo mes, -1 = mes pasado. Default 0." },
+          tipo: { type: "string", description: "Filtro por nombre del servicio, ej. 'filtro' o 'mantenimiento'." },
+        },
+      },
+    },
+  },
   { type: "function", function: { name: "listar_tareas", description: "Lista tareas pendientes.", parameters: { type: "object", properties: {} } } },
   {
     type: "function",
@@ -477,6 +491,35 @@ Deno.serve(async (req) => {
             if (ownerFilter) q = q.eq("assignee_id", ownerFilter);
             const { data } = await q;
             result = { tareas: (data ?? []).map((t: any) => `${t.title}${t.due_at ? ` (${new Date(t.due_at).toLocaleDateString("es-MX")})` : ""}`) };
+          } else if (name === "mantenimientos_programados") {
+            const off = Number.isFinite(Number(a.mes_offset)) ? Number(a.mes_offset) : 0;
+            const base = new Date();
+            const from = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + off, 1));
+            const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
+            const iso = (d: Date) => d.toISOString().slice(0, 10);
+            const { data: subs } = await sb
+              .from("recurrence_subscriptions")
+              .select("next_due_date, contact_id, contacts(name, phone), recurrence_definitions(name, period_months)")
+              .eq("tenant_id", input.tenant_id)
+              .gte("next_due_date", iso(from))
+              .lt("next_due_date", iso(to))
+              .order("next_due_date")
+              .limit(300);
+            let rows = (subs ?? []) as any[];
+            if (a.tipo) {
+              const t = String(a.tipo).toLowerCase();
+              rows = rows.filter((r) => (r.recurrence_definitions?.name ?? "").toLowerCase().includes(t));
+            }
+            result = {
+              mes: from.toLocaleDateString("es-MX", { month: "long", year: "numeric", timeZone: "UTC" }),
+              total: rows.length,
+              servicios: rows.slice(0, 60).map((r) => ({
+                cliente: r.contacts?.name ?? "Sin nombre",
+                servicio: r.recurrence_definitions?.name ?? "Servicio",
+                fecha: r.next_due_date,
+                link: r.contact_id ? `${APP_URL}/contacts/${r.contact_id}` : null,
+              })),
+            };
           } else if (name === "deshacer_ultimo") {
             const { data: last } = await sb.from("whatsapp_command_log").select("id, result_entity_type, result_entity_id")
               .eq("tenant_id", input.tenant_id).eq("from_phone", input.from_phone)
