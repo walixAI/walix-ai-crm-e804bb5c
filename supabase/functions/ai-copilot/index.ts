@@ -6,7 +6,8 @@
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserProfile } from "../_shared/ai-tools.ts";
-import { resolveTenantModel, creditsForRun, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
+import { resolveTenantModel, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
+import { recordAiUsage } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
