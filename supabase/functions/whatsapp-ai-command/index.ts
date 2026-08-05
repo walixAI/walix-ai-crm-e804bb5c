@@ -17,7 +17,7 @@ type PermLevel = "read" | "write_light" | "write_strong";
 
 interface CmdInput {
   tenant_id: string;
-  user_id: string;
+  user_id: string | null;
   permission_level: PermLevel;
   prompt: string;
   from_phone: string;
@@ -37,7 +37,9 @@ function fmtMoney(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
 
-async function isSalesRep(sb: ReturnType<typeof admin>, userId: string, tenantId: string): Promise<boolean> {
+async function isSalesRep(sb: ReturnType<typeof admin>, userId: string | null, tenantId: string): Promise<boolean> {
+  // Sin usuario CRM vinculado (acceso solo por WhatsApp): no se puede filtrar por dueño.
+  if (!userId) return false;
   const { data } = await sb.from("user_roles").select("role")
     .eq("user_id", userId).eq("tenant_id", tenantId);
   const roles = (data ?? []).map((r) => r.role);
@@ -47,74 +49,106 @@ async function isSalesRep(sb: ReturnType<typeof admin>, userId: string, tenantId
 
 // ----- Tool implementations -----
 
-async function toolDailySummary(sb: ReturnType<typeof admin>, tenantId: string, userId: string, scopeOwn: boolean) {
+async function toolDailySummary(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean) {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
   let tasksQ = sb.from("tasks").select("title, due_at").eq("tenant_id", tenantId).eq("completed", false)
     .lte("due_at", todayEnd.toISOString()).order("due_at", { ascending: true }).limit(10);
-  if (scopeOwn) tasksQ = tasksQ.eq("assignee_id", userId);
+  if (scopeOwn && userId) tasksQ = tasksQ.eq("assignee_id", userId);
 
-  let dealsQ = sb.from("deals").select("name, amount").eq("tenant_id", tenantId)
-    .eq("is_won", false).eq("is_lost", false).order("amount", { ascending: false }).limit(5);
-  if (scopeOwn) dealsQ = dealsQ.eq("owner_id", userId);
+  let dealsQ = sb.from("deals").select("name, amount", { count: "exact" }).eq("tenant_id", tenantId)
+    .eq("is_won", false).eq("is_lost", false).order("amount", { ascending: false }).limit(1000);
+  if (scopeOwn && userId) dealsQ = dealsQ.eq("owner_id", userId);
 
-  const [{ data: tasks }, { data: deals }] = await Promise.all([tasksQ, dealsQ]);
+  const [{ data: tasks }, { data: deals, count: dealsCount }] = await Promise.all([tasksQ, dealsQ]);
 
   const totalAmt = (deals ?? []).reduce((s, d: any) => s + Number(d.amount ?? 0), 0);
   const lines: string[] = [];
   lines.push(`📋 ${tasks?.length ?? 0} tareas pendientes${tasks?.length ? ":" : "."}`);
   (tasks ?? []).forEach((t: any, i: number) => lines.push(`  ${i + 1}. ${t.title}`));
   lines.push("");
-  lines.push(`💼 ${deals?.length ?? 0} oportunidades activas (${fmtMoney(totalAmt)})`);
+  lines.push(`💼 ${dealsCount ?? deals?.length ?? 0} oportunidades activas (${fmtMoney(totalAmt)})`);
   (deals ?? []).slice(0, 5).forEach((d: any) => lines.push(`  • ${d.name} — ${fmtMoney(Number(d.amount))}`));
+  if ((dealsCount ?? 0) > 5) lines.push(`  …y ${(dealsCount ?? 0) - 5} más`);
   return lines.join("\n");
 }
 
-async function toolListDeals(sb: ReturnType<typeof admin>, tenantId: string, userId: string, scopeOwn: boolean, query?: string) {
+async function toolPipelineStatus(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean) {
+  let q = sb.from("deals").select("amount, probability, stage_name, is_won, is_lost").eq("tenant_id", tenantId).limit(2000);
+  if (scopeOwn && userId) q = q.eq("owner_id", userId);
+  const { data } = await q;
+  const rows = data ?? [];
+  const open = rows.filter((d: any) => !d.is_won && !d.is_lost);
+  if (!open.length) return "No hay oportunidades activas en el pipeline.";
+  const total = open.reduce((s, d: any) => s + Number(d.amount ?? 0), 0);
+  const weighted = open.reduce((s, d: any) => s + Number(d.amount ?? 0) * (Number(d.probability ?? 0) / 100), 0);
+  const byStage = new Map<string, { n: number; amt: number }>();
+  for (const d of open as any[]) {
+    const k = d.stage_name ?? "Sin etapa";
+    const cur = byStage.get(k) ?? { n: 0, amt: 0 };
+    cur.n++; cur.amt += Number(d.amount ?? 0);
+    byStage.set(k, cur);
+  }
+  const won = rows.filter((d: any) => d.is_won).length;
+  const lost = rows.filter((d: any) => d.is_lost).length;
+  const lines = [
+    `📊 *Pipeline*`,
+    `• ${open.length} oportunidades activas — ${fmtMoney(total)}`,
+    `• Ponderado: ${fmtMoney(weighted)}`,
+    `• Ganadas: ${won} · Perdidas: ${lost}`,
+    "",
+    "*Por etapa:*",
+    ...[...byStage.entries()].sort((a, b) => b[1].amt - a[1].amt).slice(0, 8)
+      .map(([k, v]) => `  • ${k}: ${v.n} — ${fmtMoney(v.amt)}`),
+  ];
+  return lines.join("\n");
+}
+
+async function toolListDeals(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean, query?: string) {
   let q = sb.from("deals").select("name, amount, stage_name, is_won, is_lost").eq("tenant_id", tenantId).limit(10);
-  if (scopeOwn) q = q.eq("owner_id", userId);
+  if (scopeOwn && userId) q = q.eq("owner_id", userId);
   if (query) q = q.ilike("name", `%${query}%`);
   const { data } = await q;
   if (!data?.length) return "No encontré oportunidades.";
   return data.map((d: any) => `• ${d.name} — ${fmtMoney(Number(d.amount))} · ${d.stage_name ?? "—"}${d.is_won ? " ✅" : d.is_lost ? " ❌" : ""}`).join("\n");
 }
 
-async function toolListContacts(sb: ReturnType<typeof admin>, tenantId: string, userId: string, scopeOwn: boolean, query?: string) {
+async function toolListContacts(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean, query?: string) {
   let q = sb.from("contacts").select("name, company, phone, status").eq("tenant_id", tenantId).limit(10);
-  if (scopeOwn) q = q.eq("owner_id", userId);
+  if (scopeOwn && userId) q = q.eq("owner_id", userId);
   if (query) q = q.ilike("name", `%${query}%`);
   const { data } = await q;
   if (!data?.length) return "No encontré contactos.";
   return data.map((c: any) => `• ${c.name}${c.company ? ` (${c.company})` : ""} — ${c.status}`).join("\n");
 }
 
-async function toolListTasks(sb: ReturnType<typeof admin>, tenantId: string, userId: string, scopeOwn: boolean) {
+async function toolListTasks(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean) {
   let q = sb.from("tasks").select("title, due_at, completed").eq("tenant_id", tenantId).eq("completed", false).order("due_at", { ascending: true }).limit(15);
-  if (scopeOwn) q = q.eq("assignee_id", userId);
+  if (scopeOwn && userId) q = q.eq("assignee_id", userId);
   const { data } = await q;
   if (!data?.length) return "No tienes tareas pendientes. 🎉";
   return data.map((t: any) => `• ${t.title}${t.due_at ? ` — ${new Date(t.due_at).toLocaleDateString("es-MX")}` : ""}`).join("\n");
 }
 
-async function toolCreateNote(sb: ReturnType<typeof admin>, tenantId: string, userId: string, contactQuery: string, text: string) {
+async function toolCreateNote(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, contactQuery: string, text: string) {
   const { data: contact } = await sb.from("contacts").select("id, name").eq("tenant_id", tenantId).ilike("name", `%${contactQuery}%`).limit(1).maybeSingle();
   if (!contact) return `No encontré un contacto que coincida con "${contactQuery}".`;
   await sb.from("activities").insert({
-    tenant_id: tenantId, contact_id: contact.id, agent_id: userId,
+    tenant_id: tenantId, contact_id: contact.id, agent_id: userId ?? null,
     type: "manual", description: `📝 ${text}`,
   });
   return `📝 Nota agregada a ${contact.name}.`;
 }
 
-async function toolCreateTask(sb: ReturnType<typeof admin>, tenantId: string, userId: string, title: string, contactQuery?: string, dueAt?: string) {
+async function toolCreateTask(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, title: string, contactQuery?: string, dueAt?: string) {
   let contactId: string | null = null;
   if (contactQuery) {
     const { data: c } = await sb.from("contacts").select("id").eq("tenant_id", tenantId).ilike("name", `%${contactQuery}%`).limit(1).maybeSingle();
     contactId = c?.id ?? null;
   }
   await sb.from("tasks").insert({
-    tenant_id: tenantId, assignee_id: userId, title, contact_id: contactId,
+    tenant_id: tenantId, assignee_id: userId ?? null, title, contact_id: contactId,
     due_at: dueAt ?? null,
   });
   return `✅ Tarea creada: "${title}"${dueAt ? ` para ${new Date(dueAt).toLocaleDateString("es-MX")}` : ""}.`;
@@ -143,17 +177,17 @@ async function executeStrong(sb: ReturnType<typeof admin>, row: any, scopeOwn: b
         is_lost: row.intent === "mark_lost",
         ...(p.amount ? { amount: p.amount } : {}),
       }).eq("id", p.deal_id).eq("tenant_id", tenantId);
-      if (scopeOwn) q = q.eq("owner_id", userId);
+      if (scopeOwn && userId) q = q.eq("owner_id", userId);
       const { error } = await q;
       if (error) throw error;
     } else if (row.intent === "update_amount") {
       let q = sb.from("deals").update({ amount: p.amount }).eq("id", p.deal_id).eq("tenant_id", tenantId);
-      if (scopeOwn) q = q.eq("owner_id", userId);
+      if (scopeOwn && userId) q = q.eq("owner_id", userId);
       const { error } = await q;
       if (error) throw error;
     } else if (row.intent === "move_deal") {
       let q = sb.from("deals").update({ stage_id: p.stage_id, stage_name: p.stage_name }).eq("id", p.deal_id).eq("tenant_id", tenantId);
-      if (scopeOwn) q = q.eq("owner_id", userId);
+      if (scopeOwn && userId) q = q.eq("owner_id", userId);
       const { error } = await q;
       if (error) throw error;
     } else {
@@ -172,7 +206,7 @@ async function executeStrong(sb: ReturnType<typeof admin>, row: any, scopeOwn: b
 async function extractIntent(prompt: string, level: PermLevel): Promise<any> {
   const sys = `Eres Walix, asistente de ventas por WhatsApp. Identifica la intención del usuario y devuelve JSON.
 Intenciones permitidas según nivel:
-- read (siempre): daily_summary, list_deals, list_contacts, list_tasks
+- read (siempre): daily_summary, pipeline_status, list_deals, list_contacts, list_tasks
 - write_light (${level !== "read" ? "permitido" : "NO permitido"}): create_note, create_task
 - write_strong (${level === "write_strong" ? "permitido" : "NO permitido"}): mark_won, mark_lost, update_amount, move_deal
 - chat: conversación general / ayuda.
@@ -180,6 +214,7 @@ Intenciones permitidas según nivel:
 Devuelve EXACTAMENTE JSON {"intent":"...", "args":{...}} sin explicación.
 Args por intent:
 - daily_summary: {}
+- pipeline_status: {}  (usar cuando pregunten por el estatus/resumen/embudo del pipeline u oportunidades en general)
 - list_deals: {query?: string}
 - list_contacts: {query?: string}
 - list_tasks: {}
@@ -245,6 +280,7 @@ Deno.serve(async (req) => {
 
   try {
     if (intent === "daily_summary") reply = await toolDailySummary(sb, input.tenant_id, input.user_id, scopeOwn);
+    else if (intent === "pipeline_status") reply = await toolPipelineStatus(sb, input.tenant_id, input.user_id, scopeOwn);
     else if (intent === "list_deals") reply = await toolListDeals(sb, input.tenant_id, input.user_id, scopeOwn, args.query);
     else if (intent === "list_contacts") reply = await toolListContacts(sb, input.tenant_id, input.user_id, scopeOwn, args.query);
     else if (intent === "list_tasks") reply = await toolListTasks(sb, input.tenant_id, input.user_id, scopeOwn);
@@ -260,7 +296,7 @@ Deno.serve(async (req) => {
       } else {
         // Resolve deal by name
         let q = sb.from("deals").select("id, name, amount, stage_name").eq("tenant_id", input.tenant_id).ilike("name", `%${args.deal_name ?? ""}%`).limit(1);
-        if (scopeOwn) q = q.eq("owner_id", input.user_id);
+        if (scopeOwn && input.user_id) q = q.eq("owner_id", input.user_id);
         const { data: deal } = await q.maybeSingle();
         if (!deal) reply = `No encontré una oportunidad que coincida con "${args.deal_name}".`;
         else if (intent === "mark_won") reply = await queueStrongAction(sb, input, "mark_won", { deal_id: deal.id, amount: args.amount }, `Marcar GANADA "${deal.name}"${args.amount ? ` por ${fmtMoney(args.amount)}` : ""}.`);
