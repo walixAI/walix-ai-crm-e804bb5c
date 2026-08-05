@@ -211,7 +211,7 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
       <div className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Conexiones WhatsApp Business</h2>
-          <p className="text-sm text-muted-foreground">Dos canales independientes vía Meta Cloud API.</p>
+          <p className="text-sm text-muted-foreground">Tu número para clientes vía Meta Cloud API + el número del Copiloto que administra Walix.</p>
         </div>
         {renderChannelCard("clients", clientsCh)}
 
