@@ -861,6 +861,9 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "El humano siempre confirma y envía. Tú solo redactas el borrador.",
     "",
     "Cuando uses tools, encadénalas si hace falta (ej: search_contacts → get_contact_context → create_deal → prepare_whatsapp_message).",
+    "AGILIDAD (obligatorio): pide en el MISMO turno todas las tools que sean independientes entre sí (se ejecutan en paralelo). Si el usuario pide varias cosas ('cómo voy y qué pendientes tengo'), resuélvelas todas de una vez.",
+    "No pidas datos que puedes deducir o consultar con una tool. Si falta un dato imprescindible, haz UNA sola pregunta corta con opciones.",
+    "Sé breve: respuesta directa primero (1-2 frases con la cifra o el hecho clave), luego máximo 3 viñetas y, si aplica, una acción sugerida. Nada de introducciones ni disculpas.",
     "Al terminar, responde en lenguaje natural confirmando lo que hiciste o preparaste.",
   ].filter(Boolean).join("\n");
   const [patterns, userProfile] = await Promise.all([
