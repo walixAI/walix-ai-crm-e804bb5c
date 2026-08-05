@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
       if (!calls.length) { reply = (msg.content ?? "").trim() || "¿En qué te ayudo?"; break; }
       messages.push(msg);
 
-      for (const call of calls) {
+      const toolMsgs = await Promise.all(calls.map(async (call: any) => {
         const name = call.function?.name;
         let a: any = {};
         try { a = JSON.parse(call.function?.arguments ?? "{}"); } catch { /* ignore */ }
@@ -324,6 +324,17 @@ Deno.serve(async (req) => {
           if (name === "buscar_contacto") {
             const rows = await findContacts(sb, input.tenant_id, ownerFilter, a.query ?? "");
             result = { candidatos: rows.map((c: any) => ({ id: c.id, nombre: c.name, empresa: c.company, telefono: c.phone, estatus: c.status, score: Number(c.score ?? 0).toFixed(2) })) };
+          } else if (name === "crear_contacto") {
+            if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
+            else {
+              const { data: c, error } = await sb.from("contacts").insert({
+                tenant_id: input.tenant_id, owner_id: input.user_id ?? null,
+                name: a.nombre, phone: a.telefono ?? null, company: a.empresa ?? null,
+                status: "prospecto", source: "WhatsApp Copiloto",
+              }).select("id, name").single();
+              if (error) result = { error: error.message };
+              else result = { ok: true, contact_id: c.id, nombre: c.name };
+            }
           } else if (name === "registrar_nota") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
             else {
