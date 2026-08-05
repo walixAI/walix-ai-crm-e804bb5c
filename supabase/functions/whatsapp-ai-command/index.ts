@@ -8,10 +8,12 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const MODEL = "google/gemini-3.6-flash";
 
 function admin() {
   return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 }
+type SB = ReturnType<typeof admin>;
 
 type PermLevel = "read" | "write_light" | "write_strong";
 
@@ -37,126 +39,161 @@ function fmtMoney(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
 
-async function isSalesRep(sb: ReturnType<typeof admin>, userId: string | null, tenantId: string): Promise<boolean> {
-  // Sin usuario CRM vinculado (acceso solo por WhatsApp): no se puede filtrar por dueño.
+async function isSalesRep(sb: SB, userId: string | null, tenantId: string): Promise<boolean> {
   if (!userId) return false;
-  const { data } = await sb.from("user_roles").select("role")
-    .eq("user_id", userId).eq("tenant_id", tenantId);
-  const roles = (data ?? []).map((r) => r.role);
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("tenant_id", tenantId);
+  const roles = (data ?? []).map((r: any) => r.role);
   if (roles.includes("tenant_owner") || roles.includes("tenant_admin") || roles.includes("sales_manager")) return false;
-  return true; // default: scope to own
+  return true;
 }
 
-// ----- Tool implementations -----
+// ================= Tools =================
 
-async function toolDailySummary(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean) {
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-
-  let tasksQ = sb.from("tasks").select("title, due_at").eq("tenant_id", tenantId).eq("completed", false)
-    .lte("due_at", todayEnd.toISOString()).order("due_at", { ascending: true }).limit(10);
-  if (scopeOwn && userId) tasksQ = tasksQ.eq("assignee_id", userId);
-
-  let dealsQ = sb.from("deals").select("name, amount", { count: "exact" }).eq("tenant_id", tenantId)
-    .eq("is_won", false).eq("is_lost", false).order("amount", { ascending: false }).limit(1000);
-  if (scopeOwn && userId) dealsQ = dealsQ.eq("owner_id", userId);
-
-  const [{ data: tasks }, { data: deals, count: dealsCount }] = await Promise.all([tasksQ, dealsQ]);
-
-  const totalAmt = (deals ?? []).reduce((s, d: any) => s + Number(d.amount ?? 0), 0);
-  const lines: string[] = [];
-  lines.push(`📋 ${tasks?.length ?? 0} tareas pendientes${tasks?.length ? ":" : "."}`);
-  (tasks ?? []).forEach((t: any, i: number) => lines.push(`  ${i + 1}. ${t.title}`));
-  lines.push("");
-  lines.push(`💼 ${dealsCount ?? deals?.length ?? 0} oportunidades activas (${fmtMoney(totalAmt)})`);
-  (deals ?? []).slice(0, 5).forEach((d: any) => lines.push(`  • ${d.name} — ${fmtMoney(Number(d.amount))}`));
-  if ((dealsCount ?? 0) > 5) lines.push(`  …y ${(dealsCount ?? 0) - 5} más`);
-  return lines.join("\n");
-}
-
-async function toolPipelineStatus(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean) {
-  let q = sb.from("deals").select("amount, probability, stage_name, is_won, is_lost").eq("tenant_id", tenantId).limit(2000);
-  if (scopeOwn && userId) q = q.eq("owner_id", userId);
-  const { data } = await q;
-  const rows = data ?? [];
-  const open = rows.filter((d: any) => !d.is_won && !d.is_lost);
-  if (!open.length) return "No hay oportunidades activas en el pipeline.";
-  const total = open.reduce((s, d: any) => s + Number(d.amount ?? 0), 0);
-  const weighted = open.reduce((s, d: any) => s + Number(d.amount ?? 0) * (Number(d.probability ?? 0) / 100), 0);
-  const byStage = new Map<string, { n: number; amt: number }>();
-  for (const d of open as any[]) {
-    const k = d.stage_name ?? "Sin etapa";
-    const cur = byStage.get(k) ?? { n: 0, amt: 0 };
-    cur.n++; cur.amt += Number(d.amount ?? 0);
-    byStage.set(k, cur);
+async function findContacts(sb: SB, tenantId: string, ownerId: string | null, query: string) {
+  const q = (query ?? "").trim();
+  if (!q) return [];
+  const { data, error } = await sb.rpc("search_contacts_fuzzy", {
+    _tenant_id: tenantId, _q: q, _owner_id: ownerId, _limit: 5,
+  });
+  if (error) console.error("fuzzy error", error);
+  let rows: any[] = data ?? [];
+  if (!rows.length) {
+    // fallback: token ilike
+    const tokens = q.toLowerCase().replace(/[^a-z0-9áéíóúñ ]/g, " ").split(/\s+/).filter((t) => t.length >= 3);
+    const seen = new Map<string, any>();
+    for (const t of tokens.slice(0, 4)) {
+      let qq = sb.from("contacts").select("id, name, company, phone, status").eq("tenant_id", tenantId).ilike("name", `%${t}%`).limit(5);
+      if (ownerId) qq = qq.eq("owner_id", ownerId);
+      const { data: d } = await qq;
+      (d ?? []).forEach((c: any) => seen.set(c.id, { ...c, score: 0.4 }));
+    }
+    rows = [...seen.values()];
   }
-  const won = rows.filter((d: any) => d.is_won).length;
-  const lost = rows.filter((d: any) => d.is_lost).length;
-  const lines = [
-    `📊 *Pipeline*`,
-    `• ${open.length} oportunidades activas — ${fmtMoney(total)}`,
-    `• Ponderado: ${fmtMoney(weighted)}`,
-    `• Ganadas: ${won} · Perdidas: ${lost}`,
-    "",
-    "*Por etapa:*",
-    ...[...byStage.entries()].sort((a, b) => b[1].amt - a[1].amt).slice(0, 8)
-      .map(([k, v]) => `  • ${k}: ${v.n} — ${fmtMoney(v.amt)}`),
-  ];
-  return lines.join("\n");
+  return rows;
 }
 
-async function toolListDeals(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean, query?: string) {
-  let q = sb.from("deals").select("name, amount, stage_name, is_won, is_lost").eq("tenant_id", tenantId).limit(10);
-  if (scopeOwn && userId) q = q.eq("owner_id", userId);
+async function resolveDeals(sb: SB, tenantId: string, ownerId: string | null, query: string) {
+  let q = sb.from("deals").select("id, name, amount, stage_name, is_won, is_lost, contact_id").eq("tenant_id", tenantId).limit(5);
+  if (ownerId) q = q.eq("owner_id", ownerId);
   if (query) q = q.ilike("name", `%${query}%`);
   const { data } = await q;
-  if (!data?.length) return "No encontré oportunidades.";
-  return data.map((d: any) => `• ${d.name} — ${fmtMoney(Number(d.amount))} · ${d.stage_name ?? "—"}${d.is_won ? " ✅" : d.is_lost ? " ❌" : ""}`).join("\n");
+  return data ?? [];
 }
 
-async function toolListContacts(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean, query?: string) {
-  let q = sb.from("contacts").select("name, company, phone, status").eq("tenant_id", tenantId).limit(10);
-  if (scopeOwn && userId) q = q.eq("owner_id", userId);
-  if (query) q = q.ilike("name", `%${query}%`);
-  const { data } = await q;
-  if (!data?.length) return "No encontré contactos.";
-  return data.map((c: any) => `• ${c.name}${c.company ? ` (${c.company})` : ""} — ${c.status}`).join("\n");
+async function defaultStage(sb: SB, tenantId: string) {
+  const { data } = await sb.from("pipeline_stages").select("id, name, position").eq("tenant_id", tenantId)
+    .order("position", { ascending: true }).limit(1).maybeSingle();
+  return data;
 }
 
-async function toolListTasks(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, scopeOwn: boolean) {
-  let q = sb.from("tasks").select("title, due_at, completed").eq("tenant_id", tenantId).eq("completed", false).order("due_at", { ascending: true }).limit(15);
-  if (scopeOwn && userId) q = q.eq("assignee_id", userId);
-  const { data } = await q;
-  if (!data?.length) return "No tienes tareas pendientes. 🎉";
-  return data.map((t: any) => `• ${t.title}${t.due_at ? ` — ${new Date(t.due_at).toLocaleDateString("es-MX")}` : ""}`).join("\n");
+// ================= LLM loop =================
+
+const TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "buscar_contacto",
+      description: "Busca contactos por nombre aproximado (tolera errores de escritura). Úsalo SIEMPRE antes de registrar algo sobre un contacto. Devuelve candidatos con id y score (0-1).",
+      parameters: { type: "object", properties: { query: { type: "string", description: "Nombre tal como lo dijo el usuario" } }, required: ["query"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "registrar_nota",
+      description: "Registra una nota/seguimiento en el historial de un contacto. Requiere contact_id obtenido de buscar_contacto.",
+      parameters: { type: "object", properties: { contact_id: { type: "string" }, texto: { type: "string" } }, required: ["contact_id", "texto"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_tarea",
+      description: "Crea una tarea/recordatorio para el usuario.",
+      parameters: { type: "object", properties: { titulo: { type: "string" }, contact_id: { type: "string" }, due_at: { type: "string", description: "fecha ISO opcional" } }, required: ["titulo"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_oportunidad",
+      description: "Crea una oportunidad/lead ligada a un contacto existente. Solo necesita contact_id y nombre; monto y fecha son opcionales, NO los pidas si el usuario no los mencionó.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_id: { type: "string" },
+          nombre: { type: "string", description: "Descripción corta, ej. 'Cotización filtro refrigerador'" },
+          monto: { type: "number" },
+          tipo: { type: "string", description: "venta o mantenimiento" },
+        },
+        required: ["contact_id", "nombre"],
+      },
+    },
+  },
+  { type: "function", function: { name: "resumen_dia", description: "Tareas de hoy y oportunidades activas.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "estatus_pipeline", description: "Resumen del pipeline por etapa.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "listar_oportunidades", description: "Lista oportunidades, opcionalmente filtradas.", parameters: { type: "object", properties: { query: { type: "string" } } } } },
+  { type: "function", function: { name: "listar_tareas", description: "Lista tareas pendientes.", parameters: { type: "object", properties: {} } } },
+  {
+    type: "function",
+    function: {
+      name: "deshacer_ultimo",
+      description: "Deshace el último registro que el copiloto creó (nota, tarea u oportunidad) en esta conversación. Úsalo cuando el usuario diga que te equivocaste o pida borrar/corregir lo último.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "accion_sensible",
+      description: "Solicita confirmación para acciones fuertes: marcar ganada/perdida, cambiar monto o mover de etapa una oportunidad.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo: { type: "string", enum: ["mark_won", "mark_lost", "update_amount", "move_deal"] },
+          deal_name: { type: "string" },
+          monto: { type: "number" },
+          etapa: { type: "string" },
+        },
+        required: ["tipo", "deal_name"],
+      },
+    },
+  },
+];
+
+function systemPrompt(ctx: { tenantName: string; userName: string; level: PermLevel; today: string }) {
+  return `Eres Walix, el copiloto de ventas por WhatsApp de "${ctx.tenantName}". Hablas con ${ctx.userName}. Hoy es ${ctx.today} (America/Mexico_City).
+
+OBJETIVO: hacer la operación ágil. Registra lo que el usuario dicta en lenguaje natural con el mínimo de preguntas.
+
+REGLAS CRÍTICAS:
+1. NUNCA inventes ni adivines un contacto. Antes de registrar algo, llama a buscar_contacto con el nombre tal como lo escribió el usuario (puede venir mal escrito, ej. "Rossi wingd" = "Rosi Guindi").
+2. Si el mejor candidato tiene score >= 0.55 y es claramente el único razonable, úsalo y menciona el nombre exacto que usaste ("Anoté en *Rosi Guindi*…").
+3. Si hay varios candidatos parecidos o el score es bajo, NO registres: pregunta corto y ofrece opciones numeradas ("¿Te refieres a 1) Rosi Guindi 2) Ambrossi?"). Recuerda el contexto: si el usuario responde "1" o el nombre, continúa con la acción pendiente.
+4. Si no existe el contacto, dilo y ofrece crearlo (pide solo nombre y teléfono).
+5. Pide SOLO los datos imprescindibles. Para una oportunidad basta el contacto y una descripción; monto/fecha son opcionales. Nunca pidas listas largas de campos.
+6. Si el usuario dice que te equivocaste o pide borrar/corregir lo último, llama a deshacer_ultimo y luego rehaz la acción correcta.
+7. Usa el historial de la conversación para entender mensajes cortos ("ya quedó", "corrige", "sí", "el 1").
+8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. Confirma siempre QUÉ registraste y EN QUIÉN.
+9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
 }
 
-async function toolCreateNote(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, contactQuery: string, text: string) {
-  const { data: contact } = await sb.from("contacts").select("id, name").eq("tenant_id", tenantId).ilike("name", `%${contactQuery}%`).limit(1).maybeSingle();
-  if (!contact) return `No encontré un contacto que coincida con "${contactQuery}".`;
-  await sb.from("activities").insert({
-    tenant_id: tenantId, contact_id: contact.id, agent_id: userId ?? null,
-    type: "manual", description: `📝 ${text}`,
+async function callGateway(messages: any[]) {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
   });
-  return `📝 Nota agregada a ${contact.name}.`;
-}
-
-async function toolCreateTask(sb: ReturnType<typeof admin>, tenantId: string, userId: string | null, title: string, contactQuery?: string, dueAt?: string) {
-  let contactId: string | null = null;
-  if (contactQuery) {
-    const { data: c } = await sb.from("contacts").select("id").eq("tenant_id", tenantId).ilike("name", `%${contactQuery}%`).limit(1).maybeSingle();
-    contactId = c?.id ?? null;
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`AI gateway ${res.status}: ${t.slice(0, 300)}`);
   }
-  await sb.from("tasks").insert({
-    tenant_id: tenantId, assignee_id: userId ?? null, title, contact_id: contactId,
-    due_at: dueAt ?? null,
-  });
-  return `✅ Tarea creada: "${title}"${dueAt ? ` para ${new Date(dueAt).toLocaleDateString("es-MX")}` : ""}.`;
+  return await res.json();
 }
 
-// ----- Strong actions: stored as pending_confirmation -----
+// ================= Strong actions =================
 
-async function queueStrongAction(sb: ReturnType<typeof admin>, input: CmdInput, intent: string, payload: any, summary: string) {
+async function queueStrongAction(sb: SB, input: CmdInput, intent: string, payload: any, summary: string) {
   const tk = token4();
   await sb.from("whatsapp_command_log").insert({
     tenant_id: input.tenant_id, user_id: input.user_id, channel_id: input.channel_id,
@@ -166,33 +203,20 @@ async function queueStrongAction(sb: ReturnType<typeof admin>, input: CmdInput, 
   return `⚠️ ${summary}\n\nResponde *SÍ ${tk}* para confirmar (o ignora para cancelar).`;
 }
 
-async function executeStrong(sb: ReturnType<typeof admin>, row: any, scopeOwn: boolean): Promise<string> {
+async function executeStrong(sb: SB, row: any, ownerId: string | null): Promise<string> {
   const p = row.action_payload ?? {};
-  const tenantId = row.tenant_id;
-  const userId = row.user_id;
   try {
+    let q: any;
     if (row.intent === "mark_won" || row.intent === "mark_lost") {
-      let q = sb.from("deals").update({
-        is_won: row.intent === "mark_won",
-        is_lost: row.intent === "mark_lost",
-        ...(p.amount ? { amount: p.amount } : {}),
-      }).eq("id", p.deal_id).eq("tenant_id", tenantId);
-      if (scopeOwn && userId) q = q.eq("owner_id", userId);
-      const { error } = await q;
-      if (error) throw error;
+      q = sb.from("deals").update({ is_won: row.intent === "mark_won", is_lost: row.intent === "mark_lost", ...(p.amount ? { amount: p.amount } : {}) }).eq("id", p.deal_id).eq("tenant_id", row.tenant_id);
     } else if (row.intent === "update_amount") {
-      let q = sb.from("deals").update({ amount: p.amount }).eq("id", p.deal_id).eq("tenant_id", tenantId);
-      if (scopeOwn && userId) q = q.eq("owner_id", userId);
-      const { error } = await q;
-      if (error) throw error;
+      q = sb.from("deals").update({ amount: p.amount }).eq("id", p.deal_id).eq("tenant_id", row.tenant_id);
     } else if (row.intent === "move_deal") {
-      let q = sb.from("deals").update({ stage_id: p.stage_id, stage_name: p.stage_name }).eq("id", p.deal_id).eq("tenant_id", tenantId);
-      if (scopeOwn && userId) q = q.eq("owner_id", userId);
-      const { error } = await q;
-      if (error) throw error;
-    } else {
-      return "Acción no soportada.";
-    }
+      q = sb.from("deals").update({ stage_id: p.stage_id, stage_name: p.stage_name }).eq("id", p.deal_id).eq("tenant_id", row.tenant_id);
+    } else return "Acción no soportada.";
+    if (ownerId) q = q.eq("owner_id", ownerId);
+    const { error } = await q;
+    if (error) throw error;
     await sb.from("whatsapp_command_log").update({ status: "executed", executed_at: new Date().toISOString() }).eq("id", row.id);
     return "✅ Confirmado y aplicado.";
   } catch (e) {
@@ -201,50 +225,10 @@ async function executeStrong(sb: ReturnType<typeof admin>, row: any, scopeOwn: b
   }
 }
 
-// ----- LLM intent extraction -----
-
-async function extractIntent(prompt: string, level: PermLevel): Promise<any> {
-  const sys = `Eres Walix, asistente de ventas por WhatsApp. Identifica la intención del usuario y devuelve JSON.
-Intenciones permitidas según nivel:
-- read (siempre): daily_summary, pipeline_status, list_deals, list_contacts, list_tasks
-- write_light (${level !== "read" ? "permitido" : "NO permitido"}): create_note, create_task
-- write_strong (${level === "write_strong" ? "permitido" : "NO permitido"}): mark_won, mark_lost, update_amount, move_deal
-- chat: conversación general / ayuda.
-
-Devuelve EXACTAMENTE JSON {"intent":"...", "args":{...}} sin explicación.
-Args por intent:
-- daily_summary: {}
-- pipeline_status: {}  (usar cuando pregunten por el estatus/resumen/embudo del pipeline u oportunidades en general)
-- list_deals: {query?: string}
-- list_contacts: {query?: string}
-- list_tasks: {}
-- create_note: {contact: string, text: string}
-- create_task: {title: string, contact?: string, due_at?: ISO date}
-- mark_won/mark_lost: {deal_name: string, amount?: number}
-- update_amount: {deal_name: string, amount: number}
-- move_deal: {deal_name: string, stage_name: string}
-- chat: {reply: string}`;
-
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [{ role: "system", content: sys }, { role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!res.ok) throw new Error(`AI gateway ${res.status}`);
-  const json = await res.json();
-  const content = json?.choices?.[0]?.message?.content ?? "{}";
-  try { return JSON.parse(content); } catch { return { intent: "chat", args: { reply: content } }; }
-}
-
-// ----- Main handler -----
+// ================= Main =================
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  // Service-role only
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.includes(SERVICE_KEY)) {
     return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: corsHeaders });
@@ -253,77 +237,210 @@ Deno.serve(async (req) => {
   const input = await req.json() as CmdInput;
   const sb = admin();
   const scopeOwn = await isSalesRep(sb, input.user_id, input.tenant_id);
+  const ownerFilter = scopeOwn && input.user_id ? input.user_id : null;
 
-  // Confirmation flow: "SI XXXX" or "SÍ XXXX"
+  const json = (reply: string) =>
+    new Response(JSON.stringify({ reply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  // Confirmation flow
   const m = input.prompt.trim().match(/^s[íi]\s+([a-z0-9]{4})$/i);
   if (m) {
     const tk = m[1].toUpperCase();
     const { data: row } = await sb.from("whatsapp_command_log").select("*")
       .eq("tenant_id", input.tenant_id).eq("confirmation_token", tk).eq("status", "pending_confirmation")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (!row) {
-      return new Response(JSON.stringify({ reply: "No encontré una acción pendiente con ese código." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const reply = await executeStrong(sb, row, scopeOwn);
-    return new Response(JSON.stringify({ reply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!row) return json("No encontré una acción pendiente con ese código.");
+    return json(await executeStrong(sb, row, ownerFilter));
   }
 
-  let parsed: any;
-  try { parsed = await extractIntent(input.prompt, input.permission_level); }
-  catch (e) {
-    return new Response(JSON.stringify({ reply: "⚠️ Error procesando tu solicitud." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-  const intent = parsed.intent ?? "chat";
-  const args = parsed.args ?? {};
+  // Context
+  const [{ data: tenant }, { data: profile }, { data: history }] = await Promise.all([
+    sb.from("tenants").select("name").eq("id", input.tenant_id).maybeSingle(),
+    input.user_id
+      ? sb.from("profiles").select("full_name").eq("id", input.user_id).maybeSingle()
+      : Promise.resolve({ data: null } as any),
+    sb.from("whatsapp_command_log").select("prompt, reply, created_at")
+      .eq("tenant_id", input.tenant_id).eq("from_phone", input.from_phone)
+      .order("created_at", { ascending: false }).limit(10),
+  ]);
 
+  const today = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "America/Mexico_City" });
+  const messages: any[] = [{
+    role: "system",
+    content: systemPrompt({
+      tenantName: tenant?.name ?? "tu empresa",
+      userName: profile?.full_name ?? "un vendedor",
+      level: input.permission_level,
+      today,
+    }),
+  }];
+  for (const h of (history ?? []).slice().reverse()) {
+    if (h.prompt) messages.push({ role: "user", content: h.prompt });
+    if (h.reply) messages.push({ role: "assistant", content: h.reply });
+  }
+  messages.push({ role: "user", content: input.prompt });
+
+  let lastEntity: { type: string; id: string } | null = null;
   let reply = "";
 
   try {
-    if (intent === "daily_summary") reply = await toolDailySummary(sb, input.tenant_id, input.user_id, scopeOwn);
-    else if (intent === "pipeline_status") reply = await toolPipelineStatus(sb, input.tenant_id, input.user_id, scopeOwn);
-    else if (intent === "list_deals") reply = await toolListDeals(sb, input.tenant_id, input.user_id, scopeOwn, args.query);
-    else if (intent === "list_contacts") reply = await toolListContacts(sb, input.tenant_id, input.user_id, scopeOwn, args.query);
-    else if (intent === "list_tasks") reply = await toolListTasks(sb, input.tenant_id, input.user_id, scopeOwn);
-    else if (intent === "create_note") {
-      if (!permAllows(input.permission_level, "write_light")) reply = "🚫 No tienes permiso para crear notas.";
-      else reply = await toolCreateNote(sb, input.tenant_id, input.user_id, args.contact ?? "", args.text ?? "");
-    } else if (intent === "create_task") {
-      if (!permAllows(input.permission_level, "write_light")) reply = "🚫 No tienes permiso para crear tareas.";
-      else reply = await toolCreateTask(sb, input.tenant_id, input.user_id, args.title ?? "Tarea", args.contact, args.due_at);
-    } else if (intent === "mark_won" || intent === "mark_lost" || intent === "update_amount" || intent === "move_deal") {
-      if (!permAllows(input.permission_level, "write_strong")) {
-        reply = "🚫 No tienes permiso para esta acción.";
-      } else {
-        // Resolve deal by name
-        let q = sb.from("deals").select("id, name, amount, stage_name").eq("tenant_id", input.tenant_id).ilike("name", `%${args.deal_name ?? ""}%`).limit(1);
-        if (scopeOwn && input.user_id) q = q.eq("owner_id", input.user_id);
-        const { data: deal } = await q.maybeSingle();
-        if (!deal) reply = `No encontré una oportunidad que coincida con "${args.deal_name}".`;
-        else if (intent === "mark_won") reply = await queueStrongAction(sb, input, "mark_won", { deal_id: deal.id, amount: args.amount }, `Marcar GANADA "${deal.name}"${args.amount ? ` por ${fmtMoney(args.amount)}` : ""}.`);
-        else if (intent === "mark_lost") reply = await queueStrongAction(sb, input, "mark_lost", { deal_id: deal.id }, `Marcar PERDIDA "${deal.name}".`);
-        else if (intent === "update_amount") reply = await queueStrongAction(sb, input, "update_amount", { deal_id: deal.id, amount: args.amount }, `Cambiar monto de "${deal.name}" a ${fmtMoney(args.amount)}.`);
-        else if (intent === "move_deal") {
-          const { data: stage } = await sb.from("pipeline_stages").select("id, name").eq("tenant_id", input.tenant_id).ilike("name", `%${args.stage_name}%`).limit(1).maybeSingle();
-          if (!stage) reply = `No encontré la etapa "${args.stage_name}".`;
-          else reply = await queueStrongAction(sb, input, "move_deal", { deal_id: deal.id, stage_id: stage.id, stage_name: stage.name }, `Mover "${deal.name}" a etapa "${stage.name}".`);
-        }
-      }
-    } else {
-      reply = args.reply ?? "Hola, soy Walix. Pídeme cosas como:\n• 'qué tengo hoy'\n• 'mis oportunidades'\n• 'crea tarea llamar a Acme mañana'";
-    }
+    for (let step = 0; step < 6; step++) {
+      const res = await callGateway(messages);
+      const msg = res?.choices?.[0]?.message;
+      if (!msg) { reply = "⚠️ No pude procesar tu mensaje."; break; }
+      const calls = msg.tool_calls ?? [];
+      if (!calls.length) { reply = (msg.content ?? "").trim() || "¿En qué te ayudo?"; break; }
+      messages.push(msg);
 
-    // Log non-strong actions
-    if (!intent.startsWith("mark_") && intent !== "update_amount" && intent !== "move_deal") {
-      await sb.from("whatsapp_command_log").insert({
-        tenant_id: input.tenant_id, user_id: input.user_id, channel_id: input.channel_id,
-        from_phone: input.from_phone, prompt: input.prompt, intent, action_payload: args,
-        status: "executed", executed_at: new Date().toISOString(),
-      });
+      for (const call of calls) {
+        const name = call.function?.name;
+        let a: any = {};
+        try { a = JSON.parse(call.function?.arguments ?? "{}"); } catch { /* ignore */ }
+        let result: any = {};
+
+        try {
+          if (name === "buscar_contacto") {
+            const rows = await findContacts(sb, input.tenant_id, ownerFilter, a.query ?? "");
+            result = { candidatos: rows.map((c: any) => ({ id: c.id, nombre: c.name, empresa: c.company, telefono: c.phone, estatus: c.status, score: Number(c.score ?? 0).toFixed(2) })) };
+          } else if (name === "registrar_nota") {
+            if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
+            else {
+              const { data: c } = await sb.from("contacts").select("id, name").eq("tenant_id", input.tenant_id).eq("id", a.contact_id).maybeSingle();
+              if (!c) result = { error: "contact_id inválido, vuelve a buscar el contacto" };
+              else {
+                const { data: act, error } = await sb.from("activities").insert({
+                  tenant_id: input.tenant_id, contact_id: c.id, agent_id: input.user_id ?? null,
+                  type: "manual", description: `📝 ${a.texto}`,
+                }).select("id").single();
+                if (error) result = { error: error.message };
+                else { lastEntity = { type: "activity", id: act.id }; result = { ok: true, contacto: c.name }; }
+              }
+            }
+          } else if (name === "crear_tarea") {
+            if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
+            else {
+              const { data: t, error } = await sb.from("tasks").insert({
+                tenant_id: input.tenant_id, assignee_id: input.user_id ?? null, title: a.titulo,
+                contact_id: a.contact_id ?? null, due_at: a.due_at ?? null,
+              }).select("id").single();
+              if (error) result = { error: error.message };
+              else { lastEntity = { type: "task", id: t.id }; result = { ok: true, titulo: a.titulo }; }
+            }
+          } else if (name === "crear_oportunidad") {
+            if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
+            else {
+              const { data: c } = await sb.from("contacts").select("id, name").eq("tenant_id", input.tenant_id).eq("id", a.contact_id).maybeSingle();
+              if (!c) result = { error: "contact_id inválido, vuelve a buscar el contacto" };
+              else {
+                const stage = await defaultStage(sb, input.tenant_id);
+                const { data: d, error } = await sb.from("deals").insert({
+                  tenant_id: input.tenant_id, contact_id: c.id, owner_id: input.user_id ?? null,
+                  name: a.nombre, amount: a.monto ?? 0, deal_type: a.tipo ?? "venta",
+                  stage_id: stage?.id ?? null, stage_name: stage?.name ?? null, source: "Manual",
+                }).select("id").single();
+                if (error) result = { error: error.message };
+                else { lastEntity = { type: "deal", id: d.id }; result = { ok: true, contacto: c.name, etapa: stage?.name ?? null }; }
+              }
+            }
+          } else if (name === "resumen_dia") {
+            const end = new Date(); end.setHours(23, 59, 59, 999);
+            let tq = sb.from("tasks").select("title, due_at").eq("tenant_id", input.tenant_id).eq("completed", false).lte("due_at", end.toISOString()).order("due_at").limit(10);
+            if (ownerFilter) tq = tq.eq("assignee_id", ownerFilter);
+            let dq = sb.from("deals").select("name, amount").eq("tenant_id", input.tenant_id).eq("is_won", false).eq("is_lost", false).order("amount", { ascending: false }).limit(200);
+            if (ownerFilter) dq = dq.eq("owner_id", ownerFilter);
+            const [{ data: tasks }, { data: deals }] = await Promise.all([tq, dq]);
+            result = {
+              tareas: (tasks ?? []).map((t: any) => t.title),
+              oportunidades_activas: deals?.length ?? 0,
+              monto_total: fmtMoney((deals ?? []).reduce((s: number, d: any) => s + Number(d.amount ?? 0), 0)),
+              top: (deals ?? []).slice(0, 5).map((d: any) => `${d.name} — ${fmtMoney(Number(d.amount))}`),
+            };
+          } else if (name === "estatus_pipeline") {
+            let q = sb.from("deals").select("amount, probability, stage_name, is_won, is_lost").eq("tenant_id", input.tenant_id).limit(2000);
+            if (ownerFilter) q = q.eq("owner_id", ownerFilter);
+            const { data } = await q;
+            const rows = data ?? [];
+            const open = rows.filter((d: any) => !d.is_won && !d.is_lost);
+            const byStage: Record<string, { n: number; amt: number }> = {};
+            for (const d of open as any[]) {
+              const k = d.stage_name ?? "Sin etapa";
+              byStage[k] = byStage[k] ?? { n: 0, amt: 0 };
+              byStage[k].n++; byStage[k].amt += Number(d.amount ?? 0);
+            }
+            result = {
+              activas: open.length,
+              total: fmtMoney(open.reduce((s: number, d: any) => s + Number(d.amount ?? 0), 0)),
+              ponderado: fmtMoney(open.reduce((s: number, d: any) => s + Number(d.amount ?? 0) * (Number(d.probability ?? 0) / 100), 0)),
+              ganadas: rows.filter((d: any) => d.is_won).length,
+              perdidas: rows.filter((d: any) => d.is_lost).length,
+              por_etapa: Object.entries(byStage).map(([k, v]) => `${k}: ${v.n} — ${fmtMoney(v.amt)}`),
+            };
+          } else if (name === "listar_oportunidades") {
+            const rows = await resolveDeals(sb, input.tenant_id, ownerFilter, a.query ?? "");
+            result = { oportunidades: rows.map((d: any) => ({ id: d.id, nombre: d.name, monto: fmtMoney(Number(d.amount)), etapa: d.stage_name })) };
+          } else if (name === "listar_tareas") {
+            let q = sb.from("tasks").select("title, due_at").eq("tenant_id", input.tenant_id).eq("completed", false).order("due_at").limit(15);
+            if (ownerFilter) q = q.eq("assignee_id", ownerFilter);
+            const { data } = await q;
+            result = { tareas: (data ?? []).map((t: any) => `${t.title}${t.due_at ? ` (${new Date(t.due_at).toLocaleDateString("es-MX")})` : ""}`) };
+          } else if (name === "deshacer_ultimo") {
+            const { data: last } = await sb.from("whatsapp_command_log").select("id, result_entity_type, result_entity_id")
+              .eq("tenant_id", input.tenant_id).eq("from_phone", input.from_phone)
+              .not("result_entity_id", "is", null).is("undone_at", null)
+              .order("created_at", { ascending: false }).limit(1).maybeSingle();
+            if (!last?.result_entity_id) result = { error: "no hay nada reciente que deshacer" };
+            else {
+              const table = last.result_entity_type === "activity" ? "activities" : last.result_entity_type === "task" ? "tasks" : "deals";
+              const { error } = await sb.from(table).delete().eq("id", last.result_entity_id).eq("tenant_id", input.tenant_id);
+              if (error) result = { error: error.message };
+              else {
+                await sb.from("whatsapp_command_log").update({ undone_at: new Date().toISOString() }).eq("id", last.id);
+                result = { ok: true, eliminado: last.result_entity_type };
+              }
+            }
+          } else if (name === "accion_sensible") {
+            if (!permAllows(input.permission_level, "write_strong")) result = { error: "sin permiso para acciones fuertes" };
+            else {
+              const deals = await resolveDeals(sb, input.tenant_id, ownerFilter, a.deal_name ?? "");
+              if (!deals.length) result = { error: `no encontré la oportunidad "${a.deal_name}"` };
+              else if (deals.length > 1) result = { ambiguo: deals.map((d: any) => d.name) };
+              else {
+                const deal: any = deals[0];
+                if (a.tipo === "move_deal") {
+                  const { data: stage } = await sb.from("pipeline_stages").select("id, name").eq("tenant_id", input.tenant_id).ilike("name", `%${a.etapa ?? ""}%`).limit(1).maybeSingle();
+                  if (!stage) result = { error: `no encontré la etapa "${a.etapa}"` };
+                  else result = { mensaje: await queueStrongAction(sb, input, "move_deal", { deal_id: deal.id, stage_id: stage.id, stage_name: stage.name }, `Mover "${deal.name}" a "${stage.name}".`) };
+                } else if (a.tipo === "update_amount") {
+                  result = { mensaje: await queueStrongAction(sb, input, "update_amount", { deal_id: deal.id, amount: a.monto }, `Cambiar monto de "${deal.name}" a ${fmtMoney(a.monto ?? 0)}.`) };
+                } else {
+                  result = { mensaje: await queueStrongAction(sb, input, a.tipo, { deal_id: deal.id, amount: a.monto }, `Marcar ${a.tipo === "mark_won" ? "GANADA" : "PERDIDA"} "${deal.name}".`) };
+                }
+              }
+            }
+          } else {
+            result = { error: "herramienta desconocida" };
+          }
+        } catch (e) {
+          console.error("tool error", name, e);
+          result = { error: String(e) };
+        }
+
+        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+      }
     }
+    if (!reply) reply = "Listo.";
   } catch (e) {
     console.error("ai-command error", e);
-    reply = "⚠️ Algo salió mal procesando tu solicitud.";
+    reply = "⚠️ Algo salió mal procesando tu solicitud. Intenta de nuevo.";
   }
 
-  return new Response(JSON.stringify({ reply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  await sb.from("whatsapp_command_log").insert({
+    tenant_id: input.tenant_id, user_id: input.user_id, channel_id: input.channel_id,
+    from_phone: input.from_phone, prompt: input.prompt, intent: "agent",
+    action_payload: {}, reply,
+    result_entity_type: lastEntity?.type ?? null, result_entity_id: lastEntity?.id ?? null,
+    status: "executed", executed_at: new Date().toISOString(),
+  });
+
+  return json(reply);
 });
