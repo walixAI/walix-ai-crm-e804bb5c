@@ -1,0 +1,4 @@
+ALTER TABLE public.recurrence_occurrences DROP CONSTRAINT IF EXISTS recurrence_occurrences_status_check;
+ALTER TABLE public.recurrence_occurrences ADD CONSTRAINT recurrence_occurrences_status_check CHECK (status = ANY (ARRAY['pending','notified','completed','skipped','price_accepted','scheduled','executed','postponed','historic']));
+CREATE UNIQUE INDEX IF NOT EXISTS recurrence_occurrences_sub_due_uidx ON public.recurrence_occurrences (subscription_id, due_date);
+CREATE INDEX IF NOT EXISTS recurrence_occurrences_tenant_due_status_idx ON public.recurrence_occurrences (tenant_id, due_date, status);
