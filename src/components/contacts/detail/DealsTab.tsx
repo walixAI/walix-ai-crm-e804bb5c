@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { StageStepper } from "./StageStepper";
+import { DueBadge } from "./DueBadge";
 import {
   formatMXN, usePipelines, useStages, useContactPipelineDeals, useContactStageHistory,
   type PipelineDeal, type PipelineStage,
@@ -95,6 +96,12 @@ export function DealsTab({ contactId, contactName }: Props) {
                     <div className="text-[10px] text-muted-foreground mt-1">{d.probability}% probabilidad</div>
                   </div>
                 </div>
+
+                {!d.isWon && !d.isLost && (
+                  <div className="mt-2">
+                    <DueBadge date={d.expectedCloseDate} />
+                  </div>
+                )}
 
                 <div className="mt-3">
                   <StageStepper stages={stages} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
