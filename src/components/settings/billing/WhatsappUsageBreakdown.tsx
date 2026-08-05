@@ -29,15 +29,16 @@ export function WhatsappUsageBreakdown({ tenantId }: { tenantId: string }) {
       if (convIds.length) {
         const { data: msgs } = await supabase
           .from("messages")
-          .select("conversation_id, sent_by_user_id, created_at")
+          .select("conversation_id, metadata, created_at")
           .in("conversation_id", convIds)
           .eq("direction", "outbound")
           .gte("created_at", since)
           .order("created_at", { ascending: true })
           .limit(5000);
         for (const m of msgs ?? []) {
-          if (m.sent_by_user_id && m.conversation_id && !owner[m.conversation_id]) {
-            owner[m.conversation_id] = m.sent_by_user_id;
+          const uid = (m.metadata as { n?: string } | null)?.n;
+          if (uid && m.conversation_id && !owner[m.conversation_id]) {
+            owner[m.conversation_id] = uid;
           }
         }
       }
