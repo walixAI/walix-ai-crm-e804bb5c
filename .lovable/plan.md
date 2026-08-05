@@ -24,10 +24,13 @@ Problemas confirmados:
 ### 1. Todo se ancla al mes del servicio (día 1)
 La base importada sólo trae el mes, así que cada servicio se fija al **día 1 de su mes**. Ese es el compromiso visible: "en septiembre 2026 toca el mantenimiento de Tania".
 
-### 2. Oportunidades para todos los ciclos, pasados y futuros
+### 2. Oportunidades para todos los ciclos
+Verificado en la base: la importación no dejó historial anterior a agosto 2026. Los 42 servicios de **agosto 2026** quedaron marcados como "ejecutados" aunque nadie los ha trabajado, y los siguientes ciclos van de septiembre 2026 a agosto 2027 (33, 32, 36, 31, 43, 28... por mes).
+
 Se generan oportunidades en el pipeline *Servicio y Mantenimiento*:
-- **Meses ya pasados** → oportunidad en **Completado** (última etapa del funnel), como historial del cliente.
-- **Mes en curso y meses futuros** → oportunidad en **Solicitud** (primera etapa), con fecha programada el día 1 del mes, lista para contactar, acordar precio y agendar día.
+- **Agosto 2026 (mes en curso, 42 servicios)** → se corrige la marca de "ejecutado" y nacen en **Solicitud**, con fecha 1 ago 2026 y tarea vencida visible, porque siguen pendientes de contactar.
+- **Meses futuros (sep-26 en adelante)** → oportunidad en **Solicitud** al día 1 del mes, con su tarea de aviso.
+- **Meses pasados** → si en el futuro se cargan ciclos anteriores, se crean directamente en **Completado** como historial.
 
 Sin duplicados: un solo registro por cliente + servicio + mes, aunque el proceso corra muchas veces.
 
