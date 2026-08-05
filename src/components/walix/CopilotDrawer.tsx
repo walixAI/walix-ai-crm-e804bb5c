@@ -53,7 +53,7 @@ function renderMarkdown(md: string): ReactNode {
       );
     }
   }
-  return <div className="space-y-2">{out}</div>;
+  return <div className="space-y-2 break-words">{out}</div>;
 }
 
 function renderInline(s: string): ReactNode {
@@ -148,12 +148,12 @@ function ToolCard({ tool }: { tool: CopilotToolUse }) {
           <Icon className="h-3 w-3 text-muted-foreground" />
           <span className="font-semibold text-foreground">{meta.label}</span>
         </div>
-        <div className="text-muted-foreground mt-0.5 truncate">{summary}</div>
+        <div className="text-muted-foreground mt-0.5 break-words line-clamp-2">{summary}</div>
       </div>
       {cta && (
         <button
           onClick={() => navigate(cta!.to)}
-          className="text-primary hover:underline font-medium shrink-0 self-center"
+          className="text-primary hover:underline font-medium shrink-0 self-center whitespace-nowrap"
         >
           {cta.label} →
         </button>
@@ -270,10 +270,10 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
 // ── Bubbles ─────────────────────────────────────────────────────────────
 function UserBubble({ msg }: { msg: Extract<CopilotMessage, { role: "user" }> }) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-primary/10 border border-primary/20 px-3 py-2 text-sm">
-        <div>{msg.text}</div>
-        <div className="text-[10px] text-muted-foreground mt-1 text-right">{msg.at}</div>
+    <div className="flex justify-end w-full">
+      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm shadow-sm">
+        <div className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</div>
+        <div className="text-[10px] opacity-70 mt-1 text-right">{msg.at}</div>
       </div>
     </div>
   );
@@ -281,13 +281,13 @@ function UserBubble({ msg }: { msg: Extract<CopilotMessage, { role: "user" }> })
 
 function AssistantBubble({ msg }: { msg: Extract<CopilotMessage, { role: "assistant" }> }) {
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 w-full min-w-0">
       <div className="h-7 w-7 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shrink-0">
         <Sparkles className="h-3.5 w-3.5" />
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         {msg.text && (
-          <div className="rounded-2xl rounded-tl-sm bg-card border border-border px-3 py-2 text-sm leading-relaxed">
+          <div className="rounded-2xl rounded-tl-sm bg-muted/60 border border-border px-3.5 py-2.5 text-sm leading-relaxed text-foreground break-words">
             {renderMarkdown(msg.text)}
           </div>
         )}
@@ -417,13 +417,13 @@ export function CopilotDrawer() {
     <Sheet open={open} onOpenChange={(v) => (v ? openDrawer() : closeDrawer())} modal={false}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-[480px] p-0 flex flex-col gap-0"
+        className="w-full max-w-full sm:max-w-[460px] p-0 flex flex-col gap-0 overflow-hidden"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
+        <div className="px-4 py-3 pr-12 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 shrink-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative">
                 <div
                   className={cn(
@@ -437,9 +437,9 @@ export function CopilotDrawer() {
                   <span className="absolute inset-0 rounded-full ring-2 ring-primary/40 animate-ping" />
                 )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-sm">Walix Copiloto</span>
+                  <span className="font-bold text-sm truncate">Walix Copiloto</span>
                   <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                     Beta
                   </span>
@@ -467,8 +467,8 @@ export function CopilotDrawer() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
+        <ScrollArea className="flex-1 min-h-0 w-full [&>div>div]:!block">
+          <div className="p-3 sm:p-4 space-y-4 w-full min-w-0">
             {messages.length === 0 && (
               <div className="text-center pt-8 space-y-3">
                 <div className="mx-auto h-12 w-12 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-glow">
@@ -496,7 +496,7 @@ export function CopilotDrawer() {
         </ScrollArea>
 
         {/* Suggestions + composer */}
-        <div className="border-t border-border bg-card p-3 space-y-2">
+        <div className="border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2 shrink-0">
           {suggestions.length > 0 && messages.length === 0 && status === "idle" && (
             <div className="flex flex-wrap gap-1.5">
               {suggestions.map((s) => (
@@ -516,7 +516,7 @@ export function CopilotDrawer() {
               Escuchando…
             </div>
           )}
-          <div className="flex items-end gap-1.5">
+          <div className="flex items-end gap-1.5 min-w-0">
             <Textarea
               ref={composerRef}
               value={composer}
@@ -524,12 +524,12 @@ export function CopilotDrawer() {
               onKeyDown={onComposerKey}
               placeholder="Pregúntame cualquier cosa…"
               rows={1}
-              className="resize-none min-h-[40px] max-h-[96px] text-sm py-2"
+              className="flex-1 min-w-0 resize-none min-h-[44px] max-h-[96px] text-base sm:text-sm py-2.5 rounded-xl"
             />
             <Button
               size="icon"
               variant={voice.listening ? "destructive" : "outline"}
-              className="h-10 w-10 shrink-0"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl"
               onClick={voice.toggle}
               disabled={!voice.supported}
               title={voice.supported ? "Hablar" : "Voz no disponible en este navegador"}
@@ -538,7 +538,7 @@ export function CopilotDrawer() {
             </Button>
             <Button
               size="icon"
-              className="h-10 w-10 shrink-0 bg-gradient-brand text-primary-foreground"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl bg-gradient-brand text-primary-foreground"
               onClick={onSend}
               disabled={!composer.trim() || status !== "idle"}
               title="Enviar (Enter)"
@@ -548,7 +548,7 @@ export function CopilotDrawer() {
                 : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="text-[10px] text-muted-foreground text-center">
+          <div className="hidden sm:block text-[10px] text-muted-foreground text-center">
             Enter para enviar · Shift+Enter para salto de línea
           </div>
         </div>
