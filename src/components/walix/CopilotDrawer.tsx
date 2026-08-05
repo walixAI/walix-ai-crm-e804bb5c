@@ -148,12 +148,12 @@ function ToolCard({ tool }: { tool: CopilotToolUse }) {
           <Icon className="h-3 w-3 text-muted-foreground" />
           <span className="font-semibold text-foreground">{meta.label}</span>
         </div>
-        <div className="text-muted-foreground mt-0.5 truncate">{summary}</div>
+        <div className="text-muted-foreground mt-0.5 break-words line-clamp-2">{summary}</div>
       </div>
       {cta && (
         <button
           onClick={() => navigate(cta!.to)}
-          className="text-primary hover:underline font-medium shrink-0 self-center"
+          className="text-primary hover:underline font-medium shrink-0 self-center whitespace-nowrap"
         >
           {cta.label} →
         </button>
