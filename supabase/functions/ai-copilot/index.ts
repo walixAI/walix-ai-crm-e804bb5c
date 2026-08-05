@@ -29,6 +29,21 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_scheduled_services",
+      description: "Lista los servicios recurrentes programados (mantenimientos, cambios de filtro) de un mes.",
+      parameters: {
+        type: "object",
+        properties: {
+          month_offset: { type: "number", description: "0 = mes en curso, 1 = próximo mes, -1 = mes pasado" },
+          type: { type: "string", description: "Filtro por nombre del servicio" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_pipeline_status",
       description: "Devuelve KPIs del pipeline activo del usuario: deals abiertos, ganados, perdidos y monto en curso.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
@@ -492,6 +507,37 @@ async function executeTool(
         };
       }
 
+      case "get_scheduled_services": {
+        const off = Number.isFinite(Number(args.month_offset)) ? Number(args.month_offset) : 0;
+        const base = new Date();
+        const from = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + off, 1));
+        const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
+        const iso = (d: Date) => d.toISOString().slice(0, 10);
+        const { data: subs } = await supabase
+          .from("recurrence_subscriptions")
+          .select("next_due_date, contact_id, contacts(name, phone), recurrence_definitions(name)")
+          .eq("tenant_id", tenantId)
+          .gte("next_due_date", iso(from))
+          .lt("next_due_date", iso(to))
+          .order("next_due_date")
+          .limit(300);
+        let rows = (subs ?? []) as any[];
+        if (args.type) {
+          const t = String(args.type).toLowerCase();
+          rows = rows.filter((r) => (r.recurrence_definitions?.name ?? "").toLowerCase().includes(t));
+        }
+        return {
+          mes: from.toLocaleDateString("es-MX", { month: "long", year: "numeric", timeZone: "UTC" }),
+          total: rows.length,
+          servicios: rows.slice(0, 60).map((r) => ({
+            cliente: r.contacts?.name ?? "Sin nombre",
+            telefono: r.contacts?.phone ?? null,
+            servicio: r.recurrence_definitions?.name ?? "Servicio",
+            fecha: r.next_due_date,
+            contact_id: r.contact_id,
+          })),
+        };
+      }
       case "get_my_tasks": {
         const view = String(args.view ?? "today_overdue");
         const limit = Math.min(50, Number(args.limit ?? 20));
