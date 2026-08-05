@@ -21,49 +21,49 @@ Problemas confirmados:
 
 ## Lo que se va a construir
 
-### 1. Aviso anticipado (el motor respeta los 15 días)
-El motor generará la oportunidad y la tarea **15 días antes** (o los días que configure el tenant), no el día del servicio. La oportunidad nace en **Solicitud** con la fecha programada del servicio visible, y notifica al responsable del contacto.
+### 1. Todo se ancla al mes del servicio (día 1)
+La base importada sólo trae el mes, así que cada servicio se fija al **día 1 de su mes**. Ese es el compromiso visible: "en septiembre 2026 toca el mantenimiento de Tania".
 
-Se añade protección contra duplicados: si ya existe una ocurrencia abierta para ese cliente y servicio, no se vuelve a crear.
+### 2. Oportunidades para todos los ciclos, pasados y futuros
+Se generan oportunidades en el pipeline *Servicio y Mantenimiento*:
+- **Meses ya pasados** → oportunidad en **Completado** (última etapa del funnel), como historial del cliente.
+- **Mes en curso y meses futuros** → oportunidad en **Solicitud** (primera etapa), con fecha programada el día 1 del mes, lista para contactar, acordar precio y agendar día.
 
-### 2. Vista "Mantenimientos del mes"
-Nueva pestaña **Servicios del mes** (en Mi Día y en Automatizaciones → Servicios recurrentes) con:
-- Selector de mes (agosto 2026, septiembre 2026, ...).
-- Lista de clientes que tocan ese mes: nombre, teléfono, servicio, fecha programada, responsable y estado del ciclo (Por contactar / Precio aceptado / Agendado / Ejecutado / Pospuesto / No procede).
-- Filtros por responsable, tipo de servicio y estado; contador arriba ("38 servicios este mes: 12 por contactar, 9 agendados, 17 ejecutados").
-- Acciones rápidas por fila: WhatsApp al cliente, registrar respuesta, agendar día y hora, marcar ejecutado.
+Sin duplicados: un solo registro por cliente + servicio + mes, aunque el proceso corra muchas veces.
 
-### 3. Ciclo operativo de cada servicio
-Cada ocurrencia avanza por estados claros, sincronizados con la oportunidad del pipeline:
+### 3. Tareas y agenda visibles en Mi Día
+Cada servicio futuro genera una **tarea de seguimiento** asignada al responsable del contacto, con vencimiento **5 días antes del inicio del mes** (servicio de septiembre → tarea el 27 de agosto). Aparecen en **Mi Día** y en **Tareas**, con cliente, servicio y mes al que corresponden.
 
+### 4. Recordatorio anticipado
+- Notificación al responsable 5 días antes de que empiece el mes: "En septiembre tienes 24 servicios programados".
+- La tarea se marca vencida y en rojo si el mes arranca sin haber contactado al cliente.
+
+### 5. Vista "Servicios del mes"
+Pestaña con selector de mes que lista los clientes de ese mes: cliente, teléfono, servicio, responsable y estado (Por contactar / Precio aceptado / Agendado / Ejecutado / Pospuesto / No procede), con filtros por responsable y tipo, contadores, y acciones rápidas por fila (WhatsApp, registrar precio, agendar día y hora, marcar ejecutado).
+
+### 6. Ciclo operativo
 ```text
-Por contactar  →  Precio aceptado  →  Agendado (día y hora)  →  Ejecutado  →  Cobrado
-        ↘ Pospuesto (nueva fecha)      ↘ No procede (motivo)
+Por contactar → Precio aceptado → Agendado (día y hora) → Ejecutado → Cobrado
+        ↘ Pospuesto (otro mes)        ↘ No procede (motivo)
 ```
+Al marcar **Ejecutado** se cierra la oportunidad en *Completado* y se programa el siguiente ciclo (+6 o +12 meses) al día 1 del mes que corresponda.
 
-- **Registrar respuesta**: precio propuesto y aceptado/rechazado, o posponer con nueva fecha.
-- **Agendar**: día y hora concretos; genera la tarea al técnico y mueve la oportunidad a *Agendado*.
-- **Marcar ejecutado**: cierra la ocurrencia, mueve la oportunidad a *Completado* y **recién ahí** programa el siguiente ciclo a partir de la fecha real de ejecución (no de la fecha teórica).
-
-### 4. Recordatorios automáticos
-- Aviso al responsable cuando entra un servicio nuevo a su lista.
-- Resumen el día 1 de cada mes: "Tienes 38 servicios programados este mes".
-- Alerta si un servicio del mes llega a 5 días de su fecha sin estar agendado.
-
-### 5. Copiloto
-Preguntas como "¿qué mantenimientos tengo este mes?" o "¿quién falta por agendar?" responderán con la lista y el estado, y podrá marcar agendado o ejecutado por WhatsApp.
+### 7. Copiloto
+"¿Qué mantenimientos tengo este mes?" o "¿quién falta por agendar?" responderán con la lista y su estado, y podrá marcar agendado o ejecutado desde WhatsApp.
 
 ## Detalles técnicos
 
-- `recurrence_occurrences`: se amplía con `status` extendido (pending, price_accepted, scheduled, executed, postponed, skipped), `scheduled_at`, `price_quoted`, `price_accepted_at`, `executed_at`, `notes`, `assigned_to`; índice por `(tenant_id, due_date, status)` y unicidad por `(subscription_id, due_date)` para evitar duplicados. RLS por `get_user_tenant(auth.uid())` + GRANTs.
-- `automations-run/index.ts`: disparar cuando `next_due_date <= today + anticipation_days`; crear la oportunidad en la etapa inicial del pipeline objetivo con `expected_close_date` = fecha del servicio; dejar de avanzar `next_due_date` en el disparo y hacerlo al marcar ejecutado (con respaldo: si pasa el ciclo sin cierre, se marca vencida y avanza).
-- Nuevo hook `useMonthlyServices(month)` sobre `recurrence_occurrences` con join a contacto, servicio y deal; mutaciones para cada transición de estado.
-- Componentes nuevos bajo `src/components/automations/recurrence/`: `MonthlyServicesView`, `ServiceRowActions`, `ScheduleServiceDialog`, `RegisterPriceDialog`; se reutiliza `DueBadge` para la urgencia.
-- Copiloto: extender `get_scheduled_services` con estado y agregar herramientas `schedule_service` y `complete_service` en `whatsapp-ai-command` y `ai-copilot`.
-- Backfill: crear las ocurrencias de los servicios que vencen dentro de la ventana de anticipación (septiembre 2026 en adelante) y reconciliar las 42 ocurrencias existentes con sus oportunidades.
+- `recurrence_occurrences`: `due_date` normalizado al día 1 del mes; estados extendidos (pending, price_accepted, scheduled, executed, postponed, skipped, historic); campos `scheduled_at`, `price_quoted`, `price_accepted_at`, `executed_at`, `assigned_to`, `notes`; índice único `(subscription_id, due_date)` e índice `(tenant_id, due_date, status)`. RLS por `get_user_tenant(auth.uid())` + GRANTs.
+- `anticipation_days` de las 4 recurrencias se ajusta de 15 a 5 días.
+- `automations-run/index.ts`: dispara cuando `next_due_date <= today + anticipation_days`; crea la oportunidad en la etapa inicial del pipeline con `expected_close_date` = día 1 del mes; crea la tarea con `due_at` = inicio del mes menos 5 días; `next_due_date` avanza al marcar Ejecutado (respaldo automático si pasa el ciclo completo sin cierre).
+- Backfill de datos: recorrer las 282 suscripciones y su historial de meses; oportunidades de meses pasados en *Completado* con `expected_close_date` al día 1 de ese mes, y de mes actual/futuros en *Solicitud* con su tarea; reconciliar las 42 ocurrencias existentes en vez de duplicarlas.
+- Nuevo hook `useMonthlyServices(month)` sobre `recurrence_occurrences` con join a contacto, servicio y deal, más mutaciones por transición de estado.
+- Componentes nuevos en `src/components/automations/recurrence/`: `MonthlyServicesView`, `ServiceRowActions`, `ScheduleServiceDialog`, `RegisterPriceDialog`; reutilizando `DueBadge`.
+- Mi Día y Tareas: incluir las tareas de servicio recurrente con etiqueta del mes; recordatorio mensual vía el sistema de notificaciones existente.
+- Copiloto: extender `get_scheduled_services` con estado y agregar `schedule_service` y `complete_service` en `whatsapp-ai-command` y `ai-copilot`.
 
 ## Orden de entrega
-1. Estructura de datos y motor con anticipación (sin duplicados).
-2. Vista "Servicios del mes" con estados y acciones.
-3. Recordatorios y resumen mensual.
-4. Copiloto y backfill.
+1. Estructura de datos y motor anclado al día 1 del mes, con aviso 5 días antes.
+2. Backfill: oportunidades pasadas en Completado, futuras en Solicitud, más sus tareas.
+3. Vista "Servicios del mes" con estados y acciones.
+4. Recordatorios en Mi Día/Tareas y Copiloto.
