@@ -417,13 +417,13 @@ export function CopilotDrawer() {
     <Sheet open={open} onOpenChange={(v) => (v ? openDrawer() : closeDrawer())} modal={false}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-[480px] p-0 flex flex-col gap-0"
+        className="w-full max-w-full sm:max-w-[460px] p-0 flex flex-col gap-0 overflow-hidden"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
+        <div className="px-4 py-3 pr-12 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 shrink-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative">
                 <div
                   className={cn(
@@ -437,9 +437,9 @@ export function CopilotDrawer() {
                   <span className="absolute inset-0 rounded-full ring-2 ring-primary/40 animate-ping" />
                 )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-sm">Walix Copiloto</span>
+                  <span className="font-bold text-sm truncate">Walix Copiloto</span>
                   <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                     Beta
                   </span>
@@ -467,8 +467,8 @@ export function CopilotDrawer() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
+        <ScrollArea className="flex-1 min-h-0 w-full [&>div>div]:!block">
+          <div className="p-3 sm:p-4 space-y-4 w-full min-w-0">
             {messages.length === 0 && (
               <div className="text-center pt-8 space-y-3">
                 <div className="mx-auto h-12 w-12 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-glow">
