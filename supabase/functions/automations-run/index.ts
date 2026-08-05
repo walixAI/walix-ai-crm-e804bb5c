@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
             if (action.type === "create_task") {
               const { data: task } = await admin.from("tasks").insert({
                 tenant_id: tenantId,
+                contact_id: sub.contact_id,
                 title: action.config?.title || `Seguimiento: ${rec.name}`,
                 description: action.config?.description || rec.description || "",
                 due_date: sub.next_due_date,
