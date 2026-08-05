@@ -190,7 +190,7 @@ async function callGateway(messages: any[]) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto" }),
+    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto", parallel_tool_calls: true }),
   });
   if (!res.ok) {
     const t = await res.text();
