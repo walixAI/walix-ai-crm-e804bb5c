@@ -29,6 +29,7 @@ import { ChartFilters, rangeParams, type RangeValue } from "@/components/dashboa
 import { MorningBriefing } from "@/components/walix/MorningBriefing";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
+import { RecurrencesMonthCard } from "@/components/walix/RecurrencesMonthCard";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 
@@ -171,6 +172,10 @@ export default function Dashboard() {
             <RunRateCard compact showSellers />
             <ProfitabilityCard />
           </div>
+        </Widget>
+
+        <Widget k="dash.recurrences_month">
+          <RecurrencesMonthCard />
         </Widget>
 
         <Widget k="dash.kpi_cards">

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Zap } from "lucide-react";
@@ -34,7 +35,9 @@ export default function Automations() {
   const del = useDeleteAutomation();
   const dup = useDuplicateAutomation();
 
-  const [tab, setTab] = useState<Tab>("active");
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as Tab) || "active";
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
