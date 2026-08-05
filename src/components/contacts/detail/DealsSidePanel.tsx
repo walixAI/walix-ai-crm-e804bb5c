@@ -3,6 +3,7 @@ import { CheckCircle2, Plus } from "lucide-react";
 import { useContactTasks } from "@/lib/queries/contacts";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { StageStepper } from "./StageStepper";
+import { DueBadge } from "./DueBadge";
 import { useContactPipelineDeals, type PipelineDeal } from "@/lib/queries/pipeline";
 import { useContactStageMaps } from "./DealsTab";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
@@ -51,6 +52,7 @@ export function DealsSidePanel({ contactId }: Props) {
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0 whitespace-nowrap">{d.stageName}</span>
               </div>
               <div className="text-lg font-bold text-gradient-brand mt-1">${d.amount.toLocaleString("es-MX")}</div>
+              <div className="mt-1.5"><DueBadge date={d.expectedCloseDate} /></div>
               <div className="mt-2">
                 <StageStepper stages={maps.stagesFor(d)} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
               </div>
