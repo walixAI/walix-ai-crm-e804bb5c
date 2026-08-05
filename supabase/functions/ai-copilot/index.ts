@@ -513,28 +513,41 @@ async function executeTool(
         const from = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + off, 1));
         const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
         const iso = (d: Date) => d.toISOString().slice(0, 10);
-        const { data: subs } = await sb
-          .from("recurrence_subscriptions")
-          .select("next_due_date, contact_id, contacts(name, phone), recurrence_definitions(name)")
+        const STATUS_ES: Record<string, string> = {
+          pending: "Por contactar",
+          price_accepted: "Precio aceptado",
+          scheduled: "Agendado",
+          executed: "Ejecutado",
+          postponed: "Pospuesto",
+          skipped: "No procede",
+        };
+        const { data: occs } = await sb
+          .from("recurrence_occurrences")
+          .select("due_date, status, scheduled_at, price_quoted, recurrence_definitions(name), recurrence_subscriptions(contact_id, contacts(name, phone))")
           .eq("tenant_id", tenantId)
-          .gte("next_due_date", iso(from))
-          .lt("next_due_date", iso(to))
-          .order("next_due_date")
+          .gte("due_date", iso(from))
+          .lt("due_date", iso(to))
+          .order("due_date")
           .limit(300);
-        let rows = (subs ?? []) as any[];
+        let rows = (occs ?? []) as any[];
         if (args.type) {
           const t = String(args.type).toLowerCase();
           rows = rows.filter((r) => (r.recurrence_definitions?.name ?? "").toLowerCase().includes(t));
         }
+        const pendientes = rows.filter((r) => r.status === "pending" || r.status === "price_accepted").length;
         return {
           mes: from.toLocaleDateString("es-MX", { month: "long", year: "numeric", timeZone: "UTC" }),
           total: rows.length,
+          por_contactar: pendientes,
           servicios: rows.slice(0, 60).map((r) => ({
-            cliente: r.contacts?.name ?? "Sin nombre",
-            telefono: r.contacts?.phone ?? null,
+            cliente: r.recurrence_subscriptions?.contacts?.name ?? "Sin nombre",
+            telefono: r.recurrence_subscriptions?.contacts?.phone ?? null,
             servicio: r.recurrence_definitions?.name ?? "Servicio",
-            fecha: r.next_due_date,
-            contact_id: r.contact_id,
+            mes_programado: r.due_date,
+            estado: STATUS_ES[r.status] ?? r.status,
+            fecha_agendada: r.scheduled_at ?? null,
+            precio: r.price_quoted ?? null,
+            contact_id: r.recurrence_subscriptions?.contact_id ?? null,
           })),
         };
       }

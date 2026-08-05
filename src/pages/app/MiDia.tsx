@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "sonner";
 import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } from "@/lib/queries/miDia";
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
+import { MonthServicesCard } from "@/components/miDia/MonthServicesCard";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
 import { RegisterPaymentDialog } from "@/components/miDia/RegisterPaymentDialog";
@@ -176,7 +177,8 @@ export default function MiDia() {
             </div>
             </Widget>
             <Widget k="midia.services">
-            <div ref={columnRefs.services} className="scroll-mt-28">
+            <div ref={columnRefs.services} className="scroll-mt-28 space-y-3">
+              <MonthServicesCard />
               <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
             </div>
             </Widget>

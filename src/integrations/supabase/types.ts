@@ -3135,36 +3135,54 @@ export type Database = {
       }
       recurrence_occurrences: {
         Row: {
+          assigned_to: string | null
           created_at: string
           due_date: string
+          executed_at: string | null
           generated_deal_id: string | null
           generated_task_id: string | null
           id: string
+          notes: string | null
+          price_accepted_at: string | null
+          price_quoted: number | null
           recurrence_id: string
+          scheduled_at: string | null
           status: string
           subscription_id: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
           due_date: string
+          executed_at?: string | null
           generated_deal_id?: string | null
           generated_task_id?: string | null
           id?: string
+          notes?: string | null
+          price_accepted_at?: string | null
+          price_quoted?: number | null
           recurrence_id: string
+          scheduled_at?: string | null
           status?: string
           subscription_id: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
           due_date?: string
+          executed_at?: string | null
           generated_deal_id?: string | null
           generated_task_id?: string | null
           id?: string
+          notes?: string | null
+          price_accepted_at?: string | null
+          price_quoted?: number | null
           recurrence_id?: string
+          scheduled_at?: string | null
           status?: string
           subscription_id?: string
           tenant_id?: string
