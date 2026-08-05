@@ -3784,9 +3784,14 @@ export type Database = {
           from_phone: string
           id: string
           intent: string | null
+          pending_context: Json | null
           prompt: string
+          reply: string | null
+          result_entity_id: string | null
+          result_entity_type: string | null
           status: Database["public"]["Enums"]["whatsapp_command_status"]
           tenant_id: string
+          undone_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -3799,9 +3804,14 @@ export type Database = {
           from_phone: string
           id?: string
           intent?: string | null
+          pending_context?: Json | null
           prompt: string
+          reply?: string | null
+          result_entity_id?: string | null
+          result_entity_type?: string | null
           status?: Database["public"]["Enums"]["whatsapp_command_status"]
           tenant_id: string
+          undone_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -3814,9 +3824,14 @@ export type Database = {
           from_phone?: string
           id?: string
           intent?: string | null
+          pending_context?: Json | null
           prompt?: string
+          reply?: string | null
+          result_entity_id?: string | null
+          result_entity_type?: string | null
           status?: Database["public"]["Enums"]["whatsapp_command_status"]
           tenant_id?: string
+          undone_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -4192,6 +4207,22 @@ export type Database = {
         Args: { _batch_id: string; _historical?: boolean }
         Returns: Json
       }
+      search_contacts_fuzzy: {
+        Args: {
+          _limit?: number
+          _owner_id?: string
+          _q: string
+          _tenant_id: string
+        }
+        Returns: {
+          company: string
+          id: string
+          name: string
+          phone: string
+          score: number
+          status: string
+        }[]
+      }
       seed_default_activity_outcomes: {
         Args: { _pipeline_id: string; _tenant_id: string }
         Returns: number
@@ -4212,6 +4243,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       suggest_goal_split: {
         Args: {
           _dimension: string
