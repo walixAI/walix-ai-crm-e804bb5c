@@ -458,8 +458,9 @@ Deno.serve(async (req) => {
           result = { error: String(e) };
         }
 
-        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
-      }
+        return { role: "tool", tool_call_id: call.id, content: JSON.stringify(result) };
+      }));
+      messages.push(...toolMsgs);
     }
     if (!reply) reply = "Listo.";
   } catch (e) {
