@@ -513,7 +513,7 @@ async function executeTool(
         const from = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + off, 1));
         const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
         const iso = (d: Date) => d.toISOString().slice(0, 10);
-        const { data: subs } = await supabase
+        const { data: subs } = await sb
           .from("recurrence_subscriptions")
           .select("next_due_date, contact_id, contacts(name, phone), recurrence_definitions(name)")
           .eq("tenant_id", tenantId)
