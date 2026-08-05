@@ -1,0 +1,105 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "./tenant";
+
+export type ServiceStatus =
+  | "pending"
+  | "price_accepted"
+  | "scheduled"
+  | "executed"
+  | "postponed"
+  | "skipped";
+
+export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
+  pending: "Por contactar",
+  price_accepted: "Precio aceptado",
+  scheduled: "Agendado",
+  executed: "Ejecutado",
+  postponed: "Pospuesto",
+  skipped: "No procede",
+};
+
+export interface MonthlyService {
+  id: string;
+  tenant_id: string;
+  recurrence_id: string;
+  subscription_id: string;
+  due_date: string;
+  status: ServiceStatus;
+  scheduled_at: string | null;
+  price_quoted: number | null;
+  price_accepted_at: string | null;
+  executed_at: string | null;
+  assigned_to: string | null;
+  notes: string | null;
+  generated_deal_id: string | null;
+  generated_task_id: string | null;
+  recurrence?: { name: string; period_months: number | null } | null;
+  subscription?: { contact_id: string | null } | null;
+  contact?: { id: string; name: string; phone: string | null; owner_id: string | null } | null;
+}
+
+/** Devuelve "YYYY-MM-01" del mes indicado (0 = mes actual). */
+export const monthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+
+export const useMonthlyServices = (month: string) => {
+  const { data: tenant } = useTenant();
+  return useQuery({
+    queryKey: ["monthly-services", tenant?.id, month],
+    queryFn: async () => {
+      if (!tenant?.id) return [] as MonthlyService[];
+      const start = month;
+      const d = new Date(month + "T00:00:00");
+      d.setMonth(d.getMonth() + 1);
+      const end = monthKey(d);
+
+      const { data, error } = await supabase
+        .from("recurrence_occurrences")
+        .select(
+          "*, recurrence:recurrence_id(name, period_months), subscription:subscription_id(contact_id)",
+        )
+        .eq("tenant_id", tenant.id)
+        .gte("due_date", start)
+        .lt("due_date", end)
+        .order("status", { ascending: true });
+      if (error) throw error;
+
+      const rows = (data ?? []) as any[];
+      const contactIds = [
+        ...new Set(rows.map((r) => r.subscription?.contact_id).filter(Boolean)),
+      ] as string[];
+      let contactMap: Record<string, any> = {};
+      if (contactIds.length) {
+        const { data: contacts } = await supabase
+          .from("contacts")
+          .select("id, name, phone, owner_id")
+          .in("id", contactIds);
+        contactMap = Object.fromEntries((contacts ?? []).map((c) => [c.id, c]));
+      }
+      return rows.map((r) => ({
+        ...r,
+        contact: contactMap[r.subscription?.contact_id] ?? null,
+      })) as MonthlyService[];
+    },
+    enabled: !!tenant?.id,
+  });
+};
+
+export const useUpdateService = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<MonthlyService>) => {
+      const { error } = await supabase
+        .from("recurrence_occurrences")
+        .update(patch as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["monthly-services"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+    },
+  });
+};
