@@ -20,11 +20,12 @@ import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import { RecurrenceList } from "@/components/automations/recurrence/RecurrenceList";
 import { RecurrenceBuilderSheet } from "@/components/automations/recurrence/RecurrenceBuilderSheet";
+import { MonthlyServicesView } from "@/components/automations/recurrence/MonthlyServicesView";
 import type { AutomationTemplate } from "@/lib/automations/templates";
 import type { AutomationDraft } from "@/services/automations";
 import type { RecurrenceDefinition } from "@/lib/queries/recurrence";
 
-type Tab = "active" | "paused" | "drafts" | "all" | "recurrence";
+type Tab = "active" | "paused" | "drafts" | "all" | "recurrence" | "agenda";
 
 export default function Automations() {
   const { toast } = useToast();
@@ -120,7 +121,7 @@ export default function Automations() {
             <Button onClick={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}>
               <Plus className="h-4 w-4 mr-1.5" /> Nuevo servicio recurrente
             </Button>
-          ) : (
+          ) : tab === "agenda" ? null : (
             <Button onClick={() => setGalleryOpen(true)} disabled={limits.locked}>
               <Plus className="h-4 w-4 mr-1.5" /> Nueva automatización
             </Button>
@@ -135,10 +136,13 @@ export default function Automations() {
           <TabsTrigger value="drafts">Borradores ({counts.drafts})</TabsTrigger>
           <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
           <TabsTrigger value="recurrence">Servicios recurrentes</TabsTrigger>
+          <TabsTrigger value="agenda">Agenda del mes</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {tab === "recurrence" ? (
+      {tab === "agenda" ? (
+        <MonthlyServicesView />
+      ) : tab === "recurrence" ? (
         <RecurrenceList
           onNew={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}
           onEdit={(r) => { setEditingRecurrence(r); setRecurrenceOpen(true); }}
