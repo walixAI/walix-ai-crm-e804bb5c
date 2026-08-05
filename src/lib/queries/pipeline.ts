@@ -554,12 +554,21 @@ export function useContactsLite() {
   return useQuery({
     queryKey: ["pipeline-contacts-lite"],
     queryFn: async (): Promise<ContactLite[]> => {
-      const { data, error } = await supabase
-        .from("contacts")
-        .select("id, name, last_name, phone, avatar_color, last_activity_at")
-        .order("name");
-      if (error) throw error;
-      return (data ?? []).map((c: any) => ({
+      // PostgREST devuelve máximo 1000 filas por petición: paginamos para no
+      // perder contactos (si faltan, las tarjetas del pipeline salen sin nombre).
+      const PAGE = 1000;
+      const rows: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from("contacts")
+          .select("id, name, last_name, phone, avatar_color, last_activity_at")
+          .order("name")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if (!data || data.length < PAGE) break;
+      }
+      return rows.map((c: any) => ({
         id: c.id, name: c.name, lastName: c.last_name, phone: c.phone, avatarColor: c.avatar_color, lastActivityAt: c.last_activity_at,
       }));
     },
