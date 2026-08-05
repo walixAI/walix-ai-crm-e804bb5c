@@ -66,12 +66,10 @@ Deno.serve(async (req) => {
                 tenant_id: tenantId,
                 contact_id: sub.contact_id,
                 title: action.config?.title || `Seguimiento: ${rec.name}`,
-                description: action.config?.description || rec.description || "",
-                due_date: sub.next_due_date,
-                assigned_to: action.config?.assigned_to || null,
-                status: "pending",
-                recurrence_occurrence_id: occ?.id,
-                created_by: rec.created_by,
+                due_at: `${sub.next_due_date}T09:00:00`,
+                assignee_id: action.config?.assigned_to || null,
+                completed: false,
+                task_kind: "seguimiento",
               }).select("id").single();
               generatedTaskId = task?.id ?? null;
             } else if (action.type === "create_deal") {
@@ -81,6 +79,7 @@ Deno.serve(async (req) => {
                 contact_id: sub.contact_id,
                 name: action.config?.title || `${rec.name} - ${sub.next_due_date}`,
                 stage_id: rec.target_stage_id,
+                stage_name: rec.target_stage_id ? "Agendado" : null,
                 owner_id: contact?.owner_id,
                 expected_close_date: sub.next_due_date,
                 source: "Recurrencia",
