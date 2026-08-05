@@ -227,10 +227,23 @@ async function executeStrong(sb: SB, row: any, ownerId: string | null): Promise<
 
 // ================= Main =================
 
+function isServiceRoleAuth(auth: string): boolean {
+  if (auth.includes(SERVICE_KEY)) return true;
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.role === "service_role" && payload?.ref === Deno.env.get("SUPABASE_PROJECT_ID" as string) || payload?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const auth = req.headers.get("Authorization") ?? "";
-  if (!auth.includes(SERVICE_KEY)) {
+  if (!isServiceRoleAuth(auth)) {
     return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: corsHeaders });
   }
 
