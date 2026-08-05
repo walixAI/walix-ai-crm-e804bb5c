@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/walix/Logo";
+import { PackageRequestForm } from "@/components/walix/PackageRequestForm";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 
