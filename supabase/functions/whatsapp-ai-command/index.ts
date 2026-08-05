@@ -190,10 +190,11 @@ REGLAS CRÍTICAS:
 9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
 }
 
-// Acumulador de consumo de la invocación en curso (se registra al final).
-const usage = { input: 0, output: 0, total: 0, iterations: 0 };
+// Acumulador de consumo por invocación (no global: habría fugas entre peticiones).
+type Usage = { input: number; output: number; total: number; iterations: number };
+const newUsage = (): Usage => ({ input: 0, output: 0, total: 0, iterations: 0 });
 
-async function callGateway(messages: any[]) {
+async function callGateway(messages: any[], usage: Usage) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -313,6 +314,7 @@ Deno.serve(async (req) => {
   }
   messages.push({ role: "user", content: input.prompt });
 
+  const usage = newUsage();
   let lastEntity: { type: string; id: string } | null = null;
   const mutationReceipts: Array<{ type: string; id: string; label: string; contactName?: string; contactId?: string; dueAt?: string }> = [];
   const toolErrors: string[] = [];
@@ -320,7 +322,7 @@ Deno.serve(async (req) => {
 
   try {
     for (let step = 0; step < 6; step++) {
-      const res = await callGateway(messages);
+      const res = await callGateway(messages, usage);
       const msg = res?.choices?.[0]?.message;
       if (!msg) { reply = "⚠️ No pude procesar tu mensaje."; break; }
       const calls = msg.tool_calls ?? [];
