@@ -148,7 +148,7 @@ export function usePlatformBotPublic() {
         .select("id, phone_number, display_name, label, status")
         .maybeSingle();
       if (error) throw error;
-      return (data ?? null) as PlatformBotPublic | null;
+      return (data ?? null) as unknown as PlatformBotPublic | null;
     },
   });
 }
