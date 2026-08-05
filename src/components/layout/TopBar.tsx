@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useCopilot } from "@/store/copilot";
+import { useCopilotWebAccess } from "@/hooks/useCopilotAccess";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AgentsActivityIndicator } from "@/components/agents/AgentsActivityIndicator";
