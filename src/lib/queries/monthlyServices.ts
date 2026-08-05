@@ -162,7 +162,7 @@ export const useServiceTransition = () => {
 
       const { error } = await supabase
         .from("recurrence_occurrences")
-        .update(patch)
+        .update(patch as any)
         .eq("id", service.id);
       if (error) throw error;
 
@@ -178,7 +178,7 @@ export const useServiceTransition = () => {
         if (input.price_quoted != null) dealPatch.amount = input.price_quoted;
         if (input.scheduled_at) dealPatch.expected_close_date = input.scheduled_at.slice(0, 10);
         if (Object.keys(dealPatch).length) {
-          await supabase.from("deals").update(dealPatch).eq("id", service.generated_deal_id);
+          await supabase.from("deals").update(dealPatch as any).eq("id", service.generated_deal_id);
         }
       }
 
@@ -186,7 +186,7 @@ export const useServiceTransition = () => {
       if (service.generated_task_id && (status === "scheduled" || status === "executed" || status === "skipped")) {
         await supabase
           .from("tasks")
-          .update({ completed: true, completed_at: now })
+          .update({ completed: true, completed_at: now } as any)
           .eq("id", service.generated_task_id);
       }
 
