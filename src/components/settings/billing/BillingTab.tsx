@@ -8,6 +8,7 @@ import { usePlanLimits } from "@/lib/queries/planLimits";
 import { tenantPlanLabel, limitLabel, formatMXN } from "@/lib/plans";
 import { CreditsCard } from "./CreditsCard";
 import { AiEngineCard } from "./AiEngineCard";
+import { AiUsageBreakdown } from "./AiUsageBreakdown";
 
 /** Genera el historial de facturas desde el mes de inicio de facturación del tenant hasta hoy. */
 function buildInvoices(startDate: string | null | undefined) {
@@ -65,6 +66,8 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
       </Card>
 
       <CreditsCard tenantId={tenantId} plan={currentPlan} />
+
+      <AiUsageBreakdown tenantId={tenantId} />
 
       <AiEngineCard
         tenantId={tenantId}
