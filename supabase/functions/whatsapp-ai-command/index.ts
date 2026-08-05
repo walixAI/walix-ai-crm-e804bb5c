@@ -473,7 +473,7 @@ Deno.serve(async (req) => {
               .order("created_at", { ascending: false }).limit(1).maybeSingle();
             if (!last?.result_entity_id) result = { error: "no hay nada reciente que deshacer" };
             else {
-              const table = last.result_entity_type === "activity" ? "activities" : last.result_entity_type === "task" ? "tasks" : "deals";
+              const table = last.result_entity_type === "activity" ? "activities" : last.result_entity_type === "task" ? "tasks" : last.result_entity_type === "contact" ? "contacts" : "deals";
               const { error } = await sb.from(table).delete().eq("id", last.result_entity_id).eq("tenant_id", input.tenant_id);
               if (error) result = { error: error.message };
               else {
@@ -537,12 +537,9 @@ Deno.serve(async (req) => {
     result_entity_type: lastEntity?.type ?? null, result_entity_id: lastEntity?.id ?? null,
     status: toolErrors.length && !mutationReceipts.length ? "failed" : "executed", error_message: toolErrors.length ? toolErrors.join(" | ") : null, executed_at: new Date().toISOString(),
   });
-  // No bloquear la respuesta al usuario por el registro de auditoría
-  try {
-    // @ts-ignore EdgeRuntime existe en Supabase Edge Functions
-    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(logPromise);
-    else await logPromise;
-  } catch { await logPromise; }
+  // El historial es parte de la consistencia conversacional: debe persistir antes de responder.
+  const { error: logError } = await logPromise;
+  if (logError) console.error("command log error", logError);
 
   return json(reply);
 });
