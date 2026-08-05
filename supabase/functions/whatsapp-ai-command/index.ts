@@ -9,6 +9,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const MODEL = "google/gemini-3.6-flash";
+const APP_URL = "https://s1.walix.app";
 
 function admin() {
   return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
@@ -117,7 +118,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "crear_tarea",
-      description: "Crea una tarea/recordatorio para el usuario.",
+      description: "Crea una tarea/recordatorio. Si el usuario dice 'le', 'ese contacto' o continúa una conversación sobre un contacto, contact_id es obligatorio y debe provenir de buscar_contacto en este turno.",
       parameters: { type: "object", properties: { titulo: { type: "string" }, contact_id: { type: "string" }, due_at: { type: "string", description: "fecha ISO opcional" } }, required: ["titulo"] },
     },
   },
@@ -175,15 +176,16 @@ function systemPrompt(ctx: { tenantName: string; userName: string; level: PermLe
 OBJETIVO: hacer la operación ágil. Registra lo que el usuario dicta en lenguaje natural con el mínimo de preguntas.
 
 REGLAS CRÍTICAS:
-1. NUNCA inventes ni adivines un contacto. Antes de registrar algo, llama a buscar_contacto con el nombre tal como lo escribió el usuario (puede venir mal escrito, ej. "Rossi wingd" = "Rosi Guindi").
+1. NUNCA inventes ni adivines un contacto. Antes de registrar algo, llama a buscar_contacto con el nombre tal como lo escribió el usuario (puede venir mal escrito, ej. "Rossi wingd" = "Rosi Guindi"). Una coincidencia de apellido solamente NO basta si hay varias personas.
 2. Si el mejor candidato tiene score >= 0.55 y es claramente el único razonable, úsalo y menciona el nombre exacto que usaste ("Anoté en *Rosi Guindi*…").
 3. Si hay varios candidatos parecidos o el score es bajo, NO registres: pregunta corto y ofrece opciones numeradas ("¿Te refieres a 1) Rosi Guindi 2) Ambrossi?"). Recuerda el contexto: si el usuario responde "1" o el nombre, continúa con la acción pendiente.
 4. Si no existe el contacto, créalo tú con crear_contacto (basta el nombre) y continúa con lo que pidió el usuario en el MISMO turno; no lo dejes esperando.
 5. Pide SOLO los datos imprescindibles. Para una oportunidad basta el contacto y una descripción; monto/fecha son opcionales. Nunca pidas listas largas de campos.
 6. Si el usuario dice que te equivocaste o pide borrar/corregir lo último, llama a deshacer_ultimo y luego rehaz la acción correcta.
 7. Usa el historial de la conversación para entender mensajes cortos ("ya quedó", "corrige", "sí", "el 1").
-7b. AGILIDAD: pide varias herramientas a la vez cuando son independientes (buscar dos contactos, resumen + tareas). Si el usuario dicta varias cosas en un mensaje ("anota X y agéndame Y"), resuélvelas TODAS en el mismo turno. Nada de preguntas de cortesía ni relleno.
-8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. Confirma siempre QUÉ registraste y EN QUIÉN.
+7b. Si el usuario dice "le", "ese contacto" o pide una tarea después de hablar de una oportunidad, conserva EXACTAMENTE el contacto confirmado de la acción anterior; no cambies a otra persona con apellido parecido. Si no puedes identificarlo de forma inequívoca, pregunta antes de escribir.
+7c. AGILIDAD: si el usuario dicta varias cosas en un mensaje, resuélvelas TODAS. Las herramientas se ejecutan en orden: primero busca y después escribe.
+8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. SOLO puedes decir "registré", "agendé", "guardé" o "listo" cuando el resultado de la herramienta incluya ok:true y verified:true. Si hay error, dilo claramente; nunca simules éxito ni prometas que ya aparecerá.
 9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
 }
 
@@ -191,7 +193,7 @@ async function callGateway(messages: any[]) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto", parallel_tool_calls: true }),
+    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto", parallel_tool_calls: false }),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -303,6 +305,8 @@ Deno.serve(async (req) => {
   messages.push({ role: "user", content: input.prompt });
 
   let lastEntity: { type: string; id: string } | null = null;
+  const mutationReceipts: Array<{ type: string; id: string; label: string; contactName?: string; contactId?: string; dueAt?: string }> = [];
+  const toolErrors: string[] = [];
   let reply = "";
 
   try {
@@ -314,7 +318,9 @@ Deno.serve(async (req) => {
       if (!calls.length) { reply = (msg.content ?? "").trim() || "¿En qué te ayudo?"; break; }
       messages.push(msg);
 
-      const toolMsgs = await Promise.all(calls.map(async (call: any) => {
+      const toolMsgs: any[] = [];
+      // Las escrituras deben respetar el orden: buscar → resolver → escribir → verificar.
+      for (const call of calls) {
         const name = call.function?.name;
         let a: any = {};
         try { a = JSON.parse(call.function?.arguments ?? "{}"); } catch { /* ignore */ }
@@ -333,7 +339,15 @@ Deno.serve(async (req) => {
                 status: "prospecto", source: "WhatsApp Copiloto",
               }).select("id, name").single();
               if (error) result = { error: error.message };
-              else result = { ok: true, contact_id: c.id, nombre: c.name };
+              else {
+                const { data: verified } = await sb.from("contacts").select("id, name").eq("id", c.id).eq("tenant_id", input.tenant_id).maybeSingle();
+                if (!verified) result = { error: "el contacto no se pudo verificar después de guardarlo" };
+                else {
+                  lastEntity = { type: "contact", id: c.id };
+                  mutationReceipts.push({ type: "contact", id: c.id, label: c.name, contactName: c.name, contactId: c.id });
+                  result = { ok: true, verified: true, contact_id: c.id, nombre: c.name, link: `${APP_URL}/contacts/${c.id}` };
+                }
+              }
             }
           } else if (name === "registrar_nota") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
@@ -346,18 +360,46 @@ Deno.serve(async (req) => {
                   type: "manual", description: `📝 ${a.texto}`,
                 }).select("id").single();
                 if (error) result = { error: error.message };
-                else { lastEntity = { type: "activity", id: act.id }; result = { ok: true, contacto: c.name }; }
+                else {
+                  const { data: verified } = await sb.from("activities").select("id, contact_id").eq("id", act.id).eq("tenant_id", input.tenant_id).maybeSingle();
+                  if (!verified || verified.contact_id !== c.id) result = { error: "la nota no se pudo verificar después de guardarla" };
+                  else {
+                    lastEntity = { type: "activity", id: act.id };
+                    mutationReceipts.push({ type: "activity", id: act.id, label: a.texto, contactName: c.name, contactId: c.id });
+                    result = { ok: true, verified: true, contacto: c.name, contact_id: c.id, link: `${APP_URL}/contacts/${c.id}` };
+                  }
+                }
               }
             }
           } else if (name === "crear_tarea") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
             else {
+              let taskContact: { id: string; name: string } | null = null;
+              if (a.contact_id) {
+                const { data: c } = await sb.from("contacts").select("id, name").eq("tenant_id", input.tenant_id).eq("id", a.contact_id).maybeSingle();
+                taskContact = c;
+                if (!taskContact) result = { error: "contact_id inválido; vuelve a buscar y confirmar el contacto" };
+              }
+              if (result.error) {
+                // No escribir una tarea huérfana cuando el contacto enviado es inválido.
+              } else {
               const { data: t, error } = await sb.from("tasks").insert({
                 tenant_id: input.tenant_id, assignee_id: input.user_id ?? null, title: a.titulo,
-                contact_id: a.contact_id ?? null, due_at: a.due_at ?? null,
-              }).select("id").single();
+                contact_id: taskContact?.id ?? null, due_at: a.due_at ?? null,
+              }).select("id, title, contact_id, assignee_id, due_at").single();
               if (error) result = { error: error.message };
-              else { lastEntity = { type: "task", id: t.id }; result = { ok: true, titulo: a.titulo }; }
+              else {
+                const { data: verified } = await sb.from("tasks").select("id, title, contact_id, assignee_id, due_at").eq("id", t.id).eq("tenant_id", input.tenant_id).maybeSingle();
+                const validContact = (taskContact?.id ?? null) === (verified?.contact_id ?? null);
+                const validAssignee = (input.user_id ?? null) === (verified?.assignee_id ?? null);
+                if (!verified || !validContact || !validAssignee) result = { error: "la tarea no se pudo verificar con el contacto y responsable correctos" };
+                else {
+                  lastEntity = { type: "task", id: t.id };
+                  mutationReceipts.push({ type: "task", id: t.id, label: t.title, contactName: taskContact?.name, contactId: taskContact?.id, dueAt: t.due_at ?? undefined });
+                  result = { ok: true, verified: true, task_id: t.id, titulo: t.title, contacto: taskContact?.name ?? null, contact_id: taskContact?.id ?? null, responsable_asignado: Boolean(t.assignee_id), due_at: t.due_at, link: taskContact ? `${APP_URL}/contacts/${taskContact.id}` : `${APP_URL}/mi-dia` };
+                }
+              }
+              }
             }
           } else if (name === "crear_oportunidad") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
@@ -372,7 +414,15 @@ Deno.serve(async (req) => {
                   stage_id: stage?.id ?? null, stage_name: stage?.name ?? null, source: "Manual",
                 }).select("id").single();
                 if (error) result = { error: error.message };
-                else { lastEntity = { type: "deal", id: d.id }; result = { ok: true, contacto: c.name, etapa: stage?.name ?? null }; }
+                else {
+                  const { data: verified } = await sb.from("deals").select("id, name, contact_id, stage_name").eq("id", d.id).eq("tenant_id", input.tenant_id).maybeSingle();
+                  if (!verified || verified.contact_id !== c.id) result = { error: "la oportunidad no se pudo verificar con el contacto correcto" };
+                  else {
+                    lastEntity = { type: "deal", id: d.id };
+                    mutationReceipts.push({ type: "deal", id: d.id, label: verified.name, contactName: c.name, contactId: c.id });
+                    result = { ok: true, verified: true, deal_id: d.id, contacto: c.name, contact_id: c.id, etapa: verified.stage_name, link: `${APP_URL}/contacts/${c.id}` };
+                  }
+                }
               }
             }
           } else if (name === "resumen_dia") {
@@ -423,7 +473,7 @@ Deno.serve(async (req) => {
               .order("created_at", { ascending: false }).limit(1).maybeSingle();
             if (!last?.result_entity_id) result = { error: "no hay nada reciente que deshacer" };
             else {
-              const table = last.result_entity_type === "activity" ? "activities" : last.result_entity_type === "task" ? "tasks" : "deals";
+              const table = last.result_entity_type === "activity" ? "activities" : last.result_entity_type === "task" ? "tasks" : last.result_entity_type === "contact" ? "contacts" : "deals";
               const { error } = await sb.from(table).delete().eq("id", last.result_entity_id).eq("tenant_id", input.tenant_id);
               if (error) result = { error: error.message };
               else {
@@ -458,29 +508,38 @@ Deno.serve(async (req) => {
           result = { error: String(e) };
         }
 
-        return { role: "tool", tool_call_id: call.id, content: JSON.stringify(result) };
-      }));
+        if (result?.error) toolErrors.push(String(result.error));
+        toolMsgs.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+      }
       messages.push(...toolMsgs);
     }
-    if (!reply) reply = "Listo.";
+    if (!reply) reply = toolErrors.length ? `⚠️ No pude completar la acción: ${toolErrors[0]}` : "No pude completar la solicitud.";
   } catch (e) {
     console.error("ai-command error", e);
     reply = "⚠️ Algo salió mal procesando tu solicitud. Intenta de nuevo.";
   }
 
+  // Una respuesta de éxito se fundamenta en recibos verificados, no en una afirmación del modelo.
+  if (mutationReceipts.length) {
+    const lines = mutationReceipts.map((r) => {
+      const kind = r.type === "task" ? "Tarea" : r.type === "deal" ? "Oportunidad" : r.type === "activity" ? "Nota" : "Contacto";
+      return `✅ *${kind}:* ${r.label}${r.contactName && r.type !== "contact" ? `\n👤 *Contacto:* ${r.contactName}` : ""}${r.dueAt ? `\n📅 *Fecha:* ${new Date(r.dueAt).toLocaleString("es-MX", { timeZone: "America/Mexico_City", dateStyle: "medium", timeStyle: "short" })}` : ""}${r.contactId ? `\n🔗 ${APP_URL}/contacts/${r.contactId}` : ""}`;
+    });
+    reply = lines.join("\n\n");
+  } else if (toolErrors.length && /\b(listo|registr[ée]|agend[ée]|guard[ée]|ya qued[oó])\b/i.test(reply)) {
+    reply = `⚠️ No pude confirmar el registro: ${toolErrors[0]}`;
+  }
+
   const logPromise = sb.from("whatsapp_command_log").insert({
     tenant_id: input.tenant_id, user_id: input.user_id, channel_id: input.channel_id,
     from_phone: input.from_phone, prompt: input.prompt, intent: "agent",
-    action_payload: {}, reply,
+    action_payload: { receipts: mutationReceipts, errors: toolErrors }, reply,
     result_entity_type: lastEntity?.type ?? null, result_entity_id: lastEntity?.id ?? null,
-    status: "executed", executed_at: new Date().toISOString(),
+    status: toolErrors.length && !mutationReceipts.length ? "failed" : "executed", error_message: toolErrors.length ? toolErrors.join(" | ") : null, executed_at: new Date().toISOString(),
   });
-  // No bloquear la respuesta al usuario por el registro de auditoría
-  try {
-    // @ts-ignore EdgeRuntime existe en Supabase Edge Functions
-    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(logPromise);
-    else await logPromise;
-  } catch { await logPromise; }
+  // El historial es parte de la consistencia conversacional: debe persistir antes de responder.
+  const { error: logError } = await logPromise;
+  if (logError) console.error("command log error", logError);
 
   return json(reply);
 });
