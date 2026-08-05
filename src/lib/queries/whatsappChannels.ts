@@ -35,6 +35,7 @@ export interface WhatsappUserAccess {
   display_name: string | null;
   phone_e164: string;
   enabled: boolean;
+  web_enabled: boolean;
   permission_level: PermLevel;
 }
 
@@ -194,6 +195,7 @@ export function useUpsertUserAccess(tenantId: string) {
       display_name: string;
       phone_e164: string;
       enabled: boolean;
+      web_enabled?: boolean;
       permission_level: PermLevel;
       user_id?: string | null;
     }) => {
@@ -203,6 +205,8 @@ export function useUpsertUserAccess(tenantId: string) {
           phone_e164: input.phone_e164,
           enabled: input.enabled,
           permission_level: input.permission_level,
+          ...(input.web_enabled !== undefined ? { web_enabled: input.web_enabled } : {}),
+          ...(input.user_id !== undefined ? { user_id: input.user_id } : {}),
         }).eq("id", input.id);
         if (error) throw error;
         return { id: input.id, created: false };
@@ -212,6 +216,7 @@ export function useUpsertUserAccess(tenantId: string) {
           display_name: input.display_name,
           phone_e164: input.phone_e164,
           enabled: input.enabled,
+          web_enabled: input.web_enabled ?? true,
           permission_level: input.permission_level,
           user_id: input.user_id ?? null,
         }).select("id").single();
