@@ -37,9 +37,9 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 
 // Configuration
 const SITE_NAME = "walix-ai-crm"
-const SENDER_DOMAIN = "notify.invertirenterrenos.mx"
-const ROOT_DOMAIN = "invertirenterrenos.mx"
-const FROM_DOMAIN = "notify.invertirenterrenos.mx" // Domain shown in From address (may be root or sender subdomain)
+const SENDER_DOMAIN = "notify.s1.walix.app"
+const ROOT_DOMAIN = "s1.walix.app"
+const FROM_DOMAIN = "notify.s1.walix.app" // Domain shown in From address (may be root or sender subdomain)
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
