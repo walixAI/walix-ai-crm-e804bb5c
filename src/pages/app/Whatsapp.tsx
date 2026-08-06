@@ -129,8 +129,9 @@ export default function Whatsapp() {
   const aiMutation = useWhatsappAi();
   const { data: sellers = [] } = useTenantUsers();
   const { data: clientsChannelReady } = useClientsChannelReady(tenantId);
-  const waBlockedReason =
-    clientsChannelReady === false
+  const waBlockedReason = !WHATSAPP_CHAT_ENABLED
+    ? WHATSAPP_DISABLED_REASON
+    : clientsChannelReady === false
       ? "Tu WhatsApp Business aún no está conectado. Conéctalo en Configuración para escribir a clientes; mientras tanto solo puedes dejar notas internas."
       : null;
 
