@@ -30,13 +30,18 @@ interface Props {
   guidance?: Guidance | null;
   /** Aviso sobre la ventana de 24 h / costo del mensaje. */
   windowNotice?: { tone: "open" | "closing" | "closed"; text: string } | null;
+  /**
+   * Cuando el tenant no tiene una conexión de WhatsApp propia, se inhabilita
+   * el envío a clientes (las notas internas siguen disponibles).
+   */
+  blockedReason?: string | null;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
   onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
-  guidance, windowNotice,
+  guidance, windowNotice, blockedReason,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -68,6 +73,7 @@ export function Composer({
   const submit = () => {
     const v = draft.trim();
     if (!v) return;
+    if (blockedReason && !internal) return;
     onSend(v, { internal });
     onDraftChange("");
     setInternal(false);
