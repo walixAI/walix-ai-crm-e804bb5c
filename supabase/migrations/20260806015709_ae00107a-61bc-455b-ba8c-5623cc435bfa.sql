@@ -1,0 +1,1 @@
+ALTER VIEW public.platform_whatsapp_bot SET (security_invoker = true);
