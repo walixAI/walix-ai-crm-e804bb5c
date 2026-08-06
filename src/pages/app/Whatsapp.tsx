@@ -128,6 +128,11 @@ export default function Whatsapp() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const aiMutation = useWhatsappAi();
   const { data: sellers = [] } = useTenantUsers();
+  const { data: clientsChannelReady } = useClientsChannelReady(tenantId);
+  const waBlockedReason =
+    clientsChannelReady === false
+      ? "Tu WhatsApp Business aún no está conectado. Conéctalo en Configuración para escribir a clientes; mientras tanto solo puedes dejar notas internas."
+      : null;
 
   // load tenant id once
   useEffect(() => {
