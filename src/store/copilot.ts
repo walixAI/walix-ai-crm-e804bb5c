@@ -60,12 +60,10 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   },
   closeDrawer: () => set({ open: false }),
 
-  setContext: ({ conversationKey, entity }) => {
-    if (conversationKey === get().conversationKey) {
-      set({ entity });
-      return;
-    }
-    set({ conversationKey, entity, messages: [] });
+  // Historial único por usuario: la ruta/entidad solo cambia el contexto,
+  // nunca la conversación (siempre "global").
+  setContext: ({ entity }) => {
+    set({ entity });
     if (get().open) void get().loadHistoryForCurrentKey();
   },
 
@@ -75,14 +73,15 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
-      const { data, error } = await supabase
+      const { data: raw, error } = await supabase
         .from("ai_conversation_history")
         .select("id, role, content, tool_calls, created_at")
         .eq("user_id", u.user.id)
         .eq("session_id", key)
-        .order("created_at", { ascending: true })
-        .limit(40);
+        .order("created_at", { ascending: false })
+        .limit(60);
       if (error) throw error;
+      const data = [...((raw ?? []) as any[])].reverse();
       const msgs: CopilotMessage[] = [];
       let pendingTools: CopilotToolUse[] = [];
       for (const row of (data ?? []) as any[]) {
@@ -181,14 +180,22 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   },
 
   newConversation: () => {
-    const ts = Date.now();
-    const baseKey = get().conversationKey.split(":fresh:")[0];
-    const newKey = `${baseKey}:fresh:${ts}`;
-    set((s) => ({
-      conversationKey: newKey,
-      messages: [],
-      loadedKeys: { ...s.loadedKeys, [newKey]: true },
-    }));
+    const key = get().conversationKey;
+    set((s) => ({ messages: [], loadedKeys: { ...s.loadedKeys, [key]: true } }));
+    // Limpia el historial persistido para que no reaparezca al reabrir.
+    void (async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) return;
+        await supabase
+          .from("ai_conversation_history")
+          .delete()
+          .eq("user_id", u.user.id)
+          .eq("session_id", key);
+      } catch (err) {
+        console.warn("[copilot.newConversation]", err);
+      }
+    })();
   },
 
   confirmWhatsapp: async (msgId, draft) => {
