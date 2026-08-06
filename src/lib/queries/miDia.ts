@@ -107,7 +107,6 @@ export function useMiDiaData() {
       const followup: JumboItem[] = deals
         .filter((d: any) => /seguim/i.test(d.stage_name ?? "") ||
           /negoc/i.test(d.stage_name ?? ""))
-        .slice(0, 10)
         .map((d: any) => ({
           id: d.id, kind: "deal_followup",
           title: d.name, subtitle: contactName(d.contact_id),
