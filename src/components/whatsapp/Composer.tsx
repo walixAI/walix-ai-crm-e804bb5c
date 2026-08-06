@@ -98,6 +98,12 @@ export function Composer({
 
   return (
     <div className="border-t border-border bg-card">
+      {blockedReason && (
+        <div className="px-3 py-2 text-[11px] font-medium border-b bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {blockedReason}
+        </div>
+      )}
       {/* Aviso de ventana de 24 h / costo */}
       {windowNotice && (
         <div
