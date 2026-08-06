@@ -244,6 +244,10 @@ async function callGateway(messages: any[], usage: Usage) {
   });
   if (!res.ok) {
     const t = await res.text();
+    if (res.status === 402 || res.status === 403 || /credit_limit_reached|credits? (exhausted|limit)/i.test(t)) {
+      throw new Error("AI_CREDITS");
+    }
+    if (res.status === 429) throw new Error("AI_RATE_LIMIT");
     throw new Error(`AI gateway ${res.status}: ${t.slice(0, 300)}`);
   }
   const data = await res.json();
@@ -602,7 +606,14 @@ Deno.serve(async (req) => {
     if (!reply) reply = toolErrors.length ? `⚠️ No pude completar la acción: ${toolErrors[0]}` : "No pude completar la solicitud.";
   } catch (e) {
     console.error("ai-command error", e);
-    reply = "⚠️ Algo salió mal procesando tu solicitud. Intenta de nuevo.";
+    const m = String((e as any)?.message ?? e);
+    if (m.includes("AI_CREDITS")) {
+      reply = "⚠️ El asistente de IA está sin créditos disponibles en este momento. Avisa al administrador de Walix para reactivarlo.";
+    } else if (m.includes("AI_RATE_LIMIT")) {
+      reply = "⏳ Demasiadas solicitudes seguidas. Intenta de nuevo en unos segundos.";
+    } else {
+      reply = "⚠️ Algo salió mal procesando tu solicitud. Intenta de nuevo.";
+    }
   }
 
   // Una respuesta de éxito se fundamenta en recibos verificados, no en una afirmación del modelo.
