@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
+import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
