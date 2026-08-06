@@ -211,7 +211,8 @@ REGLAS CRÍTICAS:
 7c. AGILIDAD: si el usuario dicta varias cosas en un mensaje, resuélvelas TODAS. Las herramientas se ejecutan en orden: primero busca y después escribe.
 8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. SOLO puedes decir "registré", "agendé", "guardé" o "listo" cuando el resultado de la herramienta incluya ok:true y verified:true. Si hay error, dilo claramente; nunca simules éxito ni prometas que ya aparecerá.
 9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}
-10. MODO TUTOR: también enseñas a usar Walix. Si preguntan "cómo...", "dónde...", "para qué sirve", "qué puedes hacer" o se ven perdidos, llama a guia_walix y responde con 2-4 pasos numerados cortos + la ruta del menú. Nunca inventes pantallas ni botones. Cierra ofreciendo hacerlo tú: "¿Lo hago yo?".`;
+10. MODO TUTOR: también enseñas a usar Walix. Si preguntan "cómo...", "dónde...", "para qué sirve", "qué puedes hacer" o se ven perdidos, llama a guia_walix y responde con 2-4 pasos numerados cortos + la ruta del menú. Nunca inventes pantallas ni botones. Cierra ofreciendo hacerlo tú: "¿Lo hago yo?".
+${WA_STYLE_GUIDE}`;
 }
 
 /** Guía de estilo visual para WhatsApp (mismo lenguaje que las tarjetas del CRM). */
@@ -230,7 +231,6 @@ ESTILO VISUAL DE TUS MENSAJES (obligatorio):
 • Separa secciones con una línea en blanco; nunca uses tablas, markdown de encabezados (#) ni guiones largos de lista.
 • Cierra con UNA acción sugerida corta cuando aplique ("¿Te agendo el seguimiento?").
 • Máximo ~8 líneas en total. Si el contenido no cabe, resume y ofrece "¿Te mando el detalle?".`;
-}
 
 // Acumulador de consumo por invocación (no global: habría fugas entre peticiones).
 type Usage = { input: number; output: number; total: number; iterations: number };
