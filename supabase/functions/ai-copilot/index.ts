@@ -451,6 +451,19 @@ async function executeTool(
         return { ok: true, topics };
       }
 
+      case "bulk_preview":
+        return await bulkPreview(sb, tenantId, userId, args.entity as BulkEntity, args.filters ?? {}, args.changes ?? {});
+      case "bulk_confirm":
+        return await bulkConfirm(sb, tenantId, userId, String(args.operation_id));
+      case "bulk_apply":
+        return await bulkApply(sb, tenantId, userId, String(args.operation_id), String(args.confirm_code ?? ""));
+      case "bulk_undo":
+        return await bulkUndo(sb, tenantId, userId, String(args.operation_id));
+      case "bulk_cancel":
+        return await bulkCancel(sb, tenantId, String(args.operation_id));
+      case "bulk_list":
+        return await bulkList(sb, tenantId);
+
       case "get_pipeline_status": {
         const { data: p } = await sb
           .from("pipelines")
