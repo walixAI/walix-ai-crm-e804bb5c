@@ -161,6 +161,14 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "guia_walix",
+      description: "MODO TUTOR: devuelve la guía de uso de Walix (qué es cada sección y pasos) cuando el usuario pregunta cómo hacer algo, dónde está algo o qué puede hacer con Walix.",
+      parameters: { type: "object", properties: { pregunta: { type: "string" }, listar_todo: { type: "boolean" } } },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "deshacer_ultimo",
       description: "Deshace el último registro que el copiloto creó (nota, tarea u oportunidad) en esta conversación. Úsalo cuando el usuario diga que te equivocaste o pida borrar/corregir lo último.",
       parameters: { type: "object", properties: {} },
