@@ -13,7 +13,8 @@ declare global {
   }
 }
 
-export const PUBLISHED_APP_URL = "https://walix-ai-crm.lovable.app";
+export const PUBLISHED_APP_URL = "https://s1.walix.app";
+export const PUBLISHED_APP_DOMAIN = "s1.walix.app";
 
 export function isPreviewHost(): boolean {
   if (typeof window === "undefined") return false;
@@ -34,7 +35,7 @@ function buildMissingCodeMessage(appId: string) {
   const currentHost = window.location.host;
   const isPreviewHost = currentHost.includes("lovableproject.com") || currentHost.includes("id-preview--");
   if (isPreviewHost) {
-    return `Meta no devolvió código porque el flujo se abrió desde Preview (${currentHost}). Prueba desde la URL publicada ${PUBLISHED_APP_URL} y autoriza en Meta el dominio walix-ai-crm.lovable.app.`;
+    return `Meta no devolvió código porque el flujo se abrió desde una vista previa (${currentHost}). Prueba desde la URL publicada ${PUBLISHED_APP_URL} y autoriza en Meta el dominio ${PUBLISHED_APP_DOMAIN}.`;
   }
   return `Meta no devolvió código. Verifica que el App ID ${appId} tenga “Inicio de sesión con el SDK para JavaScript” en “Sí” y que el dominio ${currentHost} esté en Allowed domains y Valid OAuth Redirect URIs.`;
 }
