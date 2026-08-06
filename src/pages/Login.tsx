@@ -249,6 +249,11 @@ export default function Login() {
         }
         toast.success("¡Cuenta creada!", { description: "Vamos a configurar tu CRM" });
         await waitForAuthContext(3000);
+        const pendingInvite = localStorage.getItem("walix_pending_invite");
+        if (pendingInvite) {
+          navigate(`/invitacion?token=${pendingInvite}`, { replace: true });
+          return;
+        }
         navigate("/onboarding");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -257,6 +262,11 @@ export default function Login() {
         });
         if (error) throw error;
         await waitForAuthContext(3000);
+        const pending = localStorage.getItem("walix_pending_invite");
+        if (pending) {
+          navigate(`/invitacion?token=${pending}`, { replace: true });
+          return;
+        }
         const home = await resolveHomeRoute();
         navigate(home, { replace: true });
       }
