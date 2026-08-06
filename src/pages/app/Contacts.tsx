@@ -38,7 +38,7 @@ import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 const STATUSES: ContactLifecycle[] = ["prospecto", "cliente", "cliente_inactivo", "inactivo"];
 const SOURCES: Source[] = ["WhatsApp", "Formulario web", "Referido", "Manual"];

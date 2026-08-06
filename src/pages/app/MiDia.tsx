@@ -23,7 +23,7 @@ import { useMonthProfitability } from "@/lib/queries/expenses";
 import { cn } from "@/lib/utils";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 type ExpandKey = "runrate" | "profit" | "won" | null;
 type ColumnKey = "tasks" | "collect" | "quote" | "services";

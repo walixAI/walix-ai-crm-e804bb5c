@@ -20,7 +20,7 @@ import {
   suggestedChannel, buildDraftMessage, messageMatchesTask, suggestReschedule,
 } from "@/lib/tasks/closure";
 import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 type Method = "whatsapp" | "call" | "other";
 type CallResult = "answered" | "no_answer" | "voicemail";

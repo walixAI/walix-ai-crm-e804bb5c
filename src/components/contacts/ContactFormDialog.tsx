@@ -12,7 +12,7 @@ import { MessageCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateContact, useUpdateContact, type ContactRow } from "@/lib/queries/contacts";
 import { useAuth } from "@/hooks/useAuth";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 interface Props {
   open: boolean;
