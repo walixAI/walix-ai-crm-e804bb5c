@@ -361,8 +361,13 @@ Deno.serve(async (req) => {
 
         try {
           if (name === "buscar_contacto") {
+            const rows0 = null; void rows0;
             const rows = await findContacts(sb, input.tenant_id, ownerFilter, a.query ?? "");
             result = { candidatos: rows.map((c: any) => ({ id: c.id, nombre: c.name, empresa: c.company, telefono: c.phone, estatus: c.status, score: Number(c.score ?? 0).toFixed(2) })) };
+          } else if (name === "guia_walix") {
+            result = a.listar_todo
+              ? { ok: true, secciones: guideIndex() }
+              : { ok: true, temas: searchGuide(String(a.pregunta ?? "")) };
           } else if (name === "crear_contacto") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
             else {
