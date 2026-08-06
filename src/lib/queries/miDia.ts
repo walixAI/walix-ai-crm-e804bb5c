@@ -38,7 +38,7 @@ export function useMiDiaData() {
           .eq("completed", false).lte("due_at", endToday.toISOString())
           .order("due_at", { ascending: true }),
         supabase.from("deals").select("id,name,amount,stage_name,expected_close_date,payment_status,deal_type,service_type,scheduled_at,contact_id,is_won,is_lost,updated_at")
-          .eq("is_won", false).eq("is_lost", false).limit(200),
+          .eq("is_won", false).eq("is_lost", false).limit(1000),
         supabase.from("pipeline_stages").select("id,name,pipeline_id"),
       ]);
       if (tasksRes.error) throw tasksRes.error;
@@ -104,12 +104,17 @@ export function useMiDiaData() {
           dealId: d.id, contactId: d.contact_id,
         }));
 
+      // Seguimiento: toda oportunidad activa que no cayó en cotizar, servicio de hoy
+      // ni cobro pendiente de hoy. Funciona con cualquier configuración de etapas.
+      const usedIds = new Set([...quote, ...services, ...collect].map((i) => i.id));
       const followup: JumboItem[] = deals
-        .filter((d: any) => /seguim/i.test(d.stage_name ?? "") ||
-          /negoc/i.test(d.stage_name ?? ""))
+        .filter((d: any) => !usedIds.has(d.id))
+        .sort((a: any, b: any) =>
+          new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime())
         .map((d: any) => ({
           id: d.id, kind: "deal_followup",
-          title: d.name, subtitle: contactName(d.contact_id),
+          title: d.name,
+          subtitle: [contactName(d.contact_id), d.stage_name].filter(Boolean).join(" · ") || null,
           amount: Number(d.amount ?? 0),
           dealId: d.id, contactId: d.contact_id,
         }));
