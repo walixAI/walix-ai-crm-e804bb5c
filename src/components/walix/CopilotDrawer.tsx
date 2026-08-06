@@ -16,6 +16,18 @@ import { ToolResult } from "@/components/walix/copilot/ToolResult";
 import { useTenant } from "@/lib/queries/tenant";
 
 // ── Markdown ligero (bold, italic, listas, code inline + bloques) ────────
+/** Elimina bloques JSON crudos que el modelo a veces pega en su respuesta. */
+function stripRawJson(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/```json[\s\S]*?```/gi, "")
+    .replace(/^\s*[{[][\s\S]*?[}\]]\s*$/gm, (m) => {
+      try { JSON.parse(m.trim()); return ""; } catch { return m; }
+    })
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function renderMarkdown(md: string): ReactNode {
   if (!md) return null;
   const blocks = md.split(/```(\w*)\n([\s\S]*?)```/g);
