@@ -144,7 +144,8 @@ export const SETTINGS_TAB_PERMISSIONS: Record<string, PermissionToken> = {
 export const ROUTE_PERMISSIONS: Record<string, PermissionToken | null> = {
   "/dashboard": null,
   "/ai-inbox": "ai.use",
-  "/contacts": "contacts.read",
+  // Los vendedores tienen "contacts.read.own": deben poder entrar a Contactos.
+  "/contacts": "contacts.read.own",
   "/pipeline": "pipeline.read",
   "/whatsapp": "whatsapp.use",
   "/reports": "reports.read",

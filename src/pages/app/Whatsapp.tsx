@@ -271,16 +271,6 @@ export default function Whatsapp() {
 
   return (
     <div className="-m-4 md:-mx-6 md:-my-6 h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] flex bg-background overflow-hidden">
-      {!convLoading && conversations.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <EmptyState
-            illustration={<EmptyIllustration variant="whatsapp" />}
-            title="📱 Conecta tu WhatsApp Business"
-            description="Conecta tu cuenta para recibir mensajes y responder desde el CRM."
-            action={{ label: "Conectar WhatsApp", onClick: () => (window.location.href = "/settings") }}
-          />
-        </div>
-      ) : (
       <>
       {showList && (
         <ConversationList
@@ -295,7 +285,26 @@ export default function Whatsapp() {
       {showChat && (
         <main className="flex-1 flex min-w-0">
           <div className="flex-1 flex flex-col min-w-0">
-            {!activeConv && (
+            {!activeConv && !convLoading && conversations.length === 0 && (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <EmptyState
+                  illustration={<EmptyIllustration variant="whatsapp" />}
+                  title={waBlockedReason ? "📱 Conecta tu WhatsApp Business" : "Bandeja vacía"}
+                  description={
+                    waBlockedReason
+                      ? "Aún no hay conversaciones. Conecta tu cuenta para recibir y responder mensajes desde el CRM."
+                      : "Todavía no hay conversaciones. Cuando llegue un mensaje aparecerá aquí."
+                  }
+                  action={
+                    waBlockedReason
+                      ? { label: "Conectar WhatsApp", onClick: () => (window.location.href = "/settings") }
+                      : undefined
+                  }
+                />
+              </div>
+            )}
+
+            {!activeConv && (convLoading || conversations.length > 0) && (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
                 <div className="h-16 w-16 rounded-full bg-success/10 flex items-center justify-center mb-3">
                   <MessageCircle className="h-8 w-8 text-success" />
