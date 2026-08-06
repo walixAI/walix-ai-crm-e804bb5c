@@ -62,6 +62,28 @@ export function useWhatsappChannels(tenantId: string | null | undefined) {
   });
 }
 
+/**
+ * ¿El tenant ya tiene un canal propio de WhatsApp para clientes conectado?
+ * Mientras no exista, la comunicación con clientes queda inhabilitada.
+ */
+export function useClientsChannelReady(tenantId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["wa-clients-channel-ready", tenantId],
+    enabled: !!tenantId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_channels")
+        .select("id,status,phone_number_id,is_platform")
+        .eq("tenant_id", tenantId!)
+        .eq("kind", "clients");
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{ status: string; phone_number_id: string | null; is_platform: boolean }>;
+      return rows.some((c) => !c.is_platform && c.status === "connected" && !!c.phone_number_id);
+    },
+  });
+}
+
 /** Marca un número como predeterminado para su tipo de canal. */
 export function useSetDefaultChannel(tenantId: string) {
   const qc = useQueryClient();

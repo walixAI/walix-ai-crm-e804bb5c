@@ -30,13 +30,18 @@ interface Props {
   guidance?: Guidance | null;
   /** Aviso sobre la ventana de 24 h / costo del mensaje. */
   windowNotice?: { tone: "open" | "closing" | "closed"; text: string } | null;
+  /**
+   * Cuando el tenant no tiene una conexión de WhatsApp propia, se inhabilita
+   * el envío a clientes (las notas internas siguen disponibles).
+   */
+  blockedReason?: string | null;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
   onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
-  guidance, windowNotice,
+  guidance, windowNotice, blockedReason,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -68,6 +73,7 @@ export function Composer({
   const submit = () => {
     const v = draft.trim();
     if (!v) return;
+    if (blockedReason && !internal) return;
     onSend(v, { internal });
     onDraftChange("");
     setInternal(false);
@@ -92,6 +98,12 @@ export function Composer({
 
   return (
     <div className="border-t border-border bg-card">
+      {blockedReason && (
+        <div className="px-3 py-2 text-[11px] font-medium border-b bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {blockedReason}
+        </div>
+      )}
       {/* Aviso de ventana de 24 h / costo */}
       {windowNotice && (
         <div
@@ -234,7 +246,14 @@ export function Composer({
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}
             onKeyDown={onKey}
-            placeholder={internal ? "Nota interna (no se envía al cliente)…" : "Escribe un mensaje…  ('/' para plantillas)"}
+            disabled={!!blockedReason && !internal}
+            placeholder={
+              blockedReason && !internal
+                ? "Conecta tu WhatsApp Business para escribir a clientes…"
+                : internal
+                ? "Nota interna (no se envía al cliente)…"
+                : "Escribe un mensaje…  ('/' para plantillas)"
+            }
             rows={1}
             className={cn(
               "resize-none min-h-[36px] max-h-[160px] py-2 w-full",
@@ -243,7 +262,13 @@ export function Composer({
           />
         </div>
 
-        <Button onClick={submit} disabled={!draft.trim() || sending} size="icon" className="h-9 w-9 shrink-0">
+        <Button
+          onClick={submit}
+          disabled={!draft.trim() || sending || (!!blockedReason && !internal)}
+          title={blockedReason && !internal ? blockedReason : "Enviar"}
+          size="icon"
+          className="h-9 w-9 shrink-0"
+        >
           <Send className="h-4 w-4" />
         </Button>
       </div>

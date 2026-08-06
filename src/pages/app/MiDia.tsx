@@ -361,7 +361,14 @@ interface JumboColumnProps {
   onRescheduleCollect?: (item: JumboItem) => void;
 }
 
+const PAGE_SIZE = 10;
+
 function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggle, onRegisterPayment, onRescheduleCollect }: JumboColumnProps) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const start = safePage * PAGE_SIZE;
+  const visible = items.slice(start, start + PAGE_SIZE);
   return (
     <Card className="border-2">
       <CardHeader className="pb-3">
@@ -376,7 +383,7 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
         {items.length === 0 && (
           <div className="text-center text-muted-foreground py-6 text-lg">{emptyText}</div>
         )}
-        {items.map(i => {
+        {visible.map(i => {
           const href =
             i.contactId
               ? (i.kind === "task"
@@ -442,6 +449,22 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
             </div>
           );
         })}
+        {items.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+            <span className="text-sm text-muted-foreground">
+              {start + 1}–{Math.min(start + PAGE_SIZE, items.length)} de {items.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">{safePage + 1}/{totalPages}</span>
+              <Button variant="outline" size="sm" disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

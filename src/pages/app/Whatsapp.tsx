@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { useClientsChannelReady } from "@/lib/queries/whatsappChannels";
 
 export default function Whatsapp() {
   const user = useAuthStore((s) => s.user);
@@ -127,6 +128,11 @@ export default function Whatsapp() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const aiMutation = useWhatsappAi();
   const { data: sellers = [] } = useTenantUsers();
+  const { data: clientsChannelReady } = useClientsChannelReady(tenantId);
+  const waBlockedReason =
+    clientsChannelReady === false
+      ? "Tu WhatsApp Business aún no está conectado. Conéctalo en Configuración para escribir a clientes; mientras tanto solo puedes dejar notas internas."
+      : null;
 
   // load tenant id once
   useEffect(() => {
@@ -167,6 +173,10 @@ export default function Whatsapp() {
 
   const handleSend = async (body: string, opts?: { internal?: boolean }) => {
     if (!activeConv || !user) return;
+    if (!opts?.internal && waBlockedReason) {
+      toast({ title: "WhatsApp no conectado", description: waBlockedReason, variant: "destructive" as any });
+      return;
+    }
     if (!tenantId) {
       toast({ title: "Sin tenant", description: "No se pudo identificar tu organización.", variant: "destructive" });
       return;
@@ -349,6 +359,7 @@ export default function Whatsapp() {
                       : null
                   }
                   onClearAiDraft={() => { setDraft(""); setAiDraftActive(false); }}
+                  blockedReason={waBlockedReason}
                 />
               </>
             )}
