@@ -111,9 +111,10 @@ export function DealsPerformanceView({
     const inPeriod = deals.filter((d) => {
       const created = new Date(d.createdAt);
       if (lens === "created") return created >= start && created < end;
-      // active: open deals that existed during the period
+      // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
-      return created < end;
+      const ref = d.expectedCloseDate ? new Date(d.expectedCloseDate) : created;
+      return ref >= start && ref < end;
     });
     return inPeriod.filter((d) =>
       (productId === "all" || d.productCategoryId === productId) &&
