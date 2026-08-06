@@ -13,7 +13,7 @@ import { fetchTenant } from "@/services/tenant";
 import { applyBrandPrimary, removeBrandPrimary } from "@/lib/branding";
 import { TrialBanner } from "@/components/walix/TrialBanner";
 import { useCopilot } from "@/store/copilot";
-import { deriveConversationKey, deriveEntity } from "@/lib/constants/copilotSuggestions";
+import { deriveEntity } from "@/lib/constants/copilotSuggestions";
 import { useCopilotWebAccess } from "@/hooks/useCopilotAccess";
 
 export function AppLayout() {
