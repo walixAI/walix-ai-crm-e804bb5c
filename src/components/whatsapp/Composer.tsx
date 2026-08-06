@@ -246,7 +246,14 @@ export function Composer({
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}
             onKeyDown={onKey}
-            placeholder={internal ? "Nota interna (no se envía al cliente)…" : "Escribe un mensaje…  ('/' para plantillas)"}
+            disabled={!!blockedReason && !internal}
+            placeholder={
+              blockedReason && !internal
+                ? "Conecta tu WhatsApp Business para escribir a clientes…"
+                : internal
+                ? "Nota interna (no se envía al cliente)…"
+                : "Escribe un mensaje…  ('/' para plantillas)"
+            }
             rows={1}
             className={cn(
               "resize-none min-h-[36px] max-h-[160px] py-2 w-full",
@@ -255,7 +262,13 @@ export function Composer({
           />
         </div>
 
-        <Button onClick={submit} disabled={!draft.trim() || sending} size="icon" className="h-9 w-9 shrink-0">
+        <Button
+          onClick={submit}
+          disabled={!draft.trim() || sending || (!!blockedReason && !internal)}
+          title={blockedReason && !internal ? blockedReason : "Enviar"}
+          size="icon"
+          className="h-9 w-9 shrink-0"
+        >
           <Send className="h-4 w-4" />
         </Button>
       </div>
