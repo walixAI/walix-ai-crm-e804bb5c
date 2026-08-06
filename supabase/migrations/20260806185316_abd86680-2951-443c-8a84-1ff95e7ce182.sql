@@ -1,0 +1,1 @@
+update public.tenants set trial_ends_at = null where id = '23a83204-783a-4a7b-b4a6-4861b12665ff';

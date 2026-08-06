@@ -27,21 +27,40 @@ function RequirementRow({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-async function resolveHomeRoute(): Promise<string> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return "/dashboard";
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("ui_prefs, onboarded")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profile && (profile as any).onboarded === false) return "/onboarding";
-    const mode = (profile as any)?.ui_prefs?.mode;
-    return mode === "simple" ? "/mi-dia" : "/dashboard";
-  } catch {
-    return "/dashboard";
+/** Traduce los mensajes de error de Supabase Auth al español. */
+function translateAuthError(raw: string): { title: string; description: string } {
+  const msg = (raw || "").toLowerCase();
+  if (msg.includes("should be different") || msg.includes("same as the old") || msg.includes("similar")) {
+    return {
+      title: "Usa una contraseña distinta",
+      description: "La nueva contraseña no puede ser igual o muy parecida a la anterior.",
+    };
   }
+  if (msg.includes("pwned") || msg.includes("weak") || msg.includes("compromised")) {
+    return {
+      title: "Contraseña insegura",
+      description: "Esta contraseña aparece en filtraciones públicas. Elige una más única.",
+    };
+  }
+  if (msg.includes("at least") || msg.includes("should be at least") || msg.includes("too short")) {
+    return {
+      title: "Contraseña muy corta",
+      description: "Debe tener al menos 10 caracteres con letras, números y un símbolo.",
+    };
+  }
+  if (msg.includes("rate") || msg.includes("too many")) {
+    return {
+      title: "Demasiados intentos",
+      description: "Espera unos minutos antes de volver a intentarlo.",
+    };
+  }
+  if (msg.includes("password") && msg.includes("match")) {
+    return { title: "Las contraseñas no coinciden", description: "Revisa el campo de confirmación." };
+  }
+  return {
+    title: "No pudimos actualizar tu contraseña",
+    description: "Inténtalo de nuevo en unos segundos.",
+  };
 }
 
 export default function ResetPassword() {
@@ -106,21 +125,18 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      toast.success("Contraseña actualizada", { description: "Ya puedes usar tu nueva contraseña." });
-      const home = await resolveHomeRoute();
-      navigate(home, { replace: true });
+      toast.success("Contraseña actualizada", {
+        description: "Inicia sesión con tu nueva contraseña.",
+      });
+      await supabase.auth.signOut();
+      navigate("/login", { replace: true });
     } catch (err: any) {
       const msg = (err?.message || "").toLowerCase();
-      if (msg.includes("weak") || msg.includes("pwned")) {
-        toast.error("Contraseña insegura", {
-          description: "Esta contraseña aparece en filtraciones públicas. Elige una más única.",
-        });
-      } else if (msg.includes("session") || msg.includes("jwt")) {
+      if (msg.includes("session") || msg.includes("jwt")) {
         setState("invalid");
       } else {
-        toast.error("No pudimos actualizar tu contraseña", {
-          description: err?.message || "Inténtalo de nuevo en unos segundos.",
-        });
+        const t = translateAuthError(err?.message || "");
+        toast.error(t.title, { description: t.description });
       }
     } finally {
       setSaving(false);
