@@ -608,7 +608,7 @@ Deno.serve(async (req) => {
     console.error("ai-command error", e);
     const m = String((e as any)?.message ?? e);
     if (m.includes("AI_CREDITS")) {
-      reply = "⚠️ El asistente de IA está sin créditos disponibles en este momento. Avisa al administrador de Walix para reactivarlo.";
+      reply = "⚠️ El asistente de IA está presentando actualizaciones de IA en este momento. Notifica al administrador de Walix";
     } else if (m.includes("AI_RATE_LIMIT")) {
       reply = "⏳ Demasiadas solicitudes seguidas. Intenta de nuevo en unos segundos.";
     } else {
