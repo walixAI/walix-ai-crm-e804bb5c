@@ -11,7 +11,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useCopilot, type CopilotMessage } from "@/store/copilot";
 import { getCopilotSuggestions } from "@/lib/constants/copilotSuggestions";
-import type { CopilotToolUse } from "@/services/ai";
 import { toast } from "@/hooks/use-toast";
 import { ToolResult } from "@/components/walix/copilot/ToolResult";
 import { useTenant } from "@/lib/queries/tenant";
@@ -124,10 +123,10 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
   };
 
   return (
-    <div className="rounded-xl border-2 border-success bg-success/10 p-3 space-y-2">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <MessageCircle className="h-4 w-4 text-success" />
-        Enviar mensaje a {msg.pendingWhatsapp.contactName ?? "este contacto"}
+    <div className="rounded-2xl border border-primary/40 bg-primary/5 p-3 space-y-2 shadow-sm">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-primary">
+        <Sparkles className="h-3.5 w-3.5" />
+        Walix IA sugiere responder a {msg.pendingWhatsapp.contactName ?? "este contacto"}
       </div>
       {editing ? (
         <Textarea
@@ -136,7 +135,7 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
           className="text-sm min-h-[80px] bg-card"
         />
       ) : (
-        <div className="rounded-lg bg-card border border-border px-3 py-2 text-sm whitespace-pre-wrap">
+        <div className="rounded-xl bg-card border border-border/70 px-3 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap text-foreground">
           {draft}
         </div>
       )}
@@ -145,10 +144,10 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
           size="sm"
           onClick={onSend}
           disabled={sending || !draft.trim()}
-          className="bg-success hover:bg-success/90 text-success-foreground gap-1 h-8"
+          className="flex-1 bg-gradient-brand text-primary-foreground gap-1 h-9 rounded-xl font-semibold hover:opacity-90"
         >
-          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-          Enviar ahora
+          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
+          Enviar por WhatsApp
         </Button>
         <Button
           size="sm"
@@ -175,7 +174,7 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
 function UserBubble({ msg }: { msg: Extract<CopilotMessage, { role: "user" }> }) {
   return (
     <div className="flex justify-end w-full">
-      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm shadow-sm">
+      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-gradient-brand text-primary-foreground px-3.5 py-2.5 text-[13.5px] shadow-md">
         <div className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</div>
         <div className="text-[10px] opacity-70 mt-1 text-right">{msg.at}</div>
       </div>
@@ -186,12 +185,12 @@ function UserBubble({ msg }: { msg: Extract<CopilotMessage, { role: "user" }> })
 function AssistantBubble({ msg }: { msg: Extract<CopilotMessage, { role: "assistant" }> }) {
   return (
     <div className="flex gap-2 w-full min-w-0">
-      <div className="h-7 w-7 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shrink-0">
-        <Sparkles className="h-3.5 w-3.5" />
+      <div className="h-7 w-7 grid place-items-center rounded-xl bg-gradient-brand text-primary-foreground shrink-0 shadow-sm">
+        <Bot className="h-3.5 w-3.5" />
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         {msg.text && (
-          <div className="rounded-2xl rounded-tl-sm bg-muted/60 border border-border px-3.5 py-2.5 text-sm leading-relaxed text-foreground break-words">
+          <div className="text-[13.5px] leading-relaxed text-foreground break-words pt-0.5">
             {renderMarkdown(msg.text)}
           </div>
         )}
