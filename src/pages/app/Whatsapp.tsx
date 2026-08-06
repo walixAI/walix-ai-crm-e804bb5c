@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
+import { useClientsChannelReady } from "@/lib/queries/whatsappChannels";
 
 export default function Whatsapp() {
   const user = useAuthStore((s) => s.user);
@@ -167,6 +168,10 @@ export default function Whatsapp() {
 
   const handleSend = async (body: string, opts?: { internal?: boolean }) => {
     if (!activeConv || !user) return;
+    if (!opts?.internal && waBlockedReason) {
+      toast({ title: "WhatsApp no conectado", description: waBlockedReason, variant: "destructive" as any });
+      return;
+    }
     if (!tenantId) {
       toast({ title: "Sin tenant", description: "No se pudo identificar tu organización.", variant: "destructive" });
       return;
