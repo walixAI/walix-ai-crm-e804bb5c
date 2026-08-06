@@ -4281,6 +4281,10 @@ export type Database = {
       }
       tenant_active_users: { Args: { _tenant_id: string }; Returns: number }
       trial_days_left: { Args: { _tenant_id: string }; Returns: number }
+      user_can_use_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       wa_charge_conversation: {
         Args: {
           _category?: string
