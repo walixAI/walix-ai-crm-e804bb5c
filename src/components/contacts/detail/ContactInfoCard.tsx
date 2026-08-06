@@ -8,11 +8,12 @@ import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useContactSources } from "@/lib/queries/contactSources";
 import { EditFieldPopover } from "./EditFieldPopover";
 import { toast } from "sonner";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 interface Props { contact: ContactRow }
 
 export function ContactInfoCard({ contact }: Props) {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const update = useUpdateContact();
   const { data: users = [] } = useTenantUsers();
   const { data: sources = [] } = useContactSources();

@@ -20,7 +20,7 @@ import {
   suggestedChannel, buildDraftMessage, messageMatchesTask, suggestReschedule,
 } from "@/lib/tasks/closure";
 import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 type Method = "whatsapp" | "call" | "other";
 type CallResult = "answered" | "no_answer" | "voicemail";
@@ -45,6 +45,7 @@ interface Props {
 }
 
 export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, deal }: Props) {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const suggested = suggestedChannel(task?.taskKind);
   const [method, setMethod] = useState<Method>(suggested);
   const [mode, setMode] = useState<Mode>("resolve");

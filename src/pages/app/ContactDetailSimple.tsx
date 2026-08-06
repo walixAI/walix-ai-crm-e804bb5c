@@ -10,9 +10,10 @@ import { relativeTime } from "@/lib/format/relativeTime";
 import { SimpleContactHeader } from "@/components/contacts/simple/SimpleContactHeader";
 import { PendingList } from "@/components/contacts/simple/PendingList";
 import { QuickTourDialog, useContactSimpleTour } from "@/components/contacts/simple/QuickTourPopover";
-import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function ContactDetailSimple() {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const { id } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
