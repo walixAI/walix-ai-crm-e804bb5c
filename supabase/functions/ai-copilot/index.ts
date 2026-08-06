@@ -350,6 +350,12 @@ async function executeTool(
 ): Promise<any> {
   try {
     switch (name) {
+      case "get_help_topic": {
+        if (args.list_all) return { ok: true, sections: guideIndex() };
+        const topics = searchGuide(String(args.query ?? ""));
+        return { ok: true, topics };
+      }
+
       case "get_pipeline_status": {
         const { data: p } = await sb
           .from("pipelines")
