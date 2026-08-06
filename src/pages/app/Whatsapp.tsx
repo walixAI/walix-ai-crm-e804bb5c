@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useClientsChannelReady } from "@/lib/queries/whatsappChannels";
+import { WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function Whatsapp() {
   const user = useAuthStore((s) => s.user);
