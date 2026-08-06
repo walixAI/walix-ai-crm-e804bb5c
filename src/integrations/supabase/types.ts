@@ -4138,6 +4138,7 @@ export type Database = {
         Returns: number
       }
       generate_recurring_expenses: { Args: never; Returns: number }
+      get_invitation_public: { Args: { _token: string }; Returns: Json }
       get_user_profitability: {
         Args: {
           _month: number
