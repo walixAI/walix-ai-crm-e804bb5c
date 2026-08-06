@@ -11,6 +11,7 @@ export function getCopilotSuggestions(ctx: CopilotContext): string[] {
       "¿Cuánto vale mi pipeline hoy?",
       "¿Qué deals cierran esta semana?",
       "Resume las conversaciones sin responder",
+      "Enséñame a usar Walix paso a paso",
     ];
   }
   if (p.match(/^\/contacts\/[0-9a-f-]{36}/i)) {
@@ -18,6 +19,7 @@ export function getCopilotSuggestions(ctx: CopilotContext): string[] {
       "¿Cuándo fue el último contacto con este lead?",
       "Crea una tarea de seguimiento para mañana",
       "Redacta un WhatsApp de seguimiento",
+      "¿Qué puedo hacer desde la ficha de un contacto?",
     ];
   }
   if (p.startsWith("/contacts")) {
@@ -25,6 +27,7 @@ export function getCopilotSuggestions(ctx: CopilotContext): string[] {
       "Top 5 contactos más activos esta semana",
       "¿Qué leads no han recibido respuesta?",
       "Crea un contacto nuevo",
+      "¿Cómo importo mis clientes desde Excel?",
     ];
   }
   if (p.startsWith("/pipeline")) {
@@ -32,6 +35,7 @@ export function getCopilotSuggestions(ctx: CopilotContext): string[] {
       "¿Qué oportunidades están en riesgo?",
       "Top 5 deals por monto",
       "¿Cuál es la conversión por etapa?",
+      "¿Cómo funcionan las etapas del pipeline?",
     ];
   }
   if (p.startsWith("/whatsapp")) {
@@ -39,12 +43,35 @@ export function getCopilotSuggestions(ctx: CopilotContext): string[] {
       "Resume esta conversación",
       "Sugiere una respuesta",
       "Crea un deal con este contacto",
+      "¿Cómo funciona la ventana de 24 horas?",
+    ];
+  }
+  if (p.startsWith("/expenses")) {
+    return [
+      "¿En qué estoy gastando este mes?",
+      "¿Cuál es mi margen?",
+      "¿Cómo registro un gasto recurrente?",
+    ];
+  }
+  if (p.startsWith("/mi-dia")) {
+    return [
+      "¿Qué necesito hacer hoy?",
+      "¿Cómo voy contra la meta del mes?",
+      "¿Cómo registro un seguimiento?",
+    ];
+  }
+  if (p.startsWith("/settings")) {
+    return [
+      "¿Cómo invito a un usuario?",
+      "¿Cómo defino la meta del mes?",
+      "¿Qué ve cada rol?",
     ];
   }
   return [
     "Top 5 leads más calientes",
     "¿Quién es mi contacto más activo?",
     "¿Qué necesito hacer hoy?",
+    "¿Qué puedes hacer por mí?",
   ];
 }
 
