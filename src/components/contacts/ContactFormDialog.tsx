@@ -12,6 +12,7 @@ import { MessageCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateContact, useUpdateContact, type ContactRow } from "@/lib/queries/contacts";
 import { useAuth } from "@/hooks/useAuth";
+import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 interface Props {
   open: boolean;
@@ -71,7 +72,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
         toast.success("Contacto creado");
       }
       onOpenChange(false);
-      if (openWA && savedId) navigate(`/whatsapp?contactId=${savedId}`);
+      if (openWA && savedId && WHATSAPP_CHAT_ENABLED) navigate(`/whatsapp?contactId=${savedId}`);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");
     }

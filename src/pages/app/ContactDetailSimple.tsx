@@ -10,6 +10,7 @@ import { relativeTime } from "@/lib/format/relativeTime";
 import { SimpleContactHeader } from "@/components/contacts/simple/SimpleContactHeader";
 import { PendingList } from "@/components/contacts/simple/PendingList";
 import { QuickTourDialog, useContactSimpleTour } from "@/components/contacts/simple/QuickTourPopover";
+import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function ContactDetailSimple() {
   const { id } = useParams();
@@ -37,6 +38,7 @@ export default function ContactDetailSimple() {
     pending[0] ||
     null;
   const openWA = () => {
+    if (blockWhatsappAction()) return;
     const params = new URLSearchParams({ contactId: contact.id });
     if (primaryTask) {
       const draft = buildDraftMessage(
