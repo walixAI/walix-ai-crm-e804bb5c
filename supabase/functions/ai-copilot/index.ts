@@ -1216,11 +1216,11 @@ Deno.serve(async (req) => {
         }),
       });
 
-      if (aiRes.status === 429) return json({ error: "Rate limit. Intenta en unos segundos." }, 429);
+      if (aiRes.status === 429) return json({ text: "⏳ Demasiadas solicitudes seguidas. Intenta de nuevo en unos segundos.", toolsUsed: [] }, 200);
       if (aiRes.status === 402 || aiRes.status === 403) {
         const t = await aiRes.text().catch(() => "");
         console.error("[ai-copilot] credits/permission", aiRes.status, t.slice(0, 300));
-        return json({ error: "El asistente de IA está sin créditos disponibles. Avisa al administrador de Walix para reactivarlo." }, 200);
+        return json({ text: "⚠️ El asistente de IA está sin créditos disponibles en este momento. Avisa al administrador de Walix para reactivarlo.", toolsUsed: [] }, 200);
       }
       // Fallback: si el historial está corrupto, reintentar con system + último user
       if (aiRes.status === 400 && iter === 0) {
@@ -1245,9 +1245,9 @@ Deno.serve(async (req) => {
         const t = await aiRes.text();
         console.error("[ai-copilot] gateway error", aiRes.status, t);
         if (/credit_limit_reached|insufficient/i.test(t)) {
-          return json({ error: "El asistente de IA está sin créditos disponibles. Avisa al administrador de Walix para reactivarlo." }, 200);
+          return json({ text: "⚠️ El asistente de IA está sin créditos disponibles en este momento. Avisa al administrador de Walix para reactivarlo.", toolsUsed: [] }, 200);
         }
-        return json({ error: "El asistente no pudo responder en este momento. Intenta de nuevo." }, 200);
+        return json({ text: "⚠️ El asistente no pudo responder en este momento. Intenta de nuevo en unos segundos.", toolsUsed: [] }, 200);
       }
 
       const data = await aiRes.json();
