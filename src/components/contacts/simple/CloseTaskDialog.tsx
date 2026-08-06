@@ -20,6 +20,7 @@ import {
   suggestedChannel, buildDraftMessage, messageMatchesTask, suggestReschedule,
 } from "@/lib/tasks/closure";
 import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
+import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 type Method = "whatsapp" | "call" | "other";
 type CallResult = "answered" | "no_answer" | "voicemail";
@@ -323,7 +324,9 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
         <DialogFooter>
           <Button variant="outline" size="lg" onClick={() => { onOpenChange(false); }}>Cancelar</Button>
           {mode === "resolve" && isWA && (
-            <Button size="lg" onClick={sendWhatsappAndClose} disabled={sending || !message.trim()}>
+            <Button size="lg" onClick={() => { if (blockWhatsappAction()) return; void sendWhatsappAndClose(); }}
+              title={WHATSAPP_CHAT_ENABLED ? undefined : WHATSAPP_DISABLED_REASON}
+              disabled={!WHATSAPP_CHAT_ENABLED || sending || !message.trim()}>
               <Send className="mr-1 h-4 w-4" />
               {ackNoMatch ? "Enviar y cerrar" : "Enviar WhatsApp"}
             </Button>
