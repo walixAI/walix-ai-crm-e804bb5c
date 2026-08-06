@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
+import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -161,6 +162,14 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "guia_walix",
+      description: "MODO TUTOR: devuelve la guía de uso de Walix (qué es cada sección y pasos) cuando el usuario pregunta cómo hacer algo, dónde está algo o qué puede hacer con Walix.",
+      parameters: { type: "object", properties: { pregunta: { type: "string" }, listar_todo: { type: "boolean" } } },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "deshacer_ultimo",
       description: "Deshace el último registro que el copiloto creó (nota, tarea u oportunidad) en esta conversación. Úsalo cuando el usuario diga que te equivocaste o pida borrar/corregir lo último.",
       parameters: { type: "object", properties: {} },
@@ -201,7 +210,8 @@ REGLAS CRÍTICAS:
 7b. Si el usuario dice "le", "ese contacto" o pide una tarea después de hablar de una oportunidad, conserva EXACTAMENTE el contacto confirmado de la acción anterior; no cambies a otra persona con apellido parecido. Si no puedes identificarlo de forma inequívoca, pregunta antes de escribir.
 7c. AGILIDAD: si el usuario dicta varias cosas en un mensaje, resuélvelas TODAS. Las herramientas se ejecutan en orden: primero busca y después escribe.
 8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. SOLO puedes decir "registré", "agendé", "guardé" o "listo" cuando el resultado de la herramienta incluya ok:true y verified:true. Si hay error, dilo claramente; nunca simules éxito ni prometas que ya aparecerá.
-9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
+9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}
+10. MODO TUTOR: también enseñas a usar Walix. Si preguntan "cómo...", "dónde...", "para qué sirve", "qué puedes hacer" o se ven perdidos, llama a guia_walix y responde con 2-4 pasos numerados cortos + la ruta del menú. Nunca inventes pantallas ni botones. Cierra ofreciendo hacerlo tú: "¿Lo hago yo?".`;
 }
 
 // Acumulador de consumo por invocación (no global: habría fugas entre peticiones).
@@ -355,6 +365,10 @@ Deno.serve(async (req) => {
           if (name === "buscar_contacto") {
             const rows = await findContacts(sb, input.tenant_id, ownerFilter, a.query ?? "");
             result = { candidatos: rows.map((c: any) => ({ id: c.id, nombre: c.name, empresa: c.company, telefono: c.phone, estatus: c.status, score: Number(c.score ?? 0).toFixed(2) })) };
+          } else if (name === "guia_walix") {
+            result = a.listar_todo
+              ? { ok: true, secciones: guideIndex() }
+              : { ok: true, temas: searchGuide(String(a.pregunta ?? "")) };
           } else if (name === "crear_contacto") {
             if (!permAllows(input.permission_level, "write_light")) result = { error: "sin permiso para escribir" };
             else {

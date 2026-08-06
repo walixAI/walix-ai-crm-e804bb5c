@@ -8,6 +8,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.4
 import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserProfile } from "../_shared/ai-tools.ts";
 import { resolveTenantModel, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
+import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,21 @@ const MAX_ITERATIONS = 5;
 // ────────────────────────────────────────────────────────────────────────
 
 const CRM_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "get_help_topic",
+      description: "MODO TUTOR: devuelve la guía de uso de Walix (pasos, ruta y tips) para una duda del usuario sobre cómo funciona o cómo hacer algo en el CRM. Úsala siempre que pregunten 'cómo...', 'dónde...', 'para qué sirve...', 'no sé usar...'.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Duda del usuario en sus palabras, ej. 'cómo importo mis clientes'" },
+          list_all: { type: "boolean", description: "true para devolver el índice completo de secciones de Walix" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
   {
     type: "function",
     function: {
@@ -334,6 +350,12 @@ async function executeTool(
 ): Promise<any> {
   try {
     switch (name) {
+      case "get_help_topic": {
+        if (args.list_all) return { ok: true, sections: guideIndex() };
+        const topics = searchGuide(String(args.query ?? ""));
+        return { ok: true, topics };
+      }
+
       case "get_pipeline_status": {
         const { data: p } = await sb
           .from("pipelines")
@@ -908,7 +930,19 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  • 'mi meta', 'cuál es la meta', 'meta del mes' → llama `get_monthly_goal`.",
     "  • 'ajusta la meta', 'cambia la meta a', 'pon la meta en', 'sube/baja la meta' → confirma monto y mes con el usuario y luego llama `set_monthly_goal` con confirmed=true. Nunca la llames en el primer turno; primero repite '¿Confirmas ajustar la meta de <mes> <año> a $<monto>?'.",
     "  • 'quién vendió más', 'ranking vendedores', 'rendimiento del equipo' → llama `get_team_performance`.",
+    "  • 'cómo hago...', 'dónde está...', 'para qué sirve...', 'no sé usar Walix', 'enséñame', '¿qué puedo hacer aquí?' → llama `get_help_topic` (MODO TUTOR).",
     "Siempre intenta con las tools ANTES de responder que no puedes. Solo di que no hay información si la tool devolvió 0 resultados.",
+    "",
+    "MODO TUTOR / GUÍA (además de todas tus capacidades):",
+    "También eres el tutor de Walix.ai: enseñas a usar el CRM paso a paso, en lenguaje simple, sin tecnicismos.",
+    "Reglas del modo tutor:",
+    "  1) Nunca inventes pantallas, botones o rutas: usa SIEMPRE `get_help_topic` y apóyate solo en lo que devuelva.",
+    "  2) Responde con: una frase de qué es, luego 2-4 pasos numerados cortos, y termina con la ruta del menú (ej: 'Configuración → Metas').",
+    "  3) Si el usuario puede hacerlo contigo, ofrécelo: '¿Quieres que lo haga yo ahora?' y ejecuta con las tools cuando confirme.",
+    "  4) Adapta el nivel: si el usuario es nuevo o se ve perdido, propón el siguiente paso concreto ('empieza por registrar tu meta del mes').",
+    "  5) Si la duda mezcla datos y aprendizaje ('¿cómo va mi pipeline y cómo lo uso?'), llama en el mismo turno la tool de datos y `get_help_topic`.",
+    "  6) Termina las explicaciones largas con UNA sugerencia de qué aprender o hacer después.",
+    "El modo tutor NO amplía el guardrail de temas: sigues hablando solo del negocio del tenant y de cómo usar Walix.",
     "",
     "GUARDRAIL DE TEMAS (obligatorio):",
     `Solo puedes hablar sobre: (a) la operación del negocio del tenant "${tenant?.brand_name ?? tenant?.name ?? "actual"}" (ventas, contactos, deals, pipeline, tareas, gastos, rentabilidad, metas, equipo, WhatsApp del CRM), (b) cómo usar Walix.ai y sus funciones.`,
