@@ -1019,6 +1019,77 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_edit_operations: {
+        Row: {
+          applied_at: string | null
+          applied_count: number
+          changes: Json
+          confirm_code: string
+          created_at: string
+          entity: string
+          expires_at: string
+          filters: Json
+          id: string
+          matched_count: number
+          requested_by: string
+          reverted_at: string | null
+          snapshot: Json | null
+          status: string
+          summary: string | null
+          target_ids: string[]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_count?: number
+          changes?: Json
+          confirm_code: string
+          created_at?: string
+          entity: string
+          expires_at?: string
+          filters?: Json
+          id?: string
+          matched_count?: number
+          requested_by: string
+          reverted_at?: string | null
+          snapshot?: Json | null
+          status?: string
+          summary?: string | null
+          target_ids?: string[]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_count?: number
+          changes?: Json
+          confirm_code?: string
+          created_at?: string
+          entity?: string
+          expires_at?: string
+          filters?: Json
+          id?: string
+          matched_count?: number
+          requested_by?: string
+          reverted_at?: string | null
+          snapshot?: Json | null
+          status?: string
+          summary?: string | null
+          target_ids?: string[]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_edit_operations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null

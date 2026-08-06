@@ -9,6 +9,10 @@ import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserP
 import { resolveTenantModel, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
 import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
+import {
+  bulkPreview, bulkConfirm, bulkApply, bulkUndo, bulkCancel, bulkList,
+  type BulkEntity,
+} from "../_shared/bulk-edit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -335,6 +339,97 @@ const CRM_TOOLS = [
       },
     },
   },
+  // ── Cambios masivos (SOLO dueño del Tenant) ──────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "bulk_preview",
+      description:
+        "PASO 1 de un cambio masivo de contactos, oportunidades o tareas. NO modifica nada: devuelve cuántos registros coinciden y una muestra. Úsala cuando el usuario pida cambiar varios registros a la vez (ej. 'a todas las oportunidades de Mantenimiento cámbiales el monto a 3400'). Solo funciona para el dueño del Tenant.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity: { type: "string", enum: ["contacts", "deals", "tasks"] },
+          filters: {
+            type: "object",
+            description:
+              "Filtros: name_contains, ids, owner_id; deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to.",
+            additionalProperties: true,
+          },
+          changes: {
+            type: "object",
+            description:
+              "Campos a cambiar. deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
+            additionalProperties: true,
+          },
+        },
+        required: ["entity", "filters", "changes"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_confirm",
+      description:
+        "PASO 2: solo después de que el usuario dijo explícitamente que sí a la vista previa. Devuelve un código de seguridad de 6 dígitos que el usuario debe escribir.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" } },
+        required: ["operation_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_apply",
+      description:
+        "PASO 3: ejecuta el cambio masivo. Solo se llama cuando el usuario ESCRIBIÓ el código de 6 dígitos. Nunca inventes el código.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" }, confirm_code: { type: "string" } },
+        required: ["operation_id", "confirm_code"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_undo",
+      description: "Revierte un cambio masivo ya aplicado, restaurando los valores anteriores.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" } },
+        required: ["operation_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_cancel",
+      description: "Cancela un cambio masivo que aún no se ha aplicado.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" } },
+        required: ["operation_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_list",
+      description: "Lista los últimos cambios masivos del tenant (para auditar o revertir).",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────
@@ -355,6 +450,19 @@ async function executeTool(
         const topics = searchGuide(String(args.query ?? ""));
         return { ok: true, topics };
       }
+
+      case "bulk_preview":
+        return await bulkPreview(sb, tenantId, userId, args.entity as BulkEntity, args.filters ?? {}, args.changes ?? {});
+      case "bulk_confirm":
+        return await bulkConfirm(sb, tenantId, userId, String(args.operation_id));
+      case "bulk_apply":
+        return await bulkApply(sb, tenantId, userId, String(args.operation_id), String(args.confirm_code ?? ""));
+      case "bulk_undo":
+        return await bulkUndo(sb, tenantId, userId, String(args.operation_id));
+      case "bulk_cancel":
+        return await bulkCancel(sb, tenantId, String(args.operation_id));
+      case "bulk_list":
+        return await bulkList(sb, tenantId);
 
       case "get_pipeline_status": {
         const { data: p } = await sb
@@ -953,6 +1061,16 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "REGLA DE ORO INVIOLABLE:",
     "Cuando el usuario pida enviar un WhatsApp, NUNCA llames otra cosa que no sea `prepare_whatsapp_message`.",
     "El humano siempre confirma y envía. Tú solo redactas el borrador.",
+    "",
+    "CAMBIOS MASIVOS (solo dueño del Tenant) — protocolo obligatorio de 3 confirmaciones:",
+    "Detecta pedidos como 'a todas las oportunidades X cámbiales el monto a $3400', 'reasigna todos los contactos de Juan a Ana', 'marca todas las tareas vencidas como completadas'.",
+    "  1) Llama `bulk_preview` con los filtros y los campos a cambiar. NO modifica nada.",
+    "  2) Muestra al usuario: cuántos registros, qué cambia exactamente, y 3-5 ejemplos. Pregunta: '¿Confirmas aplicar este cambio a N registros?'.",
+    "  3) Si dice que sí, llama `bulk_confirm` y pídele que escriba el código de 6 dígitos que te devuelva. Muéstrale el código tal cual.",
+    "  4) Solo cuando el usuario ESCRIBA ese código, llama `bulk_apply` con ese código exacto. Nunca lo inventes ni lo asumas.",
+    "  5) Al terminar, informa cuántos registros se actualizaron y recuérdale que puede revertirlo diciendo 'revertir el último cambio masivo' (`bulk_list` + `bulk_undo`).",
+    "Si la tool responde que solo el dueño del Tenant puede hacerlo, explícalo con amabilidad y no insistas.",
+    "Nunca hagas un cambio masivo sin filtros, ni en el mismo turno en que el usuario lo pidió.",
     "",
     "Cuando uses tools, encadénalas si hace falta (ej: search_contacts → get_contact_context → create_deal → prepare_whatsapp_message).",
     "AGILIDAD (obligatorio): pide en el MISMO turno todas las tools que sean independientes entre sí (se ejecutan en paralelo). Si el usuario pide varias cosas ('cómo voy y qué pendientes tengo'), resuélvelas todas de una vez.",
