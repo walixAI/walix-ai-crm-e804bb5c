@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Sparkles, X, Plus, Send, Mic, MicOff, Loader2,
-  Search, Brain, BarChart3, UserPlus, Briefcase, MoveRight,
-  StickyNote, CheckCircle2, MessageCircle, Wrench, Check, AlertCircle,
+  MessageCircle, Check, Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCopilot, type CopilotMessage } from "@/store/copilot";
@@ -65,103 +64,6 @@ function renderInline(s: string): ReactNode {
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-// ── Tool rendering ──────────────────────────────────────────────────────
-const TOOL_META: Record<string, { icon: any; label: string }> = {
-  search_contacts:        { icon: Search,        label: "Búsqueda" },
-  get_contact_context:    { icon: Brain,         label: "Contexto" },
-  get_pipeline_status:    { icon: BarChart3,     label: "Pipeline" },
-  create_contact:         { icon: UserPlus,      label: "Contacto creado" },
-  create_deal:            { icon: Briefcase,     label: "Deal creado" },
-  move_deal_stage:        { icon: MoveRight,     label: "Deal movido" },
-  add_note:               { icon: StickyNote,    label: "Nota agregada" },
-  create_task:            { icon: CheckCircle2,  label: "Tarea creada" },
-  prepare_whatsapp_message: { icon: MessageCircle, label: "Mensaje preparado" },
-};
-
-function ToolCard({ tool }: { tool: CopilotToolUse }) {
-  const navigate = useNavigate();
-  const meta = TOOL_META[tool.name] ?? { icon: Wrench, label: tool.name };
-  const Icon = meta.icon;
-  const isError = tool.result && typeof tool.result === "object" && "error" in tool.result;
-
-  // Build a compact summary + optional CTA per tool.
-  let summary = "";
-  let cta: { label: string; to: string } | null = null;
-  const r = tool.result as any;
-  switch (tool.name) {
-    case "search_contacts": {
-      const items = Array.isArray(r?.contacts) ? r.contacts : [];
-      summary = items.length ? `${items.length} contactos encontrados` : "Sin resultados";
-      break;
-    }
-    case "get_pipeline_status":
-      summary = r?.summary ?? `Pipeline: ${r?.activeDeals ?? "—"} activos`;
-      break;
-    case "get_contact_context":
-      summary = r?.summary ? String(r.summary).slice(0, 120) : "Contexto cargado";
-      break;
-    case "create_contact":
-      summary = r?.contact?.name ? `${r.contact.name}` : "Contacto creado";
-      if (r?.contact?.id) cta = { label: "Ver contacto", to: `/contacts/${r.contact.id}` };
-      break;
-    case "create_deal":
-      summary = r?.deal?.name ? `${r.deal.name}` : "Deal creado";
-      cta = { label: "Ver pipeline", to: "/pipeline" };
-      break;
-    case "move_deal_stage":
-      summary = r?.deal?.stage_name ? `Movido a ${r.deal.stage_name}` : "Etapa actualizada";
-      if (r?.deal?.id) cta = { label: "Ver deal", to: `/pipeline?dealId=${r.deal.id}` };
-      break;
-    case "add_note":
-      summary = "Nota guardada en el contacto";
-      break;
-    case "create_task":
-      summary = r?.task?.title ? r.task.title : "Tarea creada";
-      cta = { label: "Ver tareas", to: "/tasks" };
-      break;
-    case "prepare_whatsapp_message":
-      summary = "Borrador listo — confirma abajo";
-      break;
-    default:
-      summary = "Listo";
-  }
-
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs",
-        isError
-          ? "bg-destructive/5 border-destructive/30 text-destructive"
-          : "bg-success/5 border-success/30",
-      )}
-    >
-      <div
-        className={cn(
-          "h-6 w-6 grid place-items-center rounded-md shrink-0",
-          isError ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success",
-        )}
-      >
-        {isError ? <AlertCircle className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <Icon className="h-3 w-3 text-muted-foreground" />
-          <span className="font-semibold text-foreground">{meta.label}</span>
-        </div>
-        <div className="text-muted-foreground mt-0.5 break-words line-clamp-2">{summary}</div>
-      </div>
-      {cta && (
-        <button
-          onClick={() => navigate(cta!.to)}
-          className="text-primary hover:underline font-medium shrink-0 self-center whitespace-nowrap"
-        >
-          {cta.label} →
-        </button>
-      )}
-    </div>
-  );
 }
 
 function ToolRunningCard() {
@@ -295,7 +197,7 @@ function AssistantBubble({ msg }: { msg: Extract<CopilotMessage, { role: "assist
         )}
         {msg.toolsUsed.length > 0 && (
           <div className="space-y-1.5">
-            {msg.toolsUsed.map((t, i) => <ToolCard key={i} tool={t} />)}
+            {msg.toolsUsed.map((t, i) => <ToolResult key={i} tool={t} />)}
           </div>
         )}
         {msg.pendingWhatsapp && <WhatsappCard msg={msg} />}
