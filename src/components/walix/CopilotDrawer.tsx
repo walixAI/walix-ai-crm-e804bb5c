@@ -14,6 +14,8 @@ import { useCopilot, type CopilotMessage } from "@/store/copilot";
 import { getCopilotSuggestions } from "@/lib/constants/copilotSuggestions";
 import type { CopilotToolUse } from "@/services/ai";
 import { toast } from "@/hooks/use-toast";
+import { ToolResult } from "@/components/walix/copilot/ToolResult";
+import { useTenant } from "@/lib/queries/tenant";
 
 // ── Markdown ligero (bold, italic, listas, code inline + bloques) ────────
 function renderMarkdown(md: string): ReactNode {
