@@ -38,12 +38,18 @@ const PREVIEW_FIELDS: Record<BulkEntity, string> = {
 export const MAX_BULK_ROWS = 1000;
 
 export async function isTenantOwner(sb: SupabaseClient, userId: string, tenantId: string) {
-  const { data } = await sb
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .in("role", ["tenant_owner", "platform_owner", "super_admin"]);
-  return (data ?? []).length > 0;
+  const [{ data: roles }, { data: t }] = await Promise.all([
+    sb.from("user_roles").select("role").eq("user_id", userId),
+    sb.from("tenants").select("bulk_edit_enabled, bulk_edit_allow_admins").eq("id", tenantId).maybeSingle(),
+  ]);
+  const list = (roles ?? []).map((r: any) => r.role);
+  const isPlatform = list.some((r: string) => ["platform_owner", "super_admin", "platform_staff"].includes(r));
+  if (isPlatform) return true;
+  // El tenant puede apagar por completo la capacidad.
+  if (t && t.bulk_edit_enabled === false) return false;
+  if (list.includes("tenant_owner")) return true;
+  if (t?.bulk_edit_allow_admins && list.includes("tenant_admin")) return true;
+  return false;
 }
 
 function code(): string {
