@@ -258,6 +258,8 @@ export function CopilotDrawer() {
     send, newConversation, refreshProactiveCount,
   } = useCopilot();
   const location = useLocation();
+  const { data: tenant } = useTenant();
+  const tenantLabel = tenant?.brandName ?? tenant?.name ?? "";
   const [composer, setComposer] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollEndRef = useRef<HTMLDivElement>(null);
@@ -324,32 +326,34 @@ export function CopilotDrawer() {
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="px-4 py-3 pr-12 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 shrink-0">
+        <div className="px-4 py-3 pr-12 bg-gradient-brand text-primary-foreground shrink-0">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative">
                 <div
                   className={cn(
-                    "h-9 w-9 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-glow",
+                    "h-9 w-9 grid place-items-center rounded-xl bg-primary-foreground/15 text-primary-foreground backdrop-blur-sm",
                     status !== "idle" && "animate-pulse",
                   )}
                 >
                   <Sparkles className="h-4 w-4" />
                 </div>
                 {status !== "idle" && (
-                  <span className="absolute inset-0 rounded-full ring-2 ring-primary/40 animate-ping" />
+                  <span className="absolute inset-0 rounded-xl ring-2 ring-primary-foreground/40 animate-ping" />
                 )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm truncate">Walix Copiloto</span>
-                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary-foreground/15 text-primary-foreground/90 border border-primary-foreground/25">
                     Beta
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={cn("h-1.5 w-1.5 rounded-full", statusColor, status !== "idle" && "animate-pulse")} />
-                  <span className="text-[11px] text-muted-foreground">{statusLabel}</span>
+                  <span className="text-[11px] text-primary-foreground/80 truncate">
+                    {tenantLabel ? `${tenantLabel} · ${statusLabel}` : statusLabel}
+                  </span>
                 </div>
               </div>
             </div>
@@ -358,7 +362,7 @@ export function CopilotDrawer() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 gap-1 text-[11px]"
+                  className="h-7 gap-1 text-[11px] text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
                   onClick={newConversation}
                   title="Empezar nueva conversación"
                 >
@@ -400,13 +404,13 @@ export function CopilotDrawer() {
 
         {/* Suggestions + composer */}
         <div className="border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2 shrink-0">
-          {suggestions.length > 0 && messages.length === 0 && status === "idle" && (
+          {suggestions.length > 0 && status === "idle" && (
             <div className="flex flex-wrap gap-1.5">
               {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => { setComposer(""); void send(s); }}
-                  className="text-[11px] px-2.5 py-1 rounded-full bg-muted hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-colors"
+                  className="text-[11px] px-3 py-1.5 rounded-full bg-muted/60 text-muted-foreground hover:bg-primary/10 hover:text-primary border border-border/70 hover:border-primary/30 transition-colors"
                 >
                   <Sparkles className="inline h-2.5 w-2.5 mr-1 text-accent" />{s}
                 </button>
@@ -427,12 +431,12 @@ export function CopilotDrawer() {
               onKeyDown={onComposerKey}
               placeholder="Pregúntame cualquier cosa…"
               rows={1}
-              className="flex-1 min-w-0 resize-none min-h-[44px] max-h-[96px] text-base sm:text-sm py-2.5 rounded-xl"
+              className="flex-1 min-w-0 resize-none min-h-[44px] max-h-[96px] text-base sm:text-sm py-2.5 rounded-2xl bg-muted/40 border-border/70 focus-visible:ring-primary/40"
             />
             <Button
               size="icon"
               variant={voice.listening ? "destructive" : "outline"}
-              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-full"
               onClick={voice.toggle}
               disabled={!voice.supported}
               title={voice.supported ? "Hablar" : "Voz no disponible en este navegador"}
@@ -441,7 +445,7 @@ export function CopilotDrawer() {
             </Button>
             <Button
               size="icon"
-              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl bg-gradient-brand text-primary-foreground"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-full bg-gradient-brand text-primary-foreground shadow-md hover:opacity-90"
               onClick={onSend}
               disabled={!composer.trim() || status !== "idle"}
               title="Enviar (Enter)"
