@@ -24,6 +24,7 @@ import ContactDetailSimple from "./ContactDetailSimple";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function ContactDetail() {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: contact, isLoading } = useContact(id);

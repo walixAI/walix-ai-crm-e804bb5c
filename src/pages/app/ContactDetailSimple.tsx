@@ -13,6 +13,7 @@ import { QuickTourDialog, useContactSimpleTour } from "@/components/contacts/sim
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function ContactDetailSimple() {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const { id } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();

@@ -45,6 +45,7 @@ const SOURCES: Source[] = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 const PAGE_SIZE = 25;
 
 export default function Contacts() {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const firstRunParam = searchParams.get("firstRun") === "1";

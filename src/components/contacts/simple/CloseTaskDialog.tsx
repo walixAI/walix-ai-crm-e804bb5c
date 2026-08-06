@@ -45,6 +45,7 @@ interface Props {
 }
 
 export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, deal }: Props) {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const suggested = suggestedChannel(task?.taskKind);
   const [method, setMethod] = useState<Method>(suggested);
   const [mode, setMode] = useState<Mode>("resolve");

@@ -29,6 +29,7 @@ type ExpandKey = "runrate" | "profit" | "won" | null;
 type ColumnKey = "tasks" | "collect" | "quote" | "services";
 
 export default function MiDia() {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const { data, isLoading } = useMiDiaData();
   const { data: profile } = useMyProfile();
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);

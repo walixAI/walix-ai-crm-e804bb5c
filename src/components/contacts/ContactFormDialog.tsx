@@ -21,6 +21,7 @@ interface Props {
 }
 
 export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
+  const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const editing = !!contact;
   const navigate = useNavigate();
   const [name, setName] = useState("");
