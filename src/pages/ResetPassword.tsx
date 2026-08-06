@@ -12,7 +12,7 @@ import { Check, X, Eye, EyeOff, Loader2, KeyRound, ShieldCheck, AlertTriangle } 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type State = "checking" | "ready" | "invalid";
+type State = "checking" | "ready" | "invalid" | "done";
 
 function RequirementRow({ ok, label }: { ok: boolean; label: string }) {
   return (
@@ -71,6 +71,7 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [resendOpen, setResendOpen] = useState(false);
   const hashInfo = useMemo(() => readRecoveryHash(), []);
 
@@ -82,34 +83,36 @@ export default function ResetPassword() {
   useEffect(() => {
     let cancelled = false;
 
+    if (saved) return;
+
     if (hashInfo.errorCode) {
       setState("invalid");
       return;
     }
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!cancelled && session) setState("ready");
+      if (!cancelled && !saved && session) setState("ready");
     });
 
     (async () => {
       // Damos margen a que el cliente procese el hash del enlace
       for (let i = 0; i < 20; i++) {
         const { data } = await supabase.auth.getSession();
-        if (cancelled) return;
+        if (cancelled || saved) return;
         if (data.session) {
           setState("ready");
           return;
         }
         await new Promise((r) => setTimeout(r, 150));
       }
-      if (!cancelled) setState("invalid");
+      if (!cancelled && !saved) setState("invalid");
     })();
 
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [hashInfo.errorCode]);
+  }, [hashInfo.errorCode, saved]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,11 +128,17 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      setSaved(true);
+      setState("done");
       toast.success("Contraseña actualizada", {
         description: "Inicia sesión con tu nueva contraseña.",
       });
-      await supabase.auth.signOut();
-      navigate("/login", { replace: true });
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* la sesión de recuperación puede expirar sola */
+      }
+      setTimeout(() => navigate("/login", { replace: true }), 900);
     } catch (err: any) {
       const msg = (err?.message || "").toLowerCase();
       if (msg.includes("session") || msg.includes("jwt")) {
@@ -162,6 +171,16 @@ export default function ResetPassword() {
           <div className="py-10 flex flex-col items-center gap-3 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin" />
             <p className="text-sm">Validando tu enlace…</p>
+          </div>
+        )}
+
+        {state === "done" && (
+          <div className="py-10 flex flex-col items-center gap-3 text-center">
+            <ShieldCheck className="h-10 w-10 text-success" />
+            <h1 className="text-lg font-semibold">Contraseña actualizada</h1>
+            <p className="text-sm text-muted-foreground">
+              Te llevamos al inicio de sesión…
+            </p>
           </div>
         )}
 
