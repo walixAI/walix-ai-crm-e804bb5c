@@ -359,6 +359,7 @@ export default function Whatsapp() {
                       : null
                   }
                   onClearAiDraft={() => { setDraft(""); setAiDraftActive(false); }}
+                  blockedReason={waBlockedReason}
                 />
               </>
             )}
