@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Sparkles, X, Plus, Send, Mic, MicOff, Loader2,
-  Search, Brain, BarChart3, UserPlus, Briefcase, MoveRight,
-  StickyNote, CheckCircle2, MessageCircle, Wrench, Check, AlertCircle,
+  MessageCircle, Check, Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCopilot, type CopilotMessage } from "@/store/copilot";
 import { getCopilotSuggestions } from "@/lib/constants/copilotSuggestions";
-import type { CopilotToolUse } from "@/services/ai";
 import { toast } from "@/hooks/use-toast";
+import { ToolResult } from "@/components/walix/copilot/ToolResult";
+import { useTenant } from "@/lib/queries/tenant";
 
 // ── Markdown ligero (bold, italic, listas, code inline + bloques) ────────
 function renderMarkdown(md: string): ReactNode {
@@ -63,103 +63,6 @@ function renderInline(s: string): ReactNode {
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-// ── Tool rendering ──────────────────────────────────────────────────────
-const TOOL_META: Record<string, { icon: any; label: string }> = {
-  search_contacts:        { icon: Search,        label: "Búsqueda" },
-  get_contact_context:    { icon: Brain,         label: "Contexto" },
-  get_pipeline_status:    { icon: BarChart3,     label: "Pipeline" },
-  create_contact:         { icon: UserPlus,      label: "Contacto creado" },
-  create_deal:            { icon: Briefcase,     label: "Deal creado" },
-  move_deal_stage:        { icon: MoveRight,     label: "Deal movido" },
-  add_note:               { icon: StickyNote,    label: "Nota agregada" },
-  create_task:            { icon: CheckCircle2,  label: "Tarea creada" },
-  prepare_whatsapp_message: { icon: MessageCircle, label: "Mensaje preparado" },
-};
-
-function ToolCard({ tool }: { tool: CopilotToolUse }) {
-  const navigate = useNavigate();
-  const meta = TOOL_META[tool.name] ?? { icon: Wrench, label: tool.name };
-  const Icon = meta.icon;
-  const isError = tool.result && typeof tool.result === "object" && "error" in tool.result;
-
-  // Build a compact summary + optional CTA per tool.
-  let summary = "";
-  let cta: { label: string; to: string } | null = null;
-  const r = tool.result as any;
-  switch (tool.name) {
-    case "search_contacts": {
-      const items = Array.isArray(r?.contacts) ? r.contacts : [];
-      summary = items.length ? `${items.length} contactos encontrados` : "Sin resultados";
-      break;
-    }
-    case "get_pipeline_status":
-      summary = r?.summary ?? `Pipeline: ${r?.activeDeals ?? "—"} activos`;
-      break;
-    case "get_contact_context":
-      summary = r?.summary ? String(r.summary).slice(0, 120) : "Contexto cargado";
-      break;
-    case "create_contact":
-      summary = r?.contact?.name ? `${r.contact.name}` : "Contacto creado";
-      if (r?.contact?.id) cta = { label: "Ver contacto", to: `/contacts/${r.contact.id}` };
-      break;
-    case "create_deal":
-      summary = r?.deal?.name ? `${r.deal.name}` : "Deal creado";
-      cta = { label: "Ver pipeline", to: "/pipeline" };
-      break;
-    case "move_deal_stage":
-      summary = r?.deal?.stage_name ? `Movido a ${r.deal.stage_name}` : "Etapa actualizada";
-      if (r?.deal?.id) cta = { label: "Ver deal", to: `/pipeline?dealId=${r.deal.id}` };
-      break;
-    case "add_note":
-      summary = "Nota guardada en el contacto";
-      break;
-    case "create_task":
-      summary = r?.task?.title ? r.task.title : "Tarea creada";
-      cta = { label: "Ver tareas", to: "/tasks" };
-      break;
-    case "prepare_whatsapp_message":
-      summary = "Borrador listo — confirma abajo";
-      break;
-    default:
-      summary = "Listo";
-  }
-
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs",
-        isError
-          ? "bg-destructive/5 border-destructive/30 text-destructive"
-          : "bg-success/5 border-success/30",
-      )}
-    >
-      <div
-        className={cn(
-          "h-6 w-6 grid place-items-center rounded-md shrink-0",
-          isError ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success",
-        )}
-      >
-        {isError ? <AlertCircle className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <Icon className="h-3 w-3 text-muted-foreground" />
-          <span className="font-semibold text-foreground">{meta.label}</span>
-        </div>
-        <div className="text-muted-foreground mt-0.5 break-words line-clamp-2">{summary}</div>
-      </div>
-      {cta && (
-        <button
-          onClick={() => navigate(cta!.to)}
-          className="text-primary hover:underline font-medium shrink-0 self-center whitespace-nowrap"
-        >
-          {cta.label} →
-        </button>
-      )}
-    </div>
-  );
 }
 
 function ToolRunningCard() {
@@ -220,10 +123,10 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
   };
 
   return (
-    <div className="rounded-xl border-2 border-success bg-success/10 p-3 space-y-2">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <MessageCircle className="h-4 w-4 text-success" />
-        Enviar mensaje a {msg.pendingWhatsapp.contactName ?? "este contacto"}
+    <div className="rounded-2xl border border-primary/40 bg-primary/5 p-3 space-y-2 shadow-sm">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-primary">
+        <Sparkles className="h-3.5 w-3.5" />
+        Walix IA sugiere responder a {msg.pendingWhatsapp.contactName ?? "este contacto"}
       </div>
       {editing ? (
         <Textarea
@@ -232,7 +135,7 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
           className="text-sm min-h-[80px] bg-card"
         />
       ) : (
-        <div className="rounded-lg bg-card border border-border px-3 py-2 text-sm whitespace-pre-wrap">
+        <div className="rounded-xl bg-card border border-border/70 px-3 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap text-foreground">
           {draft}
         </div>
       )}
@@ -241,10 +144,10 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
           size="sm"
           onClick={onSend}
           disabled={sending || !draft.trim()}
-          className="bg-success hover:bg-success/90 text-success-foreground gap-1 h-8"
+          className="flex-1 bg-gradient-brand text-primary-foreground gap-1 h-9 rounded-xl font-semibold hover:opacity-90"
         >
-          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-          Enviar ahora
+          {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
+          Enviar por WhatsApp
         </Button>
         <Button
           size="sm"
@@ -271,7 +174,7 @@ function WhatsappCard({ msg }: { msg: Extract<CopilotMessage, { role: "assistant
 function UserBubble({ msg }: { msg: Extract<CopilotMessage, { role: "user" }> }) {
   return (
     <div className="flex justify-end w-full">
-      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm shadow-sm">
+      <div className="max-w-[85%] min-w-0 rounded-2xl rounded-br-md bg-gradient-brand text-primary-foreground px-3.5 py-2.5 text-[13.5px] shadow-md">
         <div className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</div>
         <div className="text-[10px] opacity-70 mt-1 text-right">{msg.at}</div>
       </div>
@@ -282,18 +185,18 @@ function UserBubble({ msg }: { msg: Extract<CopilotMessage, { role: "user" }> })
 function AssistantBubble({ msg }: { msg: Extract<CopilotMessage, { role: "assistant" }> }) {
   return (
     <div className="flex gap-2 w-full min-w-0">
-      <div className="h-7 w-7 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shrink-0">
-        <Sparkles className="h-3.5 w-3.5" />
+      <div className="h-7 w-7 grid place-items-center rounded-xl bg-gradient-brand text-primary-foreground shrink-0 shadow-sm">
+        <Bot className="h-3.5 w-3.5" />
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         {msg.text && (
-          <div className="rounded-2xl rounded-tl-sm bg-muted/60 border border-border px-3.5 py-2.5 text-sm leading-relaxed text-foreground break-words">
+          <div className="text-[13.5px] leading-relaxed text-foreground break-words pt-0.5">
             {renderMarkdown(msg.text)}
           </div>
         )}
         {msg.toolsUsed.length > 0 && (
           <div className="space-y-1.5">
-            {msg.toolsUsed.map((t, i) => <ToolCard key={i} tool={t} />)}
+            {msg.toolsUsed.map((t, i) => <ToolResult key={i} tool={t} />)}
           </div>
         )}
         {msg.pendingWhatsapp && <WhatsappCard msg={msg} />}
@@ -355,6 +258,8 @@ export function CopilotDrawer() {
     send, newConversation, refreshProactiveCount,
   } = useCopilot();
   const location = useLocation();
+  const { data: tenant } = useTenant();
+  const tenantLabel = tenant?.brandName ?? tenant?.name ?? "";
   const [composer, setComposer] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollEndRef = useRef<HTMLDivElement>(null);
@@ -421,32 +326,34 @@ export function CopilotDrawer() {
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="px-4 py-3 pr-12 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 shrink-0">
+        <div className="px-4 py-3 pr-12 bg-gradient-brand text-primary-foreground shrink-0">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative">
                 <div
                   className={cn(
-                    "h-9 w-9 grid place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-glow",
+                    "h-9 w-9 grid place-items-center rounded-xl bg-primary-foreground/15 text-primary-foreground backdrop-blur-sm",
                     status !== "idle" && "animate-pulse",
                   )}
                 >
                   <Sparkles className="h-4 w-4" />
                 </div>
                 {status !== "idle" && (
-                  <span className="absolute inset-0 rounded-full ring-2 ring-primary/40 animate-ping" />
+                  <span className="absolute inset-0 rounded-xl ring-2 ring-primary-foreground/40 animate-ping" />
                 )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm truncate">Walix Copiloto</span>
-                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary-foreground/15 text-primary-foreground/90 border border-primary-foreground/25">
                     Beta
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={cn("h-1.5 w-1.5 rounded-full", statusColor, status !== "idle" && "animate-pulse")} />
-                  <span className="text-[11px] text-muted-foreground">{statusLabel}</span>
+                  <span className="text-[11px] text-primary-foreground/80 truncate">
+                    {tenantLabel ? `${tenantLabel} · ${statusLabel}` : statusLabel}
+                  </span>
                 </div>
               </div>
             </div>
@@ -455,7 +362,7 @@ export function CopilotDrawer() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 gap-1 text-[11px]"
+                  className="h-7 gap-1 text-[11px] text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
                   onClick={newConversation}
                   title="Empezar nueva conversación"
                 >
@@ -497,13 +404,13 @@ export function CopilotDrawer() {
 
         {/* Suggestions + composer */}
         <div className="border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2 shrink-0">
-          {suggestions.length > 0 && messages.length === 0 && status === "idle" && (
+          {suggestions.length > 0 && status === "idle" && (
             <div className="flex flex-wrap gap-1.5">
               {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => { setComposer(""); void send(s); }}
-                  className="text-[11px] px-2.5 py-1 rounded-full bg-muted hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-colors"
+                  className="text-[11px] px-3 py-1.5 rounded-full bg-muted/60 text-muted-foreground hover:bg-primary/10 hover:text-primary border border-border/70 hover:border-primary/30 transition-colors"
                 >
                   <Sparkles className="inline h-2.5 w-2.5 mr-1 text-accent" />{s}
                 </button>
@@ -524,12 +431,12 @@ export function CopilotDrawer() {
               onKeyDown={onComposerKey}
               placeholder="Pregúntame cualquier cosa…"
               rows={1}
-              className="flex-1 min-w-0 resize-none min-h-[44px] max-h-[96px] text-base sm:text-sm py-2.5 rounded-xl"
+              className="flex-1 min-w-0 resize-none min-h-[44px] max-h-[96px] text-base sm:text-sm py-2.5 rounded-2xl bg-muted/40 border-border/70 focus-visible:ring-primary/40"
             />
             <Button
               size="icon"
               variant={voice.listening ? "destructive" : "outline"}
-              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-full"
               onClick={voice.toggle}
               disabled={!voice.supported}
               title={voice.supported ? "Hablar" : "Voz no disponible en este navegador"}
@@ -538,7 +445,7 @@ export function CopilotDrawer() {
             </Button>
             <Button
               size="icon"
-              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl bg-gradient-brand text-primary-foreground"
+              className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-full bg-gradient-brand text-primary-foreground shadow-md hover:opacity-90"
               onClick={onSend}
               disabled={!composer.trim() || status !== "idle"}
               title="Enviar (Enter)"
