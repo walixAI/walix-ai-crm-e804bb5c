@@ -339,6 +339,97 @@ const CRM_TOOLS = [
       },
     },
   },
+  // ── Cambios masivos (SOLO dueño del Tenant) ──────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "bulk_preview",
+      description:
+        "PASO 1 de un cambio masivo de contactos, oportunidades o tareas. NO modifica nada: devuelve cuántos registros coinciden y una muestra. Úsala cuando el usuario pida cambiar varios registros a la vez (ej. 'a todas las oportunidades de Mantenimiento cámbiales el monto a 3400'). Solo funciona para el dueño del Tenant.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity: { type: "string", enum: ["contacts", "deals", "tasks"] },
+          filters: {
+            type: "object",
+            description:
+              "Filtros: name_contains, ids, owner_id; deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to.",
+            additionalProperties: true,
+          },
+          changes: {
+            type: "object",
+            description:
+              "Campos a cambiar. deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
+            additionalProperties: true,
+          },
+        },
+        required: ["entity", "filters", "changes"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_confirm",
+      description:
+        "PASO 2: solo después de que el usuario dijo explícitamente que sí a la vista previa. Devuelve un código de seguridad de 6 dígitos que el usuario debe escribir.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" } },
+        required: ["operation_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_apply",
+      description:
+        "PASO 3: ejecuta el cambio masivo. Solo se llama cuando el usuario ESCRIBIÓ el código de 6 dígitos. Nunca inventes el código.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" }, confirm_code: { type: "string" } },
+        required: ["operation_id", "confirm_code"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_undo",
+      description: "Revierte un cambio masivo ya aplicado, restaurando los valores anteriores.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" } },
+        required: ["operation_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_cancel",
+      description: "Cancela un cambio masivo que aún no se ha aplicado.",
+      parameters: {
+        type: "object",
+        properties: { operation_id: { type: "string" } },
+        required: ["operation_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_list",
+      description: "Lista los últimos cambios masivos del tenant (para auditar o revertir).",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────
