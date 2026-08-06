@@ -1,0 +1,276 @@
+// Habilidad del Copiloto: cambios masivos (contactos, oportunidades, tareas).
+// Solo el DUEÑO del Tenant (tenant_owner) o plataforma pueden usarla.
+// Flujo obligatorio: preview → confirm (código) → apply(código) → undo.
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+
+export type BulkEntity = "contacts" | "deals" | "tasks";
+
+const TABLE: Record<BulkEntity, string> = {
+  contacts: "contacts",
+  deals: "deals",
+  tasks: "tasks",
+};
+
+const LABEL: Record<BulkEntity, string> = {
+  contacts: "contactos",
+  deals: "oportunidades",
+  tasks: "tareas",
+};
+
+/** Campos que se pueden modificar de forma masiva (whitelist estricta). */
+const EDITABLE: Record<BulkEntity, string[]> = {
+  contacts: ["status", "owner_id", "source", "lifecycle", "company"],
+  deals: [
+    "amount", "cost_amount", "probability", "stage_id", "stage_name", "owner_id",
+    "expected_close_date", "deal_type", "service_type", "payment_status",
+    "is_won", "is_lost", "notes",
+  ],
+  tasks: ["assignee_id", "due_at", "completed", "task_kind", "title"],
+};
+
+/** Campos que se devuelven en la vista previa. */
+const PREVIEW_FIELDS: Record<BulkEntity, string> = {
+  contacts: "id, name, status, owner_id, source, company",
+  deals: "id, name, amount, stage_name, owner_id, is_won, is_lost, expected_close_date",
+  tasks: "id, title, due_at, completed, assignee_id, task_kind",
+};
+
+export const MAX_BULK_ROWS = 1000;
+
+export async function isTenantOwner(sb: SupabaseClient, userId: string, tenantId: string) {
+  const { data } = await sb
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["tenant_owner", "platform_owner", "super_admin"]);
+  return (data ?? []).length > 0;
+}
+
+function code(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+/** Aplica filtros soportados a una consulta. */
+function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
+  if (f.name_contains) {
+    const col = entity === "tasks" ? "title" : "name";
+    q = q.ilike(col, `%${String(f.name_contains)}%`);
+  }
+  if (f.ids && Array.isArray(f.ids) && f.ids.length) q = q.in("id", f.ids);
+  if (f.owner_id) q = q.eq(entity === "tasks" ? "assignee_id" : "owner_id", f.owner_id);
+  if (entity === "deals") {
+    if (f.stage_id) q = q.eq("stage_id", f.stage_id);
+    if (f.stage_name) q = q.ilike("stage_name", `%${f.stage_name}%`);
+    if (f.deal_type) q = q.eq("deal_type", f.deal_type);
+    if (f.service_type) q = q.ilike("service_type", `%${f.service_type}%`);
+    if (f.payment_status) q = q.eq("payment_status", f.payment_status);
+    if (f.only_open) q = q.eq("is_won", false).eq("is_lost", false);
+    if (f.is_won === true || f.is_won === false) q = q.eq("is_won", f.is_won);
+    if (f.amount_equals !== undefined) q = q.eq("amount", f.amount_equals);
+    if (f.date_from) q = q.gte("expected_close_date", f.date_from);
+    if (f.date_to) q = q.lte("expected_close_date", f.date_to);
+  }
+  if (entity === "contacts") {
+    if (f.status) q = q.eq("status", f.status);
+    if (f.source) q = q.eq("source", f.source);
+  }
+  if (entity === "tasks") {
+    if (f.completed === true || f.completed === false) q = q.eq("completed", f.completed);
+    if (f.task_kind) q = q.eq("task_kind", f.task_kind);
+    if (f.date_from) q = q.gte("due_at", f.date_from);
+    if (f.date_to) q = q.lte("due_at", f.date_to);
+  }
+  return q;
+}
+
+function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
+  const allowed = EDITABLE[entity];
+  const out: Record<string, any> = {};
+  const rejected: string[] = [];
+  for (const [k, v] of Object.entries(changes ?? {})) {
+    if (allowed.includes(k)) out[k] = v;
+    else rejected.push(k);
+  }
+  return { changes: out, rejected };
+}
+
+/** PASO 1 — vista previa: no modifica nada. */
+export async function bulkPreview(
+  sb: SupabaseClient, tenantId: string, userId: string,
+  entity: BulkEntity, filters: Record<string, any>, rawChanges: Record<string, any>,
+) {
+  if (!TABLE[entity]) return { ok: false, error: "Entidad no soportada" };
+  if (!(await isTenantOwner(sb, userId, tenantId)))
+    return { ok: false, error: "Solo el dueño del Tenant puede hacer cambios masivos." };
+
+  const { changes, rejected } = sanitizeChanges(entity, rawChanges);
+  if (!Object.keys(changes).length)
+    return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${EDITABLE[entity].join(", ")}` };
+  if (!filters || !Object.keys(filters).length)
+    return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
+
+  let q = sb.from(TABLE[entity]).select(PREVIEW_FIELDS[entity]).eq("tenant_id", tenantId);
+  q = applyFilters(q, entity, filters).limit(MAX_BULK_ROWS + 1);
+  const { data, error } = await q;
+  if (error) return { ok: false, error: error.message };
+  const rows = data ?? [];
+  if (!rows.length) return { ok: false, error: "Ningún registro coincide con esos filtros." };
+  if (rows.length > MAX_BULK_ROWS)
+    return { ok: false, error: `Demasiados registros (>${MAX_BULK_ROWS}). Acota los filtros.` };
+
+  const summary = `Cambiar ${rows.length} ${LABEL[entity]}: ${
+    Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
+  }`;
+
+  const { data: op, error: e2 } = await sb.from("bulk_edit_operations").insert({
+    tenant_id: tenantId,
+    requested_by: userId,
+    entity,
+    filters,
+    changes,
+    target_ids: rows.map((r: any) => r.id),
+    matched_count: rows.length,
+    confirm_code: code(),
+    summary,
+    status: "preview",
+  }).select("id, confirm_code, matched_count, summary").single();
+  if (e2) return { ok: false, error: e2.message };
+
+  return {
+    ok: true,
+    step: "preview",
+    operation_id: op.id,
+    matched_count: op.matched_count,
+    summary: op.summary,
+    rejected_fields: rejected,
+    sample: rows.slice(0, 5),
+    next: "Muestra al usuario el resumen y la muestra, y pídele que confirme. Si acepta, llama bulk_confirm.",
+  };
+}
+
+async function loadOp(sb: SupabaseClient, tenantId: string, id: string) {
+  const { data } = await sb.from("bulk_edit_operations").select("*")
+    .eq("id", id).eq("tenant_id", tenantId).maybeSingle();
+  return data as any;
+}
+
+/** PASO 2 — confirmación intermedia: entrega el código de seguridad. */
+export async function bulkConfirm(sb: SupabaseClient, tenantId: string, userId: string, opId: string) {
+  if (!(await isTenantOwner(sb, userId, tenantId)))
+    return { ok: false, error: "Solo el dueño del Tenant puede confirmar cambios masivos." };
+  const op = await loadOp(sb, tenantId, opId);
+  if (!op) return { ok: false, error: "Operación no encontrada" };
+  if (op.status !== "preview") return { ok: false, error: `La operación está en estado "${op.status}".` };
+  if (new Date(op.expires_at) < new Date()) {
+    await sb.from("bulk_edit_operations").update({ status: "expired" }).eq("id", opId);
+    return { ok: false, error: "La operación expiró. Genera una nueva vista previa." };
+  }
+  await sb.from("bulk_edit_operations").update({ status: "confirmed" }).eq("id", opId);
+  return {
+    ok: true,
+    step: "confirm",
+    operation_id: opId,
+    matched_count: op.matched_count,
+    summary: op.summary,
+    confirm_code: op.confirm_code,
+    next: `ÚLTIMO PASO: pide al usuario que escriba el código ${op.confirm_code} para ejecutar. No llames bulk_apply hasta que el usuario escriba ese código.`,
+  };
+}
+
+/** PASO 3 — ejecución (requiere código). Guarda snapshot para revertir. */
+export async function bulkApply(
+  sb: SupabaseClient, tenantId: string, userId: string, opId: string, confirmCode: string,
+) {
+  if (!(await isTenantOwner(sb, userId, tenantId)))
+    return { ok: false, error: "Solo el dueño del Tenant puede ejecutar cambios masivos." };
+  const op = await loadOp(sb, tenantId, opId);
+  if (!op) return { ok: false, error: "Operación no encontrada" };
+  if (op.status === "applied") return { ok: false, error: "Esta operación ya fue aplicada." };
+  if (op.status !== "confirmed") return { ok: false, error: "Falta el paso de confirmación (bulk_confirm)." };
+  if (String(confirmCode ?? "").trim() !== op.confirm_code)
+    return { ok: false, error: "Código de confirmación incorrecto. Pídelo de nuevo al usuario." };
+  if (new Date(op.expires_at) < new Date()) {
+    await sb.from("bulk_edit_operations").update({ status: "expired" }).eq("id", opId);
+    return { ok: false, error: "La operación expiró. Genera una nueva vista previa." };
+  }
+
+  const entity = op.entity as BulkEntity;
+  const table = TABLE[entity];
+  const ids: string[] = op.target_ids ?? [];
+  const fields = Object.keys(op.changes);
+
+  // Snapshot de los valores actuales (para revertir).
+  const { data: before, error: eSnap } = await sb.from(table)
+    .select(["id", ...fields].join(", ")).in("id", ids);
+  if (eSnap) return { ok: false, error: eSnap.message };
+
+  const { error: eUpd, count } = await sb.from(table)
+    .update(op.changes).in("id", ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+  if (eUpd) return { ok: false, error: eUpd.message };
+
+  // Verificación real en base de datos antes de confirmar al usuario.
+  const applied = count ?? 0;
+  await sb.from("bulk_edit_operations").update({
+    status: "applied",
+    applied_count: applied,
+    snapshot: before ?? [],
+    applied_at: new Date().toISOString(),
+  }).eq("id", opId);
+
+  return {
+    ok: true,
+    step: "applied",
+    operation_id: opId,
+    applied_count: applied,
+    summary: op.summary,
+    next: `Listo. Avisa que puede revertirse con "revertir cambio ${opId.slice(0, 8)}" (bulk_undo).`,
+  };
+}
+
+/** Revertir: restaura los valores previos guardados en el snapshot. */
+export async function bulkUndo(sb: SupabaseClient, tenantId: string, userId: string, opId: string) {
+  if (!(await isTenantOwner(sb, userId, tenantId)))
+    return { ok: false, error: "Solo el dueño del Tenant puede revertir cambios masivos." };
+  const op = await loadOp(sb, tenantId, opId);
+  if (!op) return { ok: false, error: "Operación no encontrada" };
+  if (op.status !== "applied") return { ok: false, error: `No se puede revertir (estado "${op.status}").` };
+
+  const table = TABLE[op.entity as BulkEntity];
+  const snapshot: any[] = op.snapshot ?? [];
+  // Agrupa filas con los mismos valores previos para revertir en pocos updates.
+  const groups = new Map<string, { patch: Record<string, any>; ids: string[] }>();
+  for (const row of snapshot) {
+    const { id, ...prev } = row;
+    const key = JSON.stringify(prev);
+    if (!groups.has(key)) groups.set(key, { patch: prev, ids: [] });
+    groups.get(key)!.ids.push(id);
+  }
+  let restored = 0;
+  for (const g of groups.values()) {
+    const { count, error } = await sb.from(table).update(g.patch)
+      .in("id", g.ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+    if (error) return { ok: false, error: error.message, restored };
+    restored += count ?? 0;
+  }
+  await sb.from("bulk_edit_operations").update({
+    status: "reverted", reverted_at: new Date().toISOString(),
+  }).eq("id", opId);
+  return { ok: true, step: "reverted", operation_id: opId, restored_count: restored };
+}
+
+/** Cancela una operación pendiente. */
+export async function bulkCancel(sb: SupabaseClient, tenantId: string, opId: string) {
+  const op = await loadOp(sb, tenantId, opId);
+  if (!op) return { ok: false, error: "Operación no encontrada" };
+  if (op.status === "applied") return { ok: false, error: "Ya se aplicó; usa revertir." };
+  await sb.from("bulk_edit_operations").update({ status: "cancelled" }).eq("id", opId);
+  return { ok: true, step: "cancelled", operation_id: opId };
+}
+
+/** Últimas operaciones masivas del tenant (para revertir o auditar). */
+export async function bulkList(sb: SupabaseClient, tenantId: string) {
+  const { data } = await sb.from("bulk_edit_operations")
+    .select("id, entity, summary, status, matched_count, applied_count, created_at, applied_at")
+    .eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(10);
+  return { ok: true, operations: data ?? [] };
+}
