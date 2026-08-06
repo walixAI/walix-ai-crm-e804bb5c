@@ -13,7 +13,7 @@ import { fetchTenant } from "@/services/tenant";
 import { applyBrandPrimary, removeBrandPrimary } from "@/lib/branding";
 import { TrialBanner } from "@/components/walix/TrialBanner";
 import { useCopilot } from "@/store/copilot";
-import { deriveConversationKey, deriveEntity } from "@/lib/constants/copilotSuggestions";
+import { deriveEntity } from "@/lib/constants/copilotSuggestions";
 import { useCopilotWebAccess } from "@/hooks/useCopilotAccess";
 
 export function AppLayout() {
@@ -54,7 +54,8 @@ export function AppLayout() {
   // Sync copilot context to current route/entity.
   useEffect(() => {
     setCopilotContext({
-      conversationKey: deriveConversationKey(location.pathname, location.search),
+      // Historial único por usuario: la sesión siempre es "global".
+      conversationKey: "global",
       entity: deriveEntity(location.pathname, location.search),
     });
   }, [location.pathname, location.search, setCopilotContext]);
