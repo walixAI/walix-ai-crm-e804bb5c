@@ -201,9 +201,9 @@ function AssistantBubble({ msg }: { msg: Extract<CopilotMessage, { role: "assist
         <Bot className="h-3.5 w-3.5" />
       </div>
       <div className="flex-1 min-w-0 space-y-2">
-        {msg.text && (
+        {stripRawJson(msg.text) && (
           <div className="text-[13.5px] leading-relaxed text-foreground break-words pt-0.5">
-            {renderMarkdown(msg.text)}
+            {renderMarkdown(stripRawJson(msg.text))}
           </div>
         )}
         {msg.toolsUsed.length > 0 && (
