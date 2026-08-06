@@ -9,6 +9,10 @@ import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserP
 import { resolveTenantModel, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
 import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
+import {
+  bulkPreview, bulkConfirm, bulkApply, bulkUndo, bulkCancel, bulkList,
+  type BulkEntity,
+} from "../_shared/bulk-edit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
