@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ForgotPasswordDialog } from "@/components/auth/ForgotPasswordDialog";
 
 const emailSchema = z
   .string()
@@ -173,6 +174,7 @@ export default function Login() {
   const [showPasswordHints, setShowPasswordHints] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [forgotOpen, setForgotOpen] = useState(false);
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
@@ -449,9 +451,13 @@ export default function Login() {
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Contraseña</Label>
               {!isSignup && (
-                <span className="text-[11px] text-muted-foreground">
-                  Mínimo 10 caracteres
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(true)}
+                  className="text-[11px] text-primary font-medium hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
               )}
             </div>
             <div className="relative">
@@ -586,6 +592,8 @@ export default function Login() {
           </div>
         </section>
       </div>
+
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} defaultEmail={email} />
     </div>
   );
 }

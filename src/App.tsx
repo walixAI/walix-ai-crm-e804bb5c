@@ -1,6 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +18,7 @@ import Contacts from "@/pages/app/Contacts";
 import NotFound from "@/pages/NotFound";
 import RootRedirect from "@/pages/app/RootRedirect";
 import { useAuth } from "@/hooks/useAuth";
+import { getInitialHash, readRecoveryHash } from "@/lib/auth/recoveryHash";
 
 // Lazy: rutas pesadas
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
@@ -43,6 +44,7 @@ const Team = lazy(() => import("@/pages/app/Team"));
 const WhatsappSim = lazy(() => import("@/pages/app/WhatsappSim"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,14 +71,33 @@ function LandingOrHome() {
   return <Landing />;
 }
 
+// Los enlaces de recuperación pueden aterrizar en la raíz con el hash de Supabase.
+// Reenviamos a /reset-password conservando el hash para no perder el mensaje.
+function RecoveryHashRedirect() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/reset-password")) return;
+    const info = readRecoveryHash();
+    if (info.isRecovery || info.errorCode) {
+      navigate(`/reset-password${getInitialHash()}`, { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
 const AppRoutes = () => {
   useInitAuth();
   return (
     <ErrorBoundary>
+      <RecoveryHashRedirect />
       <Suspense fallback={<RouteFallback />}>
       <Routes>
       <Route path="/" element={<LandingOrHome />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/invitacion" element={<AcceptInvite />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/privacy" element={<Privacy />} />
