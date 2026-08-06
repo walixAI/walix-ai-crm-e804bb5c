@@ -21,6 +21,7 @@ import { useContactPipelineDeals } from "@/lib/queries/pipeline";
 import { useContactActivity } from "@/lib/queries/contacts";
 import { useMyProfile } from "@/lib/queries/profile";
 import ContactDetailSimple from "./ContactDetailSimple";
+import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -48,7 +49,7 @@ export default function ContactDetail() {
     );
   }
 
-  const openWA = () => navigate(`/whatsapp?contactId=${contact.id}`);
+  const openWA = () => { if (blockWhatsappAction()) return; navigate(`/whatsapp?contactId=${contact.id}`); };
 
   return (
     <div className="space-y-4 max-w-[1600px]">

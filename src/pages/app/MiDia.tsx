@@ -23,6 +23,7 @@ import { useMonthProfitability } from "@/lib/queries/expenses";
 import { cn } from "@/lib/utils";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
+import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 type ExpandKey = "runrate" | "profit" | "won" | null;
 type ColumnKey = "tasks" | "collect" | "quote" | "services";
@@ -94,8 +95,13 @@ export default function MiDia() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="lg" asChild>
-              <Link to="/whatsapp"><MessageCircle className="mr-2 h-5 w-5" /> WhatsApp</Link>
+            <Button variant="outline" size="lg" asChild={WHATSAPP_CHAT_ENABLED}
+              disabled={!WHATSAPP_CHAT_ENABLED}
+              title={WHATSAPP_CHAT_ENABLED ? undefined : WHATSAPP_DISABLED_REASON}
+              onClick={WHATSAPP_CHAT_ENABLED ? undefined : () => blockWhatsappAction()}>
+              {WHATSAPP_CHAT_ENABLED
+                ? <Link to="/whatsapp"><MessageCircle className="mr-2 h-5 w-5" /> WhatsApp</Link>
+                : <><MessageCircle className="mr-2 h-5 w-5" /> WhatsApp</>}
             </Button>
             <Button variant="ghost" size="icon" title="Personalizar mi vista"
               onClick={() => setCustomizeOpen(true)}>

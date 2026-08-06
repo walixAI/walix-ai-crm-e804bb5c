@@ -38,6 +38,7 @@ import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { blockWhatsappAction, WHATSAPP_CHAT_ENABLED, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 const STATUSES: ContactLifecycle[] = ["prospecto", "cliente", "cliente_inactivo", "inactivo"];
 const SOURCES: Source[] = ["WhatsApp", "Formulario web", "Referido", "Manual"];
@@ -157,6 +158,7 @@ export default function Contacts() {
   };
 
   const openWA = (contactId: string) => {
+    if (blockWhatsappAction()) return;
     navigate(`/whatsapp?contactId=${contactId}`);
   };
 
@@ -460,7 +462,7 @@ export default function Contacts() {
                   <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border mb-3", statusBadgeClass[c.status])}>{lifecycleLabel[c.status]}</span>
                   <div className="font-mono text-xs text-muted-foreground mb-3">{c.phone}</div>
                   <div className="flex gap-2 w-full">
-                    <Button size="sm" className="flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => openWA(c.id)}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</Button>
+                    <Button size="sm" disabled={!WHATSAPP_CHAT_ENABLED} title={WHATSAPP_CHAT_ENABLED ? undefined : WHATSAPP_DISABLED_REASON} className="flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => openWA(c.id)}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</Button>
                     <Button size="sm" variant="outline" asChild><Link to={`/contacts/${c.id}`}>Ver detalle</Link></Button>
                   </div>
                 </div>
