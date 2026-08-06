@@ -54,7 +54,8 @@ export function AppLayout() {
   // Sync copilot context to current route/entity.
   useEffect(() => {
     setCopilotContext({
-      conversationKey: deriveConversationKey(location.pathname, location.search),
+      // Historial único por usuario: la sesión siempre es "global".
+      conversationKey: "global",
       entity: deriveEntity(location.pathname, location.search),
     });
   }, [location.pathname, location.search, setCopilotContext]);
