@@ -5,8 +5,84 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Sparkles } from "lucide-react";
+import { Plus, Trash2, Sparkles, ShieldAlert } from "lucide-react";
 import { NewCapabilityWizard } from "./NewCapabilityWizard";
+import { useTenantId } from "@/lib/queries/tenant";
+import { usePermissions } from "@/hooks/usePermissions";
+
+function BulkEditToggle() {
+  const { data: tenantId } = useTenantId();
+  const { isTenantOwner, isPlatform } = usePermissions();
+  const [enabled, setEnabled] = useState(true);
+  const [allowAdmins, setAllowAdmins] = useState(false);
+  const [ready, setReady] = useState(false);
+  const canEdit = isTenantOwner || isPlatform;
+
+  useEffect(() => {
+    if (!tenantId) return;
+    supabase
+      .from("tenants")
+      .select("bulk_edit_enabled, bulk_edit_allow_admins")
+      .eq("id", tenantId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setEnabled(data?.bulk_edit_enabled !== false);
+        setAllowAdmins(!!data?.bulk_edit_allow_admins);
+        setReady(true);
+      });
+  }, [tenantId]);
+
+  async function save(patch: { bulk_edit_enabled?: boolean; bulk_edit_allow_admins?: boolean }) {
+    if (!tenantId) return;
+    const { error } = await supabase.from("tenants").update(patch).eq("id", tenantId);
+    if (error) return toast.error(error.message);
+    toast.success("Preferencia guardada");
+  }
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="h-9 w-9 rounded-xl bg-warning/10 grid place-items-center shrink-0">
+            <ShieldAlert className="h-4 w-4 text-warning" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium">Cambios masivos</span>
+              <Badge variant="default" className="text-[10px] uppercase">Ejecuta</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Permite pedirle al Copiloto que modifique muchos contactos, oportunidades o tareas a la vez.
+              Siempre pide vista previa, un código de confirmación y se puede revertir.
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={enabled}
+          disabled={!ready || !canEdit}
+          onCheckedChange={(v) => { setEnabled(v); save({ bulk_edit_enabled: v }); }}
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-4 pl-12">
+        <span className="text-xs text-muted-foreground">
+          También permitir a los administradores del tenant (por defecto solo el dueño).
+        </span>
+        <Switch
+          checked={allowAdmins}
+          disabled={!ready || !canEdit || !enabled}
+          onCheckedChange={(v) => { setAllowAdmins(v); save({ bulk_edit_allow_admins: v }); }}
+        />
+      </div>
+
+      {!canEdit && (
+        <p className="text-xs text-muted-foreground pl-12">
+          Solo el dueño del tenant puede cambiar esta configuración.
+        </p>
+      )}
+    </Card>
+  );
+}
 
 // Catálogo nativo del Copiloto (debe coincidir con supabase/functions/ai-copilot y copilot-builder).
 const NATIVE_CAPABILITIES: { id: string; label: string; risk: "read" | "write"; description: string }[] = [
@@ -94,6 +170,16 @@ export function CopilotCapabilitiesTab() {
           <Plus className="h-4 w-4" /> Nueva capacidad
         </Button>
       </div>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold">Capacidades sensibles</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Actívalas o desactívalas para todo el tenant.
+          </p>
+        </div>
+        <BulkEditToggle />
+      </section>
 
       <section className="space-y-3">
         <div>

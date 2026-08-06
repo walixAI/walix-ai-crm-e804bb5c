@@ -83,23 +83,40 @@ export const useCopilot = create<CopilotState>((set, get) => ({
         .order("created_at", { ascending: true })
         .limit(40);
       if (error) throw error;
-      const msgs: CopilotMessage[] = (data ?? []).map((row: any) => {
+      const msgs: CopilotMessage[] = [];
+      let pendingTools: CopilotToolUse[] = [];
+      for (const row of (data ?? []) as any[]) {
         const at = new Date(row.created_at).toLocaleTimeString("es-MX", {
           hour: "2-digit", minute: "2-digit",
         });
         if (row.role === "user") {
-          return { id: row.id, role: "user", text: String(row.content ?? ""), at };
+          pendingTools = [];
+          msgs.push({ id: row.id, role: "user", text: String(row.content ?? ""), at });
+          continue;
         }
-        const toolCalls = Array.isArray(row.tool_calls) ? row.tool_calls : [];
-        return {
+        // Las filas "tool" guardan el JSON crudo del resultado: nunca se muestran
+        // como texto, se convierten en tarjetas visuales del siguiente mensaje.
+        if (row.role === "tool") {
+          let result: any = null;
+          try { result = JSON.parse(String(row.content ?? "null")); } catch { result = null; }
+          const name = row.tool_calls?.name;
+          if (name) pendingTools.push({ name, args: {}, result } as CopilotToolUse);
+          continue;
+        }
+        const text = String(row.content ?? "").trim();
+        // Turno intermedio del modelo (solo pidió herramientas, sin texto): no se muestra.
+        if (!text && Array.isArray(row.tool_calls) && row.tool_calls.length) continue;
+        if (!text && pendingTools.length === 0) continue;
+        msgs.push({
           id: row.id,
           role: "assistant",
-          text: String(row.content ?? ""),
-          toolsUsed: toolCalls as CopilotToolUse[],
+          text,
+          toolsUsed: pendingTools,
           pendingWhatsapp: null,
           at,
-        };
-      });
+        });
+        pendingTools = [];
+      }
       set((s) => ({
         messages: msgs,
         loadedKeys: { ...s.loadedKeys, [key]: true },
