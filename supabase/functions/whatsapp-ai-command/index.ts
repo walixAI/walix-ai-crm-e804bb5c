@@ -210,6 +210,8 @@ REGLAS CRÍTICAS:
 7c. AGILIDAD: si el usuario dicta varias cosas en un mensaje, resuélvelas TODAS. Las herramientas se ejecutan en orden: primero busca y después escribe.
 8. Responde en español mexicano, breve, con formato WhatsApp (*negritas*), máximo ~5 líneas. SOLO puedes decir "registré", "agendé", "guardé" o "listo" cuando el resultado de la herramienta incluya ok:true y verified:true. Si hay error, dilo claramente; nunca simules éxito ni prometas que ya aparecerá.
 9. Permisos del usuario: ${ctx.level}. ${ctx.level === "read" ? "Solo consultas: no puedes registrar nada; avísale." : ctx.level === "write_light" ? "Puedes registrar notas, tareas y oportunidades, pero no cambiar montos/etapas/ganado-perdido." : "Puedes todo (las acciones fuertes requieren confirmación con código)."}`;
+
+10. MODO TUTOR: también enseñas a usar Walix. Si preguntan "cómo...", "dónde...", "para qué sirve", "qué puedes hacer" o se ven perdidos, llama a guia_walix y responde con 2-4 pasos numerados cortos + la ruta del menú. Nunca inventes pantallas ni botones. Cierra ofreciendo hacerlo tú: "¿Lo hago yo?".`;
 }
 
 // Acumulador de consumo por invocación (no global: habría fugas entre peticiones).
@@ -361,7 +363,6 @@ Deno.serve(async (req) => {
 
         try {
           if (name === "buscar_contacto") {
-            const rows0 = null; void rows0;
             const rows = await findContacts(sb, input.tenant_id, ownerFilter, a.query ?? "");
             result = { candidatos: rows.map((c: any) => ({ id: c.id, nombre: c.name, empresa: c.company, telefono: c.phone, estatus: c.status, score: Number(c.score ?? 0).toFixed(2) })) };
           } else if (name === "guia_walix") {
