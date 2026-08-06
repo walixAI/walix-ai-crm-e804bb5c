@@ -8,6 +8,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.4
 import { getTenantPatterns, appendLearnedPatterns, getUserAIProfile, appendUserProfile } from "../_shared/ai-tools.ts";
 import { resolveTenantModel, DEFAULT_MODEL } from "../_shared/tenant-model.ts";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
+import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,21 @@ const MAX_ITERATIONS = 5;
 // ────────────────────────────────────────────────────────────────────────
 
 const CRM_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "get_help_topic",
+      description: "MODO TUTOR: devuelve la guía de uso de Walix (pasos, ruta y tips) para una duda del usuario sobre cómo funciona o cómo hacer algo en el CRM. Úsala siempre que pregunten 'cómo...', 'dónde...', 'para qué sirve...', 'no sé usar...'.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Duda del usuario en sus palabras, ej. 'cómo importo mis clientes'" },
+          list_all: { type: "boolean", description: "true para devolver el índice completo de secciones de Walix" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
   {
     type: "function",
     function: {
