@@ -270,7 +270,26 @@ export function LogFollowUpDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          {allowDealPicker && (
+          {allowDealPicker && !showDealPicker && openDeals.length <= 1 && (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Oportunidad</div>
+                <div className="text-sm font-medium truncate">
+                  {selectedDealId
+                    ? openDeals.find((d: any) => d.id === selectedDealId)?.name ?? "Oportunidad"
+                    : "Sin oportunidad (prospección)"}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {openDeals.length === 0 && !selectedDealId && (
+                  <Button variant="outline" size="sm" onClick={() => setNewDealOpen(true)}>Crear</Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setShowDealPicker(true)}>Cambiar</Button>
+              </div>
+            </div>
+          )}
+
+          {allowDealPicker && (showDealPicker || openDeals.length > 1) && (
             <div className="space-y-1.5">
               <Label className="text-base">Oportunidad</Label>
               <Select
@@ -283,7 +302,7 @@ export function LogFollowUpDialog({
                 <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin oportunidad</SelectItem>
-                  {contactDeals.map((d: any) => (
+                  {openDeals.map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                   ))}
                   <SelectItem value="__new">+ Nueva oportunidad…</SelectItem>
