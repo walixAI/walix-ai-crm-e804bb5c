@@ -89,7 +89,7 @@ export function AdvancedGoalsCard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Target className="h-4 w-4" /> Metas por dimensión y agente
+            <Target className="h-4 w-4" /> Metas del mes
           </CardTitle>
           <div className="flex items-center gap-1">
             <Button size="icon" variant="ghost" onClick={() => { const p = shiftPeriod(year, month, -1); setYear(p.year); setMonth(p.month); }}>
