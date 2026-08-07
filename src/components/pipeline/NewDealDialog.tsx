@@ -18,7 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import {
-  useContactsLite, useCreateDeal, type PipelineStage,
+  useContactsLite, useCreateDeal, usePipelines, useStages, type PipelineStage,
 } from "@/lib/queries/pipeline";
 
 interface Props {
@@ -38,6 +38,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [stageId, setStageId] = useState<string>("");
+  const [pipelineId, setPipelineId] = useState<string>("");
   const [contactId, setContactId] = useState<string | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [closeDate, setCloseDate] = useState<Date | undefined>();
@@ -47,15 +48,31 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const [probability, setProbability] = useState(50);
 
   const { data: contacts = [] } = useContactsLite();
+  const { data: pipelines = [] } = usePipelines();
+  const { data: pipelineStages = [] } = useStages(pipelineId || null);
   const create = useCreateDeal();
+
+  // Solo se permite crear en las dos primeras etapas del pipeline elegido.
+  const entryStages = pipelineStages
+    .filter((s) => !s.isWon && !s.isLost)
+    .sort((a, b) => a.position - b.position)
+    .slice(0, 2);
 
   useEffect(() => {
     if (!open) return;
     setName(""); setAmount(""); setContactId(defaultContactId ?? null); setContactSearch("");
     setCloseDate(undefined); setSource("Manual"); setNotes("");
     setAiAuto(true); setProbability(50);
-    setStageId(defaultStageId ?? stages[0]?.id ?? "");
-  }, [open, defaultStageId, defaultContactId, stages]);
+    const fromDefault = defaultStageId ? stages.find((s) => s.id === defaultStageId)?.pipelineId : null;
+    setPipelineId(fromDefault ?? pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "");
+    setStageId("");
+  }, [open, defaultStageId, defaultContactId, stages, pipelines]);
+
+  // Al cambiar de pipeline, seleccionar la primera etapa disponible.
+  useEffect(() => {
+    if (!entryStages.length) { setStageId(""); return; }
+    if (!entryStages.some((s) => s.id === stageId)) setStageId(entryStages[0].id);
+  }, [pipelineId, pipelineStages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredContacts = contactSearch
     ? contacts.filter(c => `${c.name} ${c.lastName ?? ""}`.toLowerCase().includes(contactSearch.toLowerCase()))
@@ -105,14 +122,25 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
               <Input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" />
             </div>
             <div className="space-y-1.5">
-              <Label>Etapa</Label>
-              <Select value={stageId} onValueChange={setStageId}>
+              <Label>Pipeline*</Label>
+              <Select value={pipelineId} onValueChange={setPipelineId}>
                 <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
                 <SelectContent>
-                  {stages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  {pipelines.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Etapa inicial</Label>
+            <Select value={stageId} onValueChange={setStageId} disabled={!entryStages.length}>
+              <SelectTrigger><SelectValue placeholder={pipelineId ? "Selecciona" : "Elige primero un pipeline"} /></SelectTrigger>
+              <SelectContent>
+                {entryStages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">Las oportunidades nuevas inician en las primeras etapas del pipeline.</p>
           </div>
 
           <div className="space-y-1.5">
