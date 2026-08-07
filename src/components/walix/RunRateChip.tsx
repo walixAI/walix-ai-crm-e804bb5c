@@ -14,6 +14,8 @@ export function RunRateChip() {
   const { data } = useRunRate();
   if (!data || data.monthGoal <= 0) return null;
   const tone = TONE[data.status];
+  const fmt = (n: number) =>
+    data.metric === "count" ? `${Math.round(n).toLocaleString("es-MX")} ventas` : formatMXN0(n);
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -26,10 +28,10 @@ export function RunRateChip() {
         <div className="text-sm font-semibold">Run Rate del mes</div>
         <div className="text-xs text-muted-foreground">Día {data.daysElapsed} de {data.daysTotal} {data.countBusinessDays ? "hábiles" : "corridos"}</div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <Row label="Vendido" value={formatMXN0(data.sold)} />
-          <Row label="Esperado hoy" value={formatMXN0(data.expectedToday)} />
-          <Row label="Meta" value={formatMXN0(data.monthGoal)} />
-          <Row label="Proyección" value={formatMXN0(data.projection)} />
+          <Row label={data.metric === "count" ? "Ventas cerradas" : "Vendido"} value={fmt(data.sold)} />
+          <Row label="Esperado hoy" value={fmt(data.expectedToday)} />
+          <Row label="Meta" value={fmt(data.monthGoal)} />
+          <Row label="Proyección" value={fmt(data.projection)} />
         </div>
         {data.recommendations[0] && (
           <div className="text-xs bg-muted/50 rounded p-2">{data.recommendations[0]}</div>

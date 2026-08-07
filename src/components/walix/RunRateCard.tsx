@@ -20,6 +20,11 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
   const { data: sellers = [] } = useRunRateBySeller();
   if (isLoading || !data) return null;
   const c = STATUS_COLORS[data.status];
+  const fmt = (n: number) =>
+    data.metric === "count"
+      ? `${Math.round(n).toLocaleString("es-MX")}`
+      : formatMXN0(n);
+  const unit = data.metric === "count" ? " ventas" : "";
 
   if (data.monthGoal <= 0) {
     return (
@@ -63,13 +68,13 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
         <div className="space-y-1.5">
           <Progress value={Math.min(100, data.runRatePct)} className="h-2.5" />
           <div className="grid grid-cols-3 gap-2 text-xs">
-            <Stat label="Vendido" value={formatMXN0(data.sold)} tone={c.text} />
-            <Stat label="Esperado hoy" value={formatMXN0(data.expectedToday)} />
-            <Stat label="Meta mes" value={formatMXN0(data.monthGoal)} />
+            <Stat label={data.metric === "count" ? "Ventas cerradas" : "Vendido"} value={fmt(data.sold) + unit} tone={c.text} />
+            <Stat label="Esperado hoy" value={fmt(data.expectedToday) + unit} />
+            <Stat label="Meta mes" value={fmt(data.monthGoal) + unit} />
           </div>
           <div className="pt-1 flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Proyección de cierre</span>
-            <span className={cn("font-bold", c.text)}>{formatMXN0(data.projection)}</span>
+            <span className={cn("font-bold", c.text)}>{fmt(data.projection)}{unit}</span>
           </div>
         </div>
 
@@ -102,7 +107,7 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
                 <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">
                   <span className="font-semibold">Global del mes</span>
                   <span className="flex items-center gap-3">
-                    <span className="text-muted-foreground">{formatMXN0(data.sold)} / {formatMXN0(data.monthGoal)}</span>
+                    <span className="text-muted-foreground">{fmt(data.sold)} / {fmt(data.monthGoal)}{unit}</span>
                     <span className={cn("font-bold", c.text)}>{Math.round(data.runRatePct)}%</span>
                   </span>
                 </div>
