@@ -2588,6 +2588,7 @@ export type Database = {
           dimension_value_uuid: string | null
           id: string
           is_draft: boolean
+          metric: string
           notes: string | null
           period_month: number
           period_year: number
@@ -2604,6 +2605,7 @@ export type Database = {
           dimension_value_uuid?: string | null
           id?: string
           is_draft?: boolean
+          metric?: string
           notes?: string | null
           period_month: number
           period_year: number
@@ -2620,6 +2622,7 @@ export type Database = {
           dimension_value_uuid?: string | null
           id?: string
           is_draft?: boolean
+          metric?: string
           notes?: string | null
           period_month?: number
           period_year?: number
