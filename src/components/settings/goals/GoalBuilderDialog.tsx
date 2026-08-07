@@ -328,8 +328,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
                 const userAmt = Math.round(amountNum * pct) / 100;
                 return (
                   <div key={m.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/40">
-                    <Checkbox checked={isSel} onCheckedChange={() => toggleMember(m.id)} />
-                    {/* deshabilitado cuando el reparto es automático */}
+                    <Checkbox checked={isSel} disabled={allEqual} onCheckedChange={() => toggleMember(m.id)} />
                     <Avatar className="h-8 w-8">
                       {m.avatar_url && <AvatarImage src={m.avatar_url} />}
                       <AvatarFallback>{(m.full_name ?? m.email ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
