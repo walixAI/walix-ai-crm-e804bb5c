@@ -58,6 +58,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
   const [isDraft, setIsDraft] = useState<boolean>(false);
   const [shares, setShares] = useState<Record<string, number>>({}); // userId -> percent
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allEqual, setAllEqual] = useState(false);
 
   // Preload when opening
   useEffect(() => {
@@ -80,6 +81,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
       setIsDraft(false);
       setShares({});
       setSelected(new Set());
+      setAllEqual(false);
     }
   }, [open, goal?.id]);
 
@@ -96,6 +98,25 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
   }, [open, goal?.id, existingAssignments.length]);
 
   const activeMembers = useMemo(() => members.filter((m: any) => m.is_active), [members]);
+
+  function splitEqually(uids: string[]) {
+    const s: Record<string, number> = {};
+    if (uids.length === 0) return s;
+    const each = Math.round((100 / uids.length) * 100) / 100;
+    uids.forEach((u, i) => (s[u] = i === uids.length - 1
+      ? Math.round((100 - each * (uids.length - 1)) * 100) / 100
+      : each));
+    return s;
+  }
+
+  // "Aplica a todos por partes iguales": mantiene seleccionados a todos los miembros activos
+  useEffect(() => {
+    if (!allEqual) return;
+    const uids = activeMembers.map((m: any) => m.id);
+    setSelected(new Set(uids));
+    setShares(splitEqually(uids));
+  }, [allEqual, activeMembers.length]);
+
   const totalPct = useMemo(
     () => Array.from(selected).reduce((sum, uid) => sum + (shares[uid] ?? 0), 0),
     [selected, shares]
@@ -105,6 +126,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
   const validPct = Math.abs(totalPct - 100) < 0.01 || selected.size === 0;
 
   function toggleMember(uid: string) {
+    if (allEqual) return;
     const next = new Set(selected);
     if (next.has(uid)) {
       next.delete(uid);
@@ -120,14 +142,11 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
   function distributeEqually() {
     const uids = Array.from(selected);
     if (uids.length === 0) return;
-    const each = Math.round((100 / uids.length) * 100) / 100;
-    const s: Record<string, number> = {};
-    uids.forEach((u, i) => (s[u] = i === uids.length - 1 ? Math.round((100 - each * (uids.length - 1)) * 100) / 100 : each));
-    setShares(s);
+    setShares(splitEqually(uids));
   }
 
   async function suggestByHistory() {
-    if (!tenantId || selected.size === 0) return;
+    if (!tenantId || selected.size === 0 || allEqual) return;
     try {
       const res = await suggestGoalSplit({
         tenantId,
@@ -278,12 +297,23 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
                 <Users className="h-4 w-4" /> Reparto entre agentes
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={distributeEqually} disabled={selected.size === 0}>
+                <Button size="sm" variant="ghost" onClick={distributeEqually} disabled={selected.size === 0 || allEqual}>
                   Partes iguales
                 </Button>
-                <Button size="sm" variant="outline" onClick={suggestByHistory} disabled={selected.size === 0}>
+                <Button size="sm" variant="outline" onClick={suggestByHistory} disabled={selected.size === 0 || allEqual}>
                   <Sparkles className="h-3.5 w-3.5 mr-1" /> Sugerir por historial
                 </Button>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border bg-muted/30 p-2.5">
+              <Switch checked={allEqual} onCheckedChange={setAllEqual} />
+              <div className="text-sm leading-tight">
+                <Label className="cursor-pointer">Aplica a todos por partes iguales</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Reparte la meta entre los {activeMembers.length} usuarios activos del equipo
+                  {activeMembers.length > 0 && ` (${(100 / activeMembers.length).toFixed(2)}% · ${formatTarget(Math.round((amountNum / activeMembers.length) * 100) / 100)} c/u)`}.
+                </p>
               </div>
             </div>
 
@@ -299,6 +329,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
                 return (
                   <div key={m.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/40">
                     <Checkbox checked={isSel} onCheckedChange={() => toggleMember(m.id)} />
+                    {/* deshabilitado cuando el reparto es automático */}
                     <Avatar className="h-8 w-8">
                       {m.avatar_url && <AvatarImage src={m.avatar_url} />}
                       <AvatarFallback>{(m.full_name ?? m.email ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -312,7 +343,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
                       className="w-24 h-8 text-right"
                       value={isSel ? pct : ""}
                       placeholder="%"
-                      disabled={!isSel}
+                      disabled={!isSel || allEqual}
                       onChange={(e) => setShares({ ...shares, [m.id]: Number(e.target.value) || 0 })}
                       step={0.01}
                       min={0}
