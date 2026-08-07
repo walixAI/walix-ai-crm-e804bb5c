@@ -571,6 +571,14 @@ export function LogFollowUpDialog({
             {log.isPending ? "Guardando…" : "Guardar"}
           </Button>
         </DialogFooter>
+
+        <NewDealDialog
+          open={newDealOpen}
+          onOpenChange={setNewDealOpen}
+          stages={stages}
+          defaultContactId={contactId}
+          onCreated={(id) => setSelectedDealId(id)}
+        />
       </DialogContent>
     </Dialog>
   );
