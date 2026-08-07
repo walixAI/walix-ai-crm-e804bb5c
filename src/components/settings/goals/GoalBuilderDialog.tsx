@@ -250,8 +250,27 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
           </div>
 
           <div>
-            <Label>Monto de la meta (MXN)</Label>
-            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>Tipo de meta</Label>
+              <Select value={metric} onValueChange={(v) => setMetric(v as GoalMetric)} disabled={!!goal}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="amount">Monto (MXN)</SelectItem>
+                  <SelectItem value="count">Cantidad de ventas (oportunidades ganadas)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{metric === "count" ? "Cantidad de ventas a cerrar" : "Monto de la meta (MXN)"}</Label>
+              <Input
+                type="number"
+                value={amount}
+                step={metric === "count" ? 1 : 100}
+                min={0}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="rounded-lg border p-3 space-y-3">
@@ -287,7 +306,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{m.full_name ?? m.email}</div>
-                      <div className="text-xs text-muted-foreground truncate">{isSel ? formatMXN(userAmt) : "—"}</div>
+                      <div className="text-xs text-muted-foreground truncate">{isSel ? formatTarget(userAmt) : "—"}</div>
                     </div>
                     <Input
                       type="number"
