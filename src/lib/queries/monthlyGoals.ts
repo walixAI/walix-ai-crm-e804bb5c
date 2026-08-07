@@ -202,6 +202,8 @@ export function useSaveMonthlyGoal() {
       qc.invalidateQueries({ queryKey: ["monthly-goals"] });
       qc.invalidateQueries({ queryKey: ["monthly-goal-assignments"] });
       qc.invalidateQueries({ queryKey: ["team-performance"] });
+      qc.invalidateQueries({ queryKey: ["run-rate"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
     },
   });
 }
@@ -216,6 +218,8 @@ export function useDeleteMonthlyGoal() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monthly-goals"] });
       qc.invalidateQueries({ queryKey: ["team-performance"] });
+      qc.invalidateQueries({ queryKey: ["run-rate"] });
+      qc.invalidateQueries({ queryKey: ["month-profit"] });
     },
   });
 }
