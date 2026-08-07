@@ -830,13 +830,29 @@ async function executeTool(
         }
 
         if (name === "get_monthly_goal") {
-          const { data: goal } = await sb.from("tenant_monthly_goals")
-            .select("monthly_goal_total, monthly_goal_by_type, count_business_days, note")
-            .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month).maybeSingle();
-          if (goal) return { ok: true, year, month, source: "monthly_override", ...goal };
-          const { data: t } = await sb.from("tenants")
-            .select("monthly_goal_total, monthly_goal_by_type").eq("id", tenantId).maybeSingle();
-          return { ok: true, year, month, source: "tenant_default", ...(t ?? {}) };
+          const { data: goals } = await sb.from("monthly_goals")
+            .select("amount, metric, dimension, dimension_value_text, notes, is_draft")
+            .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month);
+          const rows = (goals ?? []).filter((g: any) => !g.is_draft);
+          const amounts = rows.filter((g: any) => (g.metric ?? "amount") === "amount");
+          const global = amounts.find((g: any) => g.dimension === "global");
+          const by_type: Record<string, number> = { venta: 0, servicio: 0, refaccion: 0 };
+          for (const g of amounts.filter((g: any) => g.dimension === "deal_type")) {
+            const t = String(g.dimension_value_text ?? "");
+            if (t in by_type) by_type[t] += Number(g.amount ?? 0);
+          }
+          const monthly_goal_total = global
+            ? Number(global.amount ?? 0)
+            : amounts.filter((g: any) => g.dimension !== "global")
+                .reduce((s: number, g: any) => s + Number(g.amount ?? 0), 0);
+          return {
+            ok: true, year, month, source: "monthly_goals",
+            monthly_goal_total, monthly_goal_by_type: by_type,
+            goals: rows.map((g: any) => ({
+              dimension: g.dimension, metric: g.metric, value: Number(g.amount ?? 0),
+              dimension_value: g.dimension_value_text,
+            })),
+          };
         }
 
         if (name === "set_monthly_goal") {
@@ -847,21 +863,25 @@ async function executeTool(
           if (!Number.isFinite(total) || total < 0) {
             return { ok: false, error: "Monto inválido." };
           }
-          const bt = args.by_type ?? {};
-          const by_type = {
-            venta: Number(bt.venta ?? 0),
-            servicio: Number(bt.servicio ?? 0),
-            refaccion: Number(bt.refaccion ?? 0),
-          };
-          const { data: inserted, error } = await sb.from("tenant_monthly_goals").insert({
+          const { data: existing } = await sb.from("monthly_goals")
+            .select("id")
+            .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month)
+            .eq("dimension", "global").eq("metric", "amount").maybeSingle();
+          const payload = {
             tenant_id: tenantId,
             period_year: year,
             period_month: month,
-            monthly_goal_total: total,
-            monthly_goal_by_type: by_type,
-            note: args.note ?? null,
-            created_by: userId,
-          }).select("id, period_year, period_month, monthly_goal_total, monthly_goal_by_type").single();
+            dimension: "global",
+            metric: "amount",
+            amount: total,
+            notes: args.note ?? null,
+            is_draft: false,
+          };
+          const q = existing
+            ? sb.from("monthly_goals").update(payload).eq("id", existing.id)
+            : sb.from("monthly_goals").insert(payload);
+          const { data: inserted, error } = await q
+            .select("id, period_year, period_month, amount, dimension, metric").single();
           if (error) {
             const msg = String(error.message ?? "");
             if (msg.includes("metas de meses pasados") || error.code === "23514") {
@@ -924,14 +944,17 @@ async function executeTool(
         const today = new Date();
         const dayOfMonth = today.getDate();
         const daysInMonth = last.getDate();
-        const { data: goalRow } = await sb.from("tenant_monthly_goals")
-          .select("monthly_goal_total")
-          .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month).maybeSingle();
-        let goalTotal = Number(goalRow?.monthly_goal_total ?? 0);
-        if (!goalTotal) {
-          const { data: t } = await sb.from("tenants").select("monthly_goal_total").eq("id", tenantId).maybeSingle();
-          goalTotal = Number(t?.monthly_goal_total ?? 0);
-        }
+        const { data: goalRows } = await sb.from("monthly_goals")
+          .select("amount, metric, dimension, is_draft")
+          .eq("tenant_id", tenantId).eq("period_year", year).eq("period_month", month);
+        const amountRows = (goalRows ?? []).filter(
+          (g: any) => !g.is_draft && (g.metric ?? "amount") === "amount",
+        );
+        const globalRow = amountRows.find((g: any) => g.dimension === "global");
+        const goalTotal = globalRow
+          ? Number(globalRow.amount ?? 0)
+          : amountRows.filter((g: any) => g.dimension !== "global")
+              .reduce((s: number, g: any) => s + Number(g.amount ?? 0), 0);
         const daily = dayOfMonth > 0 ? revenue / dayOfMonth : 0;
         const projected = Math.round(daily * daysInMonth);
         const percentVsGoal = goalTotal > 0 ? Math.round((projected / goalTotal) * 1000) / 10 : 0;
