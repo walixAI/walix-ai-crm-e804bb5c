@@ -12,6 +12,7 @@ import { WBadge } from "@/components/walix/Badge";
 import { cn } from "@/lib/utils";
 import { toLocalInput, fromLocalInput } from "@/lib/format/localDatetime";
 import { usePipelines, useStages, useContactPipelineDeals } from "@/lib/queries/pipeline";
+import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
 import {
   ACTIVITY_KINDS, filterOutcomes, useActivityOutcomes, useLogFollowUp,
 } from "@/lib/queries/activityOutcomes";
@@ -115,6 +116,7 @@ export function LogFollowUpDialog({
   const [lossReasonId, setLossReasonId] = useState<string>("");
   const [clearBlocker, setClearBlocker] = useState(false);
   const [showProblem, setShowProblem] = useState(false);
+  const [newDealOpen, setNewDealOpen] = useState(false);
 
   const effectiveDeal = useMemo(
     () => contactDeals.find((d: any) => d.id === selectedDealId) ?? null,
@@ -254,18 +256,28 @@ export function LogFollowUpDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          {allowDealPicker && contactDeals.length > 0 && (
+          {allowDealPicker && (
             <div className="space-y-1.5">
               <Label className="text-base">Oportunidad</Label>
-              <Select value={selectedDealId ?? "none"} onValueChange={(v) => setSelectedDealId(v === "none" ? null : v)}>
+              <Select
+                value={selectedDealId ?? "none"}
+                onValueChange={(v) => {
+                  if (v === "__new") { setNewDealOpen(true); return; }
+                  setSelectedDealId(v === "none" ? null : v);
+                }}
+              >
                 <SelectTrigger className="h-12 text-base"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin oportunidad</SelectItem>
                   {contactDeals.map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                   ))}
+                  <SelectItem value="__new">+ Nueva oportunidad…</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Si es un negocio nuevo, créalo aquí y el seguimiento se registra en él.
+              </p>
             </div>
           )}
 
