@@ -26,11 +26,15 @@ interface Props {
   onOpenChange: (b: boolean) => void;
   stages: PipelineStage[];
   defaultStageId?: string | null;
+  /** Preselecciona (y fija) el contacto, p. ej. al crear desde su ficha. */
+  defaultContactId?: string | null;
+  /** Se llama con el id de la oportunidad creada. */
+  onCreated?: (dealId: string) => void;
 }
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
-export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Props) {
+export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defaultContactId, onCreated }: Props) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [stageId, setStageId] = useState<string>("");
@@ -47,11 +51,11 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Pr
 
   useEffect(() => {
     if (!open) return;
-    setName(""); setAmount(""); setContactId(null); setContactSearch("");
+    setName(""); setAmount(""); setContactId(defaultContactId ?? null); setContactSearch("");
     setCloseDate(undefined); setSource("Manual"); setNotes("");
     setAiAuto(true); setProbability(50);
     setStageId(defaultStageId ?? stages[0]?.id ?? "");
-  }, [open, defaultStageId, stages]);
+  }, [open, defaultStageId, defaultContactId, stages]);
 
   const filteredContacts = contactSearch
     ? contacts.filter(c => `${c.name} ${c.lastName ?? ""}`.toLowerCase().includes(contactSearch.toLowerCase()))
@@ -63,7 +67,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Pr
       toast.error("Completa los campos obligatorios"); return;
     }
     try {
-      await create.mutateAsync({
+      const created: any = await create.mutateAsync({
         name: name.trim(),
         amount: Number(amount),
         probability,
@@ -73,7 +77,8 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId }: Pr
         source,
         notes: notes.trim() || null,
       });
-      toast.success("Oportunidad creado");
+      toast.success("Oportunidad creada");
+      if (created?.id) onCreated?.(created.id);
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo crear el oportunidad");

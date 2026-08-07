@@ -93,11 +93,21 @@ export function filterOutcomes(
   stageId: string | null | undefined,
   kind: string | null | undefined,
 ) {
-  return all
+  const list = all
     .filter((o) => o.isActive)
-    .filter((o) => !o.stageId || o.stageId === stageId)
+    // Sin etapa (p. ej. seguimiento sin oportunidad) se muestran todas las opciones.
+    .filter((o) => !stageId || !o.stageId || o.stageId === stageId)
     .filter((o) => !o.activityKind || o.activityKind === kind)
     .sort((a, b) => a.position - b.position);
+  if (stageId) return list;
+  // Sin etapa: evitar repetir la misma tipificación de varias etapas.
+  const seen = new Set<string>();
+  return list.filter((o) => {
+    const k = o.label.trim().toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 export interface LogFollowUpInput {

@@ -7,6 +7,7 @@ import { DueBadge } from "./DueBadge";
 import { useContactPipelineDeals, type PipelineDeal } from "@/lib/queries/pipeline";
 import { useContactStageMaps } from "./DealsTab";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
 import { cn } from "@/lib/utils";
 
 interface Props { contactId: string }
@@ -24,6 +25,7 @@ export function DealsSidePanel({ contactId }: Props) {
   const [selected, setSelected] = useState<PipelineDeal | null>(null);
   const { data: tasks = [] } = useContactTasks(contactId);
   const [taskOpen, setTaskOpen] = useState(false);
+  const [dealOpen, setDealOpen] = useState(false);
   const now = Date.now();
   const upcoming = tasks
     .filter((t) => !t.completed)
@@ -38,7 +40,15 @@ export function DealsSidePanel({ contactId }: Props) {
       <div className="rounded-xl border border-border bg-card overflow-hidden shadow-card">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Oportunidades</span>
-          <button className="text-muted-foreground hover:text-primary transition-colors"><Plus className="h-3.5 w-3.5" /></button>
+          <button
+            type="button"
+            aria-label="Nueva oportunidad"
+            title="Nueva oportunidad"
+            onClick={() => setDealOpen(true)}
+            className="text-muted-foreground hover:text-primary transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
         </div>
         <div className="p-3 space-y-2">
           {deals.map(d => (
@@ -98,6 +108,12 @@ export function DealsSidePanel({ contactId }: Props) {
         </div>
       </div>
       <QuickTaskDialog open={taskOpen} contactId={contactId} onClose={() => setTaskOpen(false)} />
+      <NewDealDialog
+        open={dealOpen}
+        onOpenChange={setDealOpen}
+        stages={maps.allStages}
+        defaultContactId={contactId}
+      />
       <DealDrawer
         deal={selected}
         stages={selected ? maps.stagesFor(selected) : []}
