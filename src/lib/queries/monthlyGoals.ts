@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 
 export type GoalDimension = "global" | "deal_type" | "pipeline" | "product_category";
+export type GoalMetric = "amount" | "count";
 
 export interface MonthlyGoal {
   id: string;
@@ -11,6 +12,7 @@ export interface MonthlyGoal {
   period_month: number;
   amount: number;
   currency: string;
+  metric: GoalMetric;
   dimension: GoalDimension;
   dimension_value_text: string | null;
   dimension_value_uuid: string | null;
@@ -141,6 +143,7 @@ export interface SaveGoalInput {
   month: number;
   amount: number;
   dimension: GoalDimension;
+  metric: GoalMetric;
   dimensionValueText: string | null;
   dimensionValueUuid: string | null;
   notes?: string | null;
@@ -161,6 +164,7 @@ export function useSaveMonthlyGoal() {
         period_year: input.year,
         period_month: input.month,
         amount: input.amount,
+        metric: input.metric,
         dimension: input.dimension,
         dimension_value_text: input.dimensionValueText,
         dimension_value_uuid: input.dimensionValueUuid,
