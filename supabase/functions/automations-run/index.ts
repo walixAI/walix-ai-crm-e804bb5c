@@ -38,50 +38,36 @@ Deno.serve(async (req) => {
     const today = toDateStr(now);
 
     // 1. Procesar recurrencias genéricas (constructor de servicios recurrentes).
-    // Se anticipa: se genera la agenda cuando faltan <= anticipation_days para el inicio del mes.
-    const horizon = toDateStr(addDays(now, 45));
-    const { data: subs } = await admin
-      .from("recurrence_subscriptions")
-      .select("*, recurrence:recurrence_id(*)")
-      .lte("next_due_date", horizon)
-      .order("next_due_date", { ascending: true });
+    // La agenda futura (2 citas por suscripción) la mantiene recurrence_fill_horizon.
+    // Aquí sólo se materializan oportunidad/tarea de las ocurrencias que entran
+    // en la ventana de anticipación.
+    const horizon = toDateStr(addDays(now, 60));
+    const { data: pendingOccs } = await admin
+      .from("recurrence_occurrences")
+      .select("*, subscription:subscription_id(*), recurrence:recurrence_id(*)")
+      .is("generated_deal_id", null)
+      .eq("status", "pending")
+      .lte("due_date", horizon)
+      .order("due_date", { ascending: true });
 
-    for (const sub of subs ?? []) {
-      const rec = sub.recurrence as any;
-      if (!rec || !rec.enabled) continue;
+    for (const occ of pendingOccs ?? []) {
+      const rec = (occ as any).recurrence;
+      const sub = (occ as any).subscription;
+      if (!rec || !rec.enabled || !sub) continue;
       try {
-        const tenantId = sub.tenant_id;
+        const tenantId = occ.tenant_id;
         const actions: any[] = rec.actions || [];
-        const dueDate = monthStart(sub.next_due_date);
+        const dueDate = monthStart(occ.due_date);
         const anticipation = Number(rec.anticipation_days ?? 5);
         // Sólo disparar dentro de la ventana de anticipación
         const trigger = toDateStr(addDays(new Date(dueDate + "T00:00:00"), -anticipation));
         if (today < trigger) continue;
-
-        // Evitar duplicados: si ya existe la ocurrencia de ese mes, no rehacer nada
-        const { data: existing } = await admin
-          .from("recurrence_occurrences")
-          .select("id")
-          .eq("subscription_id", sub.id)
-          .eq("due_date", dueDate)
-          .maybeSingle();
-        if (existing) continue;
 
         const { data: contact } = await admin
           .from("contacts")
           .select("id, owner_id")
           .eq("id", sub.contact_id)
           .maybeSingle();
-
-        // Crear ocurrencia
-        const { data: occ } = await admin.from("recurrence_occurrences").insert({
-          recurrence_id: rec.id,
-          subscription_id: sub.id,
-          tenant_id: tenantId,
-          due_date: dueDate,
-          status: "pending",
-          assigned_to: contact?.owner_id ?? null,
-        }).select("id").single();
 
         let generatedTaskId: string | null = null;
         let generatedDealId: string | null = null;
@@ -146,22 +132,11 @@ Deno.serve(async (req) => {
         }
 
         // Actualizar ocurrencia con referencias generadas
-        if (occ) {
-          await admin.from("recurrence_occurrences").update({
-            generated_task_id: generatedTaskId,
-            generated_deal_id: generatedDealId,
-          }).eq("id", occ.id);
-        }
-
-        // El siguiente ciclo se programa al marcar el servicio como ejecutado.
-        // Respaldo: si el mes del servicio ya pasó por completo sin cierre, avanzar el ciclo.
-        const period = rec.period_months ?? (rec.kind === "calendar" ? 12 : 1);
-        const monthEnd = addMonths(new Date(dueDate + "T00:00:00"), 1);
-        if (now >= monthEnd) {
-          await admin.from("recurrence_subscriptions").update({
-            next_due_date: toDateStr(addMonths(new Date(dueDate + "T00:00:00"), period)),
-          }).eq("id", sub.id);
-        }
+        await admin.from("recurrence_occurrences").update({
+          generated_task_id: generatedTaskId,
+          generated_deal_id: generatedDealId,
+          assigned_to: occ.assigned_to ?? contact?.owner_id ?? null,
+        }).eq("id", occ.id);
 
         await admin.from("automation_runs").insert({
           tenant_id: tenantId,
@@ -170,8 +145,33 @@ Deno.serve(async (req) => {
           status: "success",
         });
       } catch (e) {
-        console.error("recurrence subscription error", sub.id, e);
+        console.error("recurrence occurrence error", (occ as any).id, e);
       }
+    }
+
+    // 1b. Mantener siempre el horizonte de citas futuras por suscripción
+    try {
+      const { data: allSubs } = await admin
+        .from("recurrence_subscriptions")
+        .select("id, recurrence:recurrence_id(future_horizon, enabled)");
+      const { data: futureOccs } = await admin
+        .from("recurrence_occurrences")
+        .select("subscription_id, due_date, status")
+        .gt("due_date", today)
+        .neq("status", "skipped");
+      const counts = new Map<string, number>();
+      for (const o of futureOccs ?? []) {
+        counts.set(o.subscription_id, (counts.get(o.subscription_id) ?? 0) + 1);
+      }
+      for (const s of allSubs ?? []) {
+        const r = (s as any).recurrence;
+        if (!r?.enabled) continue;
+        const target = Number(r.future_horizon ?? 2);
+        if ((counts.get(s.id) ?? 0) >= target) continue;
+        await admin.rpc("recurrence_fill_horizon", { _subscription_id: s.id });
+      }
+    } catch (e) {
+      console.error("recurrence horizon error", e);
     }
 
     // 2. Procesar automatizaciones programadas clásicas

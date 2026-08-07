@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
 import { aiMemory } from "@/services/aiMemory";
+import { toast } from "sonner";
+import { fetchNextServiceDates, formatServiceMonths } from "@/lib/queries/recurrence";
 
 export interface Pipeline {
   id: string;
@@ -401,6 +403,15 @@ export function useUpdateDealStage() {
         is_won: args.stage.isWon,
         is_lost: args.stage.isLost,
       });
+      // Si era un servicio recurrente, el ciclo se cierra solo: avisamos las próximas citas
+      if (args.stage.isWon) {
+        try {
+          const dates = await fetchNextServiceDates(args.dealId);
+          if (dates.length > 0) {
+            toast.success(`Siguiente servicio programado: ${formatServiceMonths(dates)}`);
+          }
+        } catch { /* noop */ }
+      }
     },
     onMutate: async ({ dealId, stage }) => {
       await qc.cancelQueries({ queryKey: ["pipeline-deals"] });

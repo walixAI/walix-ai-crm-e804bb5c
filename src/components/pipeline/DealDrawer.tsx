@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
+import { RecurringServiceBlock } from "./RecurringServiceBlock";
 import {
   useDealNotes, useCreateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
@@ -190,6 +191,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   La etapa cambia al registrar un seguimiento (pestaña Actividad).
                 </p>
               </Field>
+
+              <RecurringServiceBlock dealId={deal.id} isWon={deal.isWon} />
 
               <EditableField
                 label="Fecha estimada de cierre"
