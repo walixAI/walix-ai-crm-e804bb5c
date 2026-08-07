@@ -401,6 +401,15 @@ export function useUpdateDealStage() {
         is_won: args.stage.isWon,
         is_lost: args.stage.isLost,
       });
+      // Si era un servicio recurrente, el ciclo se cierra solo: avisamos las próximas citas
+      if (args.stage.isWon) {
+        try {
+          const dates = await fetchNextServiceDates(args.dealId);
+          if (dates.length > 0) {
+            toast.success(`Siguiente servicio programado: ${formatServiceMonths(dates)}`);
+          }
+        } catch { /* noop */ }
+      }
     },
     onMutate: async ({ dealId, stage }) => {
       await qc.cancelQueries({ queryKey: ["pipeline-deals"] });
