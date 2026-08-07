@@ -1,4 +1,4 @@
-import { useGoalAssignments } from "@/lib/queries/monthlyGoals";
+import { useGoalAssignments, type GoalMetric } from "@/lib/queries/monthlyGoals";
 import { useMembers } from "@/lib/queries/team";
 import { useTenantId } from "@/lib/queries/tenant";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,7 +7,12 @@ function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
 
-export function GoalAssignmentsList({ goalId, amount }: { goalId: string; amount: number }) {
+function formatCount(n: number) {
+  const v = Math.round(n * 10) / 10;
+  return `${v.toLocaleString("es-MX")} ${v === 1 ? "venta" : "ventas"}`;
+}
+
+export function GoalAssignmentsList({ goalId, amount, metric = "amount" }: { goalId: string; amount: number; metric?: GoalMetric }) {
   const { data: assignments = [] } = useGoalAssignments(goalId);
   const { data: tenantId } = useTenantId();
   const { data: members = [] } = useMembers(tenantId);
@@ -36,7 +41,7 @@ export function GoalAssignmentsList({ goalId, amount }: { goalId: string; amount
               <span className="truncate">{label}</span>
             </div>
             <div className="tabular-nums text-muted-foreground">
-              {Number(a.share_percent).toFixed(2)}% · <span className="text-foreground font-medium">{formatMXN(userAmt)}</span>
+              {Number(a.share_percent).toFixed(2)}% · <span className="text-foreground font-medium">{metric === "count" ? formatCount(userAmt) : formatMXN(userAmt)}</span>
             </div>
           </div>
         );
