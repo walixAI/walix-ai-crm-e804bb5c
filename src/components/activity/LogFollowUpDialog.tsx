@@ -117,6 +117,19 @@ export function LogFollowUpDialog({
   const [clearBlocker, setClearBlocker] = useState(false);
   const [showProblem, setShowProblem] = useState(false);
   const [newDealOpen, setNewDealOpen] = useState(false);
+  const [showDealPicker, setShowDealPicker] = useState(false);
+
+  /** Oportunidades abiertas del contacto (las cerradas no aplican a un seguimiento). */
+  const openDeals = useMemo(
+    () => contactDeals.filter((d: any) => !d.isWon && !d.isLost),
+    [contactDeals],
+  );
+
+  // Si solo hay una oportunidad activa, se vincula sola y no se pregunta.
+  useEffect(() => {
+    if (!open || !allowDealPicker || dealId) return;
+    if (openDeals.length === 1 && !selectedDealId) setSelectedDealId(openDeals[0].id);
+  }, [open, allowDealPicker, dealId, openDeals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const effectiveDeal = useMemo(
     () => contactDeals.find((d: any) => d.id === selectedDealId) ?? null,
@@ -154,6 +167,7 @@ export function LogFollowUpDialog({
     setLossReasonId("");
     setClearBlocker(false);
     setBlockerExpected(dateInput(7));
+    setShowDealPicker(false);
   }, [open, dealId]);
 
   // Al elegir un bloqueo, precargar su fecha esperada de resolución.
