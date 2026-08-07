@@ -67,7 +67,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
       toast.error("Completa los campos obligatorios"); return;
     }
     try {
-      await create.mutateAsync({
+      const created: any = await create.mutateAsync({
         name: name.trim(),
         amount: Number(amount),
         probability,
@@ -77,7 +77,8 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
         source,
         notes: notes.trim() || null,
       });
-      toast.success("Oportunidad creado");
+      toast.success("Oportunidad creada");
+      if (created?.id) onCreated?.(created.id);
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo crear el oportunidad");
