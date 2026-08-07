@@ -11,6 +11,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useContactPipelineDeals } from "@/lib/queries/pipeline";
+import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
+import { useStages } from "@/lib/queries/pipeline";
 import {
   useCreateContactActivity,
   useUpdateContactActivity,
@@ -57,6 +60,19 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
   const [result, setResult] = useState<string>("Conectó");
   const [subject, setSubject] = useState("");
   const [location, setLocation] = useState("");
+  const [dealId, setDealId] = useState<string | null>(null);
+  const [showDealPicker, setShowDealPicker] = useState(false);
+  const [newDealOpen, setNewDealOpen] = useState(false);
+
+  const { data: contactDeals = [] } = useContactPipelineDeals(open ? contactId : undefined);
+  const { data: allStages = [] } = useStages(null);
+  const openDeals = contactDeals.filter((d: any) => !d.isWon && !d.isLost);
+
+  // Con una sola oportunidad activa se vincula sola; con varias se pregunta.
+  useEffect(() => {
+    if (!open || isEdit) return;
+    if (openDeals.length === 1 && !dealId) setDealId(openDeals[0].id);
+  }, [open, isEdit, openDeals.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +90,7 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
       const now = new Date();
       setDate(now); setTime(format(now, "HH:mm"));
       setDuration(""); setResult("Conectó"); setSubject(""); setLocation("");
+      setDealId(null); setShowDealPicker(false);
     }
   }, [open, initial, defaultDescription]);
 
@@ -102,6 +119,7 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
           description: description.trim() || subject.trim() || "(sin descripción)",
           occurredAt: occurred.toISOString(),
           metadata,
+          dealId,
         });
         const eventType =
           kind === "note" ? "note_added" :
@@ -122,6 +140,47 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>{TITLES[kind]}</DialogTitle></DialogHeader>
         <div className="space-y-3">
+          {!isEdit && (
+            showDealPicker || openDeals.length > 1 ? (
+              <div>
+                <Label className="text-xs">Oportunidad</Label>
+                <Select
+                  value={dealId ?? "none"}
+                  onValueChange={(v) => {
+                    if (v === "__new") { setNewDealOpen(true); return; }
+                    setDealId(v === "none" ? null : v);
+                  }}
+                >
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin oportunidad</SelectItem>
+                    {openDeals.map((d: any) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                    <SelectItem value="__new">+ Nueva oportunidad…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Oportunidad</div>
+                  <div className="text-sm font-medium truncate">
+                    {dealId
+                      ? openDeals.find((d: any) => d.id === dealId)?.name ?? "Oportunidad"
+                      : "Sin oportunidad (prospección)"}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!dealId && openDeals.length === 0 && (
+                    <Button variant="outline" size="sm" onClick={() => setNewDealOpen(true)}>Crear</Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => setShowDealPicker(true)}>Cambiar</Button>
+                </div>
+              </div>
+            )
+          )}
+
           {kind !== "note" && (
             <div className="grid grid-cols-[1fr_120px] gap-2">
               <div>
@@ -200,6 +259,13 @@ export function LogActivityDialog({ open, onOpenChange, contactId, kind, initial
           </Button>
         </DialogFooter>
       </DialogContent>
+      <NewDealDialog
+        open={newDealOpen}
+        onOpenChange={setNewDealOpen}
+        stages={allStages}
+        defaultContactId={contactId}
+        onCreated={(id) => { setDealId(id); setShowDealPicker(false); }}
+      />
     </Dialog>
   );
 }
