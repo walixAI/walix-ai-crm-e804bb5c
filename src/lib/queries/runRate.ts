@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 
 export interface RunRateData {
+  /** "amount" = meta en dinero, "count" = meta en cantidad de ventas. */
+  metric: "amount" | "count";
   monthGoal: number;
   goalByType: { venta: number; servicio: number; refaccion: number };
   sold: number;
@@ -64,8 +66,12 @@ export function useRunRate() {
         .eq("period_year", now.getFullYear())
         .eq("period_month", now.getMonth() + 1);
 
-      const amountGoals = (goals ?? []).filter(
-        (g: any) => !g.is_draft && (g.metric ?? "amount") === "amount",
+      const liveGoals = (goals ?? []).filter((g: any) => !g.is_draft);
+      // Métrica: si no hay ninguna meta de monto pero sí de cantidad, el Run Rate se mide en unidades.
+      const hasAmountGoal = liveGoals.some((g: any) => (g.metric ?? "amount") === "amount");
+      const metric: "amount" | "count" = hasAmountGoal ? "amount" : (liveGoals.length > 0 ? "count" : "amount");
+      const amountGoals = liveGoals.filter(
+        (g: any) => (g.metric ?? "amount") === metric,
       );
       const globalGoal = amountGoals.find((g: any) => g.dimension === "global");
       const goalByType = { venta: 0, servicio: 0, refaccion: 0 };
@@ -100,7 +106,8 @@ export function useRunRate() {
       const soldByType = { venta: 0, servicio: 0, refaccion: 0 };
       let sold = 0;
       (wonDeals ?? []).forEach((d: any) => {
-        const amt = Number(d.amount ?? 0);
+        // En metas por cantidad cada oportunidad ganada suma 1.
+        const amt = metric === "count" ? 1 : Number(d.amount ?? 0);
         sold += amt;
         const t = (d.deal_type ?? "venta") as "venta" | "servicio" | "refaccion";
         if (t in soldByType) soldByType[t] += amt;
@@ -115,7 +122,7 @@ export function useRunRate() {
       let openQuotesAmount = 0, openQuotesCount = 0;
       let negotiationAmount = 0, negotiationCount = 0;
       (openDeals ?? []).forEach((d: any) => {
-        const amt = Number(d.amount ?? 0);
+        const amt = metric === "count" ? 1 : Number(d.amount ?? 0);
         const sn = (d.stage_name ?? "").toLowerCase();
         if (/cotiz/.test(sn)) { openQuotesAmount += amt; openQuotesCount++; }
         if (/negoc|propuesta/.test(sn)) { negotiationAmount += amt; negotiationCount++; }
@@ -126,23 +133,29 @@ export function useRunRate() {
       const projection = daysElapsed > 0 ? (sold / daysElapsed) * daysTotal : 0;
       const gap = Math.max(0, monthGoal - sold);
 
+      const fmt = (n: number) =>
+        metric === "count"
+          ? `${Math.round(n).toLocaleString("es-MX")} ventas`
+          : `$${n.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`;
+
       const recs: string[] = [];
       if (monthGoal <= 0) {
         recs.push("Define una meta mensual en Configuración → Metas para ver el Run Rate.");
       } else if (runRatePct >= 100) {
-        recs.push(`Vas por delante de la meta. Proyección: $${projection.toLocaleString("es-MX", { maximumFractionDigits: 0 })}.`);
-        if (openQuotesCount > 0) recs.push(`Aprovecha las ${openQuotesCount} cotizaciones abiertas ($${openQuotesAmount.toLocaleString("es-MX")}) para superar la meta.`);
+        recs.push(`Vas por delante de la meta. Proyección: ${fmt(projection)}.`);
+        if (openQuotesCount > 0) recs.push(`Aprovecha las ${openQuotesCount} cotizaciones abiertas (${fmt(openQuotesAmount)}) para superar la meta.`);
       } else {
         if (gap > 0 && openQuotesAmount + negotiationAmount >= gap) {
-          recs.push(`Te faltan $${gap.toLocaleString("es-MX")} para llegar a la meta. Puedes cubrirlos cerrando las ${openQuotesCount} cotizaciones ($${openQuotesAmount.toLocaleString("es-MX")}) y/o las ${negotiationCount} en negociación ($${negotiationAmount.toLocaleString("es-MX")}).`);
+          recs.push(`Te faltan ${fmt(gap)} para llegar a la meta. Puedes cubrirlos cerrando las ${openQuotesCount} cotizaciones (${fmt(openQuotesAmount)}) y/o las ${negotiationCount} en negociación (${fmt(negotiationAmount)}).`);
         } else if (gap > 0) {
-          recs.push(`Te faltan $${gap.toLocaleString("es-MX")} para la meta. Tu pipeline abierto ($${(openQuotesAmount + negotiationAmount).toLocaleString("es-MX")}) no alcanza; prospecta más.`);
+          recs.push(`Te faltan ${fmt(gap)} para la meta. Tu pipeline abierto (${fmt(openQuotesAmount + negotiationAmount)}) no alcanza; prospecta más.`);
         }
         if (openQuotesCount > 0) recs.push(`Cierra las ${openQuotesCount} cotizaciones pendientes lo antes posible.`);
         if (negotiationCount > 0) recs.push(`Da seguimiento a los ${negotiationCount} deals en negociación.`);
       }
 
       return {
+        metric,
         monthGoal, goalByType, sold, soldByType,
         expectedToday, runRatePct, projection,
         daysElapsed, daysTotal, countBusinessDays,
