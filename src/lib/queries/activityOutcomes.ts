@@ -95,7 +95,8 @@ export function filterOutcomes(
 ) {
   return all
     .filter((o) => o.isActive)
-    .filter((o) => !o.stageId || o.stageId === stageId)
+    // Sin etapa (p. ej. seguimiento sin oportunidad) se muestran todas las opciones.
+    .filter((o) => !stageId || !o.stageId || o.stageId === stageId)
     .filter((o) => !o.activityKind || o.activityKind === kind)
     .sort((a, b) => a.position - b.position);
 }
