@@ -52,31 +52,36 @@ export function useRunRate() {
 
       const { data: tenant } = await supabase
         .from("tenants")
-        .select("monthly_goal_total, monthly_goal_by_type, count_business_days")
+        .select("count_business_days")
         .eq("id", tenantId!)
         .maybeSingle();
 
-      // Meta vigente del mes en curso: última versión guardada en tenant_monthly_goals;
-      // si no hay, cae a los defaults legacy en tenants.
-      const { data: monthlyGoal } = await supabase
-        .from("tenant_monthly_goals" as any)
-        .select("monthly_goal_total, monthly_goal_by_type, count_business_days")
+      // Fuente única de metas: monthly_goals (dimensión global / por tipo, métrica monto).
+      const { data: goals } = await supabase
+        .from("monthly_goals")
+        .select("amount, metric, dimension, dimension_value_text, is_draft")
         .eq("tenant_id", tenantId!)
         .eq("period_year", now.getFullYear())
-        .eq("period_month", now.getMonth() + 1)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq("period_month", now.getMonth() + 1);
 
-      const src: any = monthlyGoal ?? tenant ?? {};
-      const monthGoal = Number(src.monthly_goal_total ?? 0);
-      const goalByTypeRaw = (src.monthly_goal_by_type ?? {}) as any;
-      const goalByType = {
-        venta: Number(goalByTypeRaw.venta ?? 0),
-        servicio: Number(goalByTypeRaw.servicio ?? 0),
-        refaccion: Number(goalByTypeRaw.refaccion ?? 0),
-      };
-      const countBusinessDays = src.count_business_days ?? true;
+      const amountGoals = (goals ?? []).filter(
+        (g: any) => !g.is_draft && (g.metric ?? "amount") === "amount",
+      );
+      const globalGoal = amountGoals.find((g: any) => g.dimension === "global");
+      const goalByType = { venta: 0, servicio: 0, refaccion: 0 };
+      amountGoals
+        .filter((g: any) => g.dimension === "deal_type")
+        .forEach((g: any) => {
+          const t = (g.dimension_value_text ?? "") as keyof typeof goalByType;
+          if (t in goalByType) goalByType[t] += Number(g.amount ?? 0);
+        });
+
+      const monthGoal = globalGoal
+        ? Number(globalGoal.amount ?? 0)
+        : amountGoals
+            .filter((g: any) => g.dimension !== "global")
+            .reduce((s: number, g: any) => s + Number(g.amount ?? 0), 0);
+      const countBusinessDays = (tenant as any)?.count_business_days ?? true;
 
       const daysTotal = countBusinessDays
         ? countBizDays(monthStart, monthEnd)
