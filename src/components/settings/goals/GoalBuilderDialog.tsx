@@ -15,7 +15,7 @@ import { useMembers } from "@/lib/queries/team";
 import { usePipelines } from "@/lib/queries/pipeline";
 import {
   useProductCategories, useSaveMonthlyGoal, useGoalAssignments,
-  suggestGoalSplit, type GoalDimension, type MonthlyGoal,
+  suggestGoalSplit, type GoalDimension, type GoalMetric, type MonthlyGoal,
 } from "@/lib/queries/monthlyGoals";
 
 const DEAL_TYPES: Array<{ value: string; label: string }> = [
@@ -26,6 +26,11 @@ const DEAL_TYPES: Array<{ value: string; label: string }> = [
 
 function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+}
+
+function formatCount(n: number) {
+  const v = Math.round(n * 10) / 10;
+  return `${v.toLocaleString("es-MX")} ${v === 1 ? "venta" : "ventas"}`;
 }
 
 interface Props {
@@ -47,6 +52,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
   const [dimension, setDimension] = useState<GoalDimension>("global");
   const [dimValueText, setDimValueText] = useState<string>("");
   const [dimValueUuid, setDimValueUuid] = useState<string>("");
+  const [metric, setMetric] = useState<GoalMetric>("amount");
   const [amount, setAmount] = useState<string>("0");
   const [notes, setNotes] = useState<string>("");
   const [isDraft, setIsDraft] = useState<boolean>(false);
@@ -60,6 +66,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
       setDimension(goal.dimension);
       setDimValueText(goal.dimension_value_text ?? "");
       setDimValueUuid(goal.dimension_value_uuid ?? "");
+      setMetric(goal.metric ?? "amount");
       setAmount(String(goal.amount));
       setNotes(goal.notes ?? "");
       setIsDraft(goal.is_draft);
@@ -67,6 +74,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
       setDimension("global");
       setDimValueText("");
       setDimValueUuid("");
+      setMetric("amount");
       setAmount("0");
       setNotes("");
       setIsDraft(false);
@@ -93,6 +101,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
     [selected, shares]
   );
   const amountNum = Number(amount) || 0;
+  const formatTarget = (n: number) => (metric === "count" ? formatCount(n) : formatMXN(n));
   const validPct = Math.abs(totalPct - 100) < 0.01 || selected.size === 0;
 
   function toggleMember(uid: string) {
@@ -148,7 +157,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
 
   async function onSave() {
     if (amountNum <= 0) {
-      toast.error("Captura un monto mayor a 0");
+      toast.error(metric === "count" ? "Captura una cantidad mayor a 0" : "Captura un monto mayor a 0");
       return;
     }
     if (dimValueMissing) {
@@ -164,6 +173,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
         id: goal?.id,
         year, month,
         amount: amountNum,
+        metric,
         dimension,
         dimensionValueText: dimension === "deal_type" ? dimValueText : null,
         dimensionValueUuid: dimension === "pipeline" || dimension === "product_category" ? dimValueUuid : null,
@@ -239,9 +249,27 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
             )}
           </div>
 
-          <div>
-            <Label>Monto de la meta (MXN)</Label>
-            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>Tipo de meta</Label>
+              <Select value={metric} onValueChange={(v) => setMetric(v as GoalMetric)} disabled={!!goal}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="amount">Monto (MXN)</SelectItem>
+                  <SelectItem value="count">Cantidad de ventas (oportunidades ganadas)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{metric === "count" ? "Cantidad de ventas a cerrar" : "Monto de la meta (MXN)"}</Label>
+              <Input
+                type="number"
+                value={amount}
+                step={metric === "count" ? 1 : 100}
+                min={0}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="rounded-lg border p-3 space-y-3">
@@ -277,7 +305,7 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{m.full_name ?? m.email}</div>
-                      <div className="text-xs text-muted-foreground truncate">{isSel ? formatMXN(userAmt) : "—"}</div>
+                      <div className="text-xs text-muted-foreground truncate">{isSel ? formatTarget(userAmt) : "—"}</div>
                     </div>
                     <Input
                       type="number"

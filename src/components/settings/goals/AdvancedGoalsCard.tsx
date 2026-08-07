@@ -26,6 +26,15 @@ function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
 
+function formatGoalTarget(g: MonthlyGoal) {
+  const n = Number(g.amount);
+  if (g.metric === "count") {
+    const v = Math.round(n);
+    return `${v.toLocaleString("es-MX")} ${v === 1 ? "venta" : "ventas"}`;
+  }
+  return formatMXN(n);
+}
+
 const DIM_ICON: Record<string, any> = {
   global: Target, deal_type: Layers, pipeline: KanbanSquare, product_category: Package,
 };
@@ -139,11 +148,14 @@ export function AdvancedGoalsCard() {
                             <div className="min-w-0 flex-1">
                               <div className="font-medium text-sm truncate">
                                 {labelFor(g)}
+                                {g.metric === "count" && (
+                                  <span className="ml-2 text-[10px] rounded bg-primary/10 text-primary px-1.5 py-0.5">Cantidad</span>
+                                )}
                                 {g.is_draft && <span className="ml-2 text-[10px] rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 px-1.5 py-0.5">Borrador</span>}
                               </div>
                               {g.notes && <div className="text-xs text-muted-foreground truncate italic">"{g.notes}"</div>}
                             </div>
-                            <div className="text-sm font-semibold tabular-nums">{formatMXN(Number(g.amount))}</div>
+                            <div className="text-sm font-semibold tabular-nums">{formatGoalTarget(g)}</div>
                             <div className="flex items-center gap-1">
                               <Button size="icon" variant="ghost" onClick={() => openEdit(g)} disabled={past}>
                                 <Pencil className="h-4 w-4" />
@@ -153,7 +165,7 @@ export function AdvancedGoalsCard() {
                               </Button>
                             </div>
                           </div>
-                          <GoalAssignmentsList goalId={g.id} amount={Number(g.amount)} />
+                          <GoalAssignmentsList goalId={g.id} amount={Number(g.amount)} metric={g.metric} />
                         </div>
                       ))}
                     </div>
