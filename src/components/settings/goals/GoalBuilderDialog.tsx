@@ -249,7 +249,6 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
             )}
           </div>
 
-          <div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label>Tipo de meta</Label>
