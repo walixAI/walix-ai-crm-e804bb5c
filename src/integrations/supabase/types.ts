@@ -3136,6 +3136,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           enabled: boolean
+          future_horizon: number
           id: string
           kind: string
           name: string
@@ -3153,6 +3154,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           enabled?: boolean
+          future_horizon?: number
           id?: string
           kind?: string
           name: string
@@ -3170,6 +3172,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           enabled?: boolean
+          future_horizon?: number
           id?: string
           kind?: string
           name?: string
@@ -4196,6 +4199,7 @@ export type Database = {
         Returns: boolean
       }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
+      close_recurrence_from_deal: { Args: { _deal_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -4301,6 +4305,10 @@ export type Database = {
       recent_acted_suggestion: {
         Args: { _entity_id: string; _entity_type: string; _tenant_id: string }
         Returns: string
+      }
+      recurrence_fill_horizon: {
+        Args: { _subscription_id: string }
+        Returns: number
       }
       run_import_batch: {
         Args: { _batch_id: string; _historical?: boolean }
