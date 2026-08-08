@@ -92,14 +92,6 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
-      name: "__unused_pipeline_status_alias",
-      description: "Devuelve KPIs del pipeline activo del usuario: deals abiertos, ganados, perdidos y monto en curso.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "search_contacts",
       description: "Busca contactos por nombre, teléfono o email. Devuelve hasta 10 coincidencias.",
       parameters: {
