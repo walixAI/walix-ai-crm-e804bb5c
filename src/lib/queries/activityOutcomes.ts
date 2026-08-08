@@ -18,7 +18,7 @@ export const ACTIVITY_KINDS: ActivityKind[] = [
   { value: "whatsapp_entrante", label: "WhatsApp entrante", base: "wa_received", direction: "in" },
   { value: "email_saliente", label: "Email saliente", base: "email", direction: "out" },
   { value: "email_entrante", label: "Email entrante", base: "email", direction: "in" },
-  { value: "visita_saliente", label: "Visita / reunión (nosotros)", base: "meeting", direction: "out" },
+  { value: "visita_saliente", label: "Visita al cliente", base: "meeting", direction: "out" },
   { value: "visita_entrante", label: "Visita del cliente", base: "meeting", direction: "in" },
   { value: "otro", label: "Otro", base: "manual", direction: "none" },
 ];
