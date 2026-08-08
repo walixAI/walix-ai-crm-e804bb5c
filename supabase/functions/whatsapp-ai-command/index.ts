@@ -659,5 +659,7 @@ Deno.serve(async (req) => {
     iterations: usage.iterations,
   });
 
-  return json(reply);
+  // Firma de marca: el tenant se identifica en cada respuesta del bot.
+  const brandName = tenant?.brand_name || tenant?.name || null;
+  return json(brandName ? `${reply}\n\n— _${brandName} · vía Walix_` : reply);
 });
