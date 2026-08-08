@@ -73,7 +73,10 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
         toast.success("Contacto creado");
       }
       onOpenChange(false);
-      if (openWA && savedId && WHATSAPP_CHAT_ENABLED) navigate(`/whatsapp?contactId=${savedId}`);
+      if (openWA && savedId) {
+        if (WHATSAPP_CHAT_ENABLED) navigate(`/whatsapp?contactId=${savedId}`);
+        else blockWhatsappAction(patch.phone ?? null);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");
     }

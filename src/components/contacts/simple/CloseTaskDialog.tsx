@@ -89,8 +89,17 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
     setMethod("call"); setNote(""); setCallResult("answered"); setAckNoMatch(false); setMode("resolve");
   }
 
+  /** Sin canal propio conectado, abrimos WhatsApp Web con el número del contacto. */
+  async function handleWhatsappClick() {
+    if (WHATSAPP_CHAT_ENABLED) { await sendWhatsappAndClose(); return; }
+    const { data } = await supabase.from("contacts").select("phone").eq("id", contactId).maybeSingle();
+    blockWhatsappAction(data?.phone ?? null, message.trim() || undefined);
+  }
+
   async function sendWhatsappAndClose() {
+    if (!WHATSAPP_CHAT_ENABLED) return;
     if (!task) return;
+
     const matches = messageMatchesTask(
       message,
       { title: task.title, task_kind: task.taskKind },
@@ -325,9 +334,9 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
         <DialogFooter>
           <Button variant="outline" size="lg" onClick={() => { onOpenChange(false); }}>Cancelar</Button>
           {mode === "resolve" && isWA && (
-            <Button size="lg" onClick={() => { if (blockWhatsappAction()) return; void sendWhatsappAndClose(); }}
+            <Button size="lg" onClick={() => { void handleWhatsappClick(); }}
               title={WHATSAPP_CHAT_ENABLED ? undefined : WHATSAPP_DISABLED_REASON}
-              disabled={!WHATSAPP_CHAT_ENABLED || sending || !message.trim()}>
+              disabled={sending || !message.trim()}>
               <Send className="mr-1 h-4 w-4" />
               {ackNoMatch ? "Enviar y cerrar" : "Enviar WhatsApp"}
             </Button>

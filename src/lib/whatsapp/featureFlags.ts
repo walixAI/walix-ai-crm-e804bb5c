@@ -8,7 +8,7 @@ import { useClientsChannelReady } from "@/lib/queries/whatsappChannels";
  * un canal propio conectado. En cuanto lo conecta, se habilita solo.
  */
 export const WHATSAPP_DISABLED_REASON =
-  "Tu WhatsApp Business aún no está conectado. Conéctalo en Configuración → WhatsApp para conversar con clientes.";
+  "Tu WhatsApp Business aún no está conectado: se abrirá WhatsApp Web. Conéctalo en Configuración → WhatsApp para conversar desde Walix.";
 
 let cachedEnabled = false;
 
@@ -27,9 +27,24 @@ export function useWhatsappChatEnabled(): boolean {
   return enabled;
 }
 
-/** Devuelve true si la acción quedó bloqueada (y avisa al usuario). */
-export function blockWhatsappAction(): boolean {
+/** Abre WhatsApp Web/app con el número del contacto (fallback sin canal propio). */
+export function openWhatsappWeb(phone?: string | null, text?: string): void {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!digits) {
+    toast.info("Este contacto no tiene teléfono registrado.");
+    return;
+  }
+  const url = `https://wa.me/${digits}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Devuelve true si el flujo interno de Walix no aplica.
+ * Sin canal propio conectado, abre WhatsApp Web con el número del contacto.
+ */
+export function blockWhatsappAction(phone?: string | null, text?: string): boolean {
   if (cachedEnabled) return false;
-  toast.info(WHATSAPP_DISABLED_REASON);
+  if (phone === undefined) toast.info(WHATSAPP_DISABLED_REASON);
+  else openWhatsappWeb(phone, text);
   return true;
 }
