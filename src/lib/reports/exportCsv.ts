@@ -26,9 +26,11 @@ export function buildReportsCSV(
   periodLabel: string,
   data: ReportsData,
   users: TenantUser[],
+  tenantName?: string | null,
 ): string {
   const header = [
-    `# Walix · Reporte ${periodLabel}`,
+    ...(tenantName ? [`# ${tenantName}`] : []),
+    `# Reporte ${periodLabel} · generado con Walix`,
     `# Generado: ${new Date().toLocaleString("es-MX")}`,
     "",
   ].join("\n");
