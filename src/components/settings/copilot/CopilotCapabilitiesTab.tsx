@@ -84,11 +84,13 @@ function BulkEditToggle() {
   );
 }
 
-// Catálogo nativo del Copiloto (debe coincidir con supabase/functions/ai-copilot y copilot-builder).
+// Catálogo nativo del Copiloto (debe coincidir con supabase/functions/_shared/native-caps.ts).
 const NATIVE_CAPABILITIES: { id: string; label: string; risk: "read" | "write"; description: string }[] = [
   { id: "search_contacts", label: "Buscar contactos", risk: "read", description: "Busca contactos por nombre, teléfono o email." },
   { id: "get_contact_context", label: "Leer contexto de contacto", risk: "read", description: "Resumen IA, hechos clave y últimos eventos de un contacto." },
   { id: "get_pipeline_status", label: "Consultar pipeline", risk: "read", description: "KPIs del pipeline: abiertos, ganados, perdidos y monto en curso." },
+  { id: "get_activities", label: "Consultar actividades", risk: "read", description: "Visitas, llamadas, correos y notas registradas en un periodo (hoy, semana, mes)." },
+  { id: "get_scheduled_services", label: "Consultar mantenimientos", risk: "read", description: "Servicios recurrentes programados por mes." },
   { id: "get_my_tasks", label: "Consultar pendientes", risk: "read", description: "Lista tus tareas o las del tenant si eres admin." },
   { id: "get_my_suggestions", label: "Sugerencias proactivas", risk: "read", description: "Devuelve las sugerencias generadas por los agentes IA." },
   { id: "get_my_deals", label: "Consultar oportunidades", risk: "read", description: "Deals abiertos, filtrables por cierre en el mes." },
