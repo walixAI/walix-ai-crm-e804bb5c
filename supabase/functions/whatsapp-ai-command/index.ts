@@ -162,6 +162,20 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "listar_actividades",
+      description: "Lista actividades registradas (visitas, llamadas, reuniones, correos, WhatsApp, notas) en un periodo. Úsala para 'visitas de esta semana', 'llamadas de hoy', 'seguimientos del mes'.",
+      parameters: {
+        type: "object",
+        properties: {
+          periodo: { type: "string", description: "hoy | ayer | semana | semana_pasada | mes | mes_pasado. Default semana." },
+          tipo: { type: "string", description: "Texto del tipo, ej. 'visita', 'llamada', 'correo'." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "guia_walix",
       description: "MODO TUTOR: devuelve la guía de uso de Walix (qué es cada sección y pasos) cuando el usuario pregunta cómo hacer algo, dónde está algo o qué puede hacer con Walix.",
       parameters: { type: "object", properties: { pregunta: { type: "string" }, listar_todo: { type: "boolean" } } },
