@@ -13,6 +13,7 @@ import {
   bulkPreview, bulkConfirm, bulkApply, bulkUndo, bulkCancel, bulkList,
   type BulkEntity,
 } from "../_shared/bulk-edit.ts";
+import { getDisabledNativeTools, filterTools } from "../_shared/native-caps.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1330,6 +1331,9 @@ Deno.serve(async (req) => {
 
     // 4. Loop agéntico
     const toolsUsed: { name: string; args: any; result: any }[] = [];
+    // Capacidades nativas apagadas por el tenant (Ajustes → Copiloto).
+    const disabledCaps = await getDisabledNativeTools(sb, tenantId);
+    const ACTIVE_TOOLS = filterTools(CRM_TOOLS as any[], disabledCaps);
     let pendingWhatsapp: { contact_id: string; draft: string } | undefined;
     let finalText = "";
     let usageInput = 0, usageOutput = 0, usageTotal = 0, usageIters = 0;
@@ -1344,7 +1348,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: MODEL,
           messages,
-          tools: CRM_TOOLS,
+          tools: ACTIVE_TOOLS,
           tool_choice: "auto",
           parallel_tool_calls: true,
         }),
@@ -1372,7 +1376,7 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ model: MODEL, messages, tools: CRM_TOOLS, tool_choice: "auto" }),
+          body: JSON.stringify({ model: MODEL, messages, tools: ACTIVE_TOOLS, tool_choice: "auto" }),
         });
       }
       if (!aiRes.ok) {
