@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { CreateTenantDialog } from "@/components/organizations/CreateTenantDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { TenantMark } from "@/components/walix/TenantMark";
 
 export function TenantSwitcher() {
   const { activeTenantId, organizations } = useAuth();
@@ -70,9 +71,7 @@ export function TenantSwitcher() {
   if (tenants.length === 1 && !isOrgOwner) {
     return (
       <div className="flex items-center gap-2 px-2 h-9 rounded-lg text-sm">
-        <div className="h-7 w-7 rounded-md bg-gradient-brand grid place-items-center text-primary-foreground text-[11px] font-bold">
-          {active?.name?.[0] ?? "T"}
-        </div>
+        <TenantMark name={active?.name} logoUrl={(active as any)?.logo_url} size={28} />
         <span className="font-medium truncate max-w-[140px]">{active?.name}</span>
       </div>
     );
@@ -86,9 +85,7 @@ export function TenantSwitcher() {
             variant="ghost"
             className="h-9 px-2 gap-2 hover:bg-muted/70 rounded-lg"
           >
-            <div className="h-7 w-7 rounded-md bg-gradient-brand grid place-items-center text-primary-foreground text-[11px] font-bold">
-              {active?.name?.[0] ?? "T"}
-            </div>
+            <TenantMark name={active?.name} logoUrl={(active as any)?.logo_url} size={28} />
             <div className="flex flex-col items-start leading-tight">
               <span className="text-sm font-semibold truncate max-w-[140px]">
                 {active?.name ?? "Selecciona empresa"}
@@ -110,9 +107,7 @@ export function TenantSwitcher() {
               onClick={() => onSwitch(t.id)}
               className="gap-2"
             >
-              <div className="h-6 w-6 rounded bg-muted grid place-items-center text-[10px] font-bold">
-                {t.name[0]}
-              </div>
+              <TenantMark name={t.name} logoUrl={(t as any).logo_url} size={24} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{t.name}</div>
                 <div className="text-[10px] text-muted-foreground uppercase">

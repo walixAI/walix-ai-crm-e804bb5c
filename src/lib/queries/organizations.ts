@@ -12,6 +12,7 @@ export interface OrgTenant {
   created_at: string;
   active_users: number;
   last_activity_at: string | null;
+  logo_url?: string | null;
 }
 
 export interface OrgPlanLimit {
@@ -29,7 +30,7 @@ export function useOrgTenants(orgId: string | undefined | null) {
     queryFn: async (): Promise<OrgTenant[]> => {
       const { data: tenants, error } = await supabase
         .from("tenants")
-        .select("id, name, plan, status, mrr, trial_ends_at, created_at")
+        .select("id, name, plan, status, mrr, trial_ends_at, created_at, logo_url")
         .eq("organization_id", orgId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -72,11 +73,11 @@ export function useUserTenants() {
     staleTime: 30_000,
     queryFn: async () => {
       // Tenants vía membresía de organización
-      let orgTenants: { id: string; name: string; plan: string; organization_id: string }[] = [];
+      let orgTenants: { id: string; name: string; plan: string; organization_id: string; logo_url?: string | null }[] = [];
       if (orgIds.length > 0) {
         const { data } = await supabase
           .from("tenants")
-          .select("id, name, plan, organization_id")
+          .select("id, name, plan, organization_id, logo_url")
           .in("organization_id", orgIds);
         orgTenants = data ?? [];
       }
@@ -94,7 +95,7 @@ export function useUserTenants() {
       if (extraIds.length > 0) {
         const { data } = await supabase
           .from("tenants")
-          .select("id, name, plan, organization_id")
+          .select("id, name, plan, organization_id, logo_url")
           .in("id", extraIds);
         orgTenants = [...orgTenants, ...(data ?? [])];
       }

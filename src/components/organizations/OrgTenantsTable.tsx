@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { OrgTenant } from "@/lib/queries/organizations";
 import { useQueryClient } from "@tanstack/react-query";
 import { tenantPlanLabel } from "@/lib/plans";
+import { TenantMark } from "@/components/walix/TenantMark";
 
 const fmt = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
@@ -57,7 +58,10 @@ export function OrgTenantsTable({ tenants, activeTenantId }: Props) {
               {tenants.map((t) => (
                 <tr key={t.id} className="hover:bg-muted/30">
                   <td className="px-5 py-3 font-medium">
-                    {t.name}
+                    <span className="inline-flex items-center gap-2 align-middle">
+                      <TenantMark name={t.name} logoUrl={(t as any).logo_url} size={24} />
+                      {t.name}
+                    </span>
                     {t.id === activeTenantId && (
                       <WBadge variant="brand" className="ml-2 text-[10px]">
                         Activa
