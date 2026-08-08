@@ -8,6 +8,7 @@ import { useReportsContext } from "@/lib/reports/context";
 import { downloadCSV, buildReportsCSV } from "@/lib/reports/exportCsv";
 import { exportReportsPdf } from "@/lib/reports/exportPdf";
 import { useToast } from "@/hooks/use-toast";
+import { useTenant } from "@/lib/queries/tenant";
 
 interface Props {
   filters: ReportFilters;
@@ -21,6 +22,7 @@ interface Props {
 export function ReportsHeader({ filters, onPeriod, onSellers, chartRefs, executiveSummary, generatedBy }: Props) {
   const { toast } = useToast();
   const { data, users } = useReportsContext();
+  const { data: tenant } = useTenant();
   const [exporting, setExporting] = useState<"pdf" | "csv" | null>(null);
 
   const sellersLabel = filters.sellers.length === 0
@@ -34,7 +36,12 @@ export function ReportsHeader({ filters, onPeriod, onSellers, chartRefs, executi
     }
     setExporting("csv");
     try {
-      const csv = buildReportsCSV(periodLabel(filters.period), data, users);
+      const csv = buildReportsCSV(
+        periodLabel(filters.period),
+        data,
+        users,
+        tenant?.brandName ?? tenant?.name ?? null,
+      );
       const stamp = new Date().toISOString().slice(0, 10);
       downloadCSV(`walix-reporte-${stamp}.csv`, csv);
       toast({ title: "CSV exportado", description: "El reporte se descargó correctamente." });
@@ -59,6 +66,7 @@ export function ReportsHeader({ filters, onPeriod, onSellers, chartRefs, executi
         executiveSummary,
         data,
         users,
+        tenant: { name: tenant?.brandName ?? tenant?.name, logoUrl: tenant?.logoUrl },
         charts: [
           { title: "funnel",  node: chartRefs.funnel },
           { title: "pie",     node: chartRefs.pie },
