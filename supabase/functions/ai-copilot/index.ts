@@ -776,6 +776,7 @@ async function executeTool(
       }
 
       case "get_my_deals": {
+        // (ver get_activities más abajo)
         const limit = Math.min(50, Number(args.limit ?? 10));
         // Detectar si el usuario es admin/owner para default de scope
         const { data: rolesRows } = await sb.from("user_roles")
