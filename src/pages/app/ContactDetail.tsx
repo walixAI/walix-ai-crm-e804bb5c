@@ -50,7 +50,7 @@ export default function ContactDetail() {
     );
   }
 
-  const openWA = () => { if (blockWhatsappAction()) return; navigate(`/whatsapp?contactId=${contact.id}`); };
+  const openWA = () => { if (blockWhatsappAction(contact.phone)) return; navigate(`/whatsapp?contactId=${contact.id}`); };
 
   return (
     <div className="space-y-4 max-w-[1600px]">
