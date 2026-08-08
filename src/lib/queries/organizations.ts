@@ -12,6 +12,7 @@ export interface OrgTenant {
   created_at: string;
   active_users: number;
   last_activity_at: string | null;
+  logo_url?: string | null;
 }
 
 export interface OrgPlanLimit {
@@ -29,7 +30,7 @@ export function useOrgTenants(orgId: string | undefined | null) {
     queryFn: async (): Promise<OrgTenant[]> => {
       const { data: tenants, error } = await supabase
         .from("tenants")
-        .select("id, name, plan, status, mrr, trial_ends_at, created_at")
+        .select("id, name, plan, status, mrr, trial_ends_at, created_at, logo_url")
         .eq("organization_id", orgId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
