@@ -11,6 +11,8 @@ import { logAudit } from "@/services/audit";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Loader2, Upload } from "lucide-react";
+import { Logo } from "@/components/walix/Logo";
+import { TenantMark } from "@/components/walix/TenantMark";
 
 const TIMEZONES = [
   "America/Mexico_City", "America/Tijuana", "America/Cancun", "America/Bogota",
@@ -194,6 +196,45 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
             />
             <code className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground">{color}</code>
             <span className="text-xs text-muted-foreground">Vista previa en vivo. Guarda para hacerlo permanente.</span>
+          </div>
+        </div>
+
+        <div className="space-y-3 pt-2 border-t border-border">
+          <div>
+            <Label>Cómo se verá dentro de Walix</Label>
+            <p className="text-xs text-muted-foreground">
+              Tu logo siempre va contenido en un chip de tamaño fijo, junto a la marca Walix. Si no hay logo, usamos un monograma con tus iniciales.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border p-3 space-y-2">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Barra lateral</p>
+              <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-2 py-2">
+                <Logo />
+                <span className="text-muted-foreground">/</span>
+                <TenantMark name={name} logoUrl={logoUrl} size={32} />
+                <span className="text-sm font-medium truncate">{brandName || name || "Mi empresa"}</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3 space-y-2">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Selector de instancia</p>
+              <div className="flex items-center gap-2 rounded-lg border border-border px-2 py-2">
+                <TenantMark name={name} logoUrl={logoUrl} size={24} />
+                <span className="text-sm truncate">{name || "Mi empresa"}</span>
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <TenantMark name={name} logoUrl={null} size={32} />
+                <span className="text-xs text-muted-foreground">Respaldo sin logo (monograma)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" className="pointer-events-none">Botón primario</Button>
+            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">Chip de acento</span>
+            <span className="text-xs text-muted-foreground">El color de marca solo pinta acentos, nunca fondos grandes.</span>
           </div>
         </div>
       </Card>
