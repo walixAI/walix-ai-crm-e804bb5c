@@ -314,7 +314,7 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
     margin: { left: 14, right: 14 },
   });
 
-  addFooter(doc);
+  addFooter(doc, opts.tenant?.name);
 
   const stamp = new Date().toISOString().slice(0, 10);
   doc.save(`walix-reporte-${stamp}.pdf`);
