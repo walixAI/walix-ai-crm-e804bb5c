@@ -39,16 +39,16 @@ export default function ContactDetailSimple() {
     pending[0] ||
     null;
   const openWA = () => {
-    if (blockWhatsappAction()) return;
+    const draft = primaryTask
+      ? buildDraftMessage(
+          { title: primaryTask.title, task_kind: primaryTask.taskKind ?? null },
+          { firstName: contact.name },
+          null,
+        )
+      : null;
+    if (blockWhatsappAction(contact.phone, draft ?? undefined)) return;
     const params = new URLSearchParams({ contactId: contact.id });
-    if (primaryTask) {
-      const draft = buildDraftMessage(
-        { title: primaryTask.title, task_kind: primaryTask.taskKind ?? null },
-        { firstName: contact.name },
-        null,
-      );
-      if (draft) params.set("draft", draft);
-    }
+    if (draft) params.set("draft", draft);
     navigate(`/whatsapp?${params.toString()}`);
   };
 
