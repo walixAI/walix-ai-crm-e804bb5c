@@ -72,6 +72,34 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_activities",
+      description:
+        "Lista actividades registradas (llamadas, visitas, reuniones, correos, WhatsApp, notas) en un rango de fechas. Úsalo para preguntas tipo 'visitas de esta semana', 'llamadas de ayer', 'seguimientos del mes'.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string", description: "hoy | ayer | semana | semana_pasada | mes | mes_pasado. Default: semana" },
+          date_from: { type: "string", description: "Fecha inicial YYYY-MM-DD (opcional, gana sobre period)" },
+          date_to: { type: "string", description: "Fecha final YYYY-MM-DD (opcional)" },
+          kind: { type: "string", description: "Texto del tipo de actividad, ej. 'visita', 'llamada', 'correo', 'whatsapp', 'reunión'" },
+          scope: { type: "string", description: "mine = solo mías, tenant = de todo el equipo" },
+          limit: { type: "number" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "__unused_pipeline_status_alias",
+      description: "Devuelve KPIs del pipeline activo del usuario: deals abiertos, ganados, perdidos y monto en curso.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "search_contacts",
       description: "Busca contactos por nombre, teléfono o email. Devuelve hasta 10 coincidencias.",
       parameters: {
