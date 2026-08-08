@@ -325,9 +325,9 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
         <DialogFooter>
           <Button variant="outline" size="lg" onClick={() => { onOpenChange(false); }}>Cancelar</Button>
           {mode === "resolve" && isWA && (
-            <Button size="lg" onClick={() => { if (blockWhatsappAction()) return; void sendWhatsappAndClose(); }}
+            <Button size="lg" onClick={() => { void handleWhatsappClick(); }}
               title={WHATSAPP_CHAT_ENABLED ? undefined : WHATSAPP_DISABLED_REASON}
-              disabled={!WHATSAPP_CHAT_ENABLED || sending || !message.trim()}>
+              disabled={sending || !message.trim()}>
               <Send className="mr-1 h-4 w-4" />
               {ackNoMatch ? "Enviar y cerrar" : "Enviar WhatsApp"}
             </Button>
