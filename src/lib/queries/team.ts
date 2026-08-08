@@ -20,7 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
 async function sendInviteEmail(inv: { id: string; email: string; role: string; token?: string; expires_at?: string }, tenantId: string) {
   try {
     const [{ data: tenant }, { data: auth }] = await Promise.all([
-      supabase.from("tenants").select("name").eq("id", tenantId).maybeSingle(),
+      supabase.from("tenants").select("name, brand_name, logo_url").eq("id", tenantId).maybeSingle(),
       supabase.auth.getUser(),
     ]);
     let invitadoPor = "";
@@ -37,7 +37,8 @@ async function sendInviteEmail(inv: { id: string; email: string; role: string; t
         recipientEmail: inv.email,
         idempotencyKey: `invite-${inv.id}`,
         templateData: {
-          empresa: (tenant as any)?.name ?? "tu equipo",
+          empresa: (tenant as any)?.brand_name || (tenant as any)?.name || "tu equipo",
+          logoUrl: (tenant as any)?.logo_url ?? "",
           invitadoPor,
           rol: ROLE_LABELS[inv.role] ?? inv.role,
           inviteUrl: `${window.location.origin}/invitacion?token=${token}`,

@@ -14,6 +14,8 @@ export interface PdfExportOptions {
   charts: { title: string; node: HTMLElement | null }[];
   /** Optional executive summary plain-text (citations stripped). */
   executiveSummary?: string;
+  /** Marca del tenant: se muestra contenida, sin sustituir la estética de Walix. */
+  tenant?: { name?: string | null; logoUrl?: string | null };
 }
 
 const PRIMARY = "#4F46E5";
@@ -24,7 +26,37 @@ function fmtMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 }
 
-function addFooter(doc: jsPDF) {
+/** Carga una imagen remota como dataURL para incrustarla en el PDF. */
+async function loadImageData(url: string): Promise<{ data: string; w: number; h: number } | null> {
+  try {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    const loaded = await new Promise<HTMLImageElement | null>((resolve) => {
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+    if (!loaded) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = loaded.naturalWidth;
+    canvas.height = loaded.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(loaded, 0, 0);
+    return { data: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
+  } catch {
+    return null;
+  }
+}
+
+function initials(name?: string | null) {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "W";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function addFooter(doc: jsPDF, tenantName?: string | null) {
   const pageCount = doc.getNumberOfPages();
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
@@ -32,12 +64,12 @@ function addFooter(doc: jsPDF) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(MUTED);
-    doc.text("Walix.ai · Reportes", 14, h - 8);
+    doc.text(tenantName ? `${tenantName} · hecho con Walix.ai` : "Walix.ai · Reportes", 14, h - 8);
     doc.text(`Página ${i} de ${pageCount}`, w - 14, h - 8, { align: "right" });
   }
 }
 
-function addCover(doc: jsPDF, opts: PdfExportOptions) {
+function addCover(doc: jsPDF, opts: PdfExportOptions, logo: { data: string; w: number; h: number } | null) {
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
 
@@ -52,7 +84,32 @@ function addCover(doc: jsPDF, opts: PdfExportOptions) {
   doc.text("Reportes & Analytics", 14, 36);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(13);
-  doc.text("Walix.ai · CRM con WhatsApp e IA", 14, 50);
+  doc.text(
+    opts.tenant?.name ? `${opts.tenant.name} · hecho con Walix.ai` : "Walix.ai · CRM con WhatsApp e IA",
+    14,
+    50,
+  );
+
+  // Marca del tenant: chip blanco de tamaño fijo (logo contenido o monograma)
+  const chip = 26;
+  const chipX = w - 14 - chip;
+  const chipY = 22;
+  doc.setFillColor("#FFFFFF");
+  doc.roundedRect(chipX, chipY, chip, chip, 4, 4, "F");
+  if (logo) {
+    const pad = 4;
+    const box = chip - pad * 2;
+    const ratio = logo.w / logo.h;
+    const dw = ratio >= 1 ? box : box * ratio;
+    const dh = ratio >= 1 ? box / ratio : box;
+    doc.addImage(logo.data, "PNG", chipX + (chip - dw) / 2, chipY + (chip - dh) / 2, dw, dh);
+  } else {
+    doc.setTextColor(PRIMARY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(initials(opts.tenant?.name), chipX + chip / 2, chipY + chip / 2 + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+  }
 
   // Meta block
   doc.setTextColor(TEXT);
@@ -132,8 +189,10 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   const w = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
+  const logo = opts.tenant?.logoUrl ? await loadImageData(opts.tenant.logoUrl) : null;
+
   // ── Cover
-  addCover(doc, opts);
+  addCover(doc, opts, logo);
 
   // ── Funnel chart (captured)
   doc.addPage();
@@ -255,7 +314,7 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
     margin: { left: 14, right: 14 },
   });
 
-  addFooter(doc);
+  addFooter(doc, opts.tenant?.name);
 
   const stamp = new Date().toISOString().slice(0, 10);
   doc.save(`walix-reporte-${stamp}.pdf`);
