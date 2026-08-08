@@ -89,6 +89,13 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
     setMethod("call"); setNote(""); setCallResult("answered"); setAckNoMatch(false); setMode("resolve");
   }
 
+  /** Sin canal propio conectado, abrimos WhatsApp Web con el número del contacto. */
+  async function handleWhatsappClick() {
+    if (WHATSAPP_CHAT_ENABLED) { await sendWhatsappAndClose(); return; }
+    const { data } = await supabase.from("contacts").select("phone").eq("id", contactId).maybeSingle();
+    blockWhatsappAction(data?.phone ?? null, message.trim() || undefined);
+  }
+
   async function sendWhatsappAndClose() {
     if (!WHATSAPP_CHAT_ENABLED) return;
     if (!task) return;
