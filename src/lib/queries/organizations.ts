@@ -72,11 +72,11 @@ export function useUserTenants() {
     staleTime: 30_000,
     queryFn: async () => {
       // Tenants vía membresía de organización
-      let orgTenants: { id: string; name: string; plan: string; organization_id: string }[] = [];
+      let orgTenants: { id: string; name: string; plan: string; organization_id: string; logo_url?: string | null }[] = [];
       if (orgIds.length > 0) {
         const { data } = await supabase
           .from("tenants")
-          .select("id, name, plan, organization_id")
+          .select("id, name, plan, organization_id, logo_url")
           .in("organization_id", orgIds);
         orgTenants = data ?? [];
       }
@@ -94,7 +94,7 @@ export function useUserTenants() {
       if (extraIds.length > 0) {
         const { data } = await supabase
           .from("tenants")
-          .select("id, name, plan, organization_id")
+          .select("id, name, plan, organization_id, logo_url")
           .in("id", extraIds);
         orgTenants = [...orgTenants, ...(data ?? [])];
       }
