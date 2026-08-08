@@ -72,6 +72,26 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_activities",
+      description:
+        "Lista actividades registradas (llamadas, visitas, reuniones, correos, WhatsApp, notas) en un rango de fechas. Úsalo para preguntas tipo 'visitas de esta semana', 'llamadas de ayer', 'seguimientos del mes'.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string", description: "hoy | ayer | semana | semana_pasada | mes | mes_pasado. Default: semana" },
+          date_from: { type: "string", description: "Fecha inicial YYYY-MM-DD (opcional, gana sobre period)" },
+          date_to: { type: "string", description: "Fecha final YYYY-MM-DD (opcional)" },
+          kind: { type: "string", description: "Texto del tipo de actividad, ej. 'visita', 'llamada', 'correo', 'whatsapp', 'reunión'" },
+          scope: { type: "string", description: "mine = solo mías, tenant = de todo el equipo" },
+          limit: { type: "number" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "search_contacts",
       description: "Busca contactos por nombre, teléfono o email. Devuelve hasta 10 coincidencias.",
       parameters: {
@@ -753,6 +773,97 @@ async function executeTool(
           .limit(limit);
         if (error) return { ok: false, error: error.message };
         return { ok: true, count: (data ?? []).length, suggestions: data ?? [] };
+      }
+
+      case "get_activities": {
+        // Rango de fechas: date_from/date_to ganan sobre period.
+        const now = new Date();
+        const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const period = String(args.period ?? "semana").toLowerCase();
+        let from: Date;
+        let to: Date;
+        if (period === "hoy") {
+          from = startOfDay(now);
+          to = new Date(from.getTime() + 86400000);
+        } else if (period === "ayer") {
+          to = startOfDay(now);
+          from = new Date(to.getTime() - 86400000);
+        } else if (period === "mes") {
+          from = new Date(now.getFullYear(), now.getMonth(), 1);
+          to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        } else if (period === "mes_pasado") {
+          from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          to = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else {
+          // semana / semana_pasada: semana que inicia en lunes
+          const dow = (now.getDay() + 6) % 7;
+          const monday = new Date(startOfDay(now).getTime() - dow * 86400000);
+          if (period === "semana_pasada") {
+            from = new Date(monday.getTime() - 7 * 86400000);
+            to = monday;
+          } else {
+            from = monday;
+            to = new Date(monday.getTime() + 7 * 86400000);
+          }
+        }
+        if (args.date_from) from = new Date(`${String(args.date_from).slice(0, 10)}T00:00:00`);
+        if (args.date_to) to = new Date(new Date(`${String(args.date_to).slice(0, 10)}T00:00:00`).getTime() + 86400000);
+
+        const { data: rolesAct } = await sb.from("user_roles").select("role").eq("user_id", userId);
+        const isAdminAct = (rolesAct ?? []).some((r: any) =>
+          ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"].includes(r.role));
+        const scopeAct = args.scope ?? (isAdminAct ? "tenant" : "mine");
+
+        let qa = sb
+          .from("activities")
+          .select("id, type, description, occurred_at, agent_id, contact_id, deal_id, metadata, contacts(name)")
+          .eq("tenant_id", tenantId)
+          .gte("occurred_at", from.toISOString())
+          .lt("occurred_at", to.toISOString());
+        if (scopeAct === "mine") qa = qa.eq("agent_id", userId);
+        const { data: acts, error: actErr } = await qa
+          .order("occurred_at", { ascending: false })
+          .limit(Math.min(200, Number(args.limit ?? 100)));
+        if (actErr) return { ok: false, error: actErr.message };
+
+        let rowsAct = (acts ?? []) as any[];
+        if (args.kind) {
+          const k = String(args.kind).toLowerCase();
+          rowsAct = rowsAct.filter((a) => {
+            const label = String(a.metadata?.activity_kind_label ?? "").toLowerCase();
+            const kind = String(a.metadata?.activity_kind ?? "").toLowerCase();
+            return label.includes(k) || kind.includes(k) || String(a.type ?? "").toLowerCase().includes(k);
+          });
+        }
+        const actorIds = [...new Set(rowsAct.map((a) => a.agent_id).filter(Boolean))];
+        const actors = actorIds.length
+          ? (await sb.from("profiles").select("id, full_name, email").in("id", actorIds)).data ?? []
+          : [];
+        const aMap = new Map(actors.map((p: any) => [p.id, p.full_name ?? p.email]));
+        const byKind: Record<string, number> = {};
+        const listAct = rowsAct.map((a) => {
+          const label = a.metadata?.activity_kind_label ?? a.type;
+          byKind[label] = (byKind[label] ?? 0) + 1;
+          return {
+            fecha: a.occurred_at,
+            tipo: label,
+            resultado: a.metadata?.result ?? null,
+            contacto: a.contacts?.name ?? null,
+            contact_id: a.contact_id,
+            deal_id: a.deal_id,
+            usuario: a.agent_id ? aMap.get(a.agent_id) ?? null : null,
+            nota: a.description ?? null,
+          };
+        });
+        return {
+          ok: true,
+          desde: from.toISOString().slice(0, 10),
+          hasta: new Date(to.getTime() - 1).toISOString().slice(0, 10),
+          scope: scopeAct,
+          total: listAct.length,
+          por_tipo: byKind,
+          actividades: listAct,
+        };
       }
 
       case "get_my_deals": {

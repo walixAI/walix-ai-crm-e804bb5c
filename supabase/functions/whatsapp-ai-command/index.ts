@@ -162,6 +162,20 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "listar_actividades",
+      description: "Lista actividades registradas (visitas, llamadas, reuniones, correos, WhatsApp, notas) en un periodo. Úsala para 'visitas de esta semana', 'llamadas de hoy', 'seguimientos del mes'.",
+      parameters: {
+        type: "object",
+        properties: {
+          periodo: { type: "string", description: "hoy | ayer | semana | semana_pasada | mes | mes_pasado. Default semana." },
+          tipo: { type: "string", description: "Texto del tipo, ej. 'visita', 'llamada', 'correo'." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "guia_walix",
       description: "MODO TUTOR: devuelve la guía de uso de Walix (qué es cada sección y pasos) cuando el usuario pregunta cómo hacer algo, dónde está algo o qué puede hacer con Walix.",
       parameters: { type: "object", properties: { pregunta: { type: "string" }, listar_todo: { type: "boolean" } } },
@@ -527,6 +541,45 @@ Deno.serve(async (req) => {
             if (ownerFilter) q = q.eq("assignee_id", ownerFilter);
             const { data } = await q;
             result = { tareas: (data ?? []).map((t: any) => `${t.title}${t.due_at ? ` (${new Date(t.due_at).toLocaleDateString("es-MX")})` : ""}`) };
+          } else if (name === "listar_actividades") {
+            const now = new Date();
+            const sod = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const p = String(a.periodo ?? "semana").toLowerCase();
+            let from: Date, to: Date;
+            if (p === "hoy") { from = sod(now); to = new Date(from.getTime() + 86400000); }
+            else if (p === "ayer") { to = sod(now); from = new Date(to.getTime() - 86400000); }
+            else if (p === "mes") { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 1); }
+            else if (p === "mes_pasado") { from = new Date(now.getFullYear(), now.getMonth() - 1, 1); to = new Date(now.getFullYear(), now.getMonth(), 1); }
+            else {
+              const dow = (now.getDay() + 6) % 7;
+              const monday = new Date(sod(now).getTime() - dow * 86400000);
+              if (p === "semana_pasada") { from = new Date(monday.getTime() - 7 * 86400000); to = monday; }
+              else { from = monday; to = new Date(monday.getTime() + 7 * 86400000); }
+            }
+            let qa = sb.from("activities")
+              .select("type, description, occurred_at, agent_id, metadata, contacts(name)")
+              .eq("tenant_id", input.tenant_id)
+              .gte("occurred_at", from.toISOString())
+              .lt("occurred_at", to.toISOString())
+              .order("occurred_at", { ascending: false })
+              .limit(100);
+            if (ownerFilter) qa = qa.eq("agent_id", ownerFilter);
+            const { data: acts } = await qa;
+            let rowsA = (acts ?? []) as any[];
+            if (a.tipo) {
+              const k = String(a.tipo).toLowerCase();
+              rowsA = rowsA.filter((x) =>
+                String(x.metadata?.activity_kind_label ?? "").toLowerCase().includes(k) ||
+                String(x.metadata?.activity_kind ?? "").toLowerCase().includes(k) ||
+                String(x.type ?? "").toLowerCase().includes(k));
+            }
+            result = {
+              desde: from.toLocaleDateString("es-MX"),
+              hasta: new Date(to.getTime() - 1).toLocaleDateString("es-MX"),
+              total: rowsA.length,
+              actividades: rowsA.slice(0, 25).map((x) =>
+                `${new Date(x.occurred_at).toLocaleDateString("es-MX")} · ${x.metadata?.activity_kind_label ?? x.type} · ${x.contacts?.name ?? "sin contacto"}${x.metadata?.result ? ` · ${x.metadata.result}` : ""}`),
+            };
           } else if (name === "mantenimientos_programados") {
             const off = Number.isFinite(Number(a.mes_offset)) ? Number(a.mes_offset) : 0;
             const base = new Date();
