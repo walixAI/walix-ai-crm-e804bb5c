@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
 import { searchGuide, guideIndex } from "../_shared/walix-guide.ts";
+import { getDisabledNativeTools, filterTools } from "../_shared/native-caps.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -250,11 +251,11 @@ ESTILO VISUAL DE TUS MENSAJES (obligatorio):
 type Usage = { input: number; output: number; total: number; iterations: number };
 const newUsage = (): Usage => ({ input: 0, output: 0, total: 0, iterations: 0 });
 
-async function callGateway(messages: any[], usage: Usage) {
+async function callGateway(messages: any[], usage: Usage, tools: any[] = TOOLS) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, tools: TOOLS, tool_choice: "auto", parallel_tool_calls: false }),
+    body: JSON.stringify({ model: MODEL, messages, tools, tool_choice: "auto", parallel_tool_calls: false }),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -375,6 +376,9 @@ Deno.serve(async (req) => {
   messages.push({ role: "user", content: input.prompt });
 
   const usage = newUsage();
+  // Capacidades nativas apagadas por el tenant (Ajustes → Copiloto).
+  const disabledCaps = await getDisabledNativeTools(sb, input.tenant_id);
+  const activeTools = filterTools(TOOLS as any[], disabledCaps);
   let lastEntity: { type: string; id: string } | null = null;
   const mutationReceipts: Array<{ type: string; id: string; label: string; contactName?: string; contactId?: string; dueAt?: string }> = [];
   const toolErrors: string[] = [];
@@ -382,7 +386,7 @@ Deno.serve(async (req) => {
 
   try {
     for (let step = 0; step < 6; step++) {
-      const res = await callGateway(messages, usage);
+      const res = await callGateway(messages, usage, activeTools);
       const msg = res?.choices?.[0]?.message;
       if (!msg) { reply = "⚠️ No pude procesar tu mensaje."; break; }
       const calls = msg.tool_calls ?? [];
