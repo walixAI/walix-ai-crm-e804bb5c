@@ -25,7 +25,7 @@ export function ContactInfoCard({ contact }: Props) {
       { onSuccess: () => { toast.success("Actualizado"); } },
     );
 
-  const openWA = () => { if (blockWhatsappAction()) return; navigate(`/whatsapp?contactId=${contact.id}`); };
+  const openWA = () => { if (blockWhatsappAction(contact.phone)) return; navigate(`/whatsapp?contactId=${contact.id}`); };
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-card">
