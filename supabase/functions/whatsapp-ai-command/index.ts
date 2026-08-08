@@ -335,7 +335,7 @@ Deno.serve(async (req) => {
 
   // Context
   const [{ data: tenant }, { data: profile }, { data: history }] = await Promise.all([
-    sb.from("tenants").select("name").eq("id", input.tenant_id).maybeSingle(),
+    sb.from("tenants").select("name, brand_name").eq("id", input.tenant_id).maybeSingle(),
     input.user_id
       ? sb.from("profiles").select("full_name").eq("id", input.user_id).maybeSingle()
       : Promise.resolve({ data: null } as any),
