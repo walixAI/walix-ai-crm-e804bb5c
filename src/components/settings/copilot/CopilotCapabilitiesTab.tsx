@@ -128,6 +128,10 @@ export function CopilotCapabilitiesTab() {
   const [items, setItems] = useState<Capability[]>([]);
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const { data: tenantId } = useTenantId();
+  const { isTenantOwner, isTenantAdmin, isPlatform } = usePermissions();
+  const canEditNative = isTenantOwner || isTenantAdmin || isPlatform;
+  const [savingNative, setSavingNative] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -141,6 +145,35 @@ export function CopilotCapabilitiesTab() {
   }
 
   useEffect(() => { load(); }, []);
+
+  const nativeRows = items.filter((r) => r.kind === "native");
+  const customRows = items.filter((r) => r.kind !== "native");
+  const nativeState = (id: string) => {
+    const row = nativeRows.find((r) => r.recipe_json?.native_tool === id);
+    return { row, enabled: row ? row.is_active : true };
+  };
+
+  async function toggleNative(cap: { id: string; label: string; description: string }, next: boolean) {
+    if (!tenantId) return;
+    setSavingNative(cap.id);
+    const { row } = nativeState(cap.id);
+    const { error } = row
+      ? await supabase.from("copilot_capabilities").update({ is_active: next }).eq("id", row.id)
+      : await supabase.from("copilot_capabilities").insert({
+          tenant_id: tenantId,
+          name: cap.label,
+          description: cap.description,
+          kind: "native",
+          recipe_json: { native_tool: cap.id },
+          require_confirmation: false,
+          channels: ["web", "whatsapp"],
+          is_active: next,
+        });
+    setSavingNative(null);
+    if (error) return toast.error(error.message);
+    toast.success(next ? `“${cap.label}” activada` : `“${cap.label}” desactivada`);
+    load();
+  }
 
   async function toggleActive(row: Capability) {
     const { error } = await supabase
@@ -187,26 +220,44 @@ export function CopilotCapabilitiesTab() {
         <div>
           <h3 className="text-sm font-semibold">Capacidades nativas del Copiloto</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Estas son las primitivas incluidas por defecto. Están siempre disponibles y son los bloques con los que se componen las capacidades personalizadas.
+            Primitivas incluidas por defecto, activas para todo el tenant en Web y WhatsApp. Si desactivas una, el Copiloto deja de poder usarla en ambos canales.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          {NATIVE_CAPABILITIES.map((c) => (
-            <Card key={c.id} className="p-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium">{c.label}</span>
-                <Badge
-                  variant={c.risk === "write" ? "default" : "secondary"}
-                  className="text-[10px] uppercase"
-                >
-                  {c.risk === "write" ? "Ejecuta" : "Solo lee"}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
-              <p className="text-[10px] text-muted-foreground font-mono mt-1 opacity-70">{c.id}</p>
-            </Card>
-          ))}
+          {NATIVE_CAPABILITIES.map((c) => {
+            const { enabled } = nativeState(c.id);
+            return (
+              <Card key={c.id} className={`p-3 ${enabled ? "" : "opacity-60"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium">{c.label}</span>
+                      <Badge
+                        variant={c.risk === "write" ? "default" : "secondary"}
+                        className="text-[10px] uppercase"
+                      >
+                        {c.risk === "write" ? "Ejecuta" : "Solo lee"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-1 opacity-70">{c.id}</p>
+                  </div>
+                  <Switch
+                    className="shrink-0"
+                    checked={enabled}
+                    disabled={!canEditNative || savingNative === c.id || loading}
+                    onCheckedChange={(v) => toggleNative(c, v)}
+                  />
+                </div>
+              </Card>
+            );
+          })}
         </div>
+        {!canEditNative && (
+          <p className="text-xs text-muted-foreground">
+            Solo el dueño o los administradores del tenant pueden activar o desactivar estas capacidades.
+          </p>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -219,7 +270,7 @@ export function CopilotCapabilitiesTab() {
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
-      ) : items.length === 0 ? (
+      ) : customRows.length === 0 ? (
         <Card className="p-8 text-center border-dashed">
           <Sparkles className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">
@@ -228,7 +279,7 @@ export function CopilotCapabilitiesTab() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {items.map((row) => (
+          {customRows.map((row) => (
             <Card key={row.id} className="p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
