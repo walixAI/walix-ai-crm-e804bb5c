@@ -542,6 +542,7 @@ Deno.serve(async (req) => {
             const { data } = await q;
             result = { tareas: (data ?? []).map((t: any) => `${t.title}${t.due_at ? ` (${new Date(t.due_at).toLocaleDateString("es-MX")})` : ""}`) };
           } else if (name === "mantenimientos_programados") {
+            // (ver listar_actividades arriba)
             const off = Number.isFinite(Number(a.mes_offset)) ? Number(a.mes_offset) : 0;
             const base = new Date();
             const from = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + off, 1));
