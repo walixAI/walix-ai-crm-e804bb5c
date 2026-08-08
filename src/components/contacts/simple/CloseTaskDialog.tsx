@@ -90,7 +90,9 @@ export function CloseTaskDialog({ open, onOpenChange, contactId, task, contact, 
   }
 
   async function sendWhatsappAndClose() {
+    if (!WHATSAPP_CHAT_ENABLED) return;
     if (!task) return;
+
     const matches = messageMatchesTask(
       message,
       { title: task.title, task_kind: task.taskKind },
