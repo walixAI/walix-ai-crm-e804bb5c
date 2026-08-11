@@ -23,6 +23,8 @@ export type PerformanceLens = "created" | "active" | "all";
 interface Props {
   deals: PipelineDeal[];
   stages: PipelineStage[];
+  /** Todas las etapas del pipeline, incluidas las cerradas (para el filtro de etapa) */
+  allStages?: PipelineStage[];
   contactName: (id: string | null) => string | undefined;
   contactLastActivityById: Map<string, string | null>;
   onOpenDeal: (deal: PipelineDeal) => void;
@@ -99,7 +101,7 @@ const PERIOD_PRESETS = [
 ] as const;
 
 export function DealsPerformanceView({
-  deals, stages, contactName, contactLastActivityById, onOpenDeal,
+  deals, stages, allStages, contactName, contactLastActivityById, onOpenDeal,
   lens, onLens, periodMonth, onPeriodMonth,
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
@@ -120,6 +122,8 @@ export function DealsPerformanceView({
 
   // Set inside the period according to the lens (before the secondary filters)
   const periodSet = useMemo(() => {
+    const selected = (allStages ?? stages).find((s) => s.id === stageId);
+    const closedSelected = !!selected && (selected.isWon || selected.isLost);
     return deals.filter((d) => {
       const created = new Date(d.createdAt);
       const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
@@ -127,12 +131,13 @@ export function DealsPerformanceView({
       const closeIn = closeRef >= start && closeRef < end;
       const updatedIn = new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end;
       if (lens === "created") return createdIn;
-      if (lens === "all") return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
+      if (lens === "all" || closedSelected) return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
       // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
       return closeIn;
     });
-  }, [deals, lens, start, end]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deals, lens, start, end, stageId, allStages, stages]);
 
   const base = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -455,7 +460,7 @@ export function DealsPerformanceView({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las etapas</SelectItem>
-            {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            {(allStages ?? stages).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Button variant="outline" size="sm" className="h-9 ml-auto" onClick={exportCsv}>

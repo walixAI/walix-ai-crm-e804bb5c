@@ -268,6 +268,7 @@ export default function Pipeline() {
         <DealsPerformanceView
           deals={filtered}
           stages={stages.filter((s) => !s.isWon && !s.isLost)}
+          allStages={stages}
           contactName={contactName}
           contactLastActivityById={contactLastActivityById}
           onOpenDeal={setOpenDeal}
