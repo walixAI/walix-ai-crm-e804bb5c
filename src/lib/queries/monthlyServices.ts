@@ -104,6 +104,18 @@ export const useUpdateService = () => {
   });
 };
 
+/** Oportunidades generadas por las recurrencias del mes indicado (para filtrar el Pipeline). */
+export const useMonthServiceDeals = (month: string) => {
+  const { data: services = [] } = useMonthlyServices(month);
+  const dealIds = new Set(
+    services.map((s) => s.generated_deal_id).filter(Boolean) as string[],
+  );
+  const contactIds = new Set(
+    services.map((s) => s.contact?.id).filter(Boolean) as string[],
+  );
+  return { services, dealIds, contactIds };
+};
+
 /** Etapas del pipeline de servicio, por nombre. */
 const stageForStatus: Record<ServiceStatus, string | null> = {
   pending: "Solicitud",
