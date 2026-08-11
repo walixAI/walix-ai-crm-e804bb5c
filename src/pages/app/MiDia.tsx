@@ -398,6 +398,19 @@ function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyTex
           <span className="ml-auto text-base font-normal text-muted-foreground">{items.length}</span>
         </CardTitle>
         <p className="text-sm text-muted-foreground">{description}</p>
+        {sortable && (
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">Ordenar por</span>
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value as any); setPage(0); }}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            >
+              <option value="default">Fecha</option>
+              <option value="category">Categoría / producto</option>
+            </select>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {items.length === 0 && (
