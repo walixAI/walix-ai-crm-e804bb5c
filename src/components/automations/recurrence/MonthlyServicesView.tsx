@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CalendarDays, Phone, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Phone, CheckCircle2, Users, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -41,6 +41,7 @@ export function MonthlyServicesView() {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<"all" | ServiceStatus>("all");
   const [search, setSearch] = useState("");
+  const [mode, setMode] = useState<"services" | "contacts">("services");
   const [target, setTarget] = useState<MonthlyService | null>(null);
 
   const month = useMemo(() => {
@@ -64,6 +65,44 @@ export function MonthlyServicesView() {
     return true;
   });
 
+  // Contactos únicos con al menos un servicio en el mes (según el filtro activo)
+  const uniqueContacts = useMemo(() => {
+    const map = new Map<string, { id: string | null; name: string; phone: string | null; items: MonthlyService[] }>();
+    filtered.forEach((s) => {
+      const key = s.contact?.id ?? `sin-contacto-${s.id}`;
+      const entry = map.get(key);
+      if (entry) entry.items.push(s);
+      else
+        map.set(key, {
+          id: s.contact?.id ?? null,
+          name: s.contact?.name ?? "Cliente sin nombre",
+          phone: s.contact?.phone ?? null,
+          items: [s],
+        });
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  }, [filtered]);
+
+  const exportCsv = () => {
+    const rows = [
+      ["Contacto", "Teléfono", "Servicios", "Estatus", "Fecha programada"],
+      ...uniqueContacts.map((c) => [
+        c.name,
+        c.phone ?? "",
+        String(c.items.length),
+        c.items.map((i) => SERVICE_STATUS_LABEL[i.status] ?? i.status).join(" | "),
+        c.items.map((i) => i.due_date).join(" | "),
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mantenimientos-${month.slice(0, 7)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,7 +112,9 @@ export function MonthlyServicesView() {
           </Button>
           <div className="min-w-[170px] text-center">
             <p className="font-semibold capitalize">{monthLabel(month)}</p>
-            <p className="text-xs text-muted-foreground">{services.length} servicios programados</p>
+            <p className="text-xs text-muted-foreground">
+              {services.length} servicios · {uniqueContacts.length} contactos
+            </p>
           </div>
           <Button variant="outline" size="icon" onClick={() => setOffset((o) => o + 1)}>
             <ChevronRight className="h-4 w-4" />
@@ -82,12 +123,26 @@ export function MonthlyServicesView() {
             <Button variant="ghost" size="sm" onClick={() => setOffset(0)}>Hoy</Button>
           )}
         </div>
-        <Input
-          placeholder="Buscar cliente…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-64"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            placeholder="Buscar cliente…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-56"
+          />
+          <Button
+            variant={mode === "contacts" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode((m) => (m === "contacts" ? "services" : "contacts"))}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Contactos únicos ({uniqueContacts.length})
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!uniqueContacts.length}>
+            <Download className="mr-2 h-4 w-4" />
+            CSV
+          </Button>
+        </div>
       </div>
 
       <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
@@ -108,6 +163,40 @@ export function MonthlyServicesView() {
         <Card className="p-8 text-center text-sm text-muted-foreground">
           No hay servicios en este mes con ese filtro.
         </Card>
+      ) : mode === "contacts" ? (
+        <div className="space-y-2">
+          {uniqueContacts.map((c) => (
+            <Card key={c.id ?? c.name} className="p-3 flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                {c.id ? (
+                  <Link to={`/contacts/${c.id}`} className="font-medium hover:underline">
+                    {c.name}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{c.name}</span>
+                )}
+                <p className="text-xs text-muted-foreground truncate">
+                  {c.items.length} servicio{c.items.length > 1 ? "s" : ""} · {c.items.map((i) => i.recurrence?.name).filter(Boolean).join(", ")}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {c.items.map((i) => (
+                  <Badge key={i.id} className={STATUS_STYLE[i.status] ?? ""} variant="secondary">
+                    {SERVICE_STATUS_LABEL[i.status] ?? i.status}
+                  </Badge>
+                ))}
+              </div>
+              {c.phone && (
+                <Button asChild variant="ghost" size="icon" title="Llamar">
+                  <a href={`tel:${c.phone}`}><Phone className="h-4 w-4" /></a>
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setTarget(c.items[0])}>
+                Actualizar
+              </Button>
+            </Card>
+          ))}
+        </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((s) => (
