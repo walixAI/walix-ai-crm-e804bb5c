@@ -67,7 +67,7 @@ export function TasksTab({ contactId }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className={`text-sm ${t.completed ? "line-through text-muted-foreground" : ""}`}>
-                      {t.title}
+                      {t.title} <span className="text-muted-foreground">· {t.dealName ?? "Sin oportunidad"}</span>
                     </div>
                     <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border ${b.cls}`}>
                       {b.label}
