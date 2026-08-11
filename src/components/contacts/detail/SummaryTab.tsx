@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
 import { useContactSuggestions, useContactDeals, useContactTasks, useToggleContactTask } from "@/lib/queries/contacts";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -17,6 +18,21 @@ function fmtAbs(iso?: string | null) {
   if (Number.isNaN(d.getTime())) return "—";
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/** Estatus visual de una tarea según su fecha de agenda */
+function taskStatus(completed: boolean, dueAt?: string | null): { label: string; className: string } {
+  if (completed) return { label: "Atendida", className: "bg-success/10 text-success border-success/20" };
+  if (!dueAt) return { label: "Sin fecha", className: "bg-muted text-muted-foreground border-border" };
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return { label: "Sin fecha", className: "bg-muted text-muted-foreground border-border" };
+  const now = new Date();
+  if (due.getTime() < now.getTime()) return { label: "Vencida", className: "bg-destructive/10 text-destructive border-destructive/20" };
+  const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (due < startOfTomorrow) return { label: "Hoy", className: "bg-warning/10 text-warning border-warning/20" };
+  const in7 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 8);
+  if (due < in7) return { label: "Próxima", className: "bg-info/10 text-info border-info/20" };
+  return { label: "Pendiente", className: "bg-muted text-muted-foreground border-border" };
 }
 
 const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
@@ -121,8 +137,18 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
                     }
                   />
                   <div className="min-w-0 flex-1">
-                    <div className={cn("text-sm truncate", t.completed && "line-through text-muted-foreground")}>
-                      {t.title}
+                    <div className="flex items-start gap-2">
+                      <div className={cn("text-sm truncate flex-1", t.completed && "line-through text-muted-foreground")}>
+                        {t.title}
+                      </div>
+                      {(() => {
+                        const st = taskStatus(t.completed, t.dueAt);
+                        return (
+                          <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 h-5 font-medium", st.className)}>
+                            {st.label}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> Agenda: {fmtAbs(t.dueAt)}
