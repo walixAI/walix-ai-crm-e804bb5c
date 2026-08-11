@@ -91,9 +91,9 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const selectedContact = contacts.find(c => c.id === contactId);
 
   async function onSubmit() {
-    if (!name.trim() || !amount || !stageId) {
-      toast.error("Completa los campos obligatorios"); return;
-    }
+    if (!name.trim()) { toast.error("Escribe el nombre de la oportunidad"); return; }
+    if (!amount) { toast.error("Captura el monto"); return; }
+    if (!stageId) { toast.error("Selecciona pipeline y etapa inicial"); return; }
     try {
       const created: any = await create.mutateAsync({
         name: name.trim(),
