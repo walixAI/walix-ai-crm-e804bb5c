@@ -332,7 +332,8 @@ export function LogFollowUpDialog({
             <Label className="text-base">2. ¿Qué pasó?</Label>
             {available.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">
-                No hay resultados configurados para esta etapa. Configúralos en Ajustes → Seguimiento.
+                No hay resultados configurados para esta etapa, así que puedes guardar el seguimiento solo con tu nota.
+                Para tener opciones de resultado, configúralas en Ajustes → Seguimiento.
               </p>
             ) : (
               <Select value={outcomeId} onValueChange={setOutcomeId}>
