@@ -21,6 +21,7 @@ const FIELD_SUGGESTIONS: Record<ImportKind, { value: string; label: string; requ
     { value: "email", label: "Correo" },
     { value: "company", label: "Empresa" },
     { value: "address", label: "Dirección" },
+    { value: "notes", label: "Observaciones" },
     { value: "source", label: "Fuente" },
     { value: "lifecycle", label: "Ciclo de vida" },
     { value: "owner_email", label: "Email del responsable" },
@@ -61,6 +62,7 @@ function suggestMapping(headers: string[], kind: ImportKind): Record<string, str
       (f.value === "name" && (h.includes("nombre") || h.includes("name"))) ||
       (f.value === "last_name" && (h.includes("apellido") || h.includes("last"))) ||
       (f.value === "address" && (h.includes("direccion") || h.includes("dirección") || h.includes("domicilio"))) ||
+      (f.value === "notes" && (h.includes("observacion") || h.includes("observación") || h.includes("comentario") || h.includes("nota"))) ||
       (f.value === "occurred_at" && (h.includes("fecha") || h.includes("date"))) ||
       (f.value === "amount" && (h.includes("monto") || h.includes("amount") || h.includes("valor")))
     );
