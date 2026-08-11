@@ -338,6 +338,7 @@ export function DealsPerformanceView({
         >
           <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
           <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
+          <ToggleGroupItem value="all" size="sm">Todas del periodo</ToggleGroupItem>
         </ToggleGroup>
         <Select
           value={presetKey}
@@ -360,15 +361,58 @@ export function DealsPerformanceView({
             ))}
           </SelectContent>
         </Select>
-        <Select value={productId} onValueChange={setProductId}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Producto o servicio">
-            <SelectValue placeholder="Producto/servicio" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los productos</SelectItem>
-            {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 w-[200px] justify-between font-normal">
+              <span className="truncate">
+                {productIds.length === 0
+                  ? "Todas las categorías"
+                  : productIds.length === 1
+                    ? (products.find((p) => p.id === productIds[0])?.name ?? "1 categoría")
+                    : `${productIds.length} categorías`}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[260px] p-2">
+            <div className="max-h-64 overflow-auto space-y-1">
+              {products.map((p) => {
+                const checked = productIds.includes(p.id);
+                return (
+                  <label key={p.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() =>
+                        setProductIds((prev) => (checked ? prev.filter((x) => x !== p.id) : [...prev, p.id]))
+                      }
+                    />
+                    <span className="flex-1 truncate">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{categoryCounts.m.get(p.id) ?? 0}</span>
+                  </label>
+                );
+              })}
+              {categoryCounts.none > 0 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Sin categoría: {categoryCounts.none}
+                </div>
+              )}
+            </div>
+            {productIds.length > 0 && (
+              <Button variant="ghost" size="sm" className="w-full mt-1 h-8" onClick={() => setProductIds([])}>
+                Quitar selección
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar oportunidad o contacto"
+            className="h-9 w-[220px] pl-7 text-xs"
+          />
+        </div>
         <Select value={owner} onValueChange={setOwner}>
           <SelectTrigger className="h-9 w-[160px]" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
@@ -409,9 +453,9 @@ export function DealsPerformanceView({
         </div>
       )}
 
-      {(productId !== "all" || owner !== "all" || stageId !== "all") && (
+      {(productIds.length > 0 || owner !== "all" || stageId !== "all" || search) && (
         <div>
-          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); setSearch(""); }}>
             Limpiar filtros
           </Button>
         </div>
