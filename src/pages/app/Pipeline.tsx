@@ -231,6 +231,28 @@ export default function Pipeline() {
         activeCount={activeDeals.length}
       />
 
+      {(monthDealIds.size > 0 || monthContactIds.size > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={onlyMonthServices ? "default" : "outline"}
+            size="sm"
+            onClick={() => setOnlyMonthServices((v) => !v)}
+          >
+            <CalendarClock className="mr-2 h-4 w-4" />
+            Mantenimientos de{" "}
+            <span className="ml-1 capitalize">
+              {new Date(currentMonth + "T00:00:00").toLocaleDateString("es-MX", { month: "long" })}
+            </span>
+            <span className="ml-1 tabular-nums">({monthContactIds.size})</span>
+          </Button>
+          {onlyMonthServices && (
+            <Button variant="ghost" size="sm" onClick={() => setOnlyMonthServices(false)}>
+              <X className="mr-1 h-3 w-3" /> Quitar filtro
+            </Button>
+          )}
+        </div>
+      )}
+
       {staleDeals.length > 0 && (
         <AiAlertBanner
           variant="warning"
