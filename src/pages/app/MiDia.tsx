@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -375,17 +375,59 @@ interface JumboColumnProps {
 
 const PAGE_SIZE = 10;
 
+const NO_CAT = "Sin Lead / producto";
+const ORDER_KEY = "midia.categoryOrder";
+
+function loadOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(ORDER_KEY);
+    const arr = raw ? JSON.parse(raw) : null;
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable }: JumboColumnProps) {
   const [page, setPage] = useState(0);
-  const [sortBy, setSortBy] = useState<"default" | "category">("default");
+  const [sortBy, setSortBy] = useState<"default" | "category">(sortable ? "category" : "default");
+  const [showOrder, setShowOrder] = useState(false);
+  const [order, setOrder] = useState<string[]>(() => loadOrder());
+
+  // Categorías presentes + las guardadas, respetando la prioridad del usuario.
+  const categories = useMemo(() => {
+    const present = Array.from(new Set(rawItems.map((i) => i.categoryName ?? NO_CAT)));
+    const ordered = order.filter((c) => present.includes(c));
+    const rest = present.filter((c) => !ordered.includes(c)).sort((a, b) => {
+      if (a === NO_CAT) return 1;
+      if (b === NO_CAT) return -1;
+      return a.localeCompare(b, "es");
+    });
+    return [...ordered, ...rest];
+  }, [rawItems, order]);
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...categories];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setOrder(next);
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)); } catch { /* noop */ }
+    setPage(0);
+  };
+
   const items = useMemo(() => {
     if (!sortable || sortBy !== "category") return rawItems;
+    const rank = (c: string) => {
+      const i = categories.indexOf(c);
+      return i === -1 ? categories.length : i;
+    };
     return [...rawItems].sort((a, b) => {
-      const an = a.categoryName ?? "zzz";
-      const bn = b.categoryName ?? "zzz";
-      return an.localeCompare(bn, "es") || a.title.localeCompare(b.title, "es");
+      const ra = rank(a.categoryName ?? NO_CAT);
+      const rb = rank(b.categoryName ?? NO_CAT);
+      return ra - rb || a.title.localeCompare(b.title, "es");
     });
-  }, [rawItems, sortBy, sortable]);
+  }, [rawItems, sortBy, sortable, categories]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const start = safePage * PAGE_SIZE;
@@ -400,16 +442,38 @@ function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyTex
         </CardTitle>
         <p className="text-sm text-muted-foreground">{description}</p>
         {sortable && (
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-xs text-muted-foreground">Ordenar por</span>
             <select
               value={sortBy}
               onChange={(e) => { setSortBy(e.target.value as any); setPage(0); }}
               className="h-8 rounded-md border border-border bg-background px-2 text-xs"
             >
-              <option value="default">Fecha</option>
               <option value="category">Categoría / producto</option>
+              <option value="default">Fecha</option>
             </select>
+            {sortBy === "category" && categories.length > 1 && (
+              <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => setShowOrder((v) => !v)}>
+                <ListOrdered className="h-3.5 w-3.5" /> Prioridad
+              </Button>
+            )}
+          </div>
+        )}
+        {sortable && sortBy === "category" && showOrder && (
+          <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2 space-y-1">
+            <p className="text-xs text-muted-foreground px-1 pb-1">Define en qué orden quieres ver tus tareas.</p>
+            {categories.map((c, idx) => (
+              <div key={c} className="flex items-center gap-2 rounded-md bg-background border border-border px-2 py-1">
+                <span className="text-xs text-muted-foreground w-5">{idx + 1}.</span>
+                <span className="flex-1 truncate text-sm">{c}</span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={idx === 0} onClick={() => move(idx, -1)}>
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={idx === categories.length - 1} onClick={() => move(idx, 1)}>
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
           </div>
         )}
       </CardHeader>
