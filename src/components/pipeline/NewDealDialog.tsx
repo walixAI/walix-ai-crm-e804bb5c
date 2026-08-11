@@ -185,6 +185,16 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
               </Select>
             </div>
             <div className="space-y-1.5">
+              <Label>Categoría / producto</Label>
+              <Select value={productCategoryId} onValueChange={setProductCategoryId}>
+                <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin categoría</SelectItem>
+                  {productCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Fecha de cierre</Label>
               <Popover>
                 <PopoverTrigger asChild>
