@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { z } from "zod";
-import { Pencil, Plus, Trash2, Check, X, Wand2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Check, X, Star } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   usePipelines, useCreatePipeline, useRenamePipeline, useDeletePipeline,
+  useSetDefaultPipeline,
   useSeedPipelineTemplate,
   type Pipeline,
 } from "@/lib/queries/pipeline";
