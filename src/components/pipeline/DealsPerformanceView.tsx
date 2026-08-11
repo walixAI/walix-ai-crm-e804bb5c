@@ -103,7 +103,8 @@ export function DealsPerformanceView({
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
   const [chip, setChip] = useState<Chip>("all");
-  const [productId, setProductId] = useState<string>("all");
+  const [productIds, setProductIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
   const [openStage, setOpenStage] = useState<string | null>(null);
@@ -115,21 +116,43 @@ export function DealsPerformanceView({
     : (PERIOD_PRESETS.some((p) => p.key === periodMonth) ? periodMonth : "month");
   const [, customFrom = "", customTo = ""] = periodMonth.startsWith("custom:") ? periodMonth.split(":") : [];
 
-  // Base set according to lens
-  const base = useMemo(() => {
-    const inPeriod = deals.filter((d) => {
+  // Set inside the period according to the lens (before the secondary filters)
+  const periodSet = useMemo(() => {
+    return deals.filter((d) => {
       const created = new Date(d.createdAt);
-      if (lens === "created") return created >= start && created < end;
+      const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
+      const createdIn = created >= start && created < end;
+      const closeIn = closeRef >= start && closeRef < end;
+      const updatedIn = new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end;
+      if (lens === "created") return createdIn;
+      if (lens === "all") return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
       // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
-      const ref = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
-      return ref >= start && ref < end;
+      return closeIn;
     });
-    return inPeriod.filter((d) =>
-      (productId === "all" || d.productCategoryId === productId) &&
+  }, [deals, lens, start, end]);
+
+  const base = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return periodSet.filter((d) =>
+      (productIds.length === 0 || (d.productCategoryId ? productIds.includes(d.productCategoryId) : false)) &&
       (owner === "all" || d.ownerName === owner) &&
-      (stageId === "all" || d.stageId === stageId));
-  }, [deals, lens, start, end, productId, owner, stageId]);
+      (stageId === "all" || d.stageId === stageId) &&
+      (!q || d.name.toLowerCase().includes(q) ||
+        (d.contactId ? (contactName(d.contactId) ?? "").toLowerCase().includes(q) : false)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodSet, productIds, owner, stageId, search]);
+
+  // Category counts within the period (so it is obvious where the deals are)
+  const categoryCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    let none = 0;
+    for (const d of periodSet) {
+      if (d.productCategoryId) m.set(d.productCategoryId, (m.get(d.productCategoryId) ?? 0) + 1);
+      else none += 1;
+    }
+    return { m, none };
+  }, [periodSet]);
 
   const ownerNames = useMemo(
     () => Array.from(new Set(deals.map((d) => d.ownerName).filter(Boolean))).sort(),
