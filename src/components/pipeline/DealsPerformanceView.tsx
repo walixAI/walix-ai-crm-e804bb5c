@@ -650,7 +650,9 @@ export function DealsPerformanceView({
       <p className="text-xs text-muted-foreground">
         {lens === "created"
           ? `Oportunidades creadas en ${periodLabel}, sin importar cuándo cierren.`
-          : `Oportunidades abiertas que estuvieron vivas durante ${periodLabel}, sin importar cuándo se crearon ni cuándo cierren.`}
+          : lens === "all"
+            ? `Todas las oportunidades relacionadas con ${periodLabel}: creadas, con cierre esperado o cerradas en el periodo (abiertas y cerradas).`
+            : `Oportunidades abiertas con cierre esperado dentro de ${periodLabel}.`}
         {" "}La salud se calcula al día de hoy.
       </p>
     </div>
