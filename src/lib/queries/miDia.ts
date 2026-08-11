@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
@@ -172,6 +173,63 @@ export function useMiDiaData() {
 }
 
 export function useQuickCreateTask() {
+  return useQuickCreateTaskImpl();
+}
+
+/** Tareas abiertas de un día específico (distinto de hoy). */
+export function useTasksByDate(date: Date | null) {
+  const { user } = useAuth();
+  const { data: tenantId } = useTenantId();
+  const dayKey = date ? format(date, "yyyy-MM-dd") : null;
+  return useQuery({
+    queryKey: ["mi-dia-tasks-date", user?.id, tenantId, dayKey],
+    enabled: !!user?.id && !!tenantId && !!date,
+    staleTime: 60_000,
+    queryFn: async (): Promise<JumboItem[]> => {
+      const start = new Date(date!); start.setHours(0, 0, 0, 0);
+      const end = new Date(date!); end.setHours(23, 59, 59, 999);
+      const { data: rows, error } = await supabase
+        .from("tasks")
+        .select("id,title,due_at,completed,contact_id,deal_id,task_kind")
+        .eq("completed", false)
+        .gte("due_at", start.toISOString())
+        .lte("due_at", end.toISOString())
+        .order("due_at", { ascending: true });
+      if (error) throw error;
+      const tasks = rows ?? [];
+      const dealIds = Array.from(new Set(tasks.map((t: any) => t.deal_id).filter(Boolean))) as string[];
+      const contactIds = Array.from(new Set(tasks.map((t: any) => t.contact_id).filter(Boolean))) as string[];
+      const [dealsRes, contactsRes, catsRes] = await Promise.all([
+        dealIds.length ? supabase.from("deals").select("id,name,product_category_id").in("id", dealIds) : Promise.resolve({ data: [] } as any),
+        contactIds.length ? supabase.from("contacts").select("id,name,last_name").in("id", contactIds) : Promise.resolve({ data: [] } as any),
+        supabase.from("product_categories").select("id,name"),
+      ]);
+      const dealsById: Record<string, any> = Object.fromEntries(((dealsRes as any).data ?? []).map((d: any) => [d.id, d]));
+      const contactsById: Record<string, any> = Object.fromEntries(((contactsRes as any).data ?? []).map((c: any) => [c.id, c]));
+      const cats = (catsRes as any).data ?? [];
+      const catName = (id?: string | null) => (id ? cats.find((c: any) => c.id === id)?.name ?? null : null);
+      return tasks.map((t: any) => {
+        const deal = t.deal_id ? dealsById[t.deal_id] : null;
+        const c = t.contact_id ? contactsById[t.contact_id] : null;
+        return {
+          id: t.id,
+          kind: "task" as const,
+          title: deal?.name ? `${deal.name} · ${t.title}` : `Sin Lead · ${t.title}`,
+          subtitle: c ? `${c.name}${c.last_name ? " " + c.last_name : ""}` : null,
+          dueAt: t.due_at,
+          overdue: isOverdue(t.due_at),
+          contactId: t.contact_id,
+          dealId: t.deal_id,
+          taskKind: t.task_kind ?? null,
+          categoryId: deal?.product_category_id ?? null,
+          categoryName: catName(deal?.product_category_id),
+        };
+      });
+    },
+  });
+}
+
+function useQuickCreateTaskImpl() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { data: tenantId } = useTenantId();

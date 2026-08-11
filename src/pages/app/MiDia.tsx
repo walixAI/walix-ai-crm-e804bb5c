@@ -2,13 +2,15 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
+import { AlertCircle, CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
 import { SlidersHorizontal, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } from "@/lib/queries/miDia";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, useTasksByDate, type JumboItem } from "@/lib/queries/miDia";
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
@@ -45,6 +47,12 @@ export default function MiDia() {
   const { data: prof } = useMonthProfitability();
   const [expanded, setExpanded] = useState<ExpandKey>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [taskDate, setTaskDate] = useState<Date>(() => new Date());
+  const isTaskDateToday = useMemo(
+    () => format(taskDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd"),
+    [taskDate],
+  );
+  const { data: otherDayTasks } = useTasksByDate(isTaskDateToday ? null : taskDate);
   const columnRefs = {
     tasks: useRef<HTMLDivElement>(null),
     collect: useRef<HTMLDivElement>(null),
@@ -197,14 +205,16 @@ export default function MiDia() {
             <Widget k="midia.tasks">
             <div ref={columnRefs.tasks} className="scroll-mt-28">
               <JumboColumn
-                title="Mis tareas de hoy"
-                description="Pendientes tuyos para el día."
+                title={isTaskDateToday ? "Mis tareas de hoy" : `Mis tareas — ${format(taskDate, "d 'de' MMMM yyyy", { locale: es })}`}
+                description={isTaskDateToday ? "Pendientes tuyos para el día." : "Tareas abiertas de la fecha seleccionada."}
                 icon={ClipboardList}
                 sortable
-                items={data?.tasks ?? []}
+                dateValue={taskDate}
+                onDateChange={setTaskDate}
+                items={(isTaskDateToday ? data?.tasks : otherDayTasks) ?? []}
                 emptyText="¡Estás al día!"
                 onToggle={(id) => {
-                  const it = (data?.tasks ?? []).find((x) => x.id === id);
+                  const it = ((isTaskDateToday ? data?.tasks : otherDayTasks) ?? []).find((x) => x.id === id);
                   if (!it) return;
                   if (it.contactId) {
                     setClosingTask({ id: it.id, title: it.title, contactId: it.contactId, taskKind: it.taskKind ?? null, dueAt: it.dueAt ?? null });
@@ -373,6 +383,8 @@ interface JumboColumnProps {
   onRescheduleCollect?: (item: JumboItem) => void;
   /** Muestra el selector para ordenar por categoría / producto. */
   sortable?: boolean;
+  dateValue?: Date;
+  onDateChange?: (d: Date) => void;
 }
 
 const PAGE_SIZE = 10;
@@ -390,7 +402,7 @@ function loadOrder(): string[] {
   }
 }
 
-function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable }: JumboColumnProps) {
+function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable, dateValue, onDateChange }: JumboColumnProps) {
   const [page, setPage] = useState(0);
   const [sortBy, setSortBy] = useState<"default" | "category">(sortable ? "category" : "default");
   const [showOrder, setShowOrder] = useState(false);
@@ -458,6 +470,34 @@ function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyTex
               <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => setShowOrder((v) => !v)}>
                 <ListOrdered className="h-3.5 w-3.5" /> Prioridad
               </Button>
+            )}
+            {dateValue && onDateChange && (
+              <>
+                <span className="text-xs text-muted-foreground ml-1">Fecha</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 gap-1 text-xs font-normal">
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                      {format(dateValue, "d MMM yyyy", { locale: es })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateValue}
+                      onSelect={(d) => { if (d) { onDateChange(d); setPage(0); } }}
+                      initialFocus
+                      locale={es}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {format(dateValue, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd") && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { onDateChange(new Date()); setPage(0); }}>
+                    Hoy
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}
