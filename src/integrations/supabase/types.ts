@@ -1838,6 +1838,7 @@ export type Database = {
           probability: number
           product_category_id: string | null
           scheduled_at: string | null
+          service_frequency_months: number | null
           service_type: string | null
           source: string
           stage_id: string | null
@@ -1875,6 +1876,7 @@ export type Database = {
           probability?: number
           product_category_id?: string | null
           scheduled_at?: string | null
+          service_frequency_months?: number | null
           service_type?: string | null
           source?: string
           stage_id?: string | null
@@ -1912,6 +1914,7 @@ export type Database = {
           probability?: number
           product_category_id?: string | null
           scheduled_at?: string | null
+          service_frequency_months?: number | null
           service_type?: string | null
           source?: string
           stage_id?: string | null
