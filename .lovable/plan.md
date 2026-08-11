@@ -20,13 +20,19 @@ Al crear (o editar) una oportunidad de una categoría recurrente con frecuencia 
 
 Se agrega estado a la suscripción: **Activa / Pausada / Dada de baja**, con motivo y fecha. Sólo las activas generan agenda.
 
-### 3. Al ganar, se agenda automáticamente
-Al pasar la oportunidad a **Ganado**:
-- si venía de una ocurrencia, se marca ejecutada y se rellena el horizonte (ya funciona),
-- si es un lead manual, primero se crea la suscripción con fecha base = fecha de cierre y luego se programan las siguientes citas (+6 o +12 meses según la frecuencia).
-En ambos casos aparece la confirmación "Siguientes servicios: feb 2027 y ago 2027", con opción de ajustar el mes o no re-agendar.
+### 3. Al ganar, se crean los siguientes leads con sus tareas
+La oportunidad ganada **nunca se reutiliza ni se reabre**: queda como historial del ciclo realizado (fecha, monto, responsable). Al pasar a **Ganado**:
+- se marca ejecutada la ocurrencia de ese mes y se cierra su tarea,
+- se crean **nuevas oportunidades futuras** (+3, +6 o +12 meses según la periodicidad), cada una con su tarea/agenda de aviso,
+- si el lead se creó a mano y no tenía suscripción, primero se crea la suscripción con base en la fecha de cierre y luego se programan las siguientes citas.
 
-Al marcarse **Perdida**, no se agenda: se pregunta si se conserva la suscripción o se da de baja.
+Aparece la confirmación "Siguientes servicios: feb 2027 y ago 2027", con opción de ajustar el mes.
+
+### 3b. Al perder, la recurrencia continúa
+Perder significa que ese ciclo no se vendió, no que el cliente se dio de baja:
+- la oportunidad perdida se conserva como historial con su motivo,
+- la suscripción **sigue activa** y se programa igualmente el siguiente ciclo con su tarea,
+- la baja sólo ocurre cuando el usuario la marca a mano (estado "Dada de baja" con motivo y fecha); el diálogo de pérdida ofrece un acceso directo para hacerlo.
 
 ### 4. Vista mensual "Suscripciones por gestionar"
 Una sola pantalla (pestaña Agenda en Automatizaciones + widget en Mi Día) que por mes muestra: contacto, servicio, periodicidad, mes que le toca, estado (Pendiente / Avisado / Agendado / Ejecutado / No procede) y la oportunidad ligada. Con filtros por servicio y responsable, y acciones rápidas: marcar ejecutado, reprogramar, dar de baja.
@@ -41,13 +47,14 @@ Una sola pantalla (pestaña Agenda en Automatizaciones + widget en Mi Día) que 
 - `recurrence_subscriptions`: nuevas columnas `status text default 'active'` ('active' | 'paused' | 'cancelled'), `cancelled_at`, `cancel_reason`. Todas las consultas del motor filtran `status = 'active'`.
 - Función `ensure_recurrence_subscription(_deal_id)`: resuelve recurrencia por (tenant, servicio de la categoría, `service_frequency_months`), crea la suscripción si falta, fija `next_due_date`, y devuelve el id. Se llama por trigger `AFTER INSERT OR UPDATE OF product_category_id, service_frequency_months ON deals`.
 - `close_recurrence_from_deal(_deal_id)` se amplía: si no hay ocurrencia ligada, llama a `ensure_recurrence_subscription` con base en `closed_at` y luego a `recurrence_fill_horizon`.
-- Trigger de `deals` en `is_won` / `is_lost` para disparar el cierre; `is_lost` no rellena horizonte.
+- Trigger de `deals` en `is_won` / `is_lost`: `is_won` marca la ocurrencia `executed`, `is_lost` la marca `lost` con el motivo. **Ambos** llaman a `recurrence_fill_horizon` mientras la suscripción esté `active`; sólo `cancelled` detiene la generación.
+- Historial: los deals pasados nunca se editan ni se reciclan; cada ciclo es un deal nuevo ligado a su ocurrencia (`generated_deal_id`) y se muestra como línea de tiempo del servicio en la ficha del contacto.
 - `automations-run` sigue generando oportunidades y tareas sólo dentro de la ventana de anticipación; las citas más lejanas quedan como agenda.
 - Frontend: selector "Servicio recurrente + periodicidad" en la administración de categorías, bloque de suscripción con estado y botón "Dar de baja" en la ficha del contacto y en `DealDrawer`, y vista mensual reutilizando `MonthlyServicesView` con el filtro de estado de suscripción.
 
 ## Orden de entrega
 1. Marcado de categorías recurrentes y estado de suscripción.
 2. Alta automática al crear/editar el lead.
-3. Re-agenda al ganar (incluye leads manuales) y manejo de perdidas.
+3. Nuevos leads + tareas al ganar (incluye leads manuales) y continuidad al perder.
 4. Vista mensual de suscripciones por gestionar.
 5. Puesta al día de los datos existentes.
