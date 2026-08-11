@@ -46,7 +46,14 @@ export function useMiDiaData() {
       if (tasksRes.error) throw tasksRes.error;
       if (dealsRes.error) throw dealsRes.error;
 
-      const tasks = tasksRes.data ?? [];
+      // Deduplica tareas idénticas (mismo contacto/oportunidad, título y vencimiento)
+      const seenTasks = new Set<string>();
+      const tasks = (tasksRes.data ?? []).filter((t: any) => {
+        const key = `${t.contact_id ?? ""}|${t.deal_id ?? ""}|${t.title}|${t.due_at ?? ""}`;
+        if (seenTasks.has(key)) return false;
+        seenTasks.add(key);
+        return true;
+      });
       const deals = dealsRes.data ?? [];
 
       // Catálogo de categorías / productos del tenant
