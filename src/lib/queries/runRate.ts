@@ -22,6 +22,10 @@ export interface RunRateData {
   openQuotesCount: number;
   negotiationAmount: number;
   negotiationCount: number;
+  /** Desglose por categoría/producto cuando las metas están definidas por categoría. */
+  byCategory: { id: string; name: string; goal: number; sold: number; pct: number }[];
+  /** true si el Run Rate solo considera las categorías con meta. */
+  scopedToCategories: boolean;
 }
 
 function countBizDays(from: Date, to: Date) {
@@ -61,7 +65,7 @@ export function useRunRate() {
       // Fuente única de metas: monthly_goals (dimensión global / por tipo, métrica monto).
       const { data: goals } = await supabase
         .from("monthly_goals")
-        .select("amount, metric, dimension, dimension_value_text, is_draft")
+        .select("amount, metric, dimension, dimension_value_text, dimension_value_uuid, is_draft")
         .eq("tenant_id", tenantId!)
         .eq("period_year", now.getFullYear())
         .eq("period_month", now.getMonth() + 1);
@@ -87,6 +91,20 @@ export function useRunRate() {
         : amountGoals
             .filter((g: any) => g.dimension !== "global")
             .reduce((s: number, g: any) => s + Number(g.amount ?? 0), 0);
+
+      // Metas por categoría/producto: el Run Rate se limita a esas categorías.
+      const categoryGoals = amountGoals.filter(
+        (g: any) => g.dimension === "product_category" && g.dimension_value_uuid,
+      );
+      const goalByCategory = new Map<string, number>();
+      categoryGoals.forEach((g: any) => {
+        goalByCategory.set(
+          g.dimension_value_uuid,
+          (goalByCategory.get(g.dimension_value_uuid) ?? 0) + Number(g.amount ?? 0),
+        );
+      });
+      const scopedToCategories = !globalGoal && goalByCategory.size > 0 && goalByCategory.size === amountGoals.length;
+
       const countBusinessDays = (tenant as any)?.count_business_days ?? true;
 
       const daysTotal = countBusinessDays
@@ -98,30 +116,50 @@ export function useRunRate() {
 
       const { data: wonDeals } = await supabase
         .from("deals")
-        .select("amount, deal_type, updated_at")
+        .select("amount, deal_type, updated_at, product_category_id")
         .eq("is_won", true)
         .gte("updated_at", monthStart.toISOString())
         .lte("updated_at", new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59).toISOString());
 
       const soldByType = { venta: 0, servicio: 0, refaccion: 0 };
+      const soldByCategory = new Map<string, number>();
       let sold = 0;
       (wonDeals ?? []).forEach((d: any) => {
         // En metas por cantidad cada oportunidad ganada suma 1.
         const amt = metric === "count" ? 1 : Number(d.amount ?? 0);
+        const catId = d.product_category_id ?? null;
+        if (catId && goalByCategory.has(catId)) {
+          soldByCategory.set(catId, (soldByCategory.get(catId) ?? 0) + amt);
+        }
+        if (scopedToCategories && !(catId && goalByCategory.has(catId))) return;
         sold += amt;
         const t = (d.deal_type ?? "venta") as "venta" | "servicio" | "refaccion";
         if (t in soldByType) soldByType[t] += amt;
       });
 
+      let categoryNames: Record<string, string> = {};
+      if (goalByCategory.size > 0) {
+        const { data: cats } = await supabase
+          .from("product_categories")
+          .select("id, name")
+          .in("id", Array.from(goalByCategory.keys()));
+        (cats ?? []).forEach((c: any) => { categoryNames[c.id] = c.name; });
+      }
+      const byCategory = Array.from(goalByCategory.entries()).map(([id, goal]) => {
+        const s = soldByCategory.get(id) ?? 0;
+        return { id, name: categoryNames[id] ?? "Categoría", goal, sold: s, pct: goal > 0 ? (s / goal) * 100 : 0 };
+      });
+
       const { data: openDeals } = await supabase
         .from("deals")
-        .select("amount, stage_name")
+        .select("amount, stage_name, product_category_id")
         .eq("is_won", false)
         .eq("is_lost", false);
 
       let openQuotesAmount = 0, openQuotesCount = 0;
       let negotiationAmount = 0, negotiationCount = 0;
       (openDeals ?? []).forEach((d: any) => {
+        if (scopedToCategories && !(d.product_category_id && goalByCategory.has(d.product_category_id))) return;
         const amt = metric === "count" ? 1 : Number(d.amount ?? 0);
         const sn = (d.stage_name ?? "").toLowerCase();
         if (/cotiz/.test(sn)) { openQuotesAmount += amt; openQuotesCount++; }
@@ -162,6 +200,7 @@ export function useRunRate() {
         gap, recommendations: recs.slice(0, 3),
         status: statusFor(runRatePct),
         openQuotesAmount, openQuotesCount, negotiationAmount, negotiationCount,
+        byCategory, scopedToCategories,
       };
     },
   });

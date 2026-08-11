@@ -83,6 +83,33 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
           </div>
         </div>
 
+        {data.byCategory.length > 0 && (
+          <div className="rounded-lg border border-dashed p-3 space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Metas por categoría
+            </div>
+            {data.byCategory.map((cat) => (
+              <div key={cat.id} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="truncate font-medium">{cat.name}</span>
+                  <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
+                    <span>{fmt(cat.sold)} / {fmt(cat.goal)}{unit}</span>
+                    <span className={cn("font-bold", cat.pct >= 100 ? "text-emerald-600" : cat.pct >= 70 ? "text-amber-600" : "text-red-600")}>
+                      {Math.round(cat.pct)}%
+                    </span>
+                  </span>
+                </div>
+                <Progress value={Math.min(100, cat.pct)} className="h-1.5" />
+              </div>
+            ))}
+            {data.scopedToCategories && (
+              <p className="text-[10px] text-muted-foreground">
+                El Run Rate global considera solo las oportunidades de estas categorías.
+              </p>
+            )}
+          </div>
+        )}
+
         {data.recommendations.length > 0 && !compact && (
           <div className="rounded-lg bg-muted/40 p-3 space-y-1.5">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
