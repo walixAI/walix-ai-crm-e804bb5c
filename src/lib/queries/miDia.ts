@@ -86,7 +86,7 @@ export function useMiDiaData() {
         return {
           id: t.id,
           kind: "task" as const,
-          title: deal?.name ? `${deal.name} · ${t.title}` : t.title,
+          title: deal?.name ? `${deal.name} · ${t.title}` : `Sin Lead · ${t.title}`,
           subtitle: contactName(t.contact_id),
           dueAt: t.due_at,
           overdue: isOverdue(t.due_at),
