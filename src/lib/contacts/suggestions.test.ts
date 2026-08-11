@@ -18,6 +18,7 @@ const baseContact: ContactRow = {
   source: "Manual" as any,
   sourceId: null,
   tags: [],
+  customFields: {},
   ownerId: null,
   ownerName: "Sin asignar",
   ownerInitials: "—",
