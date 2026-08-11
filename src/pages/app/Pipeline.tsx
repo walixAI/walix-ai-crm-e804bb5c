@@ -25,6 +25,12 @@ import {
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 
+function parseCalendarDate(value: string) {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!dateOnly) return new Date(value);
+  return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+}
+
 export default function Pipeline() {
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines();
   const [prefs, setPrefs] = usePipelinePrefs();
@@ -143,7 +149,7 @@ export default function Pipeline() {
       if (filters.ownerName !== "all" && d.ownerName !== filters.ownerName) return false;
       if (filters.amountMin && d.amount < Number(filters.amountMin)) return false;
       if (filters.amountMax && d.amount > Number(filters.amountMax)) return false;
-      if (filters.closeBefore && d.expectedCloseDate && new Date(d.expectedCloseDate) > filters.closeBefore) return false;
+      if (filters.closeBefore && d.expectedCloseDate && parseCalendarDate(d.expectedCloseDate) > filters.closeBefore) return false;
       if (filters.source !== "all" && d.source !== filters.source) return false;
       if (filters.tag && !d.name.toLowerCase().includes(filters.tag.toLowerCase()) && !(d.notes ?? "").toLowerCase().includes(filters.tag.toLowerCase())) return false;
       if (q) {
@@ -176,11 +182,11 @@ export default function Pipeline() {
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   const closingThisMonth = activeDeals
-    .filter(d => d.expectedCloseDate && new Date(d.expectedCloseDate) >= startOfMonth && new Date(d.expectedCloseDate) < endOfMonth)
+    .filter(d => d.expectedCloseDate && parseCalendarDate(d.expectedCloseDate) >= startOfMonth && parseCalendarDate(d.expectedCloseDate) < endOfMonth)
     .reduce((s, d) => s + d.amount, 0);
 
   const closingPrevMonth = filtered
-    .filter(d => d.expectedCloseDate && new Date(d.expectedCloseDate) >= startOfPrevMonth && new Date(d.expectedCloseDate) < startOfMonth)
+    .filter(d => d.expectedCloseDate && parseCalendarDate(d.expectedCloseDate) >= startOfPrevMonth && parseCalendarDate(d.expectedCloseDate) < startOfMonth)
     .reduce((s, d) => s + d.amount, 0);
 
   const closingDeltaPct =
