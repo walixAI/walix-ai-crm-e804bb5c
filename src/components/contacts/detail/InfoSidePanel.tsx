@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2 } from "lucide-react";
+import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2, MapPin, StickyNote } from "lucide-react";
 import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
