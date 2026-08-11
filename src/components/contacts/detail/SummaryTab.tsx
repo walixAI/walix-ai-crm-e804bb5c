@@ -139,7 +139,7 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-2">
                       <div className={cn("text-sm truncate flex-1", t.completed && "line-through text-muted-foreground")}>
-                        {t.title}
+                        {t.title} <span className="text-muted-foreground">· {t.dealName ?? "Sin oportunidad"}</span>
                       </div>
                       {(() => {
                         const st = taskStatus(t.completed, t.dueAt);

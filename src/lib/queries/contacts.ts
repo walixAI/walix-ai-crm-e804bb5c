@@ -510,6 +510,7 @@ export interface ContactTaskRow {
   dueAt: string | null;
   assigneeId: string | null;
   dealId: string | null;
+  dealName: string | null;
   createdAt: string;
   taskKind: string | null;
   closedVia: string | null;
@@ -524,7 +525,7 @@ export function useContactTasks(contactId: string | undefined) {
     queryFn: async (): Promise<ContactTaskRow[]> => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("*")
+        .select("*, deal:deals(name)")
         .eq("contact_id", contactId!)
         .order("completed", { ascending: true })
         .order("due_at", { ascending: true, nullsFirst: false })
@@ -537,6 +538,7 @@ export function useContactTasks(contactId: string | undefined) {
         dueAt: t.due_at,
         assigneeId: t.assignee_id,
         dealId: t.deal_id,
+        dealName: t.deal?.name ?? null,
         createdAt: t.created_at,
         taskKind: t.task_kind ?? null,
         closedVia: t.closed_via ?? null,
