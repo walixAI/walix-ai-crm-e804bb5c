@@ -8,12 +8,16 @@ interface Props {
   isWon?: boolean;
   isLost?: boolean;
   compact?: boolean;
+  /** Nombre de la etapa de cierre (p. ej. "Cobrada" / "Perdida") para mostrar en la etiqueta. */
+  stageName?: string | null;
 }
 
-export function StageStepper({ stages, currentStageId, isWon, isLost, compact }: Props) {
+export function StageStepper({ stages, currentStageId, isWon, isLost, compact, stageName }: Props) {
   if (stages.length === 0) return null;
+  const closed = !!isWon || !!isLost;
   const idx = stages.findIndex((s) => s.id === currentStageId);
-  const currentIdx = idx >= 0 ? idx : 0;
+  // Un deal cerrado (ganado o perdido) siempre muestra el avance al 100%.
+  const currentIdx = closed ? stages.length - 1 : idx >= 0 ? idx : 0;
   const current = stages[currentIdx];
 
   return (
@@ -21,8 +25,8 @@ export function StageStepper({ stages, currentStageId, isWon, isLost, compact }:
       <div className="space-y-1">
         <div className="flex items-center gap-1">
           {stages.map((s, i) => {
-            const done = i < currentIdx;
-            const active = i === currentIdx;
+            const done = !closed && i < currentIdx;
+            const active = closed || i === currentIdx;
             return (
               <Tooltip key={s.id}>
                 <TooltipTrigger asChild>
@@ -42,7 +46,19 @@ export function StageStepper({ stages, currentStageId, isWon, isLost, compact }:
         </div>
         {!compact && (
           <div className="text-[10px] text-muted-foreground">
-            Etapa {currentIdx + 1} de {stages.length} · <span className="font-medium text-foreground">{current?.name}</span>
+            {closed ? (
+              <>
+                100% ·{" "}
+                <span className={cn("font-medium", isLost ? "text-destructive" : "text-success")}>
+                  {stageName || (isLost ? "Perdida" : "Cobrada")}
+                </span>
+              </>
+            ) : (
+              <>
+                Etapa {currentIdx + 1} de {stages.length} ·{" "}
+                <span className="font-medium text-foreground">{current?.name}</span>
+              </>
+            )}
           </div>
         )}
       </div>
