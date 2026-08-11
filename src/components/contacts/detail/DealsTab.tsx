@@ -93,7 +93,9 @@ export function DealsTab({ contactId, contactName }: Props) {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-lg font-bold text-gradient-brand leading-none">{formatMXN(d.amount)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">{d.probability}% probabilidad</div>
+                    <div className={cn("text-[10px] mt-1", d.isWon ? "text-success" : d.isLost ? "text-destructive" : "text-muted-foreground")}>
+                      {probabilityLabel(d)}
+                    </div>
                   </div>
                 </div>
 
@@ -104,7 +106,7 @@ export function DealsTab({ contactId, contactName }: Props) {
                 )}
 
                 <div className="mt-3">
-                  <StageStepper stages={stages} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
+                  <StageStepper stages={stages} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} stageName={d.stageName} />
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 text-[11px] text-muted-foreground flex-wrap">
