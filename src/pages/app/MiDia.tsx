@@ -18,6 +18,7 @@ import { useMyProfile } from "@/lib/queries/profile";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
 import { MonthServicesInline } from "@/components/walix/MonthServicesInline";
+import { MonthRecurrencesCard } from "@/components/walix/MonthRecurrencesCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
@@ -186,6 +187,11 @@ export default function MiDia() {
             <Widget k="midia.services">
             <div ref={columnRefs.services} className="scroll-mt-28 space-y-3">
               <MonthServicesInline />
+            </div>
+            </Widget>
+            <Widget k="midia.recurrences">
+            <div className="scroll-mt-28">
+              <MonthRecurrencesCard />
             </div>
             </Widget>
             <Widget k="midia.tasks">
