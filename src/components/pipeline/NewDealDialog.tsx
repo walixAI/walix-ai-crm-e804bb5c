@@ -116,13 +116,13 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[92vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>Nueva Oportunidad</DialogTitle>
           <DialogDescription>Agrega una nueva oportunidad al pipeline.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto px-6 pb-2">
           <div className="space-y-1.5">
             <Label>Nombre del deal*</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej. Plan anual Premium" />
@@ -237,7 +237,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 pb-6 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={onSubmit} disabled={create.isPending}>
             {create.isPending ? "Creando…" : "Crear Oportunidad"}
