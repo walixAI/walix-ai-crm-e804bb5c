@@ -8,7 +8,8 @@ export type ServiceStatus =
   | "scheduled"
   | "executed"
   | "postponed"
-  | "skipped";
+  | "skipped"
+  | "lost";
 
 export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
   pending: "Por contactar",
@@ -17,6 +18,7 @@ export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
   executed: "Ejecutado",
   postponed: "Pospuesto",
   skipped: "No procede",
+  lost: "No cerrado (sigue la suscripción)",
 };
 
 export interface MonthlyService {
@@ -124,6 +126,7 @@ const stageForStatus: Record<ServiceStatus, string | null> = {
   executed: "Completado",
   postponed: null,
   skipped: null,
+  lost: null,
 };
 
 async function findStageId(dealId: string, stageName: string) {
