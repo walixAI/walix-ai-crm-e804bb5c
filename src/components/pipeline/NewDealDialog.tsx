@@ -67,10 +67,17 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     setCloseDate(undefined); setSource("Manual"); setNotes("");
     setAiAuto(true); setProbability(50);
     setProductCategoryId("none");
-    const fromDefault = defaultStageId ? stages.find((s) => s.id === defaultStageId)?.pipelineId : null;
-    setPipelineId(fromDefault ?? pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "");
     setStageId("");
-  }, [open, defaultStageId, defaultContactId, stages, pipelines]);
+    // Solo al abrir: evita que un refetch de pipelines/etapas borre lo que el usuario ya escribió.
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Selecciona el pipeline por defecto en cuanto haya datos (sin resetear el formulario).
+  useEffect(() => {
+    if (!open || pipelineId) return;
+    const fromDefault = defaultStageId ? stages.find((s) => s.id === defaultStageId)?.pipelineId : null;
+    const next = fromDefault ?? pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "";
+    if (next) setPipelineId(next);
+  }, [open, pipelineId, defaultStageId, stages, pipelines]);
 
   // Al cambiar de pipeline, seleccionar la primera etapa disponible.
   useEffect(() => {
@@ -84,9 +91,9 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const selectedContact = contacts.find(c => c.id === contactId);
 
   async function onSubmit() {
-    if (!name.trim() || !amount || !stageId) {
-      toast.error("Completa los campos obligatorios"); return;
-    }
+    if (!name.trim()) { toast.error("Escribe el nombre de la oportunidad"); return; }
+    if (!amount) { toast.error("Captura el monto"); return; }
+    if (!stageId) { toast.error("Selecciona pipeline y etapa inicial"); return; }
     try {
       const created: any = await create.mutateAsync({
         name: name.trim(),
