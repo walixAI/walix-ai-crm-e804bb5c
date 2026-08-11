@@ -223,7 +223,7 @@ export function LogFollowUpDialog({
 
   async function save() {
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
-    if (!outcome) return toast.error("Selecciona el resultado");
+    if (available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
     if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
     if (diagMode === "blocked" && !blockerId) return toast.error("Indica qué está esperando el cliente");
     if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona por qué se perdió");
@@ -233,11 +233,11 @@ export function LogFollowUpDialog({
         dealId: selectedDealId,
         stageId: effectiveStageId,
         kind,
-        outcome,
+        outcome: outcome ?? null,
         description: description.trim(),
         occurredAt: fromLocalInput(occurred),
         nextActionAt: hasNext ? dayToIso(nextDay, nextTime) : null,
-        nextActionTitle: hasNext ? `Seguimiento: ${outcome.label}` : "",
+        nextActionTitle: hasNext ? `Seguimiento: ${outcome?.label ?? "próximo contacto"}` : "",
         moveToStageId: targetStage === "none" ? null : targetStage,
         blockerId: diagMode === "blocked" ? blockerId : null,
         blockerLabel: diagMode === "blocked"
