@@ -104,6 +104,36 @@ export const useUpdateService = () => {
   });
 };
 
+/** Oportunidades generadas por las recurrencias del mes indicado (para filtrar el Pipeline). */
+export const useMonthServiceDeals = (month: string) => {
+  const { data: services = [] } = useMonthlyServices(month);
+  const dealIds = new Set(
+    services.map((s) => s.generated_deal_id).filter(Boolean) as string[],
+  );
+  const contactIds = new Set(
+    services.map((s) => s.contact?.id).filter(Boolean) as string[],
+  );
+  return { services, dealIds, contactIds };
+};
+
+const _legacyUpdateService = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<MonthlyService>) => {
+      const { error } = await supabase
+        .from("recurrence_occurrences")
+        .update(patch as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["monthly-services"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+    },
+  });
+};
+
 /** Etapas del pipeline de servicio, por nombre. */
 const stageForStatus: Record<ServiceStatus, string | null> = {
   pending: "Solicitud",
