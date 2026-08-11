@@ -18,7 +18,10 @@ export function InfoSidePanel({ contact }: Props) {
       key: "contact", title: "Contacto",
       rows: [
         { icon: Phone, label: "Teléfono", value: contact.phone, mono: true },
+        { icon: Phone, label: "Tel. alterno", value: contact.phoneAlt ?? "—", mono: true },
         { icon: Mail, label: "Email", value: contact.email ?? "—" },
+        { icon: MapPin, label: "Dirección", value: contact.address ?? "—" },
+        { icon: StickyNote, label: "Observaciones", value: contact.notes ?? "—" },
       ],
     },
     {
