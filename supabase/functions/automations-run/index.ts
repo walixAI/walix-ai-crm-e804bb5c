@@ -152,6 +152,67 @@ Deno.serve(async (req) => {
     }
 
     // 1b. Mantener siempre el horizonte de citas futuras por suscripción
+    // 1a-bis. Reparar ocurrencias que ya tienen oportunidad pero se quedaron sin
+    // tarea (o con una tarea desfasada muy lejos del mes de servicio).
+    try {
+      const repairHorizon = toDateStr(addDays(now, 60));
+      const { data: orphanOccs } = await admin
+        .from("recurrence_occurrences")
+        .select("id, tenant_id, due_date, assigned_to, generated_deal_id, subscription:subscription_id(contact_id), recurrence:recurrence_id(name, enabled, anticipation_days, actions)")
+        .eq("status", "pending")
+        .is("generated_task_id", null)
+        .not("generated_deal_id", "is", null)
+        .lte("due_date", repairHorizon);
+
+      for (const occ of orphanOccs ?? []) {
+        const rec = (occ as any).recurrence;
+        const sub = (occ as any).subscription;
+        if (!rec || !rec.enabled || !sub) continue;
+        const dueDate = monthStart((occ as any).due_date);
+        const anticipation = Number(rec.anticipation_days ?? 5);
+        const trigger = toDateStr(addDays(new Date(dueDate + "T00:00:00"), -anticipation));
+        if (today < trigger) continue;
+
+        // ¿Ya existe una tarea abierta razonable para ese deal? entonces sólo enlazar.
+        const { data: existing } = await admin
+          .from("tasks")
+          .select("id, due_at")
+          .eq("deal_id", (occ as any).generated_deal_id)
+          .eq("completed", false)
+          .order("due_at", { ascending: true })
+          .limit(1);
+        const found = existing?.[0];
+        const taskDueStr = today > trigger ? today : trigger;
+        if (found) {
+          const outOfRange = !found.due_at || String(found.due_at).slice(0, 10) > toDateStr(addDays(new Date(dueDate + "T00:00:00"), 31));
+          if (outOfRange) {
+            await admin.from("tasks").update({ due_at: `${taskDueStr}T15:00:00+00` }).eq("id", found.id);
+          }
+          await admin.from("recurrence_occurrences").update({ generated_task_id: found.id }).eq("id", (occ as any).id);
+          continue;
+        }
+
+        const taskAction = (rec.actions || []).find((a: any) => a.type === "create_task");
+        const { data: contact } = await admin
+          .from("contacts").select("id, owner_id").eq("id", sub.contact_id).maybeSingle();
+        const { data: task } = await admin.from("tasks").insert({
+          tenant_id: (occ as any).tenant_id,
+          contact_id: sub.contact_id,
+          deal_id: (occ as any).generated_deal_id,
+          title: taskAction?.config?.title || `${rec.name} — contactar y agendar`,
+          due_at: `${taskDueStr}T15:00:00+00`,
+          assignee_id: (occ as any).assigned_to || contact?.owner_id || null,
+          completed: false,
+          task_kind: "seguimiento",
+        }).select("id").single();
+        if (task?.id) {
+          await admin.from("recurrence_occurrences").update({ generated_task_id: task.id }).eq("id", (occ as any).id);
+        }
+      }
+    } catch (e) {
+      console.error("recurrence task repair error", e);
+    }
+
     try {
       const { data: allSubs } = await admin
         .from("recurrence_subscriptions")
