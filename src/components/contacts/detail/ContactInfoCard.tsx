@@ -1,4 +1,4 @@
-import { Mail, Phone, Target, UserCircle2, Pencil, PhoneCall, MapPin, StickyNote } from "lucide-react";
+import { Mail, Phone, Target, UserCircle2, Pencil, PhoneCall, MapPin, StickyNote, Tag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -6,6 +6,7 @@ import {
 import { useUpdateContact, type ContactRow } from "@/lib/queries/contacts";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { useContactSources } from "@/lib/queries/contactSources";
+import { useContactCustomFieldDefs } from "@/lib/queries/contactCustomFields";
 import { EditFieldPopover } from "./EditFieldPopover";
 import { toast } from "sonner";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
@@ -17,6 +18,7 @@ export function ContactInfoCard({ contact }: Props) {
   const update = useUpdateContact();
   const { data: users = [] } = useTenantUsers();
   const { data: sources = [] } = useContactSources();
+  const { data: customDefs = [] } = useContactCustomFieldDefs();
   const navigate = useNavigate();
 
   const save = (patch: any) =>
@@ -157,6 +159,32 @@ export function ContactInfoCard({ contact }: Props) {
             </SelectContent>
           </Select>
         </Row>
+
+        {/* Campos personalizados del tenant */}
+        {customDefs.map((f) => {
+          const val = contact.customFields?.[f.key];
+          const str = val == null || val === "" ? "" : String(val);
+          return (
+            <Row key={f.id} icon={Tag} label={f.label}>
+              <EditFieldPopover
+                label={f.label}
+                value={str}
+                placeholder={f.placeholder ?? ""}
+                onSave={(v) =>
+                  save({
+                    custom_fields: { ...(contact.customFields ?? {}), [f.key]: v || null },
+                  })
+                }
+                trigger={
+                  <button className="group flex-1 text-left flex items-center gap-1 truncate">
+                    <span className="truncate">{str || "—"}</span>
+                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                  </button>
+                }
+              />
+            </Row>
+          );
+        })}
       </div>
     </div>
   );
@@ -166,7 +194,7 @@ function Row({ icon: Icon, label, children }: { icon: any; label: string; childr
   return (
     <div className="flex items-center gap-2">
       <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground w-16 shrink-0">{label}</span>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground w-16 shrink-0 truncate" title={label}>{label}</span>
       {children}
     </div>
   );
