@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, ChevronRight, Download } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -15,7 +17,7 @@ import { daysSince, formatMXN, type PipelineDeal, type PipelineStage } from "@/l
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { cn } from "@/lib/utils";
 
-export type PerformanceLens = "created" | "active";
+export type PerformanceLens = "created" | "active" | "all";
 
 interface Props {
   deals: PipelineDeal[];
@@ -101,7 +103,8 @@ export function DealsPerformanceView({
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
   const [chip, setChip] = useState<Chip>("all");
-  const [productId, setProductId] = useState<string>("all");
+  const [productIds, setProductIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
   const [openStage, setOpenStage] = useState<string | null>(null);
@@ -113,21 +116,43 @@ export function DealsPerformanceView({
     : (PERIOD_PRESETS.some((p) => p.key === periodMonth) ? periodMonth : "month");
   const [, customFrom = "", customTo = ""] = periodMonth.startsWith("custom:") ? periodMonth.split(":") : [];
 
-  // Base set according to lens
-  const base = useMemo(() => {
-    const inPeriod = deals.filter((d) => {
+  // Set inside the period according to the lens (before the secondary filters)
+  const periodSet = useMemo(() => {
+    return deals.filter((d) => {
       const created = new Date(d.createdAt);
-      if (lens === "created") return created >= start && created < end;
+      const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
+      const createdIn = created >= start && created < end;
+      const closeIn = closeRef >= start && closeRef < end;
+      const updatedIn = new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end;
+      if (lens === "created") return createdIn;
+      if (lens === "all") return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
       // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
-      const ref = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
-      return ref >= start && ref < end;
+      return closeIn;
     });
-    return inPeriod.filter((d) =>
-      (productId === "all" || d.productCategoryId === productId) &&
+  }, [deals, lens, start, end]);
+
+  const base = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return periodSet.filter((d) =>
+      (productIds.length === 0 || (d.productCategoryId ? productIds.includes(d.productCategoryId) : false)) &&
       (owner === "all" || d.ownerName === owner) &&
-      (stageId === "all" || d.stageId === stageId));
-  }, [deals, lens, start, end, productId, owner, stageId]);
+      (stageId === "all" || d.stageId === stageId) &&
+      (!q || d.name.toLowerCase().includes(q) ||
+        (d.contactId ? (contactName(d.contactId) ?? "").toLowerCase().includes(q) : false)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodSet, productIds, owner, stageId, search]);
+
+  // Category counts within the period (so it is obvious where the deals are)
+  const categoryCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    let none = 0;
+    for (const d of periodSet) {
+      if (d.productCategoryId) m.set(d.productCategoryId, (m.get(d.productCategoryId) ?? 0) + 1);
+      else none += 1;
+    }
+    return { m, none };
+  }, [periodSet]);
 
   const ownerNames = useMemo(
     () => Array.from(new Set(deals.map((d) => d.ownerName).filter(Boolean))).sort(),
@@ -274,7 +299,7 @@ export function DealsPerformanceView({
       health.signals.join(" / "),
       d.expectedCloseDate ?? "",
     ]);
-    const meta = [[`Lente: ${lens === "created" ? "Activadas en el periodo" : "Activas en el periodo"}`], [`Periodo: ${periodLabel}`], []];
+    const meta = [[`Lente: ${lens === "created" ? "Creadas en el periodo" : lens === "all" ? "Todas del periodo" : "Activas en el periodo"}`], [`Periodo: ${periodLabel}`], []];
     const csv = [...meta, headers, ...rowsCsv]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -313,6 +338,7 @@ export function DealsPerformanceView({
         >
           <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
           <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
+          <ToggleGroupItem value="all" size="sm">Todas del periodo</ToggleGroupItem>
         </ToggleGroup>
         <Select
           value={presetKey}
@@ -335,15 +361,58 @@ export function DealsPerformanceView({
             ))}
           </SelectContent>
         </Select>
-        <Select value={productId} onValueChange={setProductId}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Producto o servicio">
-            <SelectValue placeholder="Producto/servicio" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los productos</SelectItem>
-            {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 w-[200px] justify-between font-normal">
+              <span className="truncate">
+                {productIds.length === 0
+                  ? "Todas las categorías"
+                  : productIds.length === 1
+                    ? (products.find((p) => p.id === productIds[0])?.name ?? "1 categoría")
+                    : `${productIds.length} categorías`}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[260px] p-2">
+            <div className="max-h-64 overflow-auto space-y-1">
+              {products.map((p) => {
+                const checked = productIds.includes(p.id);
+                return (
+                  <label key={p.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() =>
+                        setProductIds((prev) => (checked ? prev.filter((x) => x !== p.id) : [...prev, p.id]))
+                      }
+                    />
+                    <span className="flex-1 truncate">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{categoryCounts.m.get(p.id) ?? 0}</span>
+                  </label>
+                );
+              })}
+              {categoryCounts.none > 0 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Sin categoría: {categoryCounts.none}
+                </div>
+              )}
+            </div>
+            {productIds.length > 0 && (
+              <Button variant="ghost" size="sm" className="w-full mt-1 h-8" onClick={() => setProductIds([])}>
+                Quitar selección
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar oportunidad o contacto"
+            className="h-9 w-[220px] pl-7 text-xs"
+          />
+        </div>
         <Select value={owner} onValueChange={setOwner}>
           <SelectTrigger className="h-9 w-[160px]" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
@@ -384,9 +453,9 @@ export function DealsPerformanceView({
         </div>
       )}
 
-      {(productId !== "all" || owner !== "all" || stageId !== "all") && (
+      {(productIds.length > 0 || owner !== "all" || stageId !== "all" || search) && (
         <div>
-          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductId("all"); setOwner("all"); setStageId("all"); }}>
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); setSearch(""); }}>
             Limpiar filtros
           </Button>
         </div>
@@ -581,7 +650,9 @@ export function DealsPerformanceView({
       <p className="text-xs text-muted-foreground">
         {lens === "created"
           ? `Oportunidades creadas en ${periodLabel}, sin importar cuándo cierren.`
-          : `Oportunidades abiertas que estuvieron vivas durante ${periodLabel}, sin importar cuándo se crearon ni cuándo cierren.`}
+          : lens === "all"
+            ? `Todas las oportunidades relacionadas con ${periodLabel}: creadas, con cierre esperado o cerradas en el periodo (abiertas y cerradas).`
+            : `Oportunidades abiertas con cierre esperado dentro de ${periodLabel}.`}
         {" "}La salud se calcula al día de hoy.
       </p>
     </div>

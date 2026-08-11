@@ -4,7 +4,7 @@ export interface PipelinePrefs {
   view: "kanban" | "list" | "performance";
   search: string;
   pipelineId: string | null;
-  perfLens: "created" | "active";
+  perfLens: "created" | "active" | "all";
   perfMonth: string | null; // "YYYY-MM"
   filters: {
     ownerName: string;
