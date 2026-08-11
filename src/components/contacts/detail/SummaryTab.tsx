@@ -137,8 +137,18 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
                     }
                   />
                   <div className="min-w-0 flex-1">
-                    <div className={cn("text-sm truncate", t.completed && "line-through text-muted-foreground")}>
-                      {t.title}
+                    <div className="flex items-start gap-2">
+                      <div className={cn("text-sm truncate flex-1", t.completed && "line-through text-muted-foreground")}>
+                        {t.title}
+                      </div>
+                      {(() => {
+                        const st = taskStatus(t.completed, t.dueAt);
+                        return (
+                          <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 h-5 font-medium", st.className)}>
+                            {st.label}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> Agenda: {fmtAbs(t.dueAt)}
