@@ -116,24 +116,6 @@ export const useMonthServiceDeals = (month: string) => {
   return { services, dealIds, contactIds };
 };
 
-const _legacyUpdateService = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string } & Partial<MonthlyService>) => {
-      const { error } = await supabase
-        .from("recurrence_occurrences")
-        .update(patch as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["monthly-services"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-    },
-  });
-};
-
 /** Etapas del pipeline de servicio, por nombre. */
 const stageForStatus: Record<ServiceStatus, string | null> = {
   pending: "Solicitud",
