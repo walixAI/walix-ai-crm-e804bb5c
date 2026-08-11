@@ -561,10 +561,6 @@ function ServiceFrequencyField({ value, onChange }: { value: number | null; onCh
   );
 }
 
-function ReadValueLegacy({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm font-medium px-3 py-2 rounded-md bg-muted/40">{children}</div>;
-}
-
 /** Campo editable en línea: clic en "Editar" para modificar y guardar el cambio al instante. */
 function EditableField({
   label, display, value, onSave, render,
