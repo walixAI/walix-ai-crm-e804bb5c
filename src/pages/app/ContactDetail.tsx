@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, PanelLeft, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
 import { ContactDetailSkeleton } from "@/components/walix/Skeletons";
 import { ActivitiesTab } from "@/components/contacts/detail/ActivitiesTab";
+import { TasksTab } from "@/components/contacts/detail/TasksTab";
 import { DealsTab } from "@/components/contacts/detail/DealsTab";
 import { useContactPipelineDeals } from "@/lib/queries/pipeline";
 import { useContactActivity } from "@/lib/queries/contacts";
@@ -28,6 +30,7 @@ export default function ContactDetail() {
   const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [tab, setTab] = useState("summary");
   const { data: contact, isLoading } = useContact(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
@@ -84,9 +87,10 @@ export default function ContactDetail() {
         </aside>
 
         <div className="min-w-0">
-          <Tabs defaultValue="summary">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList>
               <TabsTrigger value="summary">Resumen</TabsTrigger>
+              <TabsTrigger value="tasks">Tareas</TabsTrigger>
               <TabsTrigger value="conversations">
                 Conversaciones {convs.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{convs.length}</span>}
               </TabsTrigger>
@@ -97,7 +101,11 @@ export default function ContactDetail() {
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
-              <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} />
+              <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} />
+            </TabsContent>
+
+            <TabsContent value="tasks" className="mt-4">
+              <TasksTab contactId={contact.id} />
             </TabsContent>
 
             <TabsContent value="conversations" className="mt-4">
