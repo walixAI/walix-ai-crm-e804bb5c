@@ -2,13 +2,15 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
+import { AlertCircle, CalendarIcon, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, DollarSign, FileText, Plus, Sparkles, TrendingUp, Trophy, PiggyBank, Wrench, MessageCircle, Settings2, Receipt } from "lucide-react";
 import { SlidersHorizontal, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, type JumboItem } from "@/lib/queries/miDia";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMiDiaData, useQuickCreateTask, useSetSimpleMode, useTasksByDate, type JumboItem } from "@/lib/queries/miDia";
 import { QuickTaskDialog } from "@/components/miDia/QuickTaskDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { CloseTaskDialog } from "@/components/contacts/simple/CloseTaskDialog";
@@ -45,6 +47,12 @@ export default function MiDia() {
   const { data: prof } = useMonthProfitability();
   const [expanded, setExpanded] = useState<ExpandKey>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [taskDate, setTaskDate] = useState<Date>(() => new Date());
+  const isTaskDateToday = useMemo(
+    () => format(taskDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd"),
+    [taskDate],
+  );
+  const { data: otherDayTasks } = useTasksByDate(isTaskDateToday ? null : taskDate);
   const columnRefs = {
     tasks: useRef<HTMLDivElement>(null),
     collect: useRef<HTMLDivElement>(null),
