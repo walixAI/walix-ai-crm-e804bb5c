@@ -185,12 +185,8 @@ export default function MiDia() {
             </Widget>
             <Widget k="midia.services">
             <div ref={columnRefs.services} className="scroll-mt-28 space-y-3">
-              <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
               <MonthServicesInline />
             </div>
-            </Widget>
-            <Widget k="midia.followup">
-            <JumboColumn title="Seguimiento" description="Clientes en negociación." icon={Sparkles} items={data?.followup ?? []} emptyText="Sin seguimientos activos." />
             </Widget>
             <Widget k="midia.tasks">
             <div ref={columnRefs.tasks} className="scroll-mt-28">
