@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { StageStepper } from "./StageStepper";
+import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { DueBadge } from "./DueBadge";
 import {
   formatMXN, usePipelines, useStages, useContactPipelineDeals, useContactStageHistory,

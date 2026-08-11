@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { StageStepper } from "@/components/contacts/detail/StageStepper";
+import { effectiveProbability } from "@/lib/pipeline/probability";
 import { HealthBadges } from "./HealthBadges";
 import { computeDealHealth } from "@/lib/dealHealth";
 import { daysSince, formatMXN, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";

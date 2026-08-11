@@ -3,6 +3,7 @@ import { CheckCircle2, Plus } from "lucide-react";
 import { useContactTasks } from "@/lib/queries/contacts";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { StageStepper } from "./StageStepper";
+import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { DueBadge } from "./DueBadge";
 import { useContactPipelineDeals, type PipelineDeal } from "@/lib/queries/pipeline";
 import { useContactStageMaps } from "./DealsTab";
