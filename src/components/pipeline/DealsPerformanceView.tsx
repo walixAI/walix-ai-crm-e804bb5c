@@ -39,6 +39,13 @@ export function currentMonthKey() {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+/** Database `date` values have no timezone; parse them as local calendar dates. */
+function parseCalendarDate(value: string) {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!dateOnly) return new Date(value);
+  return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+}
+
 /** Resolves a period value ("month" | "prev" | "90d" | "year" | "custom:from:to" | legacy "YYYY-MM"). */
 function parsePeriod(value: string): { start: Date; end: Date; label: string } {
   const now = new Date();
@@ -113,7 +120,7 @@ export function DealsPerformanceView({
       if (lens === "created") return created >= start && created < end;
       // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
-      const ref = d.expectedCloseDate ? new Date(d.expectedCloseDate) : created;
+      const ref = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
       return ref >= start && ref < end;
     });
     return inPeriod.filter((d) =>
@@ -141,7 +148,7 @@ export function DealsPerformanceView({
   }, [base, contactLastActivityById]);
 
   const closingInPeriod = (d: PipelineDeal) =>
-    !!d.expectedCloseDate && new Date(d.expectedCloseDate) >= start && new Date(d.expectedCloseDate) < end;
+    !!d.expectedCloseDate && parseCalendarDate(d.expectedCloseDate) >= start && parseCalendarDate(d.expectedCloseDate) < end;
 
   const chipped = useMemo(() => {
     switch (chip) {
@@ -539,7 +546,7 @@ export function DealsPerformanceView({
                   </div>
                 </TableCell>
                 <TableCell className={cn("text-sm", health.isOverdue && "text-destructive font-medium")}>
-                  {d.expectedCloseDate ? new Date(d.expectedCloseDate).toLocaleDateString("es-MX") : "—"}
+                  {d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate).toLocaleDateString("es-MX") : "—"}
                 </TableCell>
               </TableRow>
             ))}
