@@ -122,6 +122,8 @@ export function DealsPerformanceView({
 
   // Set inside the period according to the lens (before the secondary filters)
   const periodSet = useMemo(() => {
+    const selected = (allStages ?? stages).find((s) => s.id === stageId);
+    const closedSelected = !!selected && (selected.isWon || selected.isLost);
     return deals.filter((d) => {
       const created = new Date(d.createdAt);
       const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
@@ -129,12 +131,13 @@ export function DealsPerformanceView({
       const closeIn = closeRef >= start && closeRef < end;
       const updatedIn = new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end;
       if (lens === "created") return createdIn;
-      if (lens === "all") return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
+      if (lens === "all" || closedSelected) return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
       // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
       return closeIn;
     });
-  }, [deals, lens, start, end]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deals, lens, start, end, stageId, allStages, stages]);
 
   const base = useMemo(() => {
     const q = search.trim().toLowerCase();
