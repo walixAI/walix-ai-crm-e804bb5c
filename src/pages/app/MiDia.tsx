@@ -383,6 +383,8 @@ interface JumboColumnProps {
   onRescheduleCollect?: (item: JumboItem) => void;
   /** Muestra el selector para ordenar por categoría / producto. */
   sortable?: boolean;
+  dateValue?: Date;
+  onDateChange?: (d: Date) => void;
 }
 
 const PAGE_SIZE = 10;
