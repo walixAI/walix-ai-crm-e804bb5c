@@ -21,6 +21,11 @@ import {
   useContactsLite, useCreateDeal, usePipelines, useStages, type PipelineStage,
 } from "@/lib/queries/pipeline";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
+import { supabase } from "@/integrations/supabase/client";
+import { useTenantId } from "@/lib/queries/tenant";
+import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { toLocalInput } from "@/lib/format/localDatetime";
 
 interface Props {
   open: boolean;
@@ -48,12 +53,26 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const [aiAuto, setAiAuto] = useState(true);
   const [probability, setProbability] = useState(50);
   const [productCategoryId, setProductCategoryId] = useState<string>("none");
+  const [withTask, setWithTask] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDue, setTaskDue] = useState("");
 
   const { data: contacts = [] } = useContactsLite();
   const { data: productCategories = [] } = useProductCategories();
   const { data: pipelines = [] } = usePipelines();
   const { data: pipelineStages = [] } = useStages(pipelineId || null);
   const create = useCreateDeal();
+  const { data: tenantId } = useTenantId();
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  /** Mañana a las 10:00, como fecha sugerida de la agenda. */
+  function defaultTaskDue() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
+    return toLocalInput(d);
+  }
 
   // Solo se permite crear en las dos primeras etapas del pipeline elegido.
   const entryStages = pipelineStages
@@ -68,6 +87,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     setAiAuto(true); setProbability(50);
     setProductCategoryId("none");
     setStageId("");
+    setWithTask(false); setTaskTitle(""); setTaskDue(defaultTaskDue());
     // Solo al abrir: evita que un refetch de pipelines/etapas borre lo que el usuario ya escribió.
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -94,6 +114,8 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     if (!name.trim()) { toast.error("Escribe el nombre de la oportunidad"); return; }
     if (!amount) { toast.error("Captura el monto"); return; }
     if (!stageId) { toast.error("Selecciona pipeline y etapa inicial"); return; }
+    if (withTask && !taskTitle.trim()) { toast.error("Escribe el título de la tarea"); return; }
+    if (withTask && !taskDue) { toast.error("Indica la fecha de la tarea"); return; }
     try {
       const created: any = await create.mutateAsync({
         name: name.trim(),
@@ -106,6 +128,22 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
         notes: notes.trim() || null,
         productCategoryId: productCategoryId === "none" ? null : productCategoryId,
       });
+      if (withTask && created?.id && tenantId) {
+        const { error } = await (supabase as any).from("tasks").insert({
+          tenant_id: tenantId,
+          deal_id: created.id,
+          contact_id: contactId,
+          title: taskTitle.trim(),
+          due_at: new Date(taskDue).toISOString(),
+          assignee_id: user?.id ?? null,
+        });
+        if (error) toast.error(`Oportunidad creada, pero la tarea falló: ${error.message}`);
+        else {
+          qc.invalidateQueries({ queryKey: ["tasks"] });
+          qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
+          qc.invalidateQueries({ queryKey: ["pipeline-deal-tasks-map"] });
+        }
+      }
       toast.success("Oportunidad creada");
       if (created?.id) onCreated?.(created.id);
       onOpenChange(false);
@@ -234,6 +272,33 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
           <div className="space-y-1.5">
             <Label>Notas</Label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Detalles adicionales…" />
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between">
+              <Label>Agendar tarea de seguimiento</Label>
+              <Switch checked={withTask} onCheckedChange={setWithTask} />
+            </div>
+            {withTask ? (
+              <div className="space-y-2 pt-1">
+                <Input
+                  value={taskTitle}
+                  onChange={e => setTaskTitle(e.target.value)}
+                  maxLength={120}
+                  placeholder="Ej. Llamar para confirmar visita"
+                />
+                <Input
+                  type="datetime-local"
+                  value={taskDue}
+                  onChange={e => setTaskDue(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  La tarea queda ligada a esta oportunidad y aparece en Mi Día.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Crea también una agenda para no perder el seguimiento.</p>
+            )}
           </div>
         </div>
 
