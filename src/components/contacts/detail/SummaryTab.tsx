@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { ContactRow, ActivityRow } from "@/lib/queries/contacts";
 import { useContactSuggestions, useContactDeals, useContactTasks, useToggleContactTask } from "@/lib/queries/contacts";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -20,6 +21,21 @@ function fmtAbs(iso?: string | null) {
 }
 
 const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
+
+/** Estatus visual de una tarea según su fecha de agenda */
+function taskStatus(completed: boolean, dueAt?: string | null): { label: string; className: string } {
+  if (completed) return { label: "Atendida", className: "bg-success/10 text-success border-success/20" };
+  if (!dueAt) return { label: "Sin fecha", className: "bg-muted text-muted-foreground border-border" };
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return { label: "Sin fecha", className: "bg-muted text-muted-foreground border-border" };
+  const now = new Date();
+  if (due.getTime() < now.getTime()) return { label: "Vencida", className: "bg-destructive/10 text-destructive border-destructive/20" };
+  const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (due < startOfTomorrow) return { label: "Hoy", className: "bg-warning/10 text-warning border-warning/20" };
+  const in7 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 8);
+  if (due < in7) return { label: "Próxima", className: "bg-info/10 text-info border-info/20" };
+  return { label: "Pendiente", className: "bg-muted text-muted-foreground border-border" };
+}
   wa_sent: { Icon: MessageCircle, bg: "bg-success/10", color: "text-success" },
   wa_received: { Icon: MessageCircle, bg: "bg-info/10", color: "text-info" },
   note: { Icon: StickyNote, bg: "bg-info/10", color: "text-info" },
