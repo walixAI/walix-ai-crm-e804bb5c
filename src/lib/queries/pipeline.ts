@@ -158,6 +158,29 @@ export function useRenamePipeline() {
   });
 }
 
+export function useSetDefaultPipeline() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!tenantId) throw new Error("No hay tenant activo");
+      // Solo puede haber un default por tenant; desmarcamos los demás primero.
+      const { error: resetError } = await supabase
+        .from("pipelines")
+        .update({ is_default: false })
+        .eq("tenant_id", tenantId);
+      if (resetError) throw resetError;
+      const { error } = await supabase
+        .from("pipelines")
+        .update({ is_default: true })
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipelines"] }),
+  });
+}
+
 export function useDeletePipeline() {
   const qc = useQueryClient();
   return useMutation({
