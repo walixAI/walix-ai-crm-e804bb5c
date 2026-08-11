@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Phone, Users, Mail, FileText, ListChecks, CheckSquare, ClipboardCheck } from "lucide-react";
+import { Plus, Phone, Users, Mail, FileText, ListChecks, ClipboardCheck } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useContactActivity, type ActivityRow } from "@/lib/queries/contacts";
@@ -7,8 +7,6 @@ import { useContactPipelineDeals, useContactStageHistory } from "@/lib/queries/p
 import { ActivityItem } from "./ActivityItem";
 import { LogActivityDialog, type LogKind } from "./dialogs/LogActivityDialog";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
-import { TasksTab } from "./TasksTab";
-
 interface Props { contactId: string }
 
 const FILTERS: { id: string; label: string; icon: any; types?: string[]; cta?: LogKind }[] = [
@@ -17,7 +15,6 @@ const FILTERS: { id: string; label: string; icon: any; types?: string[]; cta?: L
   { id: "calls",    label: "Llamadas",  icon: Phone,    types: ["call"], cta: "call" },
   { id: "meetings", label: "Reuniones", icon: Users,    types: ["meeting"], cta: "meeting" },
   { id: "emails",   label: "Emails",    icon: Mail,     types: ["email"], cta: "email" },
-  { id: "tasks",    label: "Tareas",    icon: CheckSquare },
 ];
 
 export function ActivitiesTab({ contactId }: Props) {
@@ -83,7 +80,7 @@ export function ActivitiesTab({ contactId }: Props) {
           </div>
         </div>
 
-        {FILTERS.filter((f) => f.id !== "tasks").map((f) => (
+        {FILTERS.map((f) => (
           <TabsContent key={f.id} value={f.id} className="mt-4">
             <div className="rounded-xl border border-border bg-card p-5 shadow-card">
               {filtered.length === 0 ? (
@@ -99,10 +96,6 @@ export function ActivitiesTab({ contactId }: Props) {
             </div>
           </TabsContent>
         ))}
-
-        <TabsContent value="tasks" className="mt-4">
-          <TasksTab contactId={contactId} />
-        </TabsContent>
       </Tabs>
 
       <LogActivityDialog open={logOpen} onOpenChange={setLogOpen} contactId={contactId} kind={logKind} />
