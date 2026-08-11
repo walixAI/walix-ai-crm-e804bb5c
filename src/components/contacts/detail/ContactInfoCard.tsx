@@ -1,4 +1,4 @@
-import { Mail, Phone, Target, UserCircle2, Pencil } from "lucide-react";
+import { Mail, Phone, Target, UserCircle2, Pencil, PhoneCall, MapPin, StickyNote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -75,6 +75,56 @@ export function ContactInfoCard({ contact }: Props) {
         </Row>
 
         {/* Source */}
+        {/* Phone alt */}
+        <Row icon={PhoneCall} label="Tel. alt">
+          <EditFieldPopover
+            label="Teléfono alterno"
+            value={contact.phoneAlt ?? ""}
+            type="tel"
+            prefix="🇲🇽 +52"
+            placeholder="55 8765 4321"
+            onSave={(v) => save({ phone_alt: v || null })}
+            trigger={
+              <button className="group flex-1 text-left flex items-center gap-1 truncate">
+                <span className="truncate font-mono text-xs">{contact.phoneAlt ?? "—"}</span>
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+              </button>
+            }
+          />
+        </Row>
+
+        {/* Address */}
+        <Row icon={MapPin} label="Dirección">
+          <EditFieldPopover
+            label="Dirección"
+            value={contact.address ?? ""}
+            placeholder="Av. Palmas 170, CDMX"
+            onSave={(v) => save({ address: v || null })}
+            trigger={
+              <button className="group flex-1 text-left flex items-center gap-1 truncate">
+                <span className="truncate">{contact.address ?? "—"}</span>
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+              </button>
+            }
+          />
+        </Row>
+
+        {/* Notes */}
+        <Row icon={StickyNote} label="Observ.">
+          <EditFieldPopover
+            label="Observaciones"
+            value={contact.notes ?? ""}
+            placeholder="Comentarios del contacto"
+            onSave={(v) => save({ notes: v || null })}
+            trigger={
+              <button className="group flex-1 text-left flex items-center gap-1 truncate">
+                <span className="truncate">{contact.notes ?? "—"}</span>
+                <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+              </button>
+            }
+          />
+        </Row>
+
         <Row icon={Target} label="Fuente">
           <Select
             value={contact.sourceId ?? ""}
