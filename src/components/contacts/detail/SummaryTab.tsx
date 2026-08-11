@@ -20,8 +20,6 @@ function fmtAbs(iso?: string | null) {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
-
 /** Estatus visual de una tarea según su fecha de agenda */
 function taskStatus(completed: boolean, dueAt?: string | null): { label: string; className: string } {
   if (completed) return { label: "Atendida", className: "bg-success/10 text-success border-success/20" };
@@ -36,6 +34,8 @@ function taskStatus(completed: boolean, dueAt?: string | null): { label: string;
   if (due < in7) return { label: "Próxima", className: "bg-info/10 text-info border-info/20" };
   return { label: "Pendiente", className: "bg-muted text-muted-foreground border-border" };
 }
+
+const iconMap: Record<string, { Icon: any; bg: string; color: string }> = {
   wa_sent: { Icon: MessageCircle, bg: "bg-success/10", color: "text-success" },
   wa_received: { Icon: MessageCircle, bg: "bg-info/10", color: "text-info" },
   note: { Icon: StickyNote, bg: "bg-info/10", color: "text-info" },
