@@ -402,7 +402,7 @@ function loadOrder(): string[] {
   }
 }
 
-function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable }: JumboColumnProps) {
+function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable, dateValue, onDateChange }: JumboColumnProps) {
   const [page, setPage] = useState(0);
   const [sortBy, setSortBy] = useState<"default" | "category">(sortable ? "category" : "default");
   const [showOrder, setShowOrder] = useState(false);
@@ -470,6 +470,34 @@ function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyTex
               <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => setShowOrder((v) => !v)}>
                 <ListOrdered className="h-3.5 w-3.5" /> Prioridad
               </Button>
+            )}
+            {dateValue && onDateChange && (
+              <>
+                <span className="text-xs text-muted-foreground ml-1">Fecha</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 gap-1 text-xs font-normal">
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                      {format(dateValue, "d MMM yyyy", { locale: es })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateValue}
+                      onSelect={(d) => { if (d) { onDateChange(d); setPage(0); } }}
+                      initialFocus
+                      locale={es}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {format(dateValue, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd") && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { onDateChange(new Date()); setPage(0); }}>
+                    Hoy
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}
