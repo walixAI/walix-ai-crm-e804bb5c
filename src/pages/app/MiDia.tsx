@@ -368,12 +368,23 @@ interface JumboColumnProps {
   onToggle?: (id: string) => void;
   onRegisterPayment?: (item: JumboItem) => void;
   onRescheduleCollect?: (item: JumboItem) => void;
+  /** Muestra el selector para ordenar por categoría / producto. */
+  sortable?: boolean;
 }
 
 const PAGE_SIZE = 10;
 
-function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggle, onRegisterPayment, onRescheduleCollect }: JumboColumnProps) {
+function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable }: JumboColumnProps) {
   const [page, setPage] = useState(0);
+  const [sortBy, setSortBy] = useState<"default" | "category">("default");
+  const items = useMemo(() => {
+    if (!sortable || sortBy !== "category") return rawItems;
+    return [...rawItems].sort((a, b) => {
+      const an = a.categoryName ?? "zzz";
+      const bn = b.categoryName ?? "zzz";
+      return an.localeCompare(bn, "es") || a.title.localeCompare(b.title, "es");
+    });
+  }, [rawItems, sortBy, sortable]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const start = safePage * PAGE_SIZE;
