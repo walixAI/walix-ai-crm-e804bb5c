@@ -633,9 +633,11 @@ export function DealsPerformanceView({
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
-                <TableCell className="text-sm">{d.probability}%</TableCell>
+                <TableCell className={cn("text-sm", d.isWon && "text-success font-medium", d.isLost && "text-destructive")}>
+                  {effectiveProbability(d)}%
+                </TableCell>
                 <TableCell className="min-w-[160px]">
-                  <StageStepper stages={stages} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
+                  <StageStepper stages={stages} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} stageName={d.stageName} />
                 </TableCell>
                 <TableCell className="text-xs">
                   <div>{health.daysInStage}d en etapa</div>
