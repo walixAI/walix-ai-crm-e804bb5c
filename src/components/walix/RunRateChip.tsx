@@ -32,6 +32,11 @@ export function RunRateChip() {
           <Row label="Esperado hoy" value={fmt(data.expectedToday)} />
           <Row label="Meta" value={fmt(data.monthGoal)} />
           <Row label="Proyección" value={fmt(data.projection)} />
+          <Row
+            label="Faltantes"
+            value={data.gap > 0 ? fmt(data.gap) : "Meta cumplida"}
+            tone={data.gap > 0 ? "text-amber-600" : "text-emerald-600"}
+          />
         </div>
         {data.recommendations[0] && (
           <div className="text-xs bg-muted/50 rounded p-2">{data.recommendations[0]}</div>
@@ -42,11 +47,11 @@ export function RunRateChip() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="font-semibold">{value}</div>
+      <div className={cn("font-semibold", tone)}>{value}</div>
     </div>
   );
 }
