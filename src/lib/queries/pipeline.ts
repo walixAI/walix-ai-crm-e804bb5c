@@ -469,6 +469,7 @@ export interface NewDealInput {
   expectedCloseDate: string | null;
   source: string;
   notes: string | null;
+  productCategoryId?: string | null;
 }
 
 export function useCreateDeal() {
@@ -495,6 +496,7 @@ export function useCreateDeal() {
           expected_close_date: input.expectedCloseDate,
           source: input.source as any,
           notes: input.notes,
+          product_category_id: input.productCategoryId ?? null,
           is_won: !!stage?.is_won,
           is_lost: !!stage?.is_lost,
         })

@@ -198,6 +198,7 @@ export default function MiDia() {
                 title="Mis tareas de hoy"
                 description="Pendientes tuyos para el día."
                 icon={ClipboardList}
+                sortable
                 items={data?.tasks ?? []}
                 emptyText="¡Estás al día!"
                 onToggle={(id) => {
@@ -368,12 +369,23 @@ interface JumboColumnProps {
   onToggle?: (id: string) => void;
   onRegisterPayment?: (item: JumboItem) => void;
   onRescheduleCollect?: (item: JumboItem) => void;
+  /** Muestra el selector para ordenar por categoría / producto. */
+  sortable?: boolean;
 }
 
 const PAGE_SIZE = 10;
 
-function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggle, onRegisterPayment, onRescheduleCollect }: JumboColumnProps) {
+function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyText, onToggle, onRegisterPayment, onRescheduleCollect, sortable }: JumboColumnProps) {
   const [page, setPage] = useState(0);
+  const [sortBy, setSortBy] = useState<"default" | "category">("default");
+  const items = useMemo(() => {
+    if (!sortable || sortBy !== "category") return rawItems;
+    return [...rawItems].sort((a, b) => {
+      const an = a.categoryName ?? "zzz";
+      const bn = b.categoryName ?? "zzz";
+      return an.localeCompare(bn, "es") || a.title.localeCompare(b.title, "es");
+    });
+  }, [rawItems, sortBy, sortable]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const start = safePage * PAGE_SIZE;
@@ -387,6 +399,19 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
           <span className="ml-auto text-base font-normal text-muted-foreground">{items.length}</span>
         </CardTitle>
         <p className="text-sm text-muted-foreground">{description}</p>
+        {sortable && (
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">Ordenar por</span>
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value as any); setPage(0); }}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            >
+              <option value="default">Fecha</option>
+              <option value="category">Categoría / producto</option>
+            </select>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {items.length === 0 && (
@@ -417,6 +442,11 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
                   <div className="flex-1 min-w-0">
                     <div className="text-lg font-semibold truncate group-hover:text-primary">{i.title}</div>
                     {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
+                    {i.categoryName && (
+                      <span className="inline-block mt-1 text-[11px] rounded-full border border-border px-2 py-0.5 text-muted-foreground">
+                        {i.categoryName}
+                      </span>
+                    )}
                     {i.dueAt && (
                       <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                         {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}
@@ -430,6 +460,11 @@ function JumboColumn({ title, description, icon: Icon, items, emptyText, onToggl
                 <div className="flex-1 min-w-0">
                   <div className="text-lg font-semibold truncate">{i.title}</div>
                   {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
+                  {i.categoryName && (
+                    <span className="inline-block mt-1 text-[11px] rounded-full border border-border px-2 py-0.5 text-muted-foreground">
+                      {i.categoryName}
+                    </span>
+                  )}
                   {i.dueAt && (
                     <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                       {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}

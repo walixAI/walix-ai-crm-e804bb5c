@@ -14,6 +14,8 @@ export interface JumboItem {
   contactId?: string | null;
   dealId?: string | null;
   taskKind?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
 }
 
 function isOverdue(d: string | null | undefined) {
@@ -37,7 +39,7 @@ export function useMiDiaData() {
         supabase.from("tasks").select("id,title,due_at,completed,contact_id,deal_id,task_kind")
           .eq("completed", false).lte("due_at", endToday.toISOString())
           .order("due_at", { ascending: true }),
-        supabase.from("deals").select("id,name,amount,stage_name,expected_close_date,payment_status,deal_type,service_type,scheduled_at,contact_id,is_won,is_lost,updated_at")
+        supabase.from("deals").select("id,name,amount,stage_name,expected_close_date,payment_status,deal_type,service_type,scheduled_at,contact_id,is_won,is_lost,updated_at,product_category_id")
           .eq("is_won", false).eq("is_lost", false).limit(1000),
         supabase.from("pipeline_stages").select("id,name,pipeline_id"),
       ]);
@@ -46,6 +48,21 @@ export function useMiDiaData() {
 
       const tasks = tasksRes.data ?? [];
       const deals = dealsRes.data ?? [];
+
+      // Catálogo de categorías / productos del tenant
+      const { data: cats } = await supabase.from("product_categories").select("id,name");
+      const catName = (id?: string | null) => (id ? (cats ?? []).find((c: any) => c.id === id)?.name ?? null : null);
+
+      // Oportunidades ligadas a las tareas (pueden estar cerradas y no venir arriba)
+      const dealsById: Record<string, any> = Object.fromEntries(deals.map((d: any) => [d.id, d]));
+      const missingDealIds = Array.from(new Set(
+        tasks.map((t: any) => t.deal_id).filter((id: string | null) => id && !dealsById[id])
+      )) as string[];
+      if (missingDealIds.length) {
+        const { data: extra } = await supabase.from("deals")
+          .select("id,name,product_category_id").in("id", missingDealIds);
+        for (const d of extra ?? []) dealsById[(d as any).id] = d;
+      }
 
       // Collect contact ids to resolve names
       const contactIds = Array.from(new Set(
@@ -64,17 +81,22 @@ export function useMiDiaData() {
         return `${c.name}${c.last_name ? " " + c.last_name : ""}`;
       };
 
-      const tasksItems: JumboItem[] = tasks.map((t: any) => ({
-        id: t.id,
-        kind: "task",
-        title: t.title,
-        subtitle: contactName(t.contact_id),
-        dueAt: t.due_at,
-        overdue: isOverdue(t.due_at),
-        contactId: t.contact_id,
-        dealId: t.deal_id,
-        taskKind: t.task_kind ?? null,
-      }));
+      const tasksItems: JumboItem[] = tasks.map((t: any) => {
+        const deal = t.deal_id ? dealsById[t.deal_id] : null;
+        return {
+          id: t.id,
+          kind: "task" as const,
+          title: deal?.name ? `${deal.name} · ${t.title}` : t.title,
+          subtitle: contactName(t.contact_id),
+          dueAt: t.due_at,
+          overdue: isOverdue(t.due_at),
+          contactId: t.contact_id,
+          dealId: t.deal_id,
+          taskKind: t.task_kind ?? null,
+          categoryId: deal?.product_category_id ?? null,
+          categoryName: catName(deal?.product_category_id),
+        };
+      });
 
       const quote: JumboItem[] = deals
         .filter((d: any) => (d.deal_type ?? "venta") === "venta" && /cotiz/i.test(d.stage_name ?? ""))
@@ -82,6 +104,7 @@ export function useMiDiaData() {
           id: d.id, kind: "deal_quote",
           title: d.name, subtitle: contactName(d.contact_id),
           amount: Number(d.amount ?? 0), dealId: d.id, contactId: d.contact_id,
+          categoryId: d.product_category_id ?? null, categoryName: catName(d.product_category_id),
         }));
 
       const services: JumboItem[] = deals
@@ -91,6 +114,7 @@ export function useMiDiaData() {
           id: d.id, kind: "deal_service",
           title: d.name, subtitle: contactName(d.contact_id),
           dueAt: d.scheduled_at, dealId: d.id, contactId: d.contact_id,
+          categoryId: d.product_category_id ?? null, categoryName: catName(d.product_category_id),
         }));
 
       const collect: JumboItem[] = deals
@@ -102,6 +126,7 @@ export function useMiDiaData() {
           amount: Number(d.amount ?? 0), dueAt: d.expected_close_date,
           overdue: isOverdue(d.expected_close_date),
           dealId: d.id, contactId: d.contact_id,
+          categoryId: d.product_category_id ?? null, categoryName: catName(d.product_category_id),
         }));
 
       // Seguimiento: toda oportunidad activa que no cayó en cotizar, servicio de hoy
@@ -117,6 +142,7 @@ export function useMiDiaData() {
           subtitle: [contactName(d.contact_id), d.stage_name].filter(Boolean).join(" · ") || null,
           amount: Number(d.amount ?? 0),
           dealId: d.id, contactId: d.contact_id,
+          categoryId: d.product_category_id ?? null, categoryName: catName(d.product_category_id),
         }));
 
       return {

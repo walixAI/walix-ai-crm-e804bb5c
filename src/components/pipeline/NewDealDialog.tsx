@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   useContactsLite, useCreateDeal, usePipelines, useStages, type PipelineStage,
 } from "@/lib/queries/pipeline";
+import { useProductCategories } from "@/lib/queries/monthlyGoals";
 
 interface Props {
   open: boolean;
@@ -46,8 +47,10 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const [notes, setNotes] = useState("");
   const [aiAuto, setAiAuto] = useState(true);
   const [probability, setProbability] = useState(50);
+  const [productCategoryId, setProductCategoryId] = useState<string>("none");
 
   const { data: contacts = [] } = useContactsLite();
+  const { data: productCategories = [] } = useProductCategories();
   const { data: pipelines = [] } = usePipelines();
   const { data: pipelineStages = [] } = useStages(pipelineId || null);
   const create = useCreateDeal();
@@ -63,6 +66,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     setName(""); setAmount(""); setContactId(defaultContactId ?? null); setContactSearch("");
     setCloseDate(undefined); setSource("Manual"); setNotes("");
     setAiAuto(true); setProbability(50);
+    setProductCategoryId("none");
     const fromDefault = defaultStageId ? stages.find((s) => s.id === defaultStageId)?.pipelineId : null;
     setPipelineId(fromDefault ?? pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "");
     setStageId("");
@@ -93,6 +97,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
         expectedCloseDate: closeDate ? closeDate.toISOString().slice(0, 10) : null,
         source,
         notes: notes.trim() || null,
+        productCategoryId: productCategoryId === "none" ? null : productCategoryId,
       });
       toast.success("Oportunidad creada");
       if (created?.id) onCreated?.(created.id);
@@ -176,6 +181,16 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Categoría / producto</Label>
+              <Select value={productCategoryId} onValueChange={setProductCategoryId}>
+                <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin categoría</SelectItem>
+                  {productCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
