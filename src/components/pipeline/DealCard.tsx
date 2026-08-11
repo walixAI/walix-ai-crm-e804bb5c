@@ -1,3 +1,4 @@
+import { effectiveProbability } from "@/lib/pipeline/probability";
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -219,14 +220,14 @@ function DealCardImpl({
               onClick={(e) => e.stopPropagation()}
             >
               <div
-                className={cn("h-full transition-all", probabilityColor(deal.probability))}
-                style={{ width: `${deal.probability}%` }}
+                className={cn("h-full transition-all", probabilityColor(effectiveProbability(deal)))}
+                style={{ width: `${deal.isLost ? 100 : effectiveProbability(deal)}%` }}
               />
             </div>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[260px] text-xs">
             <div className="font-semibold mb-0.5">
-              Probabilidad de cierre {deal.probability}%
+              Probabilidad de cierre {effectiveProbability(deal)}%
             </div>
             <div className="text-muted-foreground leading-snug">{scoreExplain.reason}</div>
           </TooltipContent>
