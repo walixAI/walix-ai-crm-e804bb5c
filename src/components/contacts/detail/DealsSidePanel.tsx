@@ -3,6 +3,7 @@ import { CheckCircle2, Plus } from "lucide-react";
 import { useContactTasks } from "@/lib/queries/contacts";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { StageStepper } from "./StageStepper";
+import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { DueBadge } from "./DueBadge";
 import { useContactPipelineDeals, type PipelineDeal } from "@/lib/queries/pipeline";
 import { useContactStageMaps } from "./DealsTab";
@@ -64,13 +65,14 @@ export function DealsSidePanel({ contactId }: Props) {
               <div className="text-lg font-bold text-gradient-brand mt-1">${d.amount.toLocaleString("es-MX")}</div>
               <div className="mt-1.5"><DueBadge date={d.expectedCloseDate} /></div>
               <div className="mt-2">
-                <StageStepper stages={maps.stagesFor(d)} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} />
+                <StageStepper stages={maps.stagesFor(d)} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} stageName={d.stageName} />
               </div>
               <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1.5 mb-1">
-                <span>Probabilidad</span><span className="font-semibold">{d.probability}%</span>
+                <span>Prob. de cierre</span>
+                <span className="font-semibold text-foreground">{probabilityLabel(d)}</span>
               </div>
               <div className="h-1 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-gradient-brand" style={{ width: `${d.probability}%` }} />
+                <div className="h-full bg-gradient-brand" style={{ width: `${effectiveProbability(d)}%` }} />
               </div>
             </button>
           ))}
