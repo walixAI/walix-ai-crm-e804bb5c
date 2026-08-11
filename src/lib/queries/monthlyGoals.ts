@@ -83,6 +83,7 @@ export function useProductCategories() {
         .from("product_categories")
         .select("*")
         .eq("tenant_id", tenantId!)
+        .eq("is_active", true)
         .order("position", { ascending: true });
       if (error) throw error;
       return (data ?? []) as ProductCategory[];

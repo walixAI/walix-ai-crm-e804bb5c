@@ -41,6 +41,7 @@ export interface PipelineDeal {
   isWon: boolean;
   isLost: boolean;
   productCategoryId: string | null;
+  serviceFrequencyMonths: number | null;
   createdAt: string;
   updatedAt: string;
   /* Diagnóstico de por qué no avanza */
@@ -71,6 +72,7 @@ function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
     isWon: !!r.is_won,
     isLost: !!r.is_lost,
     productCategoryId: r.product_category_id ?? null,
+    serviceFrequencyMonths: r.service_frequency_months ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     currentBlockerId: r.current_blocker_id ?? null,

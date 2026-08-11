@@ -34,6 +34,7 @@ import {
 } from "@/lib/queries/dealNotes";
 import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
+import { SERVICE_FREQUENCY_OPTIONS } from "@/lib/serviceFrequency";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -231,6 +232,11 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
               <ProductCategoryField
                 value={deal.productCategoryId ?? null}
                 onChange={(v) => savePatch({ product_category_id: v })}
+              />
+
+              <ServiceFrequencyField
+                value={deal.serviceFrequencyMonths ?? null}
+                onChange={(v) => savePatch({ service_frequency_months: v })}
               />
 
               <DealDiagnosticPanel deal={deal} />
@@ -537,6 +543,22 @@ function ProductCategoryField({ value, onChange }: { value: string | null; onCha
 
 function ReadValue({ children }: { children: React.ReactNode }) {
   return <div className="text-sm font-medium px-3 py-2 rounded-md bg-muted/40">{children}</div>;
+}
+
+function ServiceFrequencyField({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
+  return (
+    <Field label="Frecuencia del servicio">
+      <Select value={value ? String(value) : "none"} onValueChange={(v) => onChange(v === "none" ? null : Number(v))}>
+        <SelectTrigger className="h-9"><SelectValue placeholder="Única / sin recurrencia" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Única / sin recurrencia</SelectItem>
+          {SERVICE_FREQUENCY_OPTIONS.map((o) => (
+            <SelectItem key={o.months} value={String(o.months)}>{o.label} ({o.short})</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
 }
 
 /** Campo editable en línea: clic en "Editar" para modificar y guardar el cambio al instante. */

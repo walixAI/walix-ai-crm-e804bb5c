@@ -15,6 +15,7 @@ import { HealthBadges } from "./HealthBadges";
 import { computeDealHealth } from "@/lib/dealHealth";
 import { daysSince, formatMXN, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
+import { frequencyLabel, SERVICE_FREQUENCY_OPTIONS } from "@/lib/serviceFrequency";
 import { cn } from "@/lib/utils";
 
 export type PerformanceLens = "created" | "active" | "all";
@@ -104,6 +105,7 @@ export function DealsPerformanceView({
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
   const [chip, setChip] = useState<Chip>("all");
   const [productIds, setProductIds] = useState<string[]>([]);
+  const [frequency, setFrequency] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
@@ -136,12 +138,22 @@ export function DealsPerformanceView({
     const q = search.trim().toLowerCase();
     return periodSet.filter((d) =>
       (productIds.length === 0 || (d.productCategoryId ? productIds.includes(d.productCategoryId) : false)) &&
+      (frequency === "all" || String(d.serviceFrequencyMonths ?? "") === frequency) &&
       (owner === "all" || d.ownerName === owner) &&
       (stageId === "all" || d.stageId === stageId) &&
       (!q || d.name.toLowerCase().includes(q) ||
         (d.contactId ? (contactName(d.contactId) ?? "").toLowerCase().includes(q) : false)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodSet, productIds, owner, stageId, search]);
+  }, [periodSet, productIds, frequency, owner, stageId, search]);
+
+  // Frecuencias presentes en el periodo (para no mostrar opciones vacías)
+  const frequencyCounts = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const d of periodSet) {
+      if (d.serviceFrequencyMonths) m.set(d.serviceFrequencyMonths, (m.get(d.serviceFrequencyMonths) ?? 0) + 1);
+    }
+    return m;
+  }, [periodSet]);
 
   // Category counts within the period (so it is obvious where the deals are)
   const categoryCounts = useMemo(() => {
@@ -404,6 +416,21 @@ export function DealsPerformanceView({
             )}
           </PopoverContent>
         </Popover>
+        {frequencyCounts.size > 0 && (
+          <Select value={frequency} onValueChange={setFrequency}>
+            <SelectTrigger className="h-9 w-[150px]" aria-label="Frecuencia">
+              <SelectValue placeholder="Frecuencia" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toda frecuencia</SelectItem>
+              {SERVICE_FREQUENCY_OPTIONS.filter((o) => frequencyCounts.has(o.months)).map((o) => (
+                <SelectItem key={o.months} value={String(o.months)}>
+                  {o.label} ({frequencyCounts.get(o.months)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -590,7 +617,14 @@ export function DealsPerformanceView({
               <TableRow key={d.id} className="cursor-pointer" onClick={() => onOpenDeal(d)}>
                 <TableCell>
                   <div className="font-medium">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">{contactName(d.contactId) ?? "Sin contacto"}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <span className="truncate">{contactName(d.contactId) ?? "Sin contacto"}</span>
+                    {d.serviceFrequencyMonths && (
+                      <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] leading-none">
+                        {frequencyLabel(d.serviceFrequencyMonths)}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
                 <TableCell className="text-sm">{d.probability}%</TableCell>
