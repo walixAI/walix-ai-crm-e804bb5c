@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, ChevronRight, Download } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight, Download, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -15,7 +17,7 @@ import { daysSince, formatMXN, type PipelineDeal, type PipelineStage } from "@/l
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { cn } from "@/lib/utils";
 
-export type PerformanceLens = "created" | "active";
+export type PerformanceLens = "created" | "active" | "all";
 
 interface Props {
   deals: PipelineDeal[];
