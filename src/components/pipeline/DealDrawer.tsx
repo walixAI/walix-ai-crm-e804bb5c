@@ -514,7 +514,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
@@ -532,15 +532,6 @@ function ProductCategoryField({ value, onChange }: { value: string | null; onCha
         </SelectContent>
       </Select>
     </Field>
-  );
-}
-
-function FieldLegacy({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {children}
-    </div>
   );
 }
 
