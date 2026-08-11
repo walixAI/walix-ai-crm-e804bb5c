@@ -17,6 +17,7 @@ import { RescheduleCollectionDialog } from "@/components/miDia/RescheduleCollect
 import { useMyProfile } from "@/lib/queries/profile";
 import { useToggleTask } from "@/lib/queries/tasks";
 import { RunRateCard } from "@/components/walix/RunRateCard";
+import { MonthServicesInline } from "@/components/walix/MonthServicesInline";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
@@ -185,6 +186,7 @@ export default function MiDia() {
             <Widget k="midia.services">
             <div ref={columnRefs.services} className="scroll-mt-28 space-y-3">
               <JumboColumn title="Servicios de hoy" description="Mantenimientos e instalaciones agendadas." icon={Wrench} items={data?.services ?? []} emptyText="No hay servicios agendados hoy." />
+              <MonthServicesInline />
             </div>
             </Widget>
             <Widget k="midia.followup">
