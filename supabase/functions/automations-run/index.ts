@@ -98,6 +98,8 @@ Deno.serve(async (req) => {
                 owner_id: contact?.owner_id,
                 expected_close_date: dueDate,
                 source: "Recurrencia",
+                product_category_id: action.config?.product_category_id ?? null,
+                service_frequency_months: rec.period_months ?? null,
               }).select("id").single();
               generatedDealId = deal?.id ?? null;
             } else if (action.type === "create_task") {
