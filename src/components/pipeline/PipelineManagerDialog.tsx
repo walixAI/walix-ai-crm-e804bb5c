@@ -44,6 +44,7 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
   const { data: tenantId } = useTenantId();
   const createMut = useCreatePipeline();
   const renameMut = useRenamePipeline();
+  const setDefaultMut = useSetDefaultPipeline();
   const deleteMut = useDeletePipeline();
   const seedMut = useSeedPipelineTemplate();
 
@@ -81,6 +82,15 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
       setEditingId(null);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al renombrar");
+    }
+  }
+
+  async function handleSetDefault(id: string) {
+    try {
+      await setDefaultMut.mutateAsync(id);
+      toast.success("Pipeline predeterminado actualizado");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al cambiar predeterminado");
     }
   }
 
