@@ -216,11 +216,14 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
-              <Field label={`Probabilidad: ${deal.probability}%`}>
+              <Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className={cn("h-full", deal.probability >= 70 ? "bg-success" : deal.probability >= 40 ? "bg-warning" : "bg-danger")}
-                    style={{ width: `${deal.probability}%` }}
+                    className={cn(
+                      "h-full",
+                      deal.isLost ? "bg-destructive" : effectiveProbability(deal) >= 70 ? "bg-success" : effectiveProbability(deal) >= 40 ? "bg-warning" : "bg-danger",
+                    )}
+                    style={{ width: `${deal.isLost ? 100 : effectiveProbability(deal)}%` }}
                   />
                 </div>
               </Field>
@@ -453,10 +456,14 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   </Button>
                 </div>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-3xl font-bold">{deal.probability}%</span>
-                  <WBadge variant={deal.probability >= 70 ? "success" : deal.probability >= 40 ? "warning" : "danger"}>
-                    {deal.probability >= 70 ? "Alta" : deal.probability >= 40 ? "Media" : "Baja"}
-                  </WBadge>
+                  <span className="text-3xl font-bold">{effectiveProbability(deal)}%</span>
+                  {deal.isWon || deal.isLost ? (
+                    <WBadge variant={deal.isWon ? "success" : "danger"}>{deal.isWon ? "Ganada" : "Perdida"}</WBadge>
+                  ) : (
+                    <WBadge variant={deal.probability >= 70 ? "success" : deal.probability >= 40 ? "warning" : "danger"}>
+                      {deal.probability >= 70 ? "Alta" : deal.probability >= 40 ? "Media" : "Baja"}
+                    </WBadge>
+                  )}
                 </div>
                 {aiScore ? (
                   <div className="space-y-2 mt-2">
