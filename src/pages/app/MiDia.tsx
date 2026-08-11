@@ -198,6 +198,7 @@ export default function MiDia() {
                 title="Mis tareas de hoy"
                 description="Pendientes tuyos para el día."
                 icon={ClipboardList}
+                sortable
                 items={data?.tasks ?? []}
                 emptyText="¡Estás al día!"
                 onToggle={(id) => {
