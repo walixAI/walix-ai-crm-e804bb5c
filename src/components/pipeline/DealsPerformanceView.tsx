@@ -23,6 +23,8 @@ export type PerformanceLens = "created" | "active" | "all";
 interface Props {
   deals: PipelineDeal[];
   stages: PipelineStage[];
+  /** Todas las etapas del pipeline, incluidas las cerradas (para el filtro de etapa) */
+  allStages?: PipelineStage[];
   contactName: (id: string | null) => string | undefined;
   contactLastActivityById: Map<string, string | null>;
   onOpenDeal: (deal: PipelineDeal) => void;
@@ -99,7 +101,7 @@ const PERIOD_PRESETS = [
 ] as const;
 
 export function DealsPerformanceView({
-  deals, stages, contactName, contactLastActivityById, onOpenDeal,
+  deals, stages, allStages, contactName, contactLastActivityById, onOpenDeal,
   lens, onLens, periodMonth, onPeriodMonth,
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
@@ -455,7 +457,7 @@ export function DealsPerformanceView({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las etapas</SelectItem>
-            {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            {(allStages ?? stages).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Button variant="outline" size="sm" className="h-9 ml-auto" onClick={exportCsv}>
