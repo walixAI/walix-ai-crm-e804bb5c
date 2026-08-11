@@ -67,6 +67,13 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, task, onC
   // Sólo se pregunta la oportunidad cuando la tarea nace desde un contacto.
   const askDeal = !editing && !deal && !!contactId;
   const { data: contactDeals = [] } = useContactPipelineDeals(askDeal && open ? contactId ?? undefined : undefined);
+  // En edición mostramos a qué oportunidad (lead) pertenece la tarea.
+  const { data: editDeals = [] } = useContactPipelineDeals(
+    editing && open ? (task?.contactId ?? contactId ?? undefined) : undefined,
+  );
+  const editingDealName = editing && task?.dealId
+    ? (editDeals.find((d: any) => d.id === task.dealId)?.name ?? "Oportunidad")
+    : null;
   const { data: allStages = [] } = useStages(null);
   const openDeals = contactDeals.filter((d: any) => !d.isWon && !d.isLost);
 
@@ -132,6 +139,14 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, task, onC
           <DialogTitle>{editing ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
+          {editing && (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Oportunidad</div>
+              <div className="text-sm font-medium truncate">
+                {editingDealName ?? "Sin oportunidad"}
+              </div>
+            </div>
+          )}
           {askDeal && (
             showDealPicker || openDeals.length > 1 ? (
               <div className="space-y-1.5">
