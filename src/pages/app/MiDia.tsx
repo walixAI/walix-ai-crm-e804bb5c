@@ -137,7 +137,7 @@ export default function MiDia() {
                 icon={TrendingUp}
                 label="Run Rate"
                 value={rr ? `${Math.round(rr.runRatePct)}%` : "—"}
-                sub={rr ? `Día ${rr.daysElapsed}/${rr.daysTotal}` : undefined}
+                sub={rr ? (rr.monthGoal > 0 ? (rr.gap > 0 ? `Faltan ${formatMXN0(rr.gap)}` : "Meta cumplida") : `Día ${rr.daysElapsed}/${rr.daysTotal}`) : undefined}
                 tone={rr?.status === "green" ? "success" : rr?.status === "yellow" ? "warning" : rr?.status === "red" ? "danger" : "primary"}
                 active={expanded === "runrate"}
                 onClick={() => handleKpiClick("runrate")}
@@ -155,7 +155,7 @@ export default function MiDia() {
                 icon={Trophy}
                 label="Ventas ganadas"
                 value={rr ? formatMXN0(rr.sold) : "—"}
-                sub={rr && rr.monthGoal > 0 ? `de ${formatMXN0(rr.monthGoal)}` : "Sin meta"}
+                sub={rr && rr.monthGoal > 0 ? `de ${formatMXN0(rr.monthGoal)} · faltan ${formatMXN0(rr.gap)}` : "Sin meta"}
                 tone="success"
                 active={expanded === "won"}
                 onClick={() => handleKpiClick("won")}
@@ -351,11 +351,19 @@ function WonDetailCard({ rr }: { rr: NonNullable<ReturnType<typeof useRunRate>["
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           {rr.monthGoal > 0
-            ? `${pctOfGoal}% de la meta (${formatMXN0(rr.monthGoal)}) · Proyección ${formatMXN0(rr.projection)}`
+            ? `${pctOfGoal}% de la meta (${formatMXN0(rr.monthGoal)}) · ${rr.gap > 0 ? `Faltan ${formatMXN0(rr.gap)}` : "Meta cumplida"} · Proyección ${formatMXN0(rr.projection)}`
             : "Sin meta definida — configúrala para ver avance."}
         </p>
       </CardHeader>
       <CardContent className="space-y-2">
+        {rr.monthGoal > 0 && (
+          <div className="flex items-center justify-between rounded-xl border-2 border-dashed border-border p-3">
+            <span className="text-base font-medium">Faltantes para la meta</span>
+            <span className={cn("font-bold", rr.gap > 0 ? "text-amber-600" : "text-emerald-600")}>
+              {rr.gap > 0 ? formatMXN0(rr.gap) : "Meta cumplida"}
+            </span>
+          </div>
+        )}
         {rows.map(r => (
           <div key={r.label} className="flex items-center justify-between rounded-xl border border-border p-3">
             <span className="text-base">{r.label}</span>

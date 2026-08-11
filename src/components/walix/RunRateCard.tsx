@@ -67,10 +67,15 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
 
         <div className="space-y-1.5">
           <Progress value={Math.min(100, data.runRatePct)} className="h-2.5" />
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <Stat label={data.metric === "count" ? "Ventas cerradas" : "Vendido"} value={fmt(data.sold) + unit} tone={c.text} />
             <Stat label="Esperado hoy" value={fmt(data.expectedToday) + unit} />
             <Stat label="Meta mes" value={fmt(data.monthGoal) + unit} />
+            <Stat
+              label="Faltantes"
+              value={data.gap > 0 ? fmt(data.gap) + unit : "Meta cumplida"}
+              tone={data.gap > 0 ? "text-amber-600" : "text-emerald-600"}
+            />
           </div>
           <div className="pt-1 flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Proyección de cierre</span>
@@ -108,6 +113,9 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
                   <span className="font-semibold">Global del mes</span>
                   <span className="flex items-center gap-3">
                     <span className="text-muted-foreground">{fmt(data.sold)} / {fmt(data.monthGoal)}{unit}</span>
+                    <span className={cn("font-semibold", data.gap > 0 ? "text-amber-600" : "text-emerald-600")}>
+                      {data.gap > 0 ? `Faltan ${fmt(data.gap)}${unit}` : "Meta cumplida"}
+                    </span>
                     <span className={cn("font-bold", c.text)}>{Math.round(data.runRatePct)}%</span>
                   </span>
                 </div>
@@ -116,6 +124,7 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
                 )}
                 {sellers.map((s) => {
                   const tone = s.runRatePct >= 100 ? "text-emerald-600" : s.runRatePct >= 70 ? "text-amber-600" : "text-red-600";
+                  const sellerGap = Math.max(0, s.assignedGoal - s.won);
                   return (
                     <div key={s.userId} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
@@ -124,6 +133,11 @@ export function RunRateCard({ compact = false, showSellers = false }: { compact?
                           <span className="text-muted-foreground">
                             {formatMXN0(s.won)}{s.assignedGoal > 0 ? ` / ${formatMXN0(s.assignedGoal)}` : ""}
                           </span>
+                          {s.assignedGoal > 0 && (
+                            <span className={cn("font-medium", sellerGap > 0 ? "text-amber-600" : "text-emerald-600")}>
+                              {sellerGap > 0 ? `Faltan ${formatMXN0(sellerGap)}` : "Cumplida"}
+                            </span>
+                          )}
                           <span className={cn("font-bold", tone)}>{Math.round(s.runRatePct)}%</span>
                         </span>
                       </div>
