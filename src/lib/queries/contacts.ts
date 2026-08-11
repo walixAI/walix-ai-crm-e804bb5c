@@ -36,6 +36,7 @@ export interface ContactRow {
   avatarColor: string;
   lastActivity: string;
   createdAt: string;
+  customFields: Record<string, any>;
 }
 
 function colorFromId(id: string) {
@@ -68,6 +69,7 @@ function mapContact(r: any, users?: TenantUser[]): ContactRow {
     avatarColor: r.avatar_color ?? colorFromId(r.id),
     lastActivity: r.last_activity_at ?? r.updated_at ?? r.created_at,
     createdAt: r.created_at,
+    customFields: (r.custom_fields ?? {}) as Record<string, any>,
   };
 }
 
@@ -121,6 +123,7 @@ export interface ContactInput {
   source_id?: string | null;
   tags?: string[];
   owner_id?: string | null;
+  custom_fields?: Record<string, any>;
 }
 
 export function useCreateContact() {
