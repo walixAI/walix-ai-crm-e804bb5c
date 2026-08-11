@@ -2975,8 +2975,10 @@ export type Database = {
       product_categories: {
         Row: {
           created_at: string
+          default_period_months: number | null
           id: string
           is_active: boolean
+          is_recurring: boolean
           name: string
           position: number
           tenant_id: string
@@ -2984,8 +2986,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_period_months?: number | null
           id?: string
           is_active?: boolean
+          is_recurring?: boolean
           name: string
           position?: number
           tenant_id: string
@@ -2993,8 +2997,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_period_months?: number | null
           id?: string
           is_active?: boolean
+          is_recurring?: boolean
           name?: string
           position?: number
           tenant_id?: string
@@ -3150,6 +3156,7 @@ export type Database = {
           kind: string
           name: string
           period_months: number | null
+          product_category_id: string | null
           substitution_rule: Json
           target_pipeline_id: string | null
           target_stage_id: string | null
@@ -3168,6 +3175,7 @@ export type Database = {
           kind?: string
           name: string
           period_months?: number | null
+          product_category_id?: string | null
           substitution_rule?: Json
           target_pipeline_id?: string | null
           target_stage_id?: string | null
@@ -3186,6 +3194,7 @@ export type Database = {
           kind?: string
           name?: string
           period_months?: number | null
+          product_category_id?: string | null
           substitution_rule?: Json
           target_pipeline_id?: string | null
           target_stage_id?: string | null
@@ -3193,6 +3202,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "recurrence_definitions_product_category_id_fkey"
+            columns: ["product_category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recurrence_definitions_target_pipeline_id_fkey"
             columns: ["target_pipeline_id"]
@@ -3311,6 +3327,8 @@ export type Database = {
       }
       recurrence_subscriptions: {
         Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
           contact_id: string | null
           created_at: string
           entity_id: string
@@ -3320,10 +3338,13 @@ export type Database = {
           metadata: Json
           next_due_date: string | null
           recurrence_id: string
+          status: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           contact_id?: string | null
           created_at?: string
           entity_id: string
@@ -3333,10 +3354,13 @@ export type Database = {
           metadata?: Json
           next_due_date?: string | null
           recurrence_id: string
+          status?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           contact_id?: string | null
           created_at?: string
           entity_id?: string
@@ -3346,6 +3370,7 @@ export type Database = {
           metadata?: Json
           next_due_date?: string | null
           recurrence_id?: string
+          status?: string
           tenant_id?: string
           updated_at?: string
         }
@@ -4226,6 +4251,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      ensure_recurrence_subscription: {
+        Args: { _deal_id: string }
+        Returns: string
       }
       generate_recurring_expenses: { Args: never; Returns: number }
       get_invitation_public: { Args: { _token: string }; Returns: Json }

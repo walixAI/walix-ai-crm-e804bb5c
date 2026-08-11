@@ -37,6 +37,8 @@ export interface ProductCategory {
   name: string;
   is_active: boolean;
   position: number;
+  is_recurring?: boolean;
+  default_period_months?: number | null;
 }
 
 export function useMonthlyGoals(year: number, month: number) {
@@ -111,6 +113,21 @@ export function useDeleteProductCategory() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("product_categories").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["product-categories", tenantId] }),
+  });
+}
+
+export function useUpdateProductCategory() {
+  const qc = useQueryClient();
+  const { data: tenantId } = useTenantId();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<ProductCategory>) => {
+      const { error } = await supabase
+        .from("product_categories")
+        .update(patch as any)
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["product-categories", tenantId] }),

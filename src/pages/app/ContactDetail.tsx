@@ -11,6 +11,7 @@ import { relativeTime } from "@/lib/format/relativeTime";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
 import { ContactInfoCard } from "@/components/contacts/detail/ContactInfoCard";
 import { CompanyCard } from "@/components/contacts/detail/CompanyCard";
+import { SubscriptionsCard } from "@/components/contacts/detail/SubscriptionsCard";
 import { DealsSidePanel } from "@/components/contacts/detail/DealsSidePanel";
 import { SummaryTab } from "@/components/contacts/detail/SummaryTab";
 import { AiFloatingPanel } from "@/components/contacts/detail/AiFloatingPanel";
@@ -64,7 +65,7 @@ export default function ContactDetail() {
       <div className="flex gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><PanelLeft className="h-4 w-4" /> Info</Button></SheetTrigger>
-          <SheetContent side="left" className="w-[300px]"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><CompanyCard contact={contact} /></div></SheetContent>
+          <SheetContent side="left" className="w-[300px]"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
         </Sheet>
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Deals</Button></SheetTrigger>
@@ -78,6 +79,7 @@ export default function ContactDetail() {
           <div className="sticky top-4 space-y-2">
             <ContactInfoCard contact={contact} />
             <CompanyCard contact={contact} />
+            <SubscriptionsCard contactId={contact.id} />
           </div>
         </aside>
 

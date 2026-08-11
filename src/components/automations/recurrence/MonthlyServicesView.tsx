@@ -24,6 +24,7 @@ const STATUS_STYLE: Record<ServiceStatus, string> = {
   executed: "bg-success/15 text-success",
   postponed: "bg-warning/15 text-warning",
   skipped: "bg-destructive/10 text-destructive",
+  lost: "bg-warning/15 text-warning",
 };
 
 const FILTERS: Array<{ value: "all" | ServiceStatus; label: string }> = [
@@ -32,6 +33,7 @@ const FILTERS: Array<{ value: "all" | ServiceStatus; label: string }> = [
   { value: "price_accepted", label: "Precio aceptado" },
   { value: "scheduled", label: "Agendados" },
   { value: "executed", label: "Ejecutados" },
+  { value: "lost", label: "No cerrados" },
 ];
 
 const monthLabel = (m: string) =>
