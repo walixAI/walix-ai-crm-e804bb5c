@@ -299,7 +299,7 @@ export function DealsPerformanceView({
       health.signals.join(" / "),
       d.expectedCloseDate ?? "",
     ]);
-    const meta = [[`Lente: ${lens === "created" ? "Activadas en el periodo" : "Activas en el periodo"}`], [`Periodo: ${periodLabel}`], []];
+    const meta = [[`Lente: ${lens === "created" ? "Creadas en el periodo" : lens === "all" ? "Todas del periodo" : "Activas en el periodo"}`], [`Periodo: ${periodLabel}`], []];
     const csv = [...meta, headers, ...rowsCsv]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
