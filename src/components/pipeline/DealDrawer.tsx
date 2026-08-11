@@ -33,6 +33,7 @@ import {
   useDealNotes, useCreateDealNote, useDeleteDealNote,
 } from "@/lib/queries/dealNotes";
 import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
+import { useProductCategories } from "@/lib/queries/monthlyGoals";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -226,6 +227,11 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
               <Field label="Fuente">
                 <ReadValue>{deal.source}</ReadValue>
               </Field>
+
+              <ProductCategoryField
+                value={deal.productCategoryId ?? null}
+                onChange={(v) => savePatch({ product_category_id: v })}
+              />
 
               <DealDiagnosticPanel deal={deal} />
 
@@ -506,6 +512,30 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function ProductCategoryField({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const { data: categories = [] } = useProductCategories();
+  return (
+    <Field label="Categoría / producto">
+      <Select value={value ?? "none"} onValueChange={(v) => onChange(v === "none" ? null : v)}>
+        <SelectTrigger className="h-9"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Sin categoría</SelectItem>
+          {categories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
+function FieldLegacy({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
