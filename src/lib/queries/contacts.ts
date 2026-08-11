@@ -20,6 +20,9 @@ export interface ContactRow {
   lastName: string | null;
   phone: string;
   email: string | null;
+  phoneAlt: string | null;
+  address: string | null;
+  notes: string | null;
   company: string | null;
   companyId: string | null;
   position: string | null;
@@ -49,6 +52,9 @@ function mapContact(r: any, users?: TenantUser[]): ContactRow {
     lastName: r.last_name,
     phone: r.phone ?? "",
     email: r.email,
+    phoneAlt: r.phone_alt ?? null,
+    address: r.address ?? null,
+    notes: r.notes ?? null,
     company: r.company,
     companyId: r.company_id ?? null,
     position: r.position,
@@ -104,6 +110,9 @@ export interface ContactInput {
   last_name?: string | null;
   phone?: string | null;
   email?: string | null;
+  phone_alt?: string | null;
+  address?: string | null;
+  notes?: string | null;
   company?: string | null;
   company_id?: string | null;
   position?: string | null;
