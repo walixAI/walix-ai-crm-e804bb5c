@@ -142,7 +142,18 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
                 ) : (
                   <>
                     <span className="flex-1 text-sm font-medium truncate">{p.name}</span>
-                    {p.isDefault && <WBadge variant="brand">Default</WBadge>}
+                    {p.isDefault ? (
+                      <WBadge variant="brand">Predeterminado</WBadge>
+                    ) : (
+                      <Button
+                        size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-warning"
+                        title="Marcar como predeterminado"
+                        onClick={() => handleSetDefault(p.id)}
+                        disabled={setDefaultMut.isPending}
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       size="icon" variant="ghost" className="h-7 w-7"
                       onClick={() => { setEditingId(p.id); setEditingName(p.name); }}
