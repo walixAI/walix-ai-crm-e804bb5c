@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2 } from "lucide-react";
+import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2, MapPin, StickyNote } from "lucide-react";
 import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
@@ -18,7 +18,10 @@ export function InfoSidePanel({ contact }: Props) {
       key: "contact", title: "Contacto",
       rows: [
         { icon: Phone, label: "Teléfono", value: contact.phone, mono: true },
+        { icon: Phone, label: "Tel. alterno", value: contact.phoneAlt ?? "—", mono: true },
         { icon: Mail, label: "Email", value: contact.email ?? "—" },
+        { icon: MapPin, label: "Dirección", value: contact.address ?? "—" },
+        { icon: StickyNote, label: "Observaciones", value: contact.notes ?? "—" },
       ],
     },
     {

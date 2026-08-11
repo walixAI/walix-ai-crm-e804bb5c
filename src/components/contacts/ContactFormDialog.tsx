@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toE164 } from "@/lib/phone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,6 +29,9 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [phoneAlt, setPhoneAlt] = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
   const [ownerId, setOwnerId] = useState<string | null>(null);
@@ -44,6 +48,9 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
     setLastName(contact?.lastName ?? "");
     setPhone(contact?.phone ?? "");
     setEmail(contact?.email ?? "");
+    setPhoneAlt(contact?.phoneAlt ?? "");
+    setAddress(contact?.address ?? "");
+    setNotes(contact?.notes ?? "");
     setCompany(contact?.company ?? "");
     setPosition(contact?.position ?? "");
     setOwnerId(contact?.ownerId ?? user?.id ?? null);
@@ -57,6 +64,9 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
       last_name: lastName.trim() || null,
       phone: phone.trim() ? toE164(phone) : null,
       email: email.trim() || null,
+      phone_alt: phoneAlt.trim() ? toE164(phoneAlt) : null,
+      address: address.trim() || null,
+      notes: notes.trim() || null,
       company: company.trim() || null,
       position: position.trim() || null,
       owner_id: ownerId,
@@ -109,6 +119,17 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="lucia@mail.mx" />
           </div>
           <div className="col-span-2 sm:col-span-1">
+            <Label>Teléfono alterno</Label>
+            <div className="flex gap-2">
+              <div className="h-10 px-3 rounded-md border border-input bg-muted/50 flex items-center text-sm font-medium">🇲🇽 +52</div>
+              <Input className="flex-1" value={phoneAlt} onChange={(e) => setPhoneAlt(e.target.value)} placeholder="55 8765 4321" />
+            </div>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <Label>Dirección</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Av. Palmas 170, CDMX" />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
             <Label>Empresa</Label>
             <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Tacos El Güero" />
           </div>
@@ -126,6 +147,10 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
                   : sellers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="col-span-2">
+            <Label>Observaciones</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Notas o comentarios del contacto" />
           </div>
           <div className="col-span-2">
             <Label>Etiquetas</Label>

@@ -1266,6 +1266,7 @@ export type Database = {
           last_activity_at: string | null
           last_name: string | null
           name: string
+          notes: string | null
           owner_id: string | null
           phone: string | null
           phone_alt: string | null
@@ -1289,6 +1290,7 @@ export type Database = {
           last_activity_at?: string | null
           last_name?: string | null
           name: string
+          notes?: string | null
           owner_id?: string | null
           phone?: string | null
           phone_alt?: string | null
@@ -1312,6 +1314,7 @@ export type Database = {
           last_activity_at?: string | null
           last_name?: string | null
           name?: string
+          notes?: string | null
           owner_id?: string | null
           phone?: string | null
           phone_alt?: string | null
