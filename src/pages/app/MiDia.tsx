@@ -205,14 +205,16 @@ export default function MiDia() {
             <Widget k="midia.tasks">
             <div ref={columnRefs.tasks} className="scroll-mt-28">
               <JumboColumn
-                title="Mis tareas de hoy"
-                description="Pendientes tuyos para el día."
+                title={isTaskDateToday ? "Mis tareas de hoy" : `Mis tareas — ${format(taskDate, "d 'de' MMMM yyyy", { locale: es })}`}
+                description={isTaskDateToday ? "Pendientes tuyos para el día." : "Tareas abiertas de la fecha seleccionada."}
                 icon={ClipboardList}
                 sortable
-                items={data?.tasks ?? []}
+                dateValue={taskDate}
+                onDateChange={setTaskDate}
+                items={(isTaskDateToday ? data?.tasks : otherDayTasks) ?? []}
                 emptyText="¡Estás al día!"
                 onToggle={(id) => {
-                  const it = (data?.tasks ?? []).find((x) => x.id === id);
+                  const it = ((isTaskDateToday ? data?.tasks : otherDayTasks) ?? []).find((x) => x.id === id);
                   if (!it) return;
                   if (it.contactId) {
                     setClosingTask({ id: it.id, title: it.title, contactId: it.contactId, taskKind: it.taskKind ?? null, dueAt: it.dueAt ?? null });
