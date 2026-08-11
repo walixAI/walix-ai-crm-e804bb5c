@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { z } from "zod";
-import { Pencil, Plus, Trash2, Check, X, Wand2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Check, X, Star } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   usePipelines, useCreatePipeline, useRenamePipeline, useDeletePipeline,
+  useSetDefaultPipeline,
   useSeedPipelineTemplate,
   type Pipeline,
 } from "@/lib/queries/pipeline";
@@ -43,6 +44,7 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
   const { data: tenantId } = useTenantId();
   const createMut = useCreatePipeline();
   const renameMut = useRenamePipeline();
+  const setDefaultMut = useSetDefaultPipeline();
   const deleteMut = useDeletePipeline();
   const seedMut = useSeedPipelineTemplate();
 
@@ -80,6 +82,15 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
       setEditingId(null);
     } catch (e: any) {
       toast.error(e?.message ?? "Error al renombrar");
+    }
+  }
+
+  async function handleSetDefault(id: string) {
+    try {
+      await setDefaultMut.mutateAsync(id);
+      toast.success("Pipeline predeterminado actualizado");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al cambiar predeterminado");
     }
   }
 
@@ -131,7 +142,18 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
                 ) : (
                   <>
                     <span className="flex-1 text-sm font-medium truncate">{p.name}</span>
-                    {p.isDefault && <WBadge variant="brand">Default</WBadge>}
+                    {p.isDefault ? (
+                      <WBadge variant="brand">Predeterminado</WBadge>
+                    ) : (
+                      <Button
+                        size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-warning"
+                        title="Marcar como predeterminado"
+                        onClick={() => handleSetDefault(p.id)}
+                        disabled={setDefaultMut.isPending}
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       size="icon" variant="ghost" className="h-7 w-7"
                       onClick={() => { setEditingId(p.id); setEditingName(p.name); }}
