@@ -15,10 +15,8 @@ import { PipelineManagerDialog } from "@/components/pipeline/PipelineManagerDial
 import { AiInsightsPanel } from "@/components/pipeline/AiInsightsPanel";
 import { useAiSuggestionsByDeal } from "@/lib/queries/pipelineAi";
 import { AiAlertBanner } from "@/components/walix/AiAlertBanner";
-import { Clock, CalendarClock, X } from "lucide-react";
+import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMonthServiceDeals } from "@/lib/queries/monthlyServices";
-import { monthKey } from "@/lib/queries/monthlyServices";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
@@ -88,11 +86,8 @@ export default function Pipeline() {
   const [taskDeal, setTaskDeal] = useState<PipelineDeal | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [onlyMonthServices, setOnlyMonthServices] = useState(false);
 
   // Mantenimientos/recurrencias del mes en curso
-  const currentMonth = monthKey(new Date());
-  const { dealIds: monthDealIds, contactIds: monthContactIds } = useMonthServiceDeals(currentMonth);
 
   // Deep-link: /pipeline?dealId=<uuid> opens the deal drawer (from Dashboard widgets).
   const [searchParams, setSearchParams] = useSearchParams();
@@ -145,9 +140,6 @@ export default function Pipeline() {
     return deals.filter(d => {
       // Only deals belonging to current pipeline's stages
       if (d.stageId && !stageIds.has(d.stageId)) return false;
-      if (onlyMonthServices &&
-          !monthDealIds.has(d.id) &&
-          !(d.contactId && monthContactIds.has(d.contactId))) return false;
       if (filters.ownerName !== "all" && d.ownerName !== filters.ownerName) return false;
       if (filters.amountMin && d.amount < Number(filters.amountMin)) return false;
       if (filters.amountMax && d.amount > Number(filters.amountMax)) return false;
@@ -161,7 +153,7 @@ export default function Pipeline() {
       }
       return true;
     });
-  }, [deals, filters, search, contactById, stages, onlyMonthServices, monthDealIds, monthContactIds]);
+  }, [deals, filters, search, contactById, stages]);
 
   const activeDeals = filtered.filter(d => !d.isWon && !d.isLost);
   const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
