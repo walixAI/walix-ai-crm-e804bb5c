@@ -441,6 +441,11 @@ function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyTex
                   <div className="flex-1 min-w-0">
                     <div className="text-lg font-semibold truncate group-hover:text-primary">{i.title}</div>
                     {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
+                    {i.categoryName && (
+                      <span className="inline-block mt-1 text-[11px] rounded-full border border-border px-2 py-0.5 text-muted-foreground">
+                        {i.categoryName}
+                      </span>
+                    )}
                     {i.dueAt && (
                       <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                         {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}
@@ -454,6 +459,11 @@ function JumboColumn({ title, description, icon: Icon, items: rawItems, emptyTex
                 <div className="flex-1 min-w-0">
                   <div className="text-lg font-semibold truncate">{i.title}</div>
                   {i.subtitle && <div className="text-sm text-muted-foreground truncate">{i.subtitle}</div>}
+                  {i.categoryName && (
+                    <span className="inline-block mt-1 text-[11px] rounded-full border border-border px-2 py-0.5 text-muted-foreground">
+                      {i.categoryName}
+                    </span>
+                  )}
                   {i.dueAt && (
                     <div className={`text-xs mt-1 ${i.overdue ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                       {i.overdue && <AlertCircle className="inline h-3 w-3 mr-1" />}
