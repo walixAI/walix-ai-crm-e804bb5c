@@ -66,7 +66,7 @@ export const useSetSubscriptionStatus = () => {
         patch.cancelled_at = null;
         patch.cancel_reason = null;
       }
-      const { error } = await supabase.from("recurrence_subscriptions").update(patch).eq("id", input.id);
+      const { error } = await supabase.from("recurrence_subscriptions").update(patch as any).eq("id", input.id);
       if (error) throw error;
     },
     onSuccess: () => {
