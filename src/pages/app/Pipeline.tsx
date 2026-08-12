@@ -153,9 +153,17 @@ export default function Pipeline() {
       if (filters.source !== "all" && d.source !== filters.source) return false;
       if (filters.tag && !d.name.toLowerCase().includes(filters.tag.toLowerCase()) && !(d.notes ?? "").toLowerCase().includes(filters.tag.toLowerCase())) return false;
       if (q) {
-        const cName = contactName(d.contactId)?.toLowerCase() ?? "";
-        const hay = `${d.name} ${d.notes ?? ""} ${cName}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+        const c = d.contactId ? contactById.get(d.contactId) : undefined;
+        const digits = q.replace(/\D+/g, "");
+        const hay = [
+          d.name, d.notes ?? "", d.ownerName ?? "",
+          c ? `${c.name} ${c.lastName ?? ""}` : "",
+          c?.email ?? "", c?.address ?? "", c?.company ?? "",
+          c?.phone ?? "", c?.phoneAlt ?? "",
+        ].join(" ").toLowerCase();
+        const phoneHay = `${c?.phone ?? ""} ${c?.phoneAlt ?? ""}`.replace(/\D+/g, "");
+        const matches = hay.includes(q) || (digits.length >= 3 && phoneHay.includes(digits));
+        if (!matches) return false;
       }
       return true;
     });

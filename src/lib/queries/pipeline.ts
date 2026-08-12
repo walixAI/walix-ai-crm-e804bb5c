@@ -587,7 +587,7 @@ export function useUnreadByContactMap() {
   });
 }
 
-export interface ContactLite { id: string; name: string; lastName: string | null; phone: string; avatarColor: string | null; lastActivityAt: string | null }
+export interface ContactLite { id: string; name: string; lastName: string | null; phone: string; phoneAlt: string | null; email: string | null; address: string | null; company: string | null; avatarColor: string | null; lastActivityAt: string | null }
 export function useContactsLite() {
   return useQuery({
     queryKey: ["pipeline-contacts-lite"],
@@ -599,7 +599,7 @@ export function useContactsLite() {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from("contacts")
-          .select("id, name, last_name, phone, avatar_color, last_activity_at")
+          .select("id, name, last_name, phone, phone_alt, email, address, company, avatar_color, last_activity_at")
           .order("name")
           .range(from, from + PAGE - 1);
         if (error) throw error;
@@ -607,7 +607,9 @@ export function useContactsLite() {
         if (!data || data.length < PAGE) break;
       }
       return rows.map((c: any) => ({
-        id: c.id, name: c.name, lastName: c.last_name, phone: c.phone, avatarColor: c.avatar_color, lastActivityAt: c.last_activity_at,
+        id: c.id, name: c.name, lastName: c.last_name, phone: c.phone, phoneAlt: c.phone_alt,
+        email: c.email, address: c.address, company: c.company,
+        avatarColor: c.avatar_color, lastActivityAt: c.last_activity_at,
       }));
     },
   });
