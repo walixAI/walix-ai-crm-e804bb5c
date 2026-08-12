@@ -109,7 +109,6 @@ export function DealsPerformanceView({
   const [chip, setChip] = useState<Chip>("all");
   const [productIds, setProductIds] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<string>("all");
-  const [search, setSearch] = useState("");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
   const [openStage, setOpenStage] = useState<string | null>(null);
