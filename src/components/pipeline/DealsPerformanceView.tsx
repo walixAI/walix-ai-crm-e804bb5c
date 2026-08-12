@@ -140,16 +140,13 @@ export function DealsPerformanceView({
   }, [deals, lens, start, end, stageId, allStages, stages]);
 
   const base = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return periodSet.filter((d) =>
       (productIds.length === 0 || (d.productCategoryId ? productIds.includes(d.productCategoryId) : false)) &&
       (frequency === "all" || String(d.serviceFrequencyMonths ?? "") === frequency) &&
       (owner === "all" || d.ownerName === owner) &&
-      (stageId === "all" || d.stageId === stageId) &&
-      (!q || d.name.toLowerCase().includes(q) ||
-        (d.contactId ? (contactName(d.contactId) ?? "").toLowerCase().includes(q) : false)));
+      (stageId === "all" || d.stageId === stageId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodSet, productIds, frequency, owner, stageId, search]);
+  }, [periodSet, productIds, frequency, owner, stageId]);
 
   // Frecuencias presentes en el periodo (para no mostrar opciones vacías)
   const frequencyCounts = useMemo(() => {
