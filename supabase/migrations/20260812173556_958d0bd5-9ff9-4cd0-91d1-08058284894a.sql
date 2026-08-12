@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "owner or admin select ai_conversation_history" ON public.ai_conversation_history;
