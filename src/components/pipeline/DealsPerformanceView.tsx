@@ -348,16 +348,16 @@ export function DealsPerformanceView({
     <div className="space-y-3">
       {/* Toolbar: lente + filtros + export — one row */}
       <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          type="single"
-          value={lens}
-          onValueChange={(v) => v && onLens(v as PerformanceLens)}
-          className="border border-border rounded-md shrink-0"
-        >
-          <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
-          <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
-          <ToggleGroupItem value="all" size="sm">Todas del periodo</ToggleGroupItem>
-        </ToggleGroup>
+        <Select value={lens} onValueChange={(v) => v && onLens(v as PerformanceLens)}>
+          <SelectTrigger className="h-9 w-[210px] shrink-0" aria-label="Lente">
+            <SelectValue placeholder="Lente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Activas en el periodo</SelectItem>
+            <SelectItem value="created">Creadas en el periodo</SelectItem>
+            <SelectItem value="all">Todas del periodo</SelectItem>
+          </SelectContent>
+        </Select>
         <Select
           value={presetKey}
           onValueChange={(v) => {
@@ -437,15 +437,6 @@ export function DealsPerformanceView({
             </SelectContent>
           </Select>
         )}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar oportunidad o contacto"
-            className="h-9 w-[220px] pl-7 text-xs"
-          />
-        </div>
         <Select value={owner} onValueChange={setOwner}>
           <SelectTrigger className="h-9 w-[160px]" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
@@ -486,9 +477,9 @@ export function DealsPerformanceView({
         </div>
       )}
 
-      {(productIds.length > 0 || owner !== "all" || stageId !== "all" || search) && (
+      {(productIds.length > 0 || owner !== "all" || stageId !== "all") && (
         <div>
-          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); setSearch(""); }}>
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); }}>
             Limpiar filtros
           </Button>
         </div>
