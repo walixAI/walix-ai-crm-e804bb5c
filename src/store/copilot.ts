@@ -26,6 +26,8 @@ interface CopilotState {
   entity: { type: "contact" | "deal" | "conversation"; id: string } | null;
   loadedKeys: Record<string, boolean>;
   proactiveCount: number;
+  /** Dueño del historial cargado en memoria (aislamiento por usuario). */
+  ownerUserId: string | null;
 
   openDrawer: () => void;
   closeDrawer: () => void;
@@ -36,6 +38,8 @@ interface CopilotState {
   loadHistoryForCurrentKey: () => Promise<void>;
   send: (text: string) => Promise<void>;
   newConversation: () => void;
+  /** Limpia todo el estado en memoria (logout o cambio de usuario). */
+  resetSession: () => void;
   confirmWhatsapp: (msgId: string, draft: string) => Promise<void>;
   cancelWhatsapp: (msgId: string) => void;
   refreshProactiveCount: () => Promise<void>;
@@ -53,6 +57,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   entity: null,
   loadedKeys: {},
   proactiveCount: 0,
+  ownerUserId: null,
 
   openDrawer: () => {
     set({ open: true });
@@ -67,12 +72,22 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     if (get().open) void get().loadHistoryForCurrentKey();
   },
 
+  resetSession: () =>
+    set({ messages: [], loadedKeys: {}, ownerUserId: null, proactiveCount: 0, status: "idle" }),
+
   loadHistoryForCurrentKey: async () => {
     const key = get().conversationKey;
-    if (get().loadedKeys[key]) return;
     try {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
+      if (!u.user) {
+        get().resetSession();
+        return;
+      }
+      // Si cambió el usuario, descarta cualquier historial en memoria.
+      if (get().ownerUserId && get().ownerUserId !== u.user.id) {
+        get().resetSession();
+      }
+      if (get().loadedKeys[key] && get().ownerUserId === u.user.id) return;
       const { data: raw, error } = await supabase
         .from("ai_conversation_history")
         .select("id, role, content, tool_calls, created_at")
@@ -119,6 +134,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       set((s) => ({
         messages: msgs,
         loadedKeys: { ...s.loadedKeys, [key]: true },
+        ownerUserId: u.user!.id,
       }));
     } catch (err) {
       console.warn("[copilot.loadHistory]", err);
