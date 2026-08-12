@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, ChevronDown, ChevronRight, Download, Search } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -109,7 +109,6 @@ export function DealsPerformanceView({
   const [chip, setChip] = useState<Chip>("all");
   const [productIds, setProductIds] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<string>("all");
-  const [search, setSearch] = useState("");
   const [owner, setOwner] = useState<string>("all");
   const [stageId, setStageId] = useState<string>("all");
   const [openStage, setOpenStage] = useState<string | null>(null);
@@ -141,16 +140,13 @@ export function DealsPerformanceView({
   }, [deals, lens, start, end, stageId, allStages, stages]);
 
   const base = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return periodSet.filter((d) =>
       (productIds.length === 0 || (d.productCategoryId ? productIds.includes(d.productCategoryId) : false)) &&
       (frequency === "all" || String(d.serviceFrequencyMonths ?? "") === frequency) &&
       (owner === "all" || d.ownerName === owner) &&
-      (stageId === "all" || d.stageId === stageId) &&
-      (!q || d.name.toLowerCase().includes(q) ||
-        (d.contactId ? (contactName(d.contactId) ?? "").toLowerCase().includes(q) : false)));
+      (stageId === "all" || d.stageId === stageId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodSet, productIds, frequency, owner, stageId, search]);
+  }, [periodSet, productIds, frequency, owner, stageId]);
 
   // Frecuencias presentes en el periodo (para no mostrar opciones vacías)
   const frequencyCounts = useMemo(() => {
@@ -348,16 +344,16 @@ export function DealsPerformanceView({
     <div className="space-y-3">
       {/* Toolbar: lente + filtros + export — one row */}
       <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          type="single"
-          value={lens}
-          onValueChange={(v) => v && onLens(v as PerformanceLens)}
-          className="border border-border rounded-md shrink-0"
-        >
-          <ToggleGroupItem value="active" size="sm">Activas en el periodo</ToggleGroupItem>
-          <ToggleGroupItem value="created" size="sm">Creadas en el periodo</ToggleGroupItem>
-          <ToggleGroupItem value="all" size="sm">Todas del periodo</ToggleGroupItem>
-        </ToggleGroup>
+        <Select value={lens} onValueChange={(v) => v && onLens(v as PerformanceLens)}>
+          <SelectTrigger className="h-9 w-[210px] shrink-0" aria-label="Lente">
+            <SelectValue placeholder="Lente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Activas en el periodo</SelectItem>
+            <SelectItem value="created">Creadas en el periodo</SelectItem>
+            <SelectItem value="all">Todas del periodo</SelectItem>
+          </SelectContent>
+        </Select>
         <Select
           value={presetKey}
           onValueChange={(v) => {
@@ -437,15 +433,6 @@ export function DealsPerformanceView({
             </SelectContent>
           </Select>
         )}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar oportunidad o contacto"
-            className="h-9 w-[220px] pl-7 text-xs"
-          />
-        </div>
         <Select value={owner} onValueChange={setOwner}>
           <SelectTrigger className="h-9 w-[160px]" aria-label="Usuario">
             <SelectValue placeholder="Usuario" />
@@ -486,9 +473,9 @@ export function DealsPerformanceView({
         </div>
       )}
 
-      {(productIds.length > 0 || owner !== "all" || stageId !== "all" || search) && (
+      {(productIds.length > 0 || owner !== "all" || stageId !== "all") && (
         <div>
-          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); setSearch(""); }}>
+          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); }}>
             Limpiar filtros
           </Button>
         </div>
