@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore, type Role, type OrgMembership } from "@/store/auth";
+import { useCopilot } from "@/store/copilot";
 import { toastError } from "@/lib/toast";
 
 async function loadUserContextOnce(userId: string) {
@@ -92,6 +93,8 @@ export function useInitAuth() {
         setRoles([]);
         setOrganizations([]);
         setActiveTenantId(null);
+        // El historial del Copiloto es privado por usuario: límpialo en memoria.
+        useCopilot.getState().resetSession();
         lastLoadedUserId.current = null;
         setContextLoading(false);
         return;
