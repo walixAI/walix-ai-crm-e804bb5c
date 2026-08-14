@@ -31,12 +31,13 @@ const EDITABLE: Record<BulkEntity, string[]> = {
 };
 
 /** Entidades que además admiten borrado masivo (con respaldo y reversión). */
-const DELETABLE: BulkEntity[] = ["activities", "tasks"];
+const DELETABLE: BulkEntity[] = ["activities", "tasks", "deals"];
 
 /** Columnas completas para respaldo/restauración al borrar. */
 const RESTORE_FIELDS: Partial<Record<BulkEntity, string>> = {
   activities: "id, tenant_id, contact_id, deal_id, agent_id, type, description, occurred_at, metadata, created_at",
   tasks: "id, tenant_id, contact_id, deal_id, assignee_id, title, due_at, completed, task_kind, created_at, updated_at",
+  deals: "*",
 };
 
 /** Campos que se devuelven en la vista previa. */
