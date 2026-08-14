@@ -491,7 +491,18 @@ async function executeTool(
       }
 
       case "bulk_preview":
-        return await bulkPreview(sb, tenantId, userId, args.entity as BulkEntity, args.filters ?? {}, args.changes ?? {});
+        return await bulkPreview(
+          sb, tenantId, userId, args.entity as BulkEntity,
+          args.filters ?? {}, args.changes ?? {},
+          args.mode === "delete" ? "delete" : "update",
+        );
+      case "list_team_members": {
+        let q = sb.from("profiles").select("id, full_name, email").eq("tenant_id", tenantId).limit(50);
+        if (args.search) q = q.or(`full_name.ilike.%${args.search}%,email.ilike.%${args.search}%`);
+        const { data, error } = await q;
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, members: data ?? [] };
+      }
       case "bulk_confirm":
         return await bulkConfirm(sb, tenantId, userId, String(args.operation_id));
       case "bulk_apply":
