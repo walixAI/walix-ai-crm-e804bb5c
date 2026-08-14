@@ -71,7 +71,7 @@ function code(): string {
 /** Aplica filtros soportados a una consulta. */
 function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
   if (f.name_contains) {
-    const col = entity === "tasks" ? "title" : "name";
+    const col = entity === "tasks" ? "title" : entity === "activities" ? "description" : "name";
     q = q.ilike(col, `%${String(f.name_contains)}%`);
   }
   if (f.ids && Array.isArray(f.ids) && f.ids.length) q = q.in("id", f.ids);
