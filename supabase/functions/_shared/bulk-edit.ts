@@ -235,6 +235,31 @@ export async function bulkApply(
   const table = TABLE[entity];
   const ids: string[] = op.target_ids ?? [];
   const fields = Object.keys(op.changes);
+  const isDelete = op.filters?.__mode === "delete";
+
+  if (isDelete) {
+    // Respaldo completo de las filas antes de borrarlas (permite revertir).
+    const { data: backup, error: eBk } = await sb.from(table)
+      .select(RESTORE_FIELDS[entity] ?? "*").in("id", ids).eq("tenant_id", tenantId);
+    if (eBk) return { ok: false, error: eBk.message };
+    const { error: eDel, count: delCount } = await sb.from(table)
+      .delete().in("id", ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+    if (eDel) return { ok: false, error: eDel.message };
+    await sb.from("bulk_edit_operations").update({
+      status: "applied",
+      applied_count: delCount ?? 0,
+      snapshot: backup ?? [],
+      applied_at: new Date().toISOString(),
+    }).eq("id", opId);
+    return {
+      ok: true,
+      step: "applied",
+      operation_id: opId,
+      applied_count: delCount ?? 0,
+      summary: op.summary,
+      next: `Borrados ${delCount ?? 0} registros. Se puede restaurar con "revertir cambio ${opId.slice(0, 8)}" (bulk_undo).`,
+    };
+  }
 
   // Snapshot de los valores actuales (para revertir).
   const { data: before, error: eSnap } = await sb.from(table)
