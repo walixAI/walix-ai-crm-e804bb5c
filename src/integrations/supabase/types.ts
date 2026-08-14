@@ -3690,7 +3690,9 @@ export type Database = {
           brand_name: string | null
           brand_primary: string | null
           bulk_edit_allow_admins: boolean
+          bulk_edit_delete_enabled: boolean
           bulk_edit_enabled: boolean
+          bulk_edit_entities: string[]
           contact_inactivity_days: number | null
           count_business_days: boolean
           created_at: string
@@ -3724,7 +3726,9 @@ export type Database = {
           brand_name?: string | null
           brand_primary?: string | null
           bulk_edit_allow_admins?: boolean
+          bulk_edit_delete_enabled?: boolean
           bulk_edit_enabled?: boolean
+          bulk_edit_entities?: string[]
           contact_inactivity_days?: number | null
           count_business_days?: boolean
           created_at?: string
@@ -3758,7 +3762,9 @@ export type Database = {
           brand_name?: string | null
           brand_primary?: string | null
           bulk_edit_allow_admins?: boolean
+          bulk_edit_delete_enabled?: boolean
           bulk_edit_enabled?: boolean
+          bulk_edit_entities?: string[]
           contact_inactivity_days?: number | null
           count_business_days?: boolean
           created_at?: string
