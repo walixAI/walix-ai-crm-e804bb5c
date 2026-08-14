@@ -364,27 +364,45 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "list_team_members",
+      description:
+        "Lista los usuarios del tenant con su id, nombre y correo. Úsala SIEMPRE antes de un cambio masivo filtrado por persona (ej. 'la actividad de Norma') para resolver el owner_id correcto.",
+      parameters: {
+        type: "object",
+        properties: { search: { type: "string", description: "Texto por nombre o correo (opcional)" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "bulk_preview",
       description:
-        "PASO 1 de un cambio masivo de contactos, oportunidades o tareas. NO modifica nada: devuelve cuántos registros coinciden y una muestra. Úsala cuando el usuario pida cambiar varios registros a la vez (ej. 'a todas las oportunidades de Mantenimiento cámbiales el monto a 3400'). Solo funciona para el dueño del Tenant.",
+        "PASO 1 de una operación masiva sobre contactos, oportunidades, tareas o actividades. NO modifica nada: devuelve cuántos registros coinciden y una muestra. Úsala cuando el usuario pida cambiar o borrar varios registros a la vez (ej. 'a todas las oportunidades de Mantenimiento cámbiales el monto a 3400', 'borra toda la actividad que registró Norma en agosto'). Solo funciona para el dueño del Tenant.",
       parameters: {
         type: "object",
         properties: {
-          entity: { type: "string", enum: ["contacts", "deals", "tasks"] },
+          entity: { type: "string", enum: ["contacts", "deals", "tasks", "activities"] },
+          mode: {
+            type: "string",
+            enum: ["update", "delete"],
+            description: "update (por defecto) o delete. El borrado solo se permite en 'activities' y 'tasks', y guarda respaldo para revertir.",
+          },
           filters: {
             type: "object",
             description:
-              "Filtros: name_contains, ids, owner_id; deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to.",
+              "Filtros: name_contains, ids, owner_id (en actividades = quien la registró, en tareas = responsable); deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to; activities: type, contact_id, deal_id, date_from, date_to.",
             additionalProperties: true,
           },
           changes: {
             type: "object",
             description:
-              "Campos a cambiar. deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
+              "Campos a cambiar (no aplica si mode=delete). deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
             additionalProperties: true,
           },
         },
-        required: ["entity", "filters", "changes"],
+        required: ["entity", "filters"],
         additionalProperties: false,
       },
     },
