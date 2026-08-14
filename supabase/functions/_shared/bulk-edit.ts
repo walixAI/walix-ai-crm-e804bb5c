@@ -3,18 +3,20 @@
 // Flujo obligatorio: preview → confirm (código) → apply(código) → undo.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
-export type BulkEntity = "contacts" | "deals" | "tasks";
+export type BulkEntity = "contacts" | "deals" | "tasks" | "activities";
 
 const TABLE: Record<BulkEntity, string> = {
   contacts: "contacts",
   deals: "deals",
   tasks: "tasks",
+  activities: "activities",
 };
 
 const LABEL: Record<BulkEntity, string> = {
   contacts: "contactos",
   deals: "oportunidades",
   tasks: "tareas",
+  activities: "actividades",
 };
 
 /** Campos que se pueden modificar de forma masiva (whitelist estricta). */
@@ -28,11 +30,21 @@ const EDITABLE: Record<BulkEntity, string[]> = {
   tasks: ["assignee_id", "due_at", "completed", "task_kind", "title"],
 };
 
+/** Entidades que además admiten borrado masivo (con respaldo y reversión). */
+const DELETABLE: BulkEntity[] = ["activities", "tasks"];
+
+/** Columnas completas para respaldo/restauración al borrar. */
+const RESTORE_FIELDS: Partial<Record<BulkEntity, string>> = {
+  activities: "id, tenant_id, contact_id, deal_id, agent_id, type, description, occurred_at, metadata, created_at",
+  tasks: "id, tenant_id, contact_id, deal_id, assignee_id, title, due_at, completed, task_kind, created_at, updated_at",
+};
+
 /** Campos que se devuelven en la vista previa. */
 const PREVIEW_FIELDS: Record<BulkEntity, string> = {
   contacts: "id, name, status, owner_id, source, company",
   deals: "id, name, amount, stage_name, owner_id, is_won, is_lost, expected_close_date",
   tasks: "id, title, due_at, completed, assignee_id, task_kind",
+  activities: "id, type, description, occurred_at, agent_id, contact_id, deal_id",
 };
 
 export const MAX_BULK_ROWS = 1000;
