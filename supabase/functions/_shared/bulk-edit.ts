@@ -3,18 +3,20 @@
 // Flujo obligatorio: preview → confirm (código) → apply(código) → undo.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
-export type BulkEntity = "contacts" | "deals" | "tasks";
+export type BulkEntity = "contacts" | "deals" | "tasks" | "activities";
 
 const TABLE: Record<BulkEntity, string> = {
   contacts: "contacts",
   deals: "deals",
   tasks: "tasks",
+  activities: "activities",
 };
 
 const LABEL: Record<BulkEntity, string> = {
   contacts: "contactos",
   deals: "oportunidades",
   tasks: "tareas",
+  activities: "actividades",
 };
 
 /** Campos que se pueden modificar de forma masiva (whitelist estricta). */
@@ -28,11 +30,21 @@ const EDITABLE: Record<BulkEntity, string[]> = {
   tasks: ["assignee_id", "due_at", "completed", "task_kind", "title"],
 };
 
+/** Entidades que además admiten borrado masivo (con respaldo y reversión). */
+const DELETABLE: BulkEntity[] = ["activities", "tasks"];
+
+/** Columnas completas para respaldo/restauración al borrar. */
+const RESTORE_FIELDS: Partial<Record<BulkEntity, string>> = {
+  activities: "id, tenant_id, contact_id, deal_id, agent_id, type, description, occurred_at, metadata, created_at",
+  tasks: "id, tenant_id, contact_id, deal_id, assignee_id, title, due_at, completed, task_kind, created_at, updated_at",
+};
+
 /** Campos que se devuelven en la vista previa. */
 const PREVIEW_FIELDS: Record<BulkEntity, string> = {
   contacts: "id, name, status, owner_id, source, company",
   deals: "id, name, amount, stage_name, owner_id, is_won, is_lost, expected_close_date",
   tasks: "id, title, due_at, completed, assignee_id, task_kind",
+  activities: "id, type, description, occurred_at, agent_id, contact_id, deal_id",
 };
 
 export const MAX_BULK_ROWS = 1000;
@@ -59,11 +71,21 @@ function code(): string {
 /** Aplica filtros soportados a una consulta. */
 function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
   if (f.name_contains) {
-    const col = entity === "tasks" ? "title" : "name";
+    const col = entity === "tasks" ? "title" : entity === "activities" ? "description" : "name";
     q = q.ilike(col, `%${String(f.name_contains)}%`);
   }
   if (f.ids && Array.isArray(f.ids) && f.ids.length) q = q.in("id", f.ids);
-  if (f.owner_id) q = q.eq(entity === "tasks" ? "assignee_id" : "owner_id", f.owner_id);
+  if (f.owner_id) {
+    const col = entity === "tasks" ? "assignee_id" : entity === "activities" ? "agent_id" : "owner_id";
+    q = q.eq(col, f.owner_id);
+  }
+  if (entity === "activities") {
+    if (f.type) q = q.eq("type", f.type);
+    if (f.contact_id) q = q.eq("contact_id", f.contact_id);
+    if (f.deal_id) q = q.eq("deal_id", f.deal_id);
+    if (f.date_from) q = q.gte("occurred_at", f.date_from);
+    if (f.date_to) q = q.lte("occurred_at", f.date_to);
+  }
   if (entity === "deals") {
     if (f.stage_id) q = q.eq("stage_id", f.stage_id);
     if (f.stage_name) q = q.ilike("stage_name", `%${f.stage_name}%`);
@@ -104,14 +126,21 @@ function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
 export async function bulkPreview(
   sb: SupabaseClient, tenantId: string, userId: string,
   entity: BulkEntity, filters: Record<string, any>, rawChanges: Record<string, any>,
+  mode: "update" | "delete" = "update",
 ) {
   if (!TABLE[entity]) return { ok: false, error: "Entidad no soportada" };
   if (!(await isTenantOwner(sb, userId, tenantId)))
     return { ok: false, error: "Solo el dueño del Tenant puede hacer cambios masivos." };
 
-  const { changes, rejected } = sanitizeChanges(entity, rawChanges);
-  if (!Object.keys(changes).length)
-    return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${EDITABLE[entity].join(", ")}` };
+  const isDelete = mode === "delete";
+  if (isDelete && !DELETABLE.includes(entity))
+    return { ok: false, error: `No se permite borrado masivo de ${LABEL[entity]}. Solo: ${DELETABLE.map((e) => LABEL[e]).join(", ")}.` };
+
+  const { changes, rejected } = isDelete
+    ? { changes: {} as Record<string, any>, rejected: [] as string[] }
+    : sanitizeChanges(entity, rawChanges);
+  if (!isDelete && !Object.keys(changes).length)
+    return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${(EDITABLE[entity] ?? []).join(", ")}` };
   if (!filters || !Object.keys(filters).length)
     return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
 
@@ -124,15 +153,17 @@ export async function bulkPreview(
   if (rows.length > MAX_BULK_ROWS)
     return { ok: false, error: `Demasiados registros (>${MAX_BULK_ROWS}). Acota los filtros.` };
 
-  const summary = `Cambiar ${rows.length} ${LABEL[entity]}: ${
-    Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
-  }`;
+  const summary = isDelete
+    ? `BORRAR ${rows.length} ${LABEL[entity]} (se guarda respaldo para revertir)`
+    : `Cambiar ${rows.length} ${LABEL[entity]}: ${
+      Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
+    }`;
 
   const { data: op, error: e2 } = await sb.from("bulk_edit_operations").insert({
     tenant_id: tenantId,
     requested_by: userId,
     entity,
-    filters,
+    filters: { ...filters, __mode: mode },
     changes,
     target_ids: rows.map((r: any) => r.id),
     matched_count: rows.length,
@@ -204,6 +235,31 @@ export async function bulkApply(
   const table = TABLE[entity];
   const ids: string[] = op.target_ids ?? [];
   const fields = Object.keys(op.changes);
+  const isDelete = op.filters?.__mode === "delete";
+
+  if (isDelete) {
+    // Respaldo completo de las filas antes de borrarlas (permite revertir).
+    const { data: backup, error: eBk } = await sb.from(table)
+      .select(RESTORE_FIELDS[entity] ?? "*").in("id", ids).eq("tenant_id", tenantId);
+    if (eBk) return { ok: false, error: eBk.message };
+    const { error: eDel, count: delCount } = await sb.from(table)
+      .delete().in("id", ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+    if (eDel) return { ok: false, error: eDel.message };
+    await sb.from("bulk_edit_operations").update({
+      status: "applied",
+      applied_count: delCount ?? 0,
+      snapshot: backup ?? [],
+      applied_at: new Date().toISOString(),
+    }).eq("id", opId);
+    return {
+      ok: true,
+      step: "applied",
+      operation_id: opId,
+      applied_count: delCount ?? 0,
+      summary: op.summary,
+      next: `Borrados ${delCount ?? 0} registros. Se puede restaurar con "revertir cambio ${opId.slice(0, 8)}" (bulk_undo).`,
+    };
+  }
 
   // Snapshot de los valores actuales (para revertir).
   const { data: before, error: eSnap } = await sb.from(table)
@@ -243,6 +299,18 @@ export async function bulkUndo(sb: SupabaseClient, tenantId: string, userId: str
 
   const table = TABLE[op.entity as BulkEntity];
   const snapshot: any[] = op.snapshot ?? [];
+
+  if (op.filters?.__mode === "delete") {
+    if (!snapshot.length) return { ok: false, error: "No hay respaldo para restaurar." };
+    const rows = snapshot.map((r) => ({ ...r, tenant_id: tenantId }));
+    const { data, error } = await sb.from(table).upsert(rows, { onConflict: "id" }).select("id");
+    if (error) return { ok: false, error: error.message };
+    await sb.from("bulk_edit_operations").update({
+      status: "reverted", reverted_at: new Date().toISOString(),
+    }).eq("id", opId);
+    return { ok: true, step: "reverted", operation_id: opId, restored_count: data?.length ?? 0 };
+  }
+
   // Agrupa filas con los mismos valores previos para revertir en pocos updates.
   const groups = new Map<string, { patch: Record<string, any>; ids: string[] }>();
   for (const row of snapshot) {

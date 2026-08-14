@@ -364,27 +364,45 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "list_team_members",
+      description:
+        "Lista los usuarios del tenant con su id, nombre y correo. Úsala SIEMPRE antes de un cambio masivo filtrado por persona (ej. 'la actividad de Norma') para resolver el owner_id correcto.",
+      parameters: {
+        type: "object",
+        properties: { search: { type: "string", description: "Texto por nombre o correo (opcional)" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "bulk_preview",
       description:
-        "PASO 1 de un cambio masivo de contactos, oportunidades o tareas. NO modifica nada: devuelve cuántos registros coinciden y una muestra. Úsala cuando el usuario pida cambiar varios registros a la vez (ej. 'a todas las oportunidades de Mantenimiento cámbiales el monto a 3400'). Solo funciona para el dueño del Tenant.",
+        "PASO 1 de una operación masiva sobre contactos, oportunidades, tareas o actividades. NO modifica nada: devuelve cuántos registros coinciden y una muestra. Úsala cuando el usuario pida cambiar o borrar varios registros a la vez (ej. 'a todas las oportunidades de Mantenimiento cámbiales el monto a 3400', 'borra toda la actividad que registró Norma en agosto'). Solo funciona para el dueño del Tenant.",
       parameters: {
         type: "object",
         properties: {
-          entity: { type: "string", enum: ["contacts", "deals", "tasks"] },
+          entity: { type: "string", enum: ["contacts", "deals", "tasks", "activities"] },
+          mode: {
+            type: "string",
+            enum: ["update", "delete"],
+            description: "update (por defecto) o delete. El borrado solo se permite en 'activities' y 'tasks', y guarda respaldo para revertir.",
+          },
           filters: {
             type: "object",
             description:
-              "Filtros: name_contains, ids, owner_id; deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to.",
+              "Filtros: name_contains, ids, owner_id (en actividades = quien la registró, en tareas = responsable); deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to; activities: type, contact_id, deal_id, date_from, date_to.",
             additionalProperties: true,
           },
           changes: {
             type: "object",
             description:
-              "Campos a cambiar. deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
+              "Campos a cambiar (no aplica si mode=delete). deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
             additionalProperties: true,
           },
         },
-        required: ["entity", "filters", "changes"],
+        required: ["entity", "filters"],
         additionalProperties: false,
       },
     },
@@ -473,7 +491,18 @@ async function executeTool(
       }
 
       case "bulk_preview":
-        return await bulkPreview(sb, tenantId, userId, args.entity as BulkEntity, args.filters ?? {}, args.changes ?? {});
+        return await bulkPreview(
+          sb, tenantId, userId, args.entity as BulkEntity,
+          args.filters ?? {}, args.changes ?? {},
+          args.mode === "delete" ? "delete" : "update",
+        );
+      case "list_team_members": {
+        let q = sb.from("profiles").select("id, full_name, email").eq("tenant_id", tenantId).limit(50);
+        if (args.search) q = q.or(`full_name.ilike.%${args.search}%,email.ilike.%${args.search}%`);
+        const { data, error } = await q;
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, members: data ?? [] };
+      }
       case "bulk_confirm":
         return await bulkConfirm(sb, tenantId, userId, String(args.operation_id));
       case "bulk_apply":
@@ -1198,12 +1227,14 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "El humano siempre confirma y envía. Tú solo redactas el borrador.",
     "",
     "CAMBIOS MASIVOS (solo dueño del Tenant) — protocolo obligatorio de 3 confirmaciones:",
-    "Detecta pedidos como 'a todas las oportunidades X cámbiales el monto a $3400', 'reasigna todos los contactos de Juan a Ana', 'marca todas las tareas vencidas como completadas'.",
-    "  1) Llama `bulk_preview` con los filtros y los campos a cambiar. NO modifica nada.",
+    "Detecta pedidos como 'a todas las oportunidades X cámbiales el monto a $3400', 'reasigna todos los contactos de Juan a Ana', 'marca todas las tareas vencidas como completadas', 'resetea/borra toda la actividad que registró Norma'.",
+    "  0) Si el pedido menciona a una persona, primero llama `list_team_members` para obtener su id exacto y úsalo como filtro owner_id. Si hay varias coincidencias, pregunta cuál.",
+    "  1) Llama `bulk_preview` con los filtros y los campos a cambiar (o mode='delete' para borrar actividades/tareas). NO modifica nada.",
     "  2) Muestra al usuario: cuántos registros, qué cambia exactamente, y 3-5 ejemplos. Pregunta: '¿Confirmas aplicar este cambio a N registros?'.",
     "  3) Si dice que sí, llama `bulk_confirm` y pídele que escriba el código de 6 dígitos que te devuelva. Muéstrale el código tal cual.",
     "  4) Solo cuando el usuario ESCRIBA ese código, llama `bulk_apply` con ese código exacto. Nunca lo inventes ni lo asumas.",
     "  5) Al terminar, informa cuántos registros se actualizaron y recuérdale que puede revertirlo diciendo 'revertir el último cambio masivo' (`bulk_list` + `bulk_undo`).",
+    "En BORRADOS avisa siempre que se guarda respaldo y que se puede restaurar con `bulk_undo`. Nunca borres oportunidades ni contactos: solo actividades y tareas.",
     "Si la tool responde que solo el dueño del Tenant puede hacerlo, explícalo con amabilidad y no insistas.",
     "Nunca hagas un cambio masivo sin filtros, ni en el mismo turno en que el usuario lo pidió.",
     "",
