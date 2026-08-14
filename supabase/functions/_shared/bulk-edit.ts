@@ -75,7 +75,17 @@ function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
     q = q.ilike(col, `%${String(f.name_contains)}%`);
   }
   if (f.ids && Array.isArray(f.ids) && f.ids.length) q = q.in("id", f.ids);
-  if (f.owner_id) q = q.eq(entity === "tasks" ? "assignee_id" : "owner_id", f.owner_id);
+  if (f.owner_id) {
+    const col = entity === "tasks" ? "assignee_id" : entity === "activities" ? "agent_id" : "owner_id";
+    q = q.eq(col, f.owner_id);
+  }
+  if (entity === "activities") {
+    if (f.type) q = q.eq("type", f.type);
+    if (f.contact_id) q = q.eq("contact_id", f.contact_id);
+    if (f.deal_id) q = q.eq("deal_id", f.deal_id);
+    if (f.date_from) q = q.gte("occurred_at", f.date_from);
+    if (f.date_to) q = q.lte("occurred_at", f.date_to);
+  }
   if (entity === "deals") {
     if (f.stage_id) q = q.eq("stage_id", f.stage_id);
     if (f.stage_name) q = q.ilike("stage_name", `%${f.stage_name}%`);
