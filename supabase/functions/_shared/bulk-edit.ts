@@ -299,6 +299,18 @@ export async function bulkUndo(sb: SupabaseClient, tenantId: string, userId: str
 
   const table = TABLE[op.entity as BulkEntity];
   const snapshot: any[] = op.snapshot ?? [];
+
+  if (op.filters?.__mode === "delete") {
+    if (!snapshot.length) return { ok: false, error: "No hay respaldo para restaurar." };
+    const rows = snapshot.map((r) => ({ ...r, tenant_id: tenantId }));
+    const { data, error } = await sb.from(table).upsert(rows, { onConflict: "id" }).select("id");
+    if (error) return { ok: false, error: error.message };
+    await sb.from("bulk_edit_operations").update({
+      status: "reverted", reverted_at: new Date().toISOString(),
+    }).eq("id", opId);
+    return { ok: true, step: "reverted", operation_id: opId, restored_count: data?.length ?? 0 };
+  }
+
   // Agrupa filas con los mismos valores previos para revertir en pocos updates.
   const groups = new Map<string, { patch: Record<string, any>; ids: string[] }>();
   for (const row of snapshot) {
