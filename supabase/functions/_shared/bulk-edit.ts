@@ -65,6 +65,21 @@ export async function isTenantOwner(sb: SupabaseClient, userId: string, tenantId
   return false;
 }
 
+/** Configuración del tenant para la capacidad de cambios masivos. */
+export async function getBulkConfig(sb: SupabaseClient, tenantId: string) {
+  const { data } = await sb
+    .from("tenants")
+    .select("bulk_edit_enabled, bulk_edit_allow_admins, bulk_edit_delete_enabled, bulk_edit_entities")
+    .eq("id", tenantId)
+    .maybeSingle();
+  return {
+    enabled: data?.bulk_edit_enabled !== false,
+    allowAdmins: !!data?.bulk_edit_allow_admins,
+    deleteEnabled: data?.bulk_edit_delete_enabled !== false,
+    entities: (data?.bulk_edit_entities ?? ["contacts", "deals", "tasks", "activities"]) as BulkEntity[],
+  };
+}
+
 function code(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
