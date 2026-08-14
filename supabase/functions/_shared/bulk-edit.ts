@@ -152,6 +152,12 @@ export async function bulkPreview(
   if (isDelete && !DELETABLE.includes(entity))
     return { ok: false, error: `No se permite borrado masivo de ${LABEL[entity]}. Solo: ${DELETABLE.map((e) => LABEL[e]).join(", ")}.` };
 
+  const cfg = await getBulkConfig(sb, tenantId);
+  if (!cfg.entities.includes(entity))
+    return { ok: false, error: `Tu Tenant tiene desactivados los cambios masivos de ${LABEL[entity]}.` };
+  if (isDelete && !cfg.deleteEnabled)
+    return { ok: false, error: "Tu Tenant tiene desactivado el borrado masivo. Actívalo en Configuración → Copiloto → Capacidades." };
+
   const { changes, rejected } = isDelete
     ? { changes: {} as Record<string, any>, rejected: [] as string[] }
     : sanitizeChanges(entity, rawChanges);
