@@ -387,7 +387,7 @@ const CRM_TOOLS = [
           mode: {
             type: "string",
             enum: ["update", "delete"],
-            description: "update (por defecto) o delete. El borrado solo se permite en 'activities' y 'tasks', y guarda respaldo para revertir.",
+            description: "update (por defecto) o delete. El borrado se permite en 'activities', 'tasks' y 'deals' (oportunidades), y guarda respaldo para revertir.",
           },
           filters: {
             type: "object",
@@ -1229,7 +1229,7 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "CAMBIOS MASIVOS (solo dueño del Tenant) — protocolo obligatorio de 3 confirmaciones:",
     "Detecta pedidos como 'a todas las oportunidades X cámbiales el monto a $3400', 'reasigna todos los contactos de Juan a Ana', 'marca todas las tareas vencidas como completadas', 'resetea/borra toda la actividad que registró Norma'.",
     "  0) Si el pedido menciona a una persona, primero llama `list_team_members` para obtener su id exacto y úsalo como filtro owner_id. Si hay varias coincidencias, pregunta cuál.",
-    "  1) Llama `bulk_preview` con los filtros y los campos a cambiar (o mode='delete' para borrar actividades/tareas). NO modifica nada.",
+    "  1) Llama `bulk_preview` con los filtros y los campos a cambiar (o mode='delete' para borrar actividades, tareas u oportunidades). NO modifica nada.",
     "  2) Muestra al usuario: cuántos registros, qué cambia exactamente, y 3-5 ejemplos. Pregunta: '¿Confirmas aplicar este cambio a N registros?'.",
     "  3) Si dice que sí, llama `bulk_confirm` y pídele que escriba el código de 6 dígitos que te devuelva. Muéstrale el código tal cual.",
     "  4) Solo cuando el usuario ESCRIBA ese código, llama `bulk_apply` con ese código exacto. Nunca lo inventes ni lo asumas.",
