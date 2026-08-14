@@ -126,14 +126,21 @@ function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
 export async function bulkPreview(
   sb: SupabaseClient, tenantId: string, userId: string,
   entity: BulkEntity, filters: Record<string, any>, rawChanges: Record<string, any>,
+  mode: "update" | "delete" = "update",
 ) {
   if (!TABLE[entity]) return { ok: false, error: "Entidad no soportada" };
   if (!(await isTenantOwner(sb, userId, tenantId)))
     return { ok: false, error: "Solo el dueño del Tenant puede hacer cambios masivos." };
 
-  const { changes, rejected } = sanitizeChanges(entity, rawChanges);
-  if (!Object.keys(changes).length)
-    return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${EDITABLE[entity].join(", ")}` };
+  const isDelete = mode === "delete";
+  if (isDelete && !DELETABLE.includes(entity))
+    return { ok: false, error: `No se permite borrado masivo de ${LABEL[entity]}. Solo: ${DELETABLE.map((e) => LABEL[e]).join(", ")}.` };
+
+  const { changes, rejected } = isDelete
+    ? { changes: {} as Record<string, any>, rejected: [] as string[] }
+    : sanitizeChanges(entity, rawChanges);
+  if (!isDelete && !Object.keys(changes).length)
+    return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${(EDITABLE[entity] ?? []).join(", ")}` };
   if (!filters || !Object.keys(filters).length)
     return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
 
@@ -146,15 +153,17 @@ export async function bulkPreview(
   if (rows.length > MAX_BULK_ROWS)
     return { ok: false, error: `Demasiados registros (>${MAX_BULK_ROWS}). Acota los filtros.` };
 
-  const summary = `Cambiar ${rows.length} ${LABEL[entity]}: ${
-    Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
-  }`;
+  const summary = isDelete
+    ? `BORRAR ${rows.length} ${LABEL[entity]} (se guarda respaldo para revertir)`
+    : `Cambiar ${rows.length} ${LABEL[entity]}: ${
+      Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
+    }`;
 
   const { data: op, error: e2 } = await sb.from("bulk_edit_operations").insert({
     tenant_id: tenantId,
     requested_by: userId,
     entity,
-    filters,
+    filters: { ...filters, __mode: mode },
     changes,
     target_ids: rows.map((r: any) => r.id),
     matched_count: rows.length,
