@@ -65,6 +65,21 @@ export async function isTenantOwner(sb: SupabaseClient, userId: string, tenantId
   return false;
 }
 
+/** Configuración del tenant para la capacidad de cambios masivos. */
+export async function getBulkConfig(sb: SupabaseClient, tenantId: string) {
+  const { data } = await sb
+    .from("tenants")
+    .select("bulk_edit_enabled, bulk_edit_allow_admins, bulk_edit_delete_enabled, bulk_edit_entities")
+    .eq("id", tenantId)
+    .maybeSingle();
+  return {
+    enabled: data?.bulk_edit_enabled !== false,
+    allowAdmins: !!data?.bulk_edit_allow_admins,
+    deleteEnabled: data?.bulk_edit_delete_enabled !== false,
+    entities: (data?.bulk_edit_entities ?? ["contacts", "deals", "tasks", "activities"]) as BulkEntity[],
+  };
+}
+
 function code(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -136,6 +151,12 @@ export async function bulkPreview(
   const isDelete = mode === "delete";
   if (isDelete && !DELETABLE.includes(entity))
     return { ok: false, error: `No se permite borrado masivo de ${LABEL[entity]}. Solo: ${DELETABLE.map((e) => LABEL[e]).join(", ")}.` };
+
+  const cfg = await getBulkConfig(sb, tenantId);
+  if (!cfg.entities.includes(entity))
+    return { ok: false, error: `Tu Tenant tiene desactivados los cambios masivos de ${LABEL[entity]}.` };
+  if (isDelete && !cfg.deleteEnabled)
+    return { ok: false, error: "Tu Tenant tiene desactivado el borrado masivo. Actívalo en Configuración → Copiloto → Capacidades." };
 
   const { changes, rejected } = isDelete
     ? { changes: {} as Record<string, any>, rejected: [] as string[] }

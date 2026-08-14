@@ -10,33 +10,56 @@ import { NewCapabilityWizard } from "./NewCapabilityWizard";
 import { useTenantId } from "@/lib/queries/tenant";
 import { usePermissions } from "@/hooks/usePermissions";
 
+const BULK_ENTITIES: { id: string; label: string; hint: string }[] = [
+  { id: "contacts", label: "Contactos", hint: "Solo edición (nunca borrado)" },
+  { id: "deals", label: "Oportunidades", hint: "Edición y borrado" },
+  { id: "tasks", label: "Tareas / agendas", hint: "Edición y borrado" },
+  { id: "activities", label: "Actividades / seguimientos", hint: "Edición y borrado" },
+];
+
 function BulkEditToggle() {
   const { data: tenantId } = useTenantId();
-  const { isTenantOwner, isPlatform } = usePermissions();
+  const { isTenantOwner, isTenantAdmin, isPlatform } = usePermissions();
   const [enabled, setEnabled] = useState(true);
   const [allowAdmins, setAllowAdmins] = useState(false);
+  const [deleteEnabled, setDeleteEnabled] = useState(true);
+  const [entities, setEntities] = useState<string[]>(BULK_ENTITIES.map((e) => e.id));
   const [ready, setReady] = useState(false);
-  const canEdit = isTenantOwner || isPlatform;
+  const canEdit = isTenantOwner || isTenantAdmin || isPlatform;
+  const canEditRoles = isTenantOwner || isPlatform;
 
   useEffect(() => {
     if (!tenantId) return;
     supabase
       .from("tenants")
-      .select("bulk_edit_enabled, bulk_edit_allow_admins")
+      .select("bulk_edit_enabled, bulk_edit_allow_admins, bulk_edit_delete_enabled, bulk_edit_entities")
       .eq("id", tenantId)
       .maybeSingle()
       .then(({ data }) => {
         setEnabled(data?.bulk_edit_enabled !== false);
         setAllowAdmins(!!data?.bulk_edit_allow_admins);
+        setDeleteEnabled((data as any)?.bulk_edit_delete_enabled !== false);
+        setEntities(((data as any)?.bulk_edit_entities as string[]) ?? BULK_ENTITIES.map((e) => e.id));
         setReady(true);
       });
   }, [tenantId]);
 
-  async function save(patch: { bulk_edit_enabled?: boolean; bulk_edit_allow_admins?: boolean }) {
+  async function save(patch: {
+    bulk_edit_enabled?: boolean;
+    bulk_edit_allow_admins?: boolean;
+    bulk_edit_delete_enabled?: boolean;
+    bulk_edit_entities?: string[];
+  }) {
     if (!tenantId) return;
     const { error } = await supabase.from("tenants").update(patch).eq("id", tenantId);
     if (error) return toast.error(error.message);
     toast.success("Preferencia guardada");
+  }
+
+  function toggleEntity(id: string, on: boolean) {
+    const next = on ? [...new Set([...entities, id])] : entities.filter((e) => e !== id);
+    setEntities(next);
+    save({ bulk_edit_entities: next });
   }
 
   return (
@@ -70,14 +93,44 @@ function BulkEditToggle() {
         </span>
         <Switch
           checked={allowAdmins}
-          disabled={!ready || !canEdit || !enabled}
+          disabled={!ready || !canEditRoles || !enabled}
           onCheckedChange={(v) => { setAllowAdmins(v); save({ bulk_edit_allow_admins: v }); }}
         />
       </div>
 
+      <div className="flex items-center justify-between gap-4 pl-12">
+        <span className="text-xs text-muted-foreground">
+          Permitir <strong>borrado masivo</strong> (actividades, tareas y oportunidades). Siempre con respaldo y reversión.
+        </span>
+        <Switch
+          checked={deleteEnabled}
+          disabled={!ready || !canEdit || !enabled}
+          onCheckedChange={(v) => { setDeleteEnabled(v); save({ bulk_edit_delete_enabled: v }); }}
+        />
+      </div>
+
+      <div className="pl-12 space-y-2">
+        <span className="text-xs font-medium">Qué puede tocar la capacidad</span>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {BULK_ENTITIES.map((e) => (
+            <div key={e.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium">{e.label}</p>
+                <p className="text-[10px] text-muted-foreground">{e.hint}</p>
+              </div>
+              <Switch
+                checked={entities.includes(e.id)}
+                disabled={!ready || !canEdit || !enabled}
+                onCheckedChange={(v) => toggleEntity(e.id, v)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       {!canEdit && (
         <p className="text-xs text-muted-foreground pl-12">
-          Solo el dueño del tenant puede cambiar esta configuración.
+          Solo el dueño o los administradores del tenant pueden cambiar esta configuración.
         </p>
       )}
     </Card>
