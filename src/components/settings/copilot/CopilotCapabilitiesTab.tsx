@@ -44,7 +44,12 @@ function BulkEditToggle() {
       });
   }, [tenantId]);
 
-  async function save(patch: Record<string, any>) {
+  async function save(patch: {
+    bulk_edit_enabled?: boolean;
+    bulk_edit_allow_admins?: boolean;
+    bulk_edit_delete_enabled?: boolean;
+    bulk_edit_entities?: string[];
+  }) {
     if (!tenantId) return;
     const { error } = await supabase.from("tenants").update(patch).eq("id", tenantId);
     if (error) return toast.error(error.message);
