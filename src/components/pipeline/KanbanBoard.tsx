@@ -12,6 +12,7 @@ import {
 import { KanbanColumn } from "./KanbanColumn";
 import { DealCard } from "./DealCard";
 import { WonDateDialog } from "./WonDateDialog";
+import { RequireCategoryDialog } from "./RequireCategoryDialog";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 
 interface Props {
@@ -35,6 +36,7 @@ export function KanbanBoard(props: Props) {
   const { stages, deals } = props;
   const [active, setActive] = useState<PipelineDeal | null>(null);
   const [wonTarget, setWonTarget] = useState<{ deal: PipelineDeal; stage: PipelineStage } | null>(null);
+  const [categoryTarget, setCategoryTarget] = useState<{ deal: PipelineDeal; stage: PipelineStage } | null>(null);
   const update = useUpdateDealStage();
   const selectionActive = props.selectedIds.size > 0;
 
@@ -48,15 +50,7 @@ export function KanbanBoard(props: Props) {
     if (deal) setActive(deal);
   }
 
-  function onDragEnd(e: DragEndEvent) {
-    setActive(null);
-    const dealId = e.active.id as string;
-    const targetStageId = e.over?.id as string | undefined;
-    if (!targetStageId) return;
-    const deal = deals.find(d => d.id === dealId);
-    const stage = stages.find(s => s.id === targetStageId);
-    if (!deal || !stage) return;
-    if (deal.stageId === stage.id) return;
+  function applyMove(deal: PipelineDeal, stage: PipelineStage) {
     // Si destino es "Cerrado Perdido", abre el modal y NO mueve aún
     if (stage.isLost) {
       props.onRequestLost(deal);
@@ -68,12 +62,29 @@ export function KanbanBoard(props: Props) {
       return;
     }
     update.mutate(
-      { dealId, stage },
+      { dealId: deal.id, stage },
       {
         onSuccess: () => toast.success(`Oportunidad movido a "${stage.name}"`),
         onError: () => toast.error("No se pudo mover el oportunidad"),
       },
     );
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    setActive(null);
+    const dealId = e.active.id as string;
+    const targetStageId = e.over?.id as string | undefined;
+    if (!targetStageId) return;
+    const deal = deals.find(d => d.id === dealId);
+    const stage = stages.find(s => s.id === targetStageId);
+    if (!deal || !stage) return;
+    if (deal.stageId === stage.id) return;
+    // Obligatorio: la oportunidad debe tener categoría antes de cambiar de etapa.
+    if (!deal.productCategoryId) {
+      setCategoryTarget({ deal, stage });
+      return;
+    }
+    applyMove(deal, stage);
   }
 
   const totalPipeline = deals.reduce((s, d) => s + d.amount, 0);
@@ -85,6 +96,15 @@ export function KanbanBoard(props: Props) {
         stage={wonTarget?.stage ?? null}
         open={!!wonTarget}
         onOpenChange={(v) => { if (!v) setWonTarget(null); }}
+      />
+      <RequireCategoryDialog
+        deal={categoryTarget?.deal ?? null}
+        open={!!categoryTarget}
+        onOpenChange={(v) => { if (!v) setCategoryTarget(null); }}
+        onSaved={() => {
+          if (categoryTarget) applyMove(categoryTarget.deal, categoryTarget.stage);
+          setCategoryTarget(null);
+        }}
       />
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 snap-x snap-mandatory md:snap-none scroll-smooth">
         {stages.map(stage => (
