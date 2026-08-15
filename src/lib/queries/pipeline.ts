@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
 import { aiMemory } from "@/services/aiMemory";
@@ -544,6 +545,7 @@ export function useMarkDealWon() {
 export function useCreateDeal() {
   const qc = useQueryClient();
   const { data: tenantId } = useTenantId();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (input: NewDealInput) => {
       if (!tenantId) throw new Error("No hay tenant activo");
@@ -556,6 +558,7 @@ export function useCreateDeal() {
         .from("deals")
         .insert({
           tenant_id: tenantId,
+          owner_id: user?.id ?? null,
           name: input.name,
           amount: input.amount,
           probability: input.probability,
