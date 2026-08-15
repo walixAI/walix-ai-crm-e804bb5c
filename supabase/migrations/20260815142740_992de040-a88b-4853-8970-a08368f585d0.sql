@@ -1,0 +1,2 @@
+ALTER TABLE public.bulk_edit_operations DROP CONSTRAINT IF EXISTS bulk_edit_operations_entity_check;
+ALTER TABLE public.bulk_edit_operations ADD CONSTRAINT bulk_edit_operations_entity_check CHECK (entity = ANY (ARRAY['contacts'::text,'deals'::text,'tasks'::text,'activities'::text]));
