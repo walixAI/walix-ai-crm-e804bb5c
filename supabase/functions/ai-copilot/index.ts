@@ -175,6 +175,22 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "mark_deal_won",
+      description: "Marca una oportunidad como GANADA. Permite fijar la fecha real de cierre (won_date) para que la venta se contabilice en el mes correcto. La fecha nunca puede ser futura; si se omite se usa la fecha y hora actual.",
+      parameters: {
+        type: "object",
+        properties: {
+          deal_id: { type: "string" },
+          won_date: { type: "string", description: "Fecha real de cierre YYYY-MM-DD (opcional, debe ser hoy o anterior)" },
+        },
+        required: ["deal_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "add_note",
       description: "Agrega una nota interna a un contacto o deal.",
       parameters: {
