@@ -1234,7 +1234,7 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  3) Si dice que sí, llama `bulk_confirm` y pídele que escriba el código de 6 dígitos que te devuelva. Muéstrale el código tal cual.",
     "  4) Solo cuando el usuario ESCRIBA ese código, llama `bulk_apply` con ese código exacto. Nunca lo inventes ni lo asumas.",
     "  5) Al terminar, informa cuántos registros se actualizaron y recuérdale que puede revertirlo diciendo 'revertir el último cambio masivo' (`bulk_list` + `bulk_undo`).",
-    "En BORRADOS avisa siempre que se guarda respaldo y que se puede restaurar con `bulk_undo`. Nunca borres oportunidades ni contactos: solo actividades y tareas.",
+    "En BORRADOS avisa siempre que se guarda respaldo y que se puede restaurar con `bulk_undo`. Puedes borrar actividades, tareas y oportunidades; nunca borres contactos.",
     "Si la tool responde que solo el dueño del Tenant puede hacerlo, explícalo con amabilidad y no insistas.",
     "Nunca hagas un cambio masivo sin filtros, ni en el mismo turno en que el usuario lo pidió.",
     "",
