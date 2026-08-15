@@ -293,7 +293,7 @@ function deriveData(
   const cycleDays = (arr: typeof wonDeals) => {
     if (arr.length === 0) return 0;
     const total = arr.reduce((s, d) => {
-      const days = (new Date(d.updated_at).getTime() - new Date(d.created_at).getTime()) / 86400_000;
+      const days = (new Date(d.won_at ?? d.updated_at).getTime() - new Date(d.created_at).getTime()) / 86400_000;
       return s + Math.max(0, days);
     }, 0);
     return Math.round(total / arr.length);
