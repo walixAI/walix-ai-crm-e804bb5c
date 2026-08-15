@@ -52,7 +52,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const [notes, setNotes] = useState("");
   const [aiAuto, setAiAuto] = useState(true);
   const [probability, setProbability] = useState(50);
-  const [productCategoryId, setProductCategoryId] = useState<string>("none");
+  const [productCategoryId, setProductCategoryId] = useState<string>("");
   const [withTask, setWithTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDue, setTaskDue] = useState("");
@@ -85,7 +85,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     setName(""); setAmount(""); setContactId(defaultContactId ?? null); setContactSearch("");
     setCloseDate(undefined); setSource("Manual"); setNotes("");
     setAiAuto(true); setProbability(50);
-    setProductCategoryId("none");
+    setProductCategoryId("");
     setStageId("");
     setWithTask(false); setTaskTitle(""); setTaskDue(defaultTaskDue());
     // Solo al abrir: evita que un refetch de pipelines/etapas borre lo que el usuario ya escribió.
@@ -114,6 +114,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     if (!name.trim()) { toast.error("Escribe el nombre de la oportunidad"); return; }
     if (!amount) { toast.error("Captura el monto"); return; }
     if (!stageId) { toast.error("Selecciona pipeline y etapa inicial"); return; }
+    if (!productCategoryId) { toast.error("Selecciona la categoría / producto"); return; }
     if (withTask && !taskTitle.trim()) { toast.error("Escribe el título de la tarea"); return; }
     if (withTask && !taskDue) { toast.error("Indica la fecha de la tarea"); return; }
     try {
@@ -126,7 +127,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
         expectedCloseDate: closeDate ? closeDate.toISOString().slice(0, 10) : null,
         source,
         notes: notes.trim() || null,
-        productCategoryId: productCategoryId === "none" ? null : productCategoryId,
+        productCategoryId,
       });
       if (withTask && created?.id && tenantId) {
         const { error } = await (supabase as any).from("tasks").insert({
@@ -230,11 +231,10 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Categoría / producto</Label>
+              <Label>Categoría / producto*</Label>
               <Select value={productCategoryId} onValueChange={setProductCategoryId}>
-                <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sin categoría</SelectItem>
                   {productCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
