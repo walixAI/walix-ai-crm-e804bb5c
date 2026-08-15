@@ -659,7 +659,7 @@ async function executeTool(
       }
 
       case "add_note": {
-        // (ver mark_deal_won más abajo)
+        return await (async () => {
         const { error } = await sb.from("activities").insert({
           tenant_id: tenantId,
           contact_id: args.entity_type === "contact" ? args.entity_id : null,
