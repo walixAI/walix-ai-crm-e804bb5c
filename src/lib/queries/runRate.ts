@@ -116,10 +116,10 @@ export function useRunRate() {
 
       const { data: wonDeals } = await supabase
         .from("deals")
-        .select("amount, deal_type, updated_at, product_category_id")
+        .select("amount, deal_type, won_at, product_category_id")
         .eq("is_won", true)
-        .gte("updated_at", monthStart.toISOString())
-        .lte("updated_at", new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59).toISOString());
+        .gte("won_at", monthStart.toISOString())
+        .lte("won_at", new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59).toISOString());
 
       const soldByType = { venta: 0, servicio: 0, refaccion: 0 };
       const soldByCategory = new Map<string, number>();

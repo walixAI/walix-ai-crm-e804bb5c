@@ -1845,6 +1845,7 @@ export type Database = {
           stage_name: string | null
           tenant_id: string
           updated_at: string
+          won_at: string | null
         }
         Insert: {
           amount?: number
@@ -1883,6 +1884,7 @@ export type Database = {
           stage_name?: string | null
           tenant_id: string
           updated_at?: string
+          won_at?: string | null
         }
         Update: {
           amount?: number
@@ -1921,6 +1923,7 @@ export type Database = {
           stage_name?: string | null
           tenant_id?: string
           updated_at?: string
+          won_at?: string | null
         }
         Relationships: [
           {

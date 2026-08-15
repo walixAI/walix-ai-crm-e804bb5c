@@ -175,6 +175,22 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "mark_deal_won",
+      description: "Marca una oportunidad como GANADA. Permite fijar la fecha real de cierre (won_date) para que la venta se contabilice en el mes correcto. La fecha nunca puede ser futura; si se omite se usa la fecha y hora actual.",
+      parameters: {
+        type: "object",
+        properties: {
+          deal_id: { type: "string" },
+          won_date: { type: "string", description: "Fecha real de cierre YYYY-MM-DD (opcional, debe ser hoy o anterior)" },
+        },
+        required: ["deal_id"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "add_note",
       description: "Agrega una nota interna a un contacto o deal.",
       parameters: {
@@ -639,6 +655,33 @@ async function executeTool(
             actor_id: userId,
           });
         }
+        return { ok: true, deal: data };
+      }
+
+      case "mark_deal_won": {
+        const now = new Date();
+        let wonAt = now;
+        if (args.won_date) {
+          const parsed = new Date(`${String(args.won_date).slice(0, 10)}T23:59:00`);
+          if (isNaN(parsed.getTime())) return { ok: false, error: "Fecha inválida (usa YYYY-MM-DD)" };
+          wonAt = parsed > now ? now : parsed;
+        }
+        const { data: wonStage } = await sb.from("pipeline_stages")
+          .select("id, name").eq("tenant_id", tenantId).eq("is_won", true)
+          .order("position", { ascending: true }).limit(1).maybeSingle();
+        const patch: Record<string, any> = {
+          is_won: true, is_lost: false, probability: 100, won_at: wonAt.toISOString(),
+        };
+        if (wonStage?.id) { patch.stage_id = wonStage.id; patch.stage_name = wonStage.name; }
+        const { data, error } = await sb.from("deals")
+          .update(patch).eq("id", args.deal_id)
+          .select("id, name, amount, stage_name, won_at").single();
+        if (error) return { ok: false, error: error.message };
+        await sb.from("ai_memory_events").insert({
+          tenant_id: tenantId, entity_type: "deal", entity_id: args.deal_id,
+          event_type: "deal_won", event_data: { won_at: wonAt.toISOString(), by: "copilot" },
+          actor_id: userId,
+        });
         return { ok: true, deal: data };
       }
 

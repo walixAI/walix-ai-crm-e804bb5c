@@ -44,6 +44,8 @@ export interface PipelineDeal {
   serviceFrequencyMonths: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Fecha real en que se marcó como ganada (null si no está ganada). */
+  wonAt: string | null;
   /* Diagnóstico de por qué no avanza */
   currentBlockerId: string | null;
   blockerSetAt: string | null;
@@ -75,6 +77,7 @@ function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
     serviceFrequencyMonths: r.service_frequency_months ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    wonAt: r.won_at ?? null,
     currentBlockerId: r.current_blocker_id ?? null,
     blockerSetAt: r.blocker_set_at ?? null,
     blockerExpectedAt: r.blocker_expected_at ?? null,
@@ -495,6 +498,47 @@ export interface NewDealInput {
   source: string;
   notes: string | null;
   productCategoryId?: string | null;
+}
+
+/**
+ * Marca una oportunidad como ganada permitiendo elegir la fecha real de cierre.
+ * La fecha nunca puede ser futura (el trigger de la BD también lo valida).
+ */
+export function useMarkDealWon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { dealId: string; stage: PipelineStage; wonAt?: Date | null }) => {
+      const now = new Date();
+      const when = args.wonAt && args.wonAt < now ? args.wonAt : now;
+      const { error } = await supabase
+        .from("deals")
+        .update({
+          stage_id: args.stage.id,
+          stage_name: args.stage.name,
+          is_won: true,
+          is_lost: false,
+          probability: 100,
+          won_at: when.toISOString(),
+        } as any)
+        .eq("id", args.dealId);
+      if (error) throw error;
+      void aiMemory.logEvent("deal", args.dealId, "deal_stage_changed", {
+        stage_id: args.stage.id,
+        stage_name: args.stage.name,
+        is_won: true,
+        won_at: when.toISOString(),
+      });
+      try {
+        const dates = await fetchNextServiceDates(args.dealId);
+        if (dates.length > 0) toast.success(`Siguiente servicio programado: ${formatServiceMonths(dates)}`);
+      } catch { /* noop */ }
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+      qc.invalidateQueries({ queryKey: ["pipeline-deal", v.dealId] });
+      qc.invalidateQueries({ queryKey: ["run-rate"] });
+    },
+  });
 }
 
 export function useCreateDeal() {
