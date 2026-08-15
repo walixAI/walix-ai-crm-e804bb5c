@@ -44,6 +44,8 @@ export interface PipelineDeal {
   serviceFrequencyMonths: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Fecha real en que se marcó como ganada (null si no está ganada). */
+  wonAt: string | null;
   /* Diagnóstico de por qué no avanza */
   currentBlockerId: string | null;
   blockerSetAt: string | null;
