@@ -500,6 +500,59 @@ export interface NewDealInput {
   productCategoryId?: string | null;
 }
 
+/**
+ * Marca una oportunidad como ganada permitiendo elegir la fecha real de cierre.
+ * La fecha nunca puede ser futura (el trigger de la BD también lo valida).
+ */
+export function useMarkDealWon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { dealId: string; stage: PipelineStage; wonAt?: Date | null }) => {
+      const now = new Date();
+      const when = args.wonAt && args.wonAt < now ? args.wonAt : now;
+      const { error } = await supabase
+        .from("deals")
+        .update({
+          stage_id: args.stage.id,
+          stage_name: args.stage.name,
+          is_won: true,
+          is_lost: false,
+          probability: 100,
+          won_at: when.toISOString(),
+        } as any)
+        .eq("id", args.dealId);
+      if (error) throw error;
+      void aiMemory.logEvent("deal", args.dealId, "deal_stage_changed", {
+        stage_id: args.stage.id,
+        stage_name: args.stage.name,
+        is_won: true,
+        won_at: when.toISOString(),
+      });
+      try {
+        const dates = await fetchNextServiceDates(args.dealId);
+        if (dates.length > 0) toast.success(`Siguiente servicio programado: ${formatServiceMonths(dates)}`);
+      } catch { /* noop */ }
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+      qc.invalidateQueries({ queryKey: ["pipeline-deal", v.dealId] });
+      qc.invalidateQueries({ queryKey: ["run-rate"] });
+    },
+  });
+}
+
+interface NewDealInputUnused {
+  name: string;
+  amount: number;
+  probability: number;
+  stageId: string;
+  contactId: string | null;
+  expectedCloseDate: string | null;
+  source: string;
+  notes: string | null;
+  productCategoryId?: string | null;
+}
+
 export function useCreateDeal() {
   const qc = useQueryClient();
   const { data: tenantId } = useTenantId();
