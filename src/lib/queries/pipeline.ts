@@ -541,18 +541,6 @@ export function useMarkDealWon() {
   });
 }
 
-interface NewDealInputUnused {
-  name: string;
-  amount: number;
-  probability: number;
-  stageId: string;
-  contactId: string | null;
-  expectedCloseDate: string | null;
-  source: string;
-  notes: string | null;
-  productCategoryId?: string | null;
-}
-
 export function useCreateDeal() {
   const qc = useQueryClient();
   const { data: tenantId } = useTenantId();
