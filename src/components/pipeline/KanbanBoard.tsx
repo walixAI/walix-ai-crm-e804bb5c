@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries/pipeline";
 import { KanbanColumn } from "./KanbanColumn";
 import { DealCard } from "./DealCard";
+import { WonDateDialog } from "./WonDateDialog";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 
 interface Props {
@@ -33,6 +34,7 @@ interface Props {
 export function KanbanBoard(props: Props) {
   const { stages, deals } = props;
   const [active, setActive] = useState<PipelineDeal | null>(null);
+  const [wonTarget, setWonTarget] = useState<{ deal: PipelineDeal; stage: PipelineStage } | null>(null);
   const update = useUpdateDealStage();
   const selectionActive = props.selectedIds.size > 0;
 
@@ -60,6 +62,11 @@ export function KanbanBoard(props: Props) {
       props.onRequestLost(deal);
       return;
     }
+    // Si destino es una etapa ganadora, pedimos confirmar la fecha de cierre
+    if (stage.isWon) {
+      setWonTarget({ deal, stage });
+      return;
+    }
     update.mutate(
       { dealId, stage },
       {
@@ -73,6 +80,12 @@ export function KanbanBoard(props: Props) {
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <WonDateDialog
+        deal={wonTarget?.deal ?? null}
+        stage={wonTarget?.stage ?? null}
+        open={!!wonTarget}
+        onOpenChange={(v) => { if (!v) setWonTarget(null); }}
+      />
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 snap-x snap-mandatory md:snap-none scroll-smooth">
         {stages.map(stage => (
           <div key={stage.id} className="snap-center md:snap-align-none shrink-0">
