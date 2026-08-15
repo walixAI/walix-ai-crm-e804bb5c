@@ -77,6 +77,7 @@ function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
     serviceFrequencyMonths: r.service_frequency_months ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    wonAt: r.won_at ?? null,
     currentBlockerId: r.current_blocker_id ?? null,
     blockerSetAt: r.blocker_set_at ?? null,
     blockerExpectedAt: r.blocker_expected_at ?? null,
