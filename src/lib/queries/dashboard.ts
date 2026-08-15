@@ -177,7 +177,7 @@ export function useDealsClosedTimeline(
         buckets.set(d.toISOString().slice(0, 10), 0);
       }
       (data ?? []).forEach((d: any) => {
-        const k = String(d.updated_at).slice(0, 10);
+        const k = String(d.won_at ?? d.updated_at).slice(0, 10);
         buckets.set(k, (buckets.get(k) ?? 0) + Number(d.amount));
       });
       return Array.from(buckets.entries()).map(([k, v], i) => ({
