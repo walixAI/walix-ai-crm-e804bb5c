@@ -257,8 +257,8 @@ export function useMonthProfitability() {
       const [wonRes, expRes, tenRes] = await Promise.all([
         supabase.from("deals").select("amount")
           .eq("is_won", true)
-          .gte("updated_at", from.toISOString())
-          .lte("updated_at", new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59).toISOString()),
+          .gte("won_at", from.toISOString())
+          .lte("won_at", new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59).toISOString()),
         supabase.from("expenses" as any).select("amount")
           .eq("status", "confirmed")
           .gte("incurred_at", from.toISOString().slice(0, 10))

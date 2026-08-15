@@ -164,13 +164,13 @@ export function useDealsClosedTimeline(
         stageIds = new Set((st ?? []).map((s: any) => s.id));
       }
       const { data: raw, error } = await supabase
-        .from("deals").select("amount,updated_at,is_won,stage_id")
-        .eq("is_won", true).gte("updated_at", since.toISOString());
+        .from("deals").select("amount,updated_at,won_at,is_won,stage_id")
+        .eq("is_won", true).gte("won_at", since.toISOString());
       if (error) throw error;
       let data = stageIds
         ? (raw ?? []).filter((d: any) => d.stage_id && stageIds!.has(d.stage_id))
         : (raw ?? []);
-      if (until) data = data.filter((d: any) => new Date(d.updated_at) <= until);
+      if (until) data = data.filter((d: any) => new Date(d.won_at ?? d.updated_at) <= until);
       const buckets = new Map<string, number>();
       for (let i = 0; i < days; i++) {
         const d = new Date(since); d.setDate(since.getDate() + i);
