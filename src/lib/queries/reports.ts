@@ -69,6 +69,7 @@ interface RawDataset {
     source: string;
     created_at: string;
     updated_at: string;
+    won_at?: string | null;
   }>;
   contacts: Array<{
     id: string;
@@ -103,9 +104,9 @@ async function fetchRange(tenantId: string, from: Date, to: Date): Promise<RawDa
 
   const [deals, contacts, activities, stageHistory, stages] = await Promise.all([
     supabase.from("deals")
-      .select("id, name, amount, owner_id, contact_id, stage_id, stage_name, is_won, is_lost, lost_reason, source, created_at, updated_at")
+      .select("id, name, amount, owner_id, contact_id, stage_id, stage_name, is_won, is_lost, lost_reason, source, created_at, updated_at, won_at")
       .eq("tenant_id", tenantId)
-      .gte("created_at", fromISO).lte("created_at", toISO),
+      .or(`and(created_at.gte.${fromISO},created_at.lte.${toISO}),and(won_at.gte.${fromISO},won_at.lte.${toISO})`),
     supabase.from("contacts")
       .select("id, name, last_name, owner_id, source, status, created_at")
       .eq("tenant_id", tenantId)
