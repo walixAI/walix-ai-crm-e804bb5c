@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import { Bot, History, KanbanSquare } from "lucide-react";
+import { Bot, History, KanbanSquare, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
+import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { StageStepper } from "./StageStepper";
 import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { DueBadge } from "./DueBadge";
@@ -13,6 +18,7 @@ import {
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 import { cn } from "@/lib/utils";
+
 
 interface Props { contactId: string; contactName?: string }
 
