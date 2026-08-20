@@ -215,6 +215,8 @@ export function DealsPerformanceView({
       case "stale": return rows.filter((r) => r.health.daysInStage > 14);
       case "overdue": return rows.filter((r) => r.health.isOverdue);
       case "closing": return rows.filter((r) => closingInPeriod(r.deal));
+      case "won": return rows.filter((r) => r.deal.isWon);
+      case "lost": return rows.filter((r) => r.deal.isLost);
       default: return rows;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -354,6 +356,8 @@ export function DealsPerformanceView({
 
   const chips: { key: Chip; label: string; count: number }[] = [
     { key: "all", label: "Todas", count: rows.length },
+    { key: "won", label: "Cobradas", count: rows.filter((r) => r.deal.isWon).length },
+    { key: "lost", label: "Perdidas", count: rows.filter((r) => r.deal.isLost).length },
     { key: "risk", label: "En riesgo", count: riskCount },
     { key: "stale", label: "Estancadas +14d", count: staleCount },
     { key: "overdue", label: "Vencidas", count: overdueCount },
