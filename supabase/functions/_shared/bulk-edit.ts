@@ -416,10 +416,11 @@ export async function bulkUndo(sb: SupabaseClient, tenantId: string, userId: str
   }
   let restored = 0;
   for (const g of groups.values()) {
-    const { count, error } = await sb.from(table).update(g.patch)
-      .in("id", g.ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+    const { data: rows, error } = await sb.from(table).update(g.patch)
+      .in("id", g.ids).eq("tenant_id", tenantId).select("id");
     if (error) return { ok: false, error: error.message, restored };
-    restored += count ?? 0;
+    restored += rows?.length ?? 0;
+
   }
   await sb.from("bulk_edit_operations").update({
     status: "reverted", reverted_at: new Date().toISOString(),
