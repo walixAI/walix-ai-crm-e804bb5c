@@ -360,12 +360,13 @@ export async function bulkApply(
     .select(["id", ...fields].join(", ")).in("id", ids);
   if (eSnap) return { ok: false, error: eSnap.message };
 
-  const { error: eUpd, count } = await sb.from(table)
-    .update(op.changes).in("id", ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+  const { data: updated, error: eUpd } = await sb.from(table)
+    .update(op.changes).in("id", ids).eq("tenant_id", tenantId).select("id");
   if (eUpd) return { ok: false, error: eUpd.message };
 
   // Verificación real en base de datos antes de confirmar al usuario.
-  const applied = count ?? 0;
+  const applied = updated?.length ?? 0;
+
   await sb.from("bulk_edit_operations").update({
     status: "applied",
     applied_count: applied,
