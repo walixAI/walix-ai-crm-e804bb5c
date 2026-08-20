@@ -337,6 +337,37 @@ const CRM_TOOLS = [
   {
     type: "function",
     function: {
+      name: "set_widget_visibility",
+      description:
+        "Muestra u oculta una tarjeta (widget) del Dashboard o de Mi Día para TODO el equipo (layout por defecto del tenant). Solo tenant_owner/tenant_admin/org_owner. Si no sabes el nombre exacto, primero llama list_widgets.",
+      parameters: {
+        type: "object",
+        properties: {
+          surface: { type: "string", enum: ["dashboard", "mi_dia"], description: "Pantalla: dashboard o mi_dia" },
+          widget: { type: "string", description: "Nombre o clave de la tarjeta, ej. 'Rentabilidad' o 'dash.profitability'" },
+          visible: { type: "boolean", description: "true para mostrarla, false para ocultarla" },
+        },
+        required: ["surface", "widget", "visible"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_widgets",
+      description: "Lista las tarjetas configurables de una pantalla (dashboard o mi_dia) y si están visibles u ocultas para el equipo.",
+      parameters: {
+        type: "object",
+        properties: { surface: { type: "string", enum: ["dashboard", "mi_dia"] } },
+        required: ["surface"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "set_monthly_goal",
       description:
         "Ajusta la meta mensual del tenant. Solo tenant_owner/tenant_admin/org_owner. No permite meses pasados. Antes de llamarla, SIEMPRE confirma con el usuario mes/año y monto total en pesos.",
@@ -1039,6 +1070,79 @@ async function executeTool(
           };
         }
 
+        if (name === "list_widgets" || name === "set_widget_visibility") {
+          const surface = String(args.surface ?? "dashboard") === "mi_dia" ? "mi_dia" : "dashboard";
+          const { data: catalog, error: catErr } = await sb
+            .from("dashboard_widgets")
+            .select("key, name, description, is_mandatory, is_active, default_position, tenant_id")
+            .eq("surface", surface)
+            .eq("is_active", true)
+            .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+          if (catErr) return { ok: false, error: catErr.message };
+          const widgets = (catalog ?? []).sort(
+            (a: any, b: any) => Number(a.default_position ?? 0) - Number(b.default_position ?? 0),
+          );
+
+          const { data: layoutRow } = await sb
+            .from("dashboard_layouts")
+            .select("items")
+            .eq("tenant_id", tenantId).eq("surface", surface).eq("scope", "tenant_default")
+            .maybeSingle();
+          const current = new Map<string, any>(
+            (((layoutRow as any)?.items ?? []) as any[]).map((i: any) => [String(i.key), i]),
+          );
+          const items = widgets.map((w: any, idx: number) => {
+            const prev = current.get(w.key);
+            return {
+              key: w.key,
+              position: Number(prev?.position ?? w.default_position ?? idx),
+              hidden: Boolean(prev?.hidden ?? false),
+            };
+          });
+
+          if (name === "list_widgets") {
+            return {
+              ok: true, surface,
+              widgets: widgets.map((w: any) => ({
+                key: w.key, name: w.name, description: w.description,
+                mandatory: !!w.is_mandatory,
+                visible: !(current.get(w.key)?.hidden ?? false),
+              })),
+            };
+          }
+
+          const norm = (t: string) =>
+            String(t ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const q = norm(args.widget);
+          const match =
+            widgets.find((w: any) => norm(w.key) === q) ??
+            widgets.find((w: any) => norm(w.name) === q) ??
+            widgets.find((w: any) => norm(w.name).includes(q) || norm(w.key).includes(q));
+          if (!match) {
+            return {
+              ok: false,
+              error: `No encontré una tarjeta llamada "${args.widget}" en ${surface}.`,
+              available: widgets.map((w: any) => w.name),
+            };
+          }
+          if (match.is_mandatory && args.visible === false) {
+            return { ok: false, error: `La tarjeta "${match.name}" es obligatoria y no se puede ocultar.` };
+          }
+          const next = items.map((i: any) => (i.key === match.key ? { ...i, hidden: args.visible === false } : i));
+          const { error: upErr } = await sb.from("dashboard_layouts").upsert(
+            { tenant_id: tenantId, scope: "tenant_default", surface, items: next, updated_by: userId },
+            { onConflict: "tenant_id,scope,surface" },
+          );
+          if (upErr) {
+            const msg = String(upErr.message ?? "");
+            if (msg.toLowerCase().includes("row-level security") || upErr.code === "42501") {
+              return { ok: false, error: "Solo el owner o un administrador del tenant puede cambiar las tarjetas del equipo." };
+            }
+            return { ok: false, error: msg };
+          }
+          return { ok: true, surface, widget: match.name, visible: args.visible !== false, scope: "equipo" };
+        }
+
         if (name === "set_monthly_goal") {
           if (args.confirmed !== true) {
             return { ok: false, error: "Falta confirmación del usuario. Pregunta y confirma monto y mes antes de reintentar con confirmed=true." };
@@ -1245,6 +1349,7 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  • 'mi meta', 'cuál es la meta', 'meta del mes' → llama `get_monthly_goal`.",
     "  • 'ajusta la meta', 'cambia la meta a', 'pon la meta en', 'sube/baja la meta' → confirma monto y mes con el usuario y luego llama `set_monthly_goal` con confirmed=true. Nunca la llames en el primer turno; primero repite '¿Confirmas ajustar la meta de <mes> <año> a $<monto>?'.",
     "  • 'quién vendió más', 'ranking vendedores', 'rendimiento del equipo' → llama `get_team_performance`.",
+    "  • 'oculta/quita/muestra la tarjeta X del dashboard o de Mi Día', 'no quiero ver Rentabilidad' → llama `list_widgets` si dudas del nombre y luego `set_widget_visibility` (aplica a todo el equipo; solo owner/admin).",
     "  • 'cómo hago...', 'dónde está...', 'para qué sirve...', 'no sé usar Walix', 'enséñame', '¿qué puedo hacer aquí?' → llama `get_help_topic` (MODO TUTOR).",
     "Siempre intenta con las tools ANTES de responder que no puedes. Solo di que no hay información si la tool devolvió 0 resultados.",
     "",
