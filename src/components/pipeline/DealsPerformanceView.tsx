@@ -36,7 +36,7 @@ interface Props {
 }
 
 type SortKey = "name" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
-type Chip = "all" | "risk" | "stale" | "overdue" | "closing";
+type Chip = "all" | "risk" | "stale" | "overdue" | "closing" | "won" | "lost";
 
 /** Default period value. */
 export function currentMonthKey() {
@@ -124,14 +124,24 @@ export function DealsPerformanceView({
   const periodSet = useMemo(() => {
     const selected = (allStages ?? stages).find((s) => s.id === stageId);
     const closedSelected = !!selected && (selected.isWon || selected.isLost);
+    const dealClosedInPeriod = (d: PipelineDeal) => {
+      if (d.isWon && d.wonAt) {
+        const w = new Date(d.wonAt);
+        return w >= start && w < end;
+      }
+      if (d.isLost) {
+        const u = new Date(d.updatedAt);
+        return u >= start && u < end;
+      }
+      return false;
+    };
     return deals.filter((d) => {
       const created = new Date(d.createdAt);
       const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
       const createdIn = created >= start && created < end;
       const closeIn = closeRef >= start && closeRef < end;
-      const updatedIn = new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end;
       if (lens === "created") return createdIn;
-      if (lens === "all" || closedSelected) return createdIn || closeIn || ((d.isWon || d.isLost) && updatedIn);
+      if (lens === "all" || closedSelected) return createdIn || closeIn || dealClosedInPeriod(d);
       // active: open deals whose expected close falls inside the period
       if (d.isWon || d.isLost) return false;
       return closeIn;
@@ -175,7 +185,17 @@ export function DealsPerformanceView({
 
   // Deals closed (won/lost) inside the period — shown apart, never in the open pipeline
   const closedInPeriod = useMemo(
-    () => deals.filter((d) => (d.isWon || d.isLost) && new Date(d.updatedAt) >= start && new Date(d.updatedAt) < end),
+    () => deals.filter((d) => {
+      if (d.isWon && d.wonAt) {
+        const w = new Date(d.wonAt);
+        return w >= start && w < end;
+      }
+      if (d.isLost) {
+        const u = new Date(d.updatedAt);
+        return u >= start && u < end;
+      }
+      return false;
+    }),
     [deals, start, end],
   );
 
