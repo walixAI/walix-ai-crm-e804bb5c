@@ -127,10 +127,74 @@ const SUPPORTED_FILTERS: Record<BulkEntity, string[]> = {
   activities: ["name_contains", "ids", "owner_id", "type", "contact_id", "contact_ids", "deal_id", "date_from", "date_to"],
 };
 
+/** Sinónimos frecuentes del modelo → filtro real (se traducen, no fallan). */
+const FILTER_ALIASES: Record<string, string> = {
+  contact: "contact_id",
+  contacto: "contacto_nombre_alias", // se resuelve por nombre más abajo
+  contact_name: "contacto_nombre_alias",
+  contacto_nombre: "contacto_nombre_alias",
+  nombre_contacto: "contacto_nombre_alias",
+  deal_ids: "ids",
+  task_ids: "ids",
+  activity_ids: "ids",
+  id: "ids",
+  user_id: "owner_id",
+  assignee_id: "owner_id",
+  agent_id: "owner_id",
+  created_by: "owner_id",
+  from_date: "date_from",
+  to_date: "date_to",
+  since: "date_from",
+  until: "date_to",
+  title_contains: "name_contains",
+  name: "name_contains",
+  search: "name_contains",
+  stage: "stage_name",
+  open_only: "only_open",
+  won: "is_won",
+  lost: "is_lost",
+};
+
+/**
+ * Normaliza filtros: traduce sinónimos y resuelve nombres de contacto a IDs.
+ * Así el copiloto no falla por escribir "contact_name" o "deal_ids".
+ */
+export async function normalizeFilters(
+  sb: SupabaseClient, tenantId: string, entity: BulkEntity, raw: Record<string, any>,
+): Promise<{ filters: Record<string, any>; error?: string; notes: string[] }> {
+  const notes: string[] = [];
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(raw ?? {})) {
+    if (v === undefined || v === null || v === "") continue;
+    const key = FILTER_ALIASES[k] ?? k;
+    if (key !== k) notes.push(`"${k}" se interpretó como "${key === "contacto_nombre_alias" ? "contacto por nombre" : key}"`);
+    if (key === "contacto_nombre_alias") {
+      if (entity === "contacts") { out.name_contains = String(v); continue; }
+      const { data: matches } = await sb.from("contacts")
+        .select("id, name").eq("tenant_id", tenantId).ilike("name", `%${String(v)}%`).limit(20);
+      if (!matches?.length) return { filters: out, notes, error: `No encontré ningún contacto que coincida con "${v}".` };
+      if (matches.length > 1) {
+        return {
+          filters: out, notes,
+          error: `Hay ${matches.length} contactos que coinciden con "${v}": ${
+            matches.map((m: any) => `${m.name} (${m.id})`).join(", ")
+          }. Pregunta al usuario cuál y usa contact_id.`,
+        };
+      }
+      out.contact_id = matches[0].id;
+      continue;
+    }
+    if ((key === "ids" || key === "contact_ids") && !Array.isArray(v)) { out[key] = [String(v)]; continue; }
+    out[key] = v;
+  }
+  return { filters: out, notes };
+}
+
 function unknownFilterKeys(entity: BulkEntity, f: Record<string, any>) {
   const ok = SUPPORTED_FILTERS[entity] ?? [];
   return Object.keys(f ?? {}).filter((k) => k !== "__mode" && !ok.includes(k));
 }
+
 
 /** Aplica filtros soportados a una consulta. */
 function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
@@ -220,6 +284,11 @@ export async function bulkPreview(
     return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${(EDITABLE[entity] ?? []).join(", ")}` };
   if (!filters || !Object.keys(filters).length)
     return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
+  const norm = await normalizeFilters(sb, tenantId, entity, filters);
+  if (norm.error) return { ok: false, error: norm.error };
+  filters = norm.filters;
+  if (!Object.keys(filters).length)
+    return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
   const badKeys = unknownFilterKeys(entity, filters);
   if (badKeys.length)
     return {
@@ -227,10 +296,9 @@ export async function bulkPreview(
       error: `Filtros no soportados para ${LABEL[entity]}: ${badKeys.join(", ")}. Permitidos: ${SUPPORTED_FILTERS[entity].join(", ")}. No se ejecutó nada.`,
     };
 
-
-
   let q = sb.from(TABLE[entity]).select(PREVIEW_FIELDS[entity]).eq("tenant_id", tenantId);
   q = applyFilters(q, entity, filters).limit(MAX_BULK_ROWS + 1);
+
   const { data, error } = await q;
   if (error) return { ok: false, error: error.message };
   const rows = data ?? [];
@@ -238,8 +306,11 @@ export async function bulkPreview(
   if (rows.length > MAX_BULK_ROWS)
     return { ok: false, error: `Demasiados registros (>${MAX_BULK_ROWS}). Acota los filtros.` };
 
+  const wonRows = entity === "deals" ? rows.filter((r: any) => r.is_won) : [];
   const summary = isDelete
-    ? `BORRAR ${rows.length} ${LABEL[entity]} (se guarda respaldo para revertir)`
+    ? `BORRAR ${rows.length} ${LABEL[entity]}${
+      wonRows.length ? ` (¡ojo! ${wonRows.length} están GANADAS y afectan ingresos y metas)` : ""
+    } (se guarda respaldo para revertir)`
     : `Cambiar ${rows.length} ${LABEL[entity]}: ${
       Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
     }`;
@@ -265,10 +336,16 @@ export async function bulkPreview(
     matched_count: op.matched_count,
     summary: op.summary,
     rejected_fields: rejected,
-    sample: rows.slice(0, 5),
-    next: "Muestra al usuario el resumen y la muestra, y pídele que confirme. Si acepta, llama bulk_confirm.",
+    filters_used: filters,
+    filter_notes: norm.notes,
+    won_count: wonRows.length,
+    sample: rows.slice(0, 10),
+    next: `Muestra al usuario los filtros interpretados, cuántos registros y la lista de ejemplos${
+      wonRows.length ? `, advirtiendo que ${wonRows.length} están GANADAS` : ""
+    }. Pídele que confirme y luego llama bulk_confirm.`,
   };
 }
+
 
 async function loadOp(sb: SupabaseClient, tenantId: string, id: string) {
   const { data } = await sb.from("bulk_edit_operations").select("*")
