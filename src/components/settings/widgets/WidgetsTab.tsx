@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sparkles, LayoutDashboard, CalendarClock } from "lucide-react";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
-import { useResolvedLayout, type Surface } from "@/lib/queries/dashboardLayout";
+import { useResolvedLayout, useSaveLayout, type Surface } from "@/lib/queries/dashboardLayout";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function WidgetsTab() {
