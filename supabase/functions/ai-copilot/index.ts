@@ -439,7 +439,7 @@ const CRM_TOOLS = [
           filters: {
             type: "object",
             description:
-              "Solo se aceptan estas claves (cualquier otra hace fallar la operación): comunes: name_contains, ids, owner_id (en actividades = quien la registró, en tareas = responsable), contact_id, contact_ids. deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, is_lost, amount_equals, date_from, date_to. contacts: status, source (no aceptan contact_id; usa ids). tasks: deal_id, completed, task_kind, date_from, date_to. activities: type, deal_id, date_from, date_to. IMPORTANTE: si el usuario pide 'todas las oportunidades de un contacto', NO uses only_open (dejaría fuera ganadas y perdidas); usa solo contact_id y muestra en la vista previa cuáles son ganadas.",
+              "Claves aceptadas: comunes: name_contains, ids, owner_id (en actividades = quien la registró, en tareas = responsable), contact_id, contact_name (se resuelve solo; si hay varias coincidencias te pedirá elegir). deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, is_lost, amount_equals, date_from, date_to. contacts: status, source. tasks: deal_id, completed, task_kind, date_from, date_to. activities: type, deal_id, date_from, date_to. Se aceptan sinónimos comunes (deal_ids, assignee_id, from_date, etc.) y se traducen automáticamente. IMPORTANTE: si el usuario pide 'todas las oportunidades de un contacto', NO uses only_open (dejaría fuera ganadas y perdidas); usa solo contact_id/contact_name. Si el usuario pega una URL tipo /contacts/<uuid>, ese uuid es el contact_id.",
 
             additionalProperties: true,
           },
