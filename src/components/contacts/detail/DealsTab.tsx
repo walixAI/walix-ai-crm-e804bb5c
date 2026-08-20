@@ -182,6 +182,21 @@ export function DealsTab({ contactId, contactName }: Props) {
         contactName={contactName}
         defaultTab="history"
       />
+
+      <ConfirmDialog
+        open={!!toDelete}
+        onOpenChange={(v) => !v && setToDelete(null)}
+        title={`¿Eliminar "${toDelete?.name ?? ""}"?`}
+        description={
+          toDelete?.isWon
+            ? "Esta oportunidad está GANADA: al eliminarla se pierde ese ingreso en reportes y metas. Esta acción no se puede deshacer."
+            : "Esta acción no se puede deshacer."
+        }
+        confirmLabel="Eliminar"
+        loading={deleting}
+        onConfirm={confirmDelete}
+      />
+
     </div>
   );
 }
