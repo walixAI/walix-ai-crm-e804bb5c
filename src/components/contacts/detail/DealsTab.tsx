@@ -104,11 +104,15 @@ export function DealsTab({ contactId, contactName }: Props) {
             const pipeline = maps.pipelineNameFor(d);
             const last = history.find((h) => h.dealId === d.id);
             return (
-              <button
+              <div
                 key={d.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelected(d)}
-                className="w-full text-left rounded-xl border border-border bg-card p-4 shadow-card hover:border-primary/40 transition-colors"
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(d); } }}
+                className="w-full text-left rounded-xl border border-border bg-card p-4 shadow-card hover:border-primary/40 transition-colors cursor-pointer"
               >
+
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium text-sm truncate">{d.name}</div>
