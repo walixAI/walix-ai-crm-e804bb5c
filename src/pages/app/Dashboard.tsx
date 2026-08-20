@@ -168,10 +168,11 @@ export default function Dashboard() {
         </Widget>
 
         <Widget k="dash.run_rate">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-            <RunRateCard compact showSellers />
-            <ProfitabilityCard />
-          </div>
+          <RunRateCard compact showSellers />
+        </Widget>
+
+        <Widget k="dash.profitability">
+          <ProfitabilityCard />
         </Widget>
 
         <Widget k="dash.recurrences_month">

@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sparkles, LayoutDashboard, CalendarClock } from "lucide-react";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
-import { useResolvedLayout, type Surface } from "@/lib/queries/dashboardLayout";
+import { useResolvedLayout, useSaveLayout, type Surface } from "@/lib/queries/dashboardLayout";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function WidgetsTab() {
@@ -31,10 +33,10 @@ export function WidgetsTab() {
               <TabsTrigger value="mi_dia"><CalendarClock className="h-4 w-4 mr-2" /> Mi Día</TabsTrigger>
             </TabsList>
             <TabsContent value="dashboard" className="pt-4">
-              <WidgetsList surface="dashboard" />
+              <WidgetsList surface="dashboard" canEdit={isTenantAdmin} />
             </TabsContent>
             <TabsContent value="mi_dia" className="pt-4">
-              <WidgetsList surface="mi_dia" />
+              <WidgetsList surface="mi_dia" canEdit={isTenantAdmin} />
             </TabsContent>
           </Tabs>
 
@@ -57,8 +59,24 @@ export function WidgetsTab() {
   );
 }
 
-function WidgetsList({ surface }: { surface: Surface }) {
+function WidgetsList({ surface, canEdit }: { surface: Surface; canEdit: boolean }) {
   const resolved = useResolvedLayout(surface);
+  const save = useSaveLayout(surface);
+
+  async function toggle(key: string, visible: boolean) {
+    const items = resolved.widgets.map((r) => ({
+      key: r.widget.key,
+      position: r.position,
+      hidden: r.widget.key === key ? !visible : r.hidden,
+    }));
+    try {
+      await save.mutateAsync({ scope: "tenant_default", items });
+      toast.success(visible ? "Tarjeta visible para todo el equipo" : "Tarjeta oculta para todo el equipo");
+    } catch (e: any) {
+      toast.error("No se pudo guardar: " + (e?.message ?? "error"));
+    }
+  }
+
   if (resolved.isLoading) return <div className="text-sm text-muted-foreground">Cargando…</div>;
   return (
     <ul className="divide-y divide-border rounded-lg border border-border">
@@ -70,12 +88,15 @@ function WidgetsList({ surface }: { surface: Surface }) {
               <div className="text-xs text-muted-foreground">{r.widget.description}</div>
             )}
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${r.hidden ? "bg-muted text-muted-foreground" : "bg-emerald-500/10 text-emerald-600"}`}>
-            {r.hidden ? "Oculta" : "Visible"}
-          </span>
           {r.widget.is_mandatory && (
             <span className="text-[10px] text-muted-foreground uppercase">Obligatoria</span>
           )}
+          <Switch
+            checked={!r.hidden}
+            disabled={!canEdit || r.widget.is_mandatory || save.isPending}
+            onCheckedChange={(v) => toggle(r.widget.key, v)}
+            aria-label={r.hidden ? "Mostrar" : "Ocultar"}
+          />
         </li>
       ))}
     </ul>

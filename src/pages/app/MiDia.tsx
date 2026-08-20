@@ -26,6 +26,7 @@ import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
 import { cn } from "@/lib/utils";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
+import { useResolvedLayout } from "@/lib/queries/dashboardLayout";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
@@ -46,6 +47,8 @@ export default function MiDia() {
   const { data: rr } = useRunRate();
   const { data: prof } = useMonthProfitability();
   const [expanded, setExpanded] = useState<ExpandKey>(null);
+  const miDiaLayout = useResolvedLayout("mi_dia");
+  const showProfit = miDiaLayout.isLoading ? true : miDiaLayout.isVisible("midia.profitability");
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [taskDate, setTaskDate] = useState<Date>(() => new Date());
   const isTaskDateToday = useMemo(
@@ -142,6 +145,7 @@ export default function MiDia() {
                 active={expanded === "runrate"}
                 onClick={() => handleKpiClick("runrate")}
               />
+              {showProfit && (
               <KpiChip
                 icon={PiggyBank}
                 label="Rentabilidad"
@@ -151,6 +155,7 @@ export default function MiDia() {
                 active={expanded === "profit"}
                 onClick={() => handleKpiClick("profit")}
               />
+              )}
               <KpiChip
                 icon={Trophy}
                 label="Ventas ganadas"
@@ -169,7 +174,7 @@ export default function MiDia() {
             <Widget k="midia.detail_expanded">
             <div ref={detailRef} className="scroll-mt-28">
               {expanded === "runrate" && <RunRateCard />}
-              {expanded === "profit" && <ProfitabilityCard />}
+              {expanded === "profit" && showProfit && <ProfitabilityCard />}
               {expanded === "won" && rr && <WonDetailCard rr={rr} />}
             </div>
             </Widget>
