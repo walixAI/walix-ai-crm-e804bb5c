@@ -306,8 +306,11 @@ export async function bulkPreview(
   if (rows.length > MAX_BULK_ROWS)
     return { ok: false, error: `Demasiados registros (>${MAX_BULK_ROWS}). Acota los filtros.` };
 
+  const wonRows = entity === "deals" ? rows.filter((r: any) => r.is_won) : [];
   const summary = isDelete
-    ? `BORRAR ${rows.length} ${LABEL[entity]} (se guarda respaldo para revertir)`
+    ? `BORRAR ${rows.length} ${LABEL[entity]}${
+      wonRows.length ? ` (¡ojo! ${wonRows.length} están GANADAS y afectan ingresos y metas)` : ""
+    } (se guarda respaldo para revertir)`
     : `Cambiar ${rows.length} ${LABEL[entity]}: ${
       Object.entries(changes).map(([k, v]) => `${k} → ${v}`).join(", ")
     }`;
@@ -333,10 +336,16 @@ export async function bulkPreview(
     matched_count: op.matched_count,
     summary: op.summary,
     rejected_fields: rejected,
-    sample: rows.slice(0, 5),
-    next: "Muestra al usuario el resumen y la muestra, y pídele que confirme. Si acepta, llama bulk_confirm.",
+    filters_used: filters,
+    filter_notes: norm.notes,
+    won_count: wonRows.length,
+    sample: rows.slice(0, 10),
+    next: `Muestra al usuario los filtros interpretados, cuántos registros y la lista de ejemplos${
+      wonRows.length ? `, advirtiendo que ${wonRows.length} están GANADAS` : ""
+    }. Pídele que confirme y luego llama bulk_confirm.`,
   };
 }
+
 
 async function loadOp(sb: SupabaseClient, tenantId: string, id: string) {
   const { data } = await sb.from("bulk_edit_operations").select("*")
