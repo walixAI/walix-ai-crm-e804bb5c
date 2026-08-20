@@ -439,7 +439,8 @@ const CRM_TOOLS = [
           filters: {
             type: "object",
             description:
-              "Filtros: name_contains, ids, owner_id (en actividades = quien la registró, en tareas = responsable); deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, amount_equals, date_from, date_to; contacts: status, source; tasks: completed, task_kind, date_from, date_to; activities: type, contact_id, deal_id, date_from, date_to.",
+              "Solo se aceptan estas claves (cualquier otra hace fallar la operación): comunes: name_contains, ids, owner_id (en actividades = quien la registró, en tareas = responsable), contact_id, contact_ids. deals: stage_id, stage_name, deal_type, service_type, payment_status, only_open, is_won, is_lost, amount_equals, date_from, date_to. contacts: status, source (no aceptan contact_id; usa ids). tasks: deal_id, completed, task_kind, date_from, date_to. activities: type, deal_id, date_from, date_to. IMPORTANTE: si el usuario pide 'todas las oportunidades de un contacto', NO uses only_open (dejaría fuera ganadas y perdidas); usa solo contact_id y muestra en la vista previa cuáles son ganadas.",
+
             additionalProperties: true,
           },
           changes: {
