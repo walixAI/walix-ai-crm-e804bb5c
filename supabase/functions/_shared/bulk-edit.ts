@@ -220,6 +220,14 @@ export async function bulkPreview(
     return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${(EDITABLE[entity] ?? []).join(", ")}` };
   if (!filters || !Object.keys(filters).length)
     return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
+  const badKeys = unknownFilterKeys(entity, filters);
+  if (badKeys.length)
+    return {
+      ok: false,
+      error: `Filtros no soportados para ${LABEL[entity]}: ${badKeys.join(", ")}. Permitidos: ${SUPPORTED_FILTERS[entity].join(", ")}. No se ejecutó nada.`,
+    };
+
+
 
   let q = sb.from(TABLE[entity]).select(PREVIEW_FIELDS[entity]).eq("tenant_id", tenantId);
   q = applyFilters(q, entity, filters).limit(MAX_BULK_ROWS + 1);
