@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import { Bot, History, KanbanSquare } from "lucide-react";
+import { Bot, History, KanbanSquare, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
+import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { StageStepper } from "./StageStepper";
 import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { DueBadge } from "./DueBadge";
@@ -13,6 +18,7 @@ import {
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 import { cn } from "@/lib/utils";
+
 
 interface Props { contactId: string; contactName?: string }
 
@@ -50,6 +56,25 @@ export function DealsTab({ contactId, contactName }: Props) {
   const maps = useContactStageMaps();
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<PipelineDeal | null>(null);
+  const [toDelete, setToDelete] = useState<PipelineDeal | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { isTenantAdmin, isPlatform } = usePermissions();
+  const canDelete = isTenantAdmin || isPlatform;
+  const qc = useQueryClient();
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    const { data, error } = await supabase.from("deals").delete().eq("id", toDelete.id).select("id");
+    setDeleting(false);
+    if (error) { toast.error(error.message); return; }
+    if (!data?.length) { toast.error("No se eliminó: no tienes permisos sobre esta oportunidad."); return; }
+    toast.success(`Oportunidad "${toDelete.name}" eliminada`);
+    setToDelete(null);
+    qc.invalidateQueries({ queryKey: ["contact-pipeline-deals"] });
+    qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+  }
+
 
   const visible = showAll ? deals : deals.filter((d) => !d.isWon && !d.isLost);
   const closedCount = deals.filter((d) => d.isWon || d.isLost).length;
@@ -79,11 +104,15 @@ export function DealsTab({ contactId, contactName }: Props) {
             const pipeline = maps.pipelineNameFor(d);
             const last = history.find((h) => h.dealId === d.id);
             return (
-              <button
+              <div
                 key={d.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelected(d)}
-                className="w-full text-left rounded-xl border border-border bg-card p-4 shadow-card hover:border-primary/40 transition-colors"
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(d); } }}
+                className="w-full text-left rounded-xl border border-border bg-card p-4 shadow-card hover:border-primary/40 transition-colors cursor-pointer"
               >
+
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium text-sm truncate">{d.name}</div>
@@ -127,8 +156,19 @@ export function DealsTab({ contactId, contactName }: Props) {
                       )}
                     </>
                   )}
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => { e.stopPropagation(); setToDelete(d); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                    </Button>
+                  )}
                 </div>
-              </button>
+              </div>
+
             );
           })}
         </div>
@@ -142,6 +182,21 @@ export function DealsTab({ contactId, contactName }: Props) {
         contactName={contactName}
         defaultTab="history"
       />
+
+      <ConfirmDialog
+        open={!!toDelete}
+        onOpenChange={(v) => !v && setToDelete(null)}
+        title={`¿Eliminar "${toDelete?.name ?? ""}"?`}
+        description={
+          toDelete?.isWon
+            ? "Esta oportunidad está GANADA: al eliminarla se pierde ese ingreso en reportes y metas. Esta acción no se puede deshacer."
+            : "Esta acción no se puede deshacer."
+        }
+        confirmLabel="Eliminar"
+        loading={deleting}
+        onConfirm={confirmDelete}
+      />
+
     </div>
   );
 }
