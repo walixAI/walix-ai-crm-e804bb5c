@@ -56,6 +56,25 @@ export function DealsTab({ contactId, contactName }: Props) {
   const maps = useContactStageMaps();
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<PipelineDeal | null>(null);
+  const [toDelete, setToDelete] = useState<PipelineDeal | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { isTenantAdmin, isPlatform } = usePermissions();
+  const canDelete = isTenantAdmin || isPlatform;
+  const qc = useQueryClient();
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    const { data, error } = await supabase.from("deals").delete().eq("id", toDelete.id).select("id");
+    setDeleting(false);
+    if (error) return toast.error(error.message);
+    if (!data?.length) return toast.error("No se eliminó: no tienes permisos sobre esta oportunidad.");
+    toast.success(`Oportunidad "${toDelete.name}" eliminada`);
+    setToDelete(null);
+    qc.invalidateQueries({ queryKey: ["contact-pipeline-deals"] });
+    qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+  }
+
 
   const visible = showAll ? deals : deals.filter((d) => !d.isWon && !d.isLost);
   const closedCount = deals.filter((d) => d.isWon || d.isLost).length;
