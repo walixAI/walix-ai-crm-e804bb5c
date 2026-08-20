@@ -112,6 +112,26 @@ function inclusiveDateTo(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T23:59:59.999Z` : raw;
 }
 
+/** Filtros aceptados por entidad. Cualquier otro se rechaza (nunca se ignora en silencio). */
+const SUPPORTED_FILTERS: Record<BulkEntity, string[]> = {
+  contacts: ["name_contains", "ids", "owner_id", "status", "source"],
+  deals: [
+    "name_contains", "ids", "owner_id", "contact_id", "contact_ids", "stage_id", "stage_name",
+    "deal_type", "service_type", "payment_status", "only_open", "is_won", "is_lost",
+    "amount_equals", "date_from", "date_to",
+  ],
+  tasks: [
+    "name_contains", "ids", "owner_id", "contact_id", "contact_ids", "deal_id",
+    "completed", "task_kind", "date_from", "date_to",
+  ],
+  activities: ["name_contains", "ids", "owner_id", "type", "contact_id", "contact_ids", "deal_id", "date_from", "date_to"],
+};
+
+function unknownFilterKeys(entity: BulkEntity, f: Record<string, any>) {
+  const ok = SUPPORTED_FILTERS[entity] ?? [];
+  return Object.keys(f ?? {}).filter((k) => k !== "__mode" && !ok.includes(k));
+}
+
 /** Aplica filtros soportados a una consulta. */
 function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
   if (f.name_contains) {
@@ -123,9 +143,13 @@ function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
     const col = entity === "tasks" ? "assignee_id" : entity === "activities" ? "agent_id" : "owner_id";
     q = q.eq(col, f.owner_id);
   }
+  // El contacto aplica a todas las entidades que lo referencian.
+  if (entity !== "contacts") {
+    if (f.contact_id) q = q.eq("contact_id", f.contact_id);
+    if (Array.isArray(f.contact_ids) && f.contact_ids.length) q = q.in("contact_id", f.contact_ids);
+  }
   if (entity === "activities") {
     if (f.type) q = q.eq("type", normalizeActivityType(f.type));
-    if (f.contact_id) q = q.eq("contact_id", f.contact_id);
     if (f.deal_id) q = q.eq("deal_id", f.deal_id);
     if (f.date_from) q = q.gte("occurred_at", f.date_from);
     if (f.date_to) q = q.lte("occurred_at", inclusiveDateTo(f.date_to));
@@ -138,6 +162,7 @@ function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
     if (f.payment_status) q = q.eq("payment_status", f.payment_status);
     if (f.only_open) q = q.eq("is_won", false).eq("is_lost", false);
     if (f.is_won === true || f.is_won === false) q = q.eq("is_won", f.is_won);
+    if (f.is_lost === true || f.is_lost === false) q = q.eq("is_lost", f.is_lost);
     if (f.amount_equals !== undefined) q = q.eq("amount", f.amount_equals);
     if (f.date_from) q = q.gte("expected_close_date", f.date_from);
     if (f.date_to) q = q.lte("expected_close_date", inclusiveDateTo(f.date_to));
@@ -147,6 +172,7 @@ function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
     if (f.source) q = q.eq("source", f.source);
   }
   if (entity === "tasks") {
+    if (f.deal_id) q = q.eq("deal_id", f.deal_id);
     if (f.completed === true || f.completed === false) q = q.eq("completed", f.completed);
     if (f.task_kind) q = q.eq("task_kind", f.task_kind);
     if (f.date_from) q = q.gte("due_at", f.date_from);
@@ -154,6 +180,7 @@ function applyFilters(q: any, entity: BulkEntity, f: Record<string, any>) {
   }
   return q;
 }
+
 
 function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
   const allowed = EDITABLE[entity];
