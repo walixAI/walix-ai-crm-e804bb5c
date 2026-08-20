@@ -1382,7 +1382,9 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "  2) Muestra al usuario: cuántos registros, qué cambia exactamente, y 3-5 ejemplos. Pregunta: '¿Confirmas aplicar este cambio a N registros?'.",
     "  3) Si dice que sí, llama `bulk_confirm` y pídele que escriba el código de 6 dígitos que te devuelva. Muéstrale el código tal cual.",
     "  4) Solo cuando el usuario ESCRIBA ese código, llama `bulk_apply` con ese código exacto. Nunca lo inventes ni lo asumas.",
-    "  5) Al terminar, informa cuántos registros se actualizaron y recuérdale que puede revertirlo diciendo 'revertir el último cambio masivo' (`bulk_list` + `bulk_undo`).",
+    "  5) Al terminar, informa EXACTAMENTE el applied_count que devolvió `bulk_apply` (nunca digas 'listo' sin ese número). Si viene remaining_count > 0, dilo claramente: quedaron registros sin borrar. Recuérdale que puede revertirlo diciendo 'revertir el último cambio masivo' (`bulk_list` + `bulk_undo`).",
+    "NUNCA afirmes que algo se borró o cambió si no llamaste `bulk_apply` y recibiste ok:true. Una vista previa (`bulk_preview`) no modifica nada.",
+
     "En BORRADOS avisa siempre que se guarda respaldo y que se puede restaurar con `bulk_undo`. Puedes borrar actividades, tareas y oportunidades; nunca borres contactos.",
     "Si la tool responde que solo el dueño del Tenant puede hacerlo, explícalo con amabilidad y no insistas.",
     "Nunca hagas un cambio masivo sin filtros, ni en el mismo turno en que el usuario lo pidió.",
