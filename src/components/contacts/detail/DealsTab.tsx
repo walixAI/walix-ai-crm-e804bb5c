@@ -156,8 +156,19 @@ export function DealsTab({ contactId, contactName }: Props) {
                       )}
                     </>
                   )}
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => { e.stopPropagation(); setToDelete(d); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                    </Button>
+                  )}
                 </div>
-              </button>
+              </div>
+
             );
           })}
         </div>
