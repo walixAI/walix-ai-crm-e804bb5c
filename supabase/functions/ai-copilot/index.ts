@@ -66,8 +66,12 @@ const CRM_TOOLS = [
     type: "function",
     function: {
       name: "get_pipeline_status",
-      description: "Devuelve KPIs del pipeline activo del usuario: deals abiertos, ganados, perdidos y monto en curso.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      description: "Devuelve KPIs del pipeline que el usuario tiene abierto en pantalla (mismo conteo que la vista Pipeline): deals abiertos, ganados, perdidos, monto en curso y desglose por etapa. Si no se indica pipeline_id se usa el pipeline activo del usuario.",
+      parameters: {
+        type: "object",
+        properties: { pipeline_id: { type: "string", description: "UUID del pipeline. Opcional." } },
+        additionalProperties: false,
+      },
     },
   },
   {
@@ -529,6 +533,7 @@ async function executeTool(
   sb: SupabaseClient,
   tenantId: string,
   userId: string,
+  uiPipelineId?: string | null,
 ): Promise<any> {
   try {
     switch (name) {
@@ -563,35 +568,58 @@ async function executeTool(
         return await bulkList(sb, tenantId);
 
       case "get_pipeline_status": {
-        const { data: p } = await sb
-          .from("pipelines")
-          .select("id, name")
-          .eq("tenant_id", tenantId)
-          .order("is_default", { ascending: false })
-          .order("position", { ascending: true })
-          .limit(1)
-          .maybeSingle();
+        // Alineado con la vista Pipeline: usa el pipeline que el usuario tiene abierto.
+        const wanted = (args.pipeline_id as string | undefined) || uiPipelineId || null;
+        let p: { id: string; name: string } | null = null;
+        if (wanted) {
+          const { data } = await sb.from("pipelines").select("id, name")
+            .eq("tenant_id", tenantId).eq("id", wanted).maybeSingle();
+          p = (data as any) ?? null;
+        }
+        if (!p) {
+          const { data } = await sb
+            .from("pipelines")
+            .select("id, name")
+            .eq("tenant_id", tenantId)
+            .order("is_default", { ascending: false })
+            .order("position", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          p = (data as any) ?? null;
+        }
         const pipelineId = p?.id;
         if (!pipelineId) return { ok: false, error: "Sin pipeline configurado" };
 
         const { data: stages } = await sb.from("pipeline_stages")
-          .select("id").eq("pipeline_id", pipelineId);
+          .select("id, name, position").eq("pipeline_id", pipelineId)
+          .order("position", { ascending: true });
         const stageIds = (stages ?? []).map((s: any) => s.id);
         if (!stageIds.length) return { ok: true, pipeline_id: pipelineId, open: 0, won: 0, lost: 0, open_amount: 0 };
 
         const { data: deals } = await sb
           .from("deals")
-          .select("id, amount, is_won, is_lost")
+          .select("id, amount, is_won, is_lost, stage_id")
           .eq("tenant_id", tenantId)
           .in("stage_id", stageIds);
 
         const summary = { open: 0, won: 0, lost: 0, open_amount: 0 };
+        const byStage = new Map<string, { stage: string; count: number; amount: number }>();
+        for (const st of stages ?? []) byStage.set(st.id, { stage: st.name, count: 0, amount: 0 });
         for (const d of deals ?? []) {
+          const row = byStage.get(d.stage_id);
+          if (row) { row.count++; row.amount += Number(d.amount ?? 0); }
           if (d.is_won) summary.won++;
           else if (d.is_lost) summary.lost++;
           else { summary.open++; summary.open_amount += Number(d.amount ?? 0); }
         }
-        return { ok: true, pipeline_id: pipelineId, pipeline_name: p?.name, ...summary };
+        return {
+          ok: true,
+          pipeline_id: pipelineId,
+          pipeline_name: p?.name,
+          ...summary,
+          by_stage: [...byStage.values()],
+          note: "Conteo del pipeline activo del usuario, sin filtros ni búsqueda de la pantalla.",
+        };
       }
 
       case "search_contacts": {
@@ -1438,6 +1466,7 @@ Deno.serve(async (req) => {
       entityType?: string | null;
       entityId?: string | null;
       historyLimit?: number;
+      uiPipelineId?: string | null;
     };
     if (!body.message?.trim()) return json({ error: "Mensaje vacío" }, 400);
 
@@ -1595,7 +1624,7 @@ Deno.serve(async (req) => {
         const executed = await Promise.all(msg.tool_calls.map(async (tc: any) => {
           let parsedArgs: any = {};
           try { parsedArgs = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* noop */ }
-          const result = await executeTool(tc.function.name, parsedArgs, sb, tenantId, userId);
+          const result = await executeTool(tc.function.name, parsedArgs, sb, tenantId, userId, body.uiPipelineId ?? null);
           return { tc, parsedArgs, result };
         }));
         const toolRows: any[] = [];
