@@ -489,6 +489,18 @@ export interface CopilotTurn {
   errorMessage?: string;
 }
 
+/** Pipeline que el usuario tiene abierto en la vista Pipeline (para alinear al copiloto). */
+function activePipelineId(): string | null {
+  try {
+    const raw = localStorage.getItem("walix.pipeline.prefs.v1");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.pipelineId === "string" ? parsed.pipelineId : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function runCopilot(opts: {
   message: string;
   conversationKey?: string;
@@ -502,6 +514,7 @@ export async function runCopilot(opts: {
         conversationKey: opts.conversationKey ?? "global",
         entityType: opts.entityType ?? null,
         entityId: opts.entityId ?? null,
+        uiPipelineId: activePipelineId(),
       },
     });
     if (error) throw error;
