@@ -67,8 +67,8 @@ export function DealsTab({ contactId, contactName }: Props) {
     setDeleting(true);
     const { data, error } = await supabase.from("deals").delete().eq("id", toDelete.id).select("id");
     setDeleting(false);
-    if (error) return toast.error(error.message);
-    if (!data?.length) return toast.error("No se eliminó: no tienes permisos sobre esta oportunidad.");
+    if (error) { toast.error(error.message); return; }
+    if (!data?.length) { toast.error("No se eliminó: no tienes permisos sobre esta oportunidad."); return; }
     toast.success(`Oportunidad "${toDelete.name}" eliminada`);
     setToDelete(null);
     qc.invalidateQueries({ queryKey: ["contact-pipeline-deals"] });
