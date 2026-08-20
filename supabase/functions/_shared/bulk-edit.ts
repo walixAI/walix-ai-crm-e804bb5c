@@ -327,12 +327,17 @@ export async function bulkApply(
     const { data: backup, error: eBk } = await sb.from(table)
       .select(RESTORE_FIELDS[entity] ?? "*").in("id", ids).eq("tenant_id", tenantId);
     if (eBk) return { ok: false, error: eBk.message };
-    const { error: eDel, count: delCount } = await sb.from(table)
-      .delete().in("id", ids).eq("tenant_id", tenantId).select("id", { count: "exact" });
+    const { data: deleted, error: eDel } = await sb.from(table)
+      .delete().in("id", ids).eq("tenant_id", tenantId).select("id");
     if (eDel) return { ok: false, error: eDel.message };
+    const delCount = deleted?.length ?? 0;
+    // Verificación real: ¿quedó algo sin borrar?
+    const { data: leftovers } = await sb.from(table)
+      .select("id").in("id", ids).eq("tenant_id", tenantId);
+    const remaining = leftovers?.length ?? 0;
     await sb.from("bulk_edit_operations").update({
       status: "applied",
-      applied_count: delCount ?? 0,
+      applied_count: delCount,
       snapshot: backup ?? [],
       applied_at: new Date().toISOString(),
     }).eq("id", opId);
@@ -340,10 +345,14 @@ export async function bulkApply(
       ok: true,
       step: "applied",
       operation_id: opId,
-      applied_count: delCount ?? 0,
+      applied_count: delCount,
+      remaining_count: remaining,
       summary: op.summary,
-      next: `Borrados ${delCount ?? 0} registros. Se puede restaurar con "revertir cambio ${opId.slice(0, 8)}" (bulk_undo).`,
+      next: remaining > 0
+        ? `Se borraron ${delCount} de ${ids.length}; ${remaining} no se pudieron borrar (permisos o dependencias). Avísale al usuario con esos números exactos.`
+        : `Borrados ${delCount} registros (verificado en base de datos). Se puede restaurar con "revertir cambio ${opId.slice(0, 8)}" (bulk_undo).`,
     };
+
   }
 
   // Snapshot de los valores actuales (para revertir).
