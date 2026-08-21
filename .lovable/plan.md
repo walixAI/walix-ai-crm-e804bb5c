@@ -37,33 +37,82 @@ Habilitar las 4 automatizaciones deterministas de la Fase 1 para el tenant Refri
 
 ## Cómo se entregan los resultados sin WhatsApp
 
-| Resultado | Canal existente | Dónde lo ve el usuario |
+Dos canales, ambos ya existentes en Walix:
+
+### 1. Notificación dentro de Walix (con email opcional)
+
+- La automatización siempre genera una **notificación en la campana** de Walix (tabla `notifications`, componente `NotificationsBell` que ya existe). No aparece nada nuevo en pantalla: solo el contador de la campana sube.
+- Cada usuario decide en **Perfil → Notificaciones** si además quiere recibir el mismo aviso por **correo**. Es un switch por categoría (Mantenimientos, Seguimiento, Cobranza), apagado por defecto.
+- El correo usa la plantilla transaccional existente de Walix con el nombre del tenant; no se crea un diseño nuevo.
+
+```text
+Campana (siempre)            Correo (opt-in por usuario)
+┌────────────────────┐       ┌────────────────────────────┐
+│ 🔔 3                │  -->  │ Walix · Refrigeración G&R  │
+│ Mantenimiento de    │       │ 2 mantenimientos esta      │
+│ Janice Jaris en 15d │       │ semana. Ver en Walix →     │
+└────────────────────┘       └────────────────────────────┘
+```
+
+### 2. Bandeja de propuestas de IA en Mi Día y Tareas
+
+- Las tareas que genera la automatización **no se crean directamente**. Entran como **propuestas** que el usuario acepta o rechaza.
+- Se muestran en un bloque llamado **"Propuestas de Walix IA"**, ubicado:
+  - En **Mi Día**, como un widget más de la lista de widgets configurables (se puede ocultar desde "Personalizar mi vista").
+  - En **Tareas**, como una **pestaña adicional** junto a las pestañas actuales, con un contador: `Propuestas (3)`.
+- Cada propuesta es una fila compacta con dos botones. Aceptar crea la tarea real en el lugar de siempre; rechazar la descarta y la IA no vuelve a proponerla para ese contacto en el ciclo actual.
+
+```text
+┌─ Propuestas de Walix IA ──────────────── 3 ─┐
+│ 🔧 Mantenimiento de Janice Jaris            │
+│    Vence en 15 días · Norma Heredia         │
+│                        [Aceptar] [Rechazar] │
+├─────────────────────────────────────────────┤
+│ ⏱ Oportunidad sin movimiento — Leah         │
+│    5 días sin actividad                     │
+│                        [Aceptar] [Rechazar] │
+└─────────────────────────────────────────────┘
+```
+
+- Al aceptar: la tarea aparece en la lista de tareas normal, con su fecha y responsable. El usuario ve el flujo que ya conoce.
+- Al rechazar: desaparece del bloque, se registra el rechazo y la automatización aprende a no repetirla.
+- Si no hay propuestas, el bloque no se muestra (cero ruido visual).
+
+### Resumen por canal
+
+| Resultado | Canal | Dónde lo ve |
 |---|---|---|
-| Tarea nueva | Tareas del CRM | Mi Día, pestaña Tareas del contacto, lista de tareas |
-| Notificación al vendedor | Campana de notificaciones + email | Campana existente, bandeja de correo |
-| Deal a etapa siguiente | Pipeline | Kanban existente |
-| Próxima recurrencia creada | Servicios recurrentes | Automatizaciones → Agenda del mes / Servicios recurrentes |
-| Log de ejecución | Historial de cada automatización | Automatizaciones → card de automatización → historial |
+| Aviso de mantenimiento o deal estancado | Campana + correo opcional | Campana de Walix, bandeja de correo |
+| Tarea sugerida | Propuestas de Walix IA | Mi Día (widget) y Tareas (pestaña) |
+| Tarea aceptada | Tareas normales | Mi Día, contacto, lista de tareas |
+| Próxima recurrencia creada | Servicios recurrentes | Automatizaciones → Agenda del mes |
+| Log de ejecución | Historial de la automatización | Automatizaciones → card → historial |
 
 ## Flujo de activación sin sorpresas
 
-1. **Vista previa (dry-run):** al crear una automatización desde plantilla, el primer paso es "Probar ahora" en modo simulación. Muestra cuántas tareas/notificaciones se generarían hoy, sin escribir datos.
-2. **Activación controlada:** el usuario activa la automatización con un toggle. El builder muestra un resumen de impacto: "Creará aproximadamente N tareas por semana".
-3. **Historial visible:** cada automatización tiene un botón de historial existente; el usuario puede ver exactamente qué hizo y desactivarla si genera ruido.
+1. **Vista previa (dry-run):** al crear una automatización desde plantilla, el primer paso es "Probar ahora" en modo simulación. Muestra cuántas propuestas y notificaciones se generarían hoy, sin escribir datos.
+2. **Activación controlada:** el usuario activa la automatización con un toggle. El builder muestra un resumen de impacto: "Generará aproximadamente N propuestas por semana".
+3. **Historial visible:** cada automatización tiene un botón de historial existente; el usuario puede ver exactamente qué propuso, qué se aceptó y qué se rechazó.
+
 
 ## Cambios técnicos esperados
 
-- Agregar 4 plantillas al archivo `src/lib/automations/templates.ts` marcadas como `requiresWhatsapp: false`.
-- En `AutomationTemplateGallery.tsx`, renderizar primero una sección **"Funcionan sin WhatsApp"** para tenants que no tienen canal de WhatsApp conectado.
-- Asegurar que las acciones `notify_owner` (in-app + email) y `create_task` funcionen sin depender de WhatsApp en el edge function de ejecución.
-- Agregar un campo `dry_run` en el builder/simulación para que el usuario vea el impacto antes de activar.
+- Agregar 4 plantillas a `src/lib/automations/templates.ts` marcadas como `requiresWhatsapp: false`.
+- En `AutomationTemplateGallery.tsx`, mostrar primero la sección "Funcionan sin WhatsApp" cuando el tenant no tiene canal de WhatsApp conectado.
+- Nueva acción de automatización `propose_task`: en vez de insertar en `tasks`, inserta una propuesta pendiente (se reutiliza `ai_proactive_suggestions`, que ya tiene tenant, entidad, prioridad y estado).
+- Nuevo componente `AiProposalsList` reutilizado en dos lugares: widget de Mi Día y pestaña "Propuestas" en Tareas. Aceptar crea la tarea real; rechazar marca la sugerencia como descartada.
+- Registrar el widget `midia.ai_proposals` en el catálogo de widgets para que se pueda ocultar desde "Personalizar mi vista".
+- La acción `notify_owner` escribe en `notifications` (campana) y, si el usuario tiene el switch de correo activo, encola el email con la plantilla transaccional existente.
+- Agregar en Perfil → Notificaciones los switches de correo por categoría.
 
 ## Qué NO se hará
 
-- No se agregarán widgets, banners, chips ni toasts nuevos en Dashboard, Mi Día, Pipeline, Contactos ni Deals.
-- No se forzará al usuario a conectar WhatsApp para usar estas plantillas.
+- No se agregarán banners, chips ni toasts nuevos en Dashboard, Pipeline, Contactos ni Deals.
+- El único elemento nuevo visible es el bloque "Propuestas de Walix IA" en Mi Día y Tareas, ocultable y que desaparece cuando no hay propuestas.
+- No se crearán tareas automáticamente sin aprobación del usuario.
 - No se enviarán mensajes de WhatsApp por ninguna vía.
 
 ## Métrica de éxito
 
-- Después de activar, el vendedor debería encontrar solo tareas y notificaciones nuevas en los lugares donde ya está acostumbrado a buscarlas, sin notar que "apareció algo nuevo" en la interfaz.
+- El vendedor solo ve un bloque de propuestas cuando la IA tiene algo que sugerir, y todo lo que acepta cae en las listas de tareas que ya usa a diario.
+
