@@ -180,7 +180,7 @@ const CRM_TOOLS = [
     type: "function",
     function: {
       name: "mark_deal_won",
-      description: "Marca una oportunidad como GANADA. Permite fijar la fecha real de cierre (won_date) para que la venta se contabilice en el mes correcto. La fecha nunca puede ser futura; si se omite se usa la fecha y hora actual.",
+      description: "Marca una oportunidad como GANADA o corrige la fecha real de cierre de una que YA está ganada (úsala siempre que el usuario pida cambiar/corregir la fecha de ganado o de cobro de UN deal; no uses bulk_preview para eso). Permite fijar la fecha real de cierre (won_date) para que la venta se contabilice en el mes correcto. La fecha nunca puede ser futura; si se omite se usa la fecha y hora actual.",
       parameters: {
         type: "object",
         properties: {
@@ -450,7 +450,7 @@ const CRM_TOOLS = [
           changes: {
             type: "object",
             description:
-              "Campos a cambiar (no aplica si mode=delete). deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes. contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
+              "Campos a cambiar (no aplica si mode=delete). deals: amount, cost_amount, probability, stage_id, stage_name, owner_id, expected_close_date, deal_type, service_type, payment_status, is_won, is_lost, notes, won_at (fecha real de cierre/cobro, YYYY-MM-DD; nunca futura; al fijarla la oportunidad queda como ganada). contacts: status, owner_id, source, lifecycle, company. tasks: assignee_id, due_at, completed, task_kind, title.",
             additionalProperties: true,
           },
         },

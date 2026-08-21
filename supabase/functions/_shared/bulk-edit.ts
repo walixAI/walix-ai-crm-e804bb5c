@@ -25,7 +25,7 @@ const EDITABLE: Record<BulkEntity, string[]> = {
   deals: [
     "amount", "cost_amount", "probability", "stage_id", "stage_name", "owner_id",
     "expected_close_date", "deal_type", "service_type", "payment_status",
-    "is_won", "is_lost", "notes",
+    "is_won", "is_lost", "notes", "won_at",
   ],
   tasks: ["assignee_id", "due_at", "completed", "task_kind", "title"],
 };
@@ -251,8 +251,19 @@ function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
   const out: Record<string, any> = {};
   const rejected: string[] = [];
   for (const [k, v] of Object.entries(changes ?? {})) {
-    if (allowed.includes(k)) out[k] = v;
-    else rejected.push(k);
+    if (!allowed.includes(k)) { rejected.push(k); continue; }
+    if (k === "won_at" && v) {
+      const raw = String(v);
+      const parsed = new Date(raw.length <= 10 ? `${raw}T23:59:00` : raw);
+      if (isNaN(parsed.getTime())) { rejected.push(k); continue; }
+      const now = new Date();
+      out.won_at = (parsed > now ? now : parsed).toISOString();
+      // Cambiar la fecha de ganado implica que la oportunidad está ganada.
+      out.is_won = true;
+      out.is_lost = false;
+      continue;
+    }
+    out[k] = v;
   }
   return { changes: out, rejected };
 }
