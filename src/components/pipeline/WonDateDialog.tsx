@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CalendarIcon, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,20 +30,34 @@ export function WonDateDialog({ deal, stage, open, onOpenChange }: Props) {
     if (open) { setUseCustom(false); setDate(undefined); }
   }, [open]);
 
+  // Fecha elegida (fin del día) sin pasar del momento actual.
+  const picked = (() => {
+    if (!useCustom || !date) return null;
+    const d = new Date(date);
+    d.setHours(23, 59, 0, 0);
+    const now = new Date();
+    return d > now ? now : d;
+  })();
+  const createdAt = deal?.createdAt ? new Date(deal.createdAt) : null;
+  const beforeCreation = !!(picked && createdAt && picked < createdAt);
+
   async function confirm() {
     if (!deal || !stage) return;
     let wonAt: Date | null = null;
     if (useCustom) {
       if (!date) return toast.error("Elige la fecha de cierre");
-      // Conservamos hora de fin de día para la fecha elegida, sin pasar del ahora.
-      const picked = new Date(date);
-      picked.setHours(23, 59, 0, 0);
-      const now = new Date();
-      wonAt = picked > now ? now : picked;
+      wonAt = picked;
     }
     try {
-      await markWon.mutateAsync({ dealId: deal.id, stage, wonAt });
+      const res = await markWon.mutateAsync({ dealId: deal.id, stage, wonAt });
       toast.success(`🎉 ¡Ganaste ${deal.name}!`);
+      if (res?.createdAdjusted) {
+        toast.warning(
+          `La fecha de cierre era anterior a la creación: ajustamos la fecha de creación a ${
+            format(new Date(res.createdAdjusted), "dd/MM/yyyy", { locale: es })
+          }.`,
+        );
+      }
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo marcar como ganada");
@@ -96,6 +110,9 @@ export function WonDateDialog({ deal, stage, open, onOpenChange }: Props) {
                     selected={date}
                     onSelect={setDate}
                     disabled={(d) => d > new Date()}
+                    fromYear={2000}
+                    toDate={new Date()}
+                    captionLayout="dropdown-buttons"
                     initialFocus
                     locale={es}
                     className={cn("p-3 pointer-events-auto")}
@@ -105,6 +122,18 @@ export function WonDateDialog({ deal, stage, open, onOpenChange }: Props) {
               <Button variant="ghost" size="sm" onClick={() => { setUseCustom(false); setDate(undefined); }}>
                 Usar hoy
               </Button>
+            </div>
+          )}
+
+          {beforeCreation && createdAt && (
+            <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+              <span>
+                La fecha elegida es anterior a la creación de la oportunidad
+                ({format(createdAt, "dd/MM/yyyy", { locale: es })}). Al confirmar, la fecha de
+                creación se moverá a {format(new Date(picked!.getTime() - 86400000), "dd/MM/yyyy", { locale: es })}
+                {" "}(un día antes del cierre).
+              </span>
             </div>
           )}
         </div>
