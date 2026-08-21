@@ -131,17 +131,19 @@ Header                       Menú lateral            Mi Día
 - Agregar 4 plantillas a `src/lib/automations/templates.ts` marcadas como `requiresWhatsapp: false`.
 - En `AutomationTemplateGallery.tsx`, mostrar primero la sección "Funcionan sin WhatsApp" cuando el tenant no tiene canal de WhatsApp conectado.
 - Nueva acción de automatización `propose_task`: en vez de insertar en `tasks`, inserta una propuesta pendiente (se reutiliza `ai_proactive_suggestions`, que ya tiene tenant, entidad, prioridad y estado).
-- Nuevo componente `AiProposalsList` reutilizado en dos lugares: widget de Mi Día y pestaña "Propuestas" en Tareas. Aceptar crea la tarea real; rechazar marca la sugerencia como descartada.
+- Nuevo componente colapsable `AiProposalsPanel` (basado en Collapsible de shadcn) reutilizado en el widget de Mi Día y en la pestaña "Propuestas" de Tareas. Aceptar crea la tarea real; rechazar marca la sugerencia como descartada.
+- Hook `usePendingProposalsCount` que alimenta el badge del menú lateral (`Sidebar` y `BottomNav`) y el estado "nuevas" de la barra colapsada. El estado abierto/cerrado se guarda en preferencias del usuario.
 - Registrar el widget `midia.ai_proposals` en el catálogo de widgets para que se pueda ocultar desde "Personalizar mi vista".
-- La acción `notify_owner` escribe en `notifications` (campana) y, si el usuario tiene el switch de correo activo, encola el email con la plantilla transaccional existente.
+- La acción `notify_owner` escribe en `notifications` (campana) con deep link a `/mi-dia?proposals=open` y, si el usuario tiene el switch de correo activo, encola el email con la plantilla transaccional existente.
 - Agregar en Perfil → Notificaciones los switches de correo por categoría.
 
 ## Qué NO se hará
 
-- No se agregarán banners, chips ni toasts nuevos en Dashboard, Pipeline, Contactos ni Deals.
-- El único elemento nuevo visible es el bloque "Propuestas de Walix IA" en Mi Día y Tareas, ocultable y que desaparece cuando no hay propuestas.
+- No se agregarán banners, modales ni toasts intrusivos en Dashboard, Pipeline, Contactos ni Deals.
+- Los únicos elementos nuevos son la barra colapsable "Propuestas de Walix IA" y los badges numéricos en el menú; ambos desaparecen cuando no hay propuestas pendientes.
 - No se crearán tareas automáticamente sin aprobación del usuario.
 - No se enviarán mensajes de WhatsApp por ninguna vía.
+
 
 ## Métrica de éxito
 
