@@ -122,6 +122,7 @@ export default function ProfilePage() {
           </Field>
         </Grid>
         <div className="space-y-2 mt-3">
+          <p className="text-xs text-muted-foreground">Avisos dentro de Walix (campana)</p>
           {[
             ["task_reminders", "Recordatorios de tareas"],
             ["deal_updates", "Cambios en mis oportunidades"],
@@ -131,6 +132,19 @@ export default function ProfilePage() {
             <div key={k} className="flex items-center justify-between border border-border rounded-lg px-3 py-2">
               <span className="text-sm">{label}</span>
               <Switch checked={np[k] !== false} onCheckedChange={(v) => togglePref(k, v)} />
+            </div>
+          ))}
+
+          <p className="text-xs text-muted-foreground pt-3">
+            Además, recibir por correo electrónico (desactivado por defecto)
+          </p>
+          {[
+            ["email_ai", "Propuestas y avisos de Walix IA"],
+            ["email_operational", "Avisos de automatizaciones y operación"],
+          ].map(([k, label]) => (
+            <div key={k} className="flex items-center justify-between border border-border rounded-lg px-3 py-2">
+              <span className="text-sm">{label}</span>
+              <Switch checked={np[k] === true} onCheckedChange={(v) => togglePref(k, v)} />
             </div>
           ))}
         </div>
