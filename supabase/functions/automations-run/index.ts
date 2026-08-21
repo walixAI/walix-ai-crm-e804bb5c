@@ -396,11 +396,16 @@ async function notify(
     const prefs = (profile?.notification_prefs ?? {}) as Record<string, any>;
     const emailOn = opts.category === "ai" ? prefs.email_ai === true : prefs.email_operational === true;
     if (!emailOn || !profile?.email) return;
-    await admin.functions.invoke("send-email", {
+    await admin.functions.invoke("send-transactional-email", {
       body: {
+        templateName: "walix-notification",
         to: profile.email,
-        subject: opts.title,
-        html: `<p>Hola ${profile.full_name ?? ""},</p><p>${opts.body}</p><p>Ábrelo en Walix: <a href="https://s1.walix.app${opts.link ?? "/mi-dia"}">ver en Walix</a></p>`,
+        data: {
+          titulo: opts.title,
+          mensaje: opts.body,
+          ctaUrl: `https://s1.walix.app${opts.link ?? "/mi-dia"}`,
+          ctaLabel: "Abrir en Walix",
+        },
       },
     });
   } catch (e) {
