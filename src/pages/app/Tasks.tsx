@@ -9,6 +9,8 @@ import { useTasks, useToggleTask, useDeleteTask, type TaskRow, type TaskView } f
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
+import { AiProposalsPanel } from "@/components/walix/AiProposalsPanel";
+import { usePendingProposalsCount } from "@/lib/queries/aiProposals";
 
 const VIEWS: { id: TaskView; label: string }[] = [
   { id: "today", label: "Hoy" },
