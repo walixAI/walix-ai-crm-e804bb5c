@@ -39,8 +39,11 @@ function statusBadge(t: TaskRow): { label: string; cls: string } {
 
 export default function TasksPage() {
   const [params, setParams] = useSearchParams();
-  const initial = (params.get("view") as TaskView) || "today";
-  const [view, setView] = useState<TaskView>(VIEWS.some(v => v.id === initial) ? initial : "today");
+  const initial = params.get("view") || "today";
+  const [tab, setTab] = useState<string>(
+    initial === "proposals" || VIEWS.some(v => v.id === initial) ? initial : "today",
+  );
+  const view: TaskView = (tab === "proposals" ? "today" : tab) as TaskView;
   const { isTenantAdmin, isManager, isPlatform } = usePermissions();
   const canSeeAll = isTenantAdmin || isManager || isPlatform;
   const [mineOnly, setMineOnly] = useState(!canSeeAll);
@@ -49,11 +52,12 @@ export default function TasksPage() {
   const { data: tasks = [], isLoading } = useTasks({ view, mineOnly: canSeeAll ? mineOnly : true });
   const toggle = useToggleTask();
   const remove = useDeleteTask();
+  const { total: proposalsCount } = usePendingProposalsCount();
 
   const counts = useMemo(() => ({}), []);
 
   const setViewAndUrl = (v: string) => {
-    setView(v as TaskView);
+    setTab(v);
     setParams({ view: v });
   };
 
