@@ -54,29 +54,60 @@ Campana (siempre)            Correo (opt-in por usuario)
 └────────────────────┘       └────────────────────────────┘
 ```
 
-### 2. Bandeja de propuestas de IA en Mi Día y Tareas
+### 2. Bandeja de propuestas de IA, colapsable, en Mi Día y Tareas
 
 - Las tareas que genera la automatización **no se crean directamente**. Entran como **propuestas** que el usuario acepta o rechaza.
-- Se muestran en un bloque llamado **"Propuestas de Walix IA"**, ubicado:
-  - En **Mi Día**, como un widget más de la lista de widgets configurables (se puede ocultar desde "Personalizar mi vista").
-  - En **Tareas**, como una **pestaña adicional** junto a las pestañas actuales, con un contador: `Propuestas (3)`.
-- Cada propuesta es una fila compacta con dos botones. Aceptar crea la tarea real en el lugar de siempre; rechazar la descarta y la IA no vuelve a proponerla para ese contacto en el ciclo actual.
+- El bloque **"Propuestas de Walix IA"** es **colapsable**: por defecto llega **colapsado** a una sola línea, y el usuario lo despliega con un clic. El estado (abierto/cerrado) se recuerda por usuario.
+- Ubicaciones:
+  - En **Mi Día**, como un widget más de la lista de widgets configurables (ocultable desde "Personalizar mi vista").
+  - En **Tareas**, como una **pestaña adicional** con contador: `Propuestas (3)`.
+
+Colapsado (estado por defecto):
 
 ```text
-┌─ Propuestas de Walix IA ──────────────── 3 ─┐
-│ 🔧 Mantenimiento de Janice Jaris            │
-│    Vence en 15 días · Norma Heredia         │
-│                        [Aceptar] [Rechazar] │
-├─────────────────────────────────────────────┤
-│ ⏱ Oportunidad sin movimiento — Leah         │
-│    5 días sin actividad                     │
-│                        [Aceptar] [Rechazar] │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│ ✨ Propuestas de Walix IA   ● 3 nuevas      Ver  ▼  │
+└──────────────────────────────────────────────────────┘
 ```
 
-- Al aceptar: la tarea aparece en la lista de tareas normal, con su fecha y responsable. El usuario ve el flujo que ya conoce.
-- Al rechazar: desaparece del bloque, se registra el rechazo y la automatización aprende a no repetirla.
+Desplegado:
+
+```text
+┌─ ✨ Propuestas de Walix IA ───────────── 3 ─── ▲ ─┐
+│ 🔧 Mantenimiento de Janice Jaris                  │
+│    Vence en 15 días · Norma Heredia               │
+│                              [Aceptar] [Rechazar] │
+├───────────────────────────────────────────────────┤
+│ ⏱ Oportunidad sin movimiento — Leah               │
+│    5 días sin actividad                           │
+│                              [Aceptar] [Rechazar] │
+└───────────────────────────────────────────────────┘
+```
+
+- Al aceptar: la tarea aparece en la lista de tareas normal, con su fecha y responsable. Flujo que ya conoce.
+- Al rechazar: desaparece del bloque y la automatización aprende a no repetirla.
 - Si no hay propuestas, el bloque no se muestra (cero ruido visual).
+
+### 3. Señales que invitan a desplegar
+
+Cuando se generan propuestas nuevas, el usuario recibe tres avisos de intensidad creciente, todos discretos:
+
+1. **Campana del header (siempre):** el ícono de la campana muestra un punto rojo con el conteo. Al abrirla, la notificación dice "Walix IA tiene 3 propuestas para ti" y al hacer clic lleva a Mi Día con el bloque ya desplegado y resaltado un instante.
+2. **Barra colapsada con estado "nuevas":** mientras haya propuestas sin revisar, la barra colapsada muestra un punto pulsante y el texto "3 nuevas". Cuando el usuario la despliega una vez, el punto desaparece y solo queda el contador.
+3. **Contador en la navegación:** el ítem **Mi Día** del menú lateral (y **Tareas**) muestra un badge numérico pequeño con las propuestas pendientes, igual que un contador de mensajes sin leer.
+
+```text
+Header                       Menú lateral            Mi Día
+┌────────────── 🔔③ ─┐       ┌──────────────┐        ┌─────────────────────────┐
+│ walix              │       │ Inicio       │        │ ✨ Propuestas  ●3  Ver ▼│
+└────────────────────┘       │ Mi Día    ③  │        └─────────────────────────┘
+                             │ Tareas    ③  │
+                             └──────────────┘
+```
+
+- Ninguna señal bloquea, interrumpe ni abre modales. Si el usuario las ignora, nada cambia en su flujo diario.
+- El badge se limpia solo cuando el usuario despliega el bloque y revisa las propuestas.
+
 
 ### Resumen por canal
 
@@ -100,17 +131,19 @@ Campana (siempre)            Correo (opt-in por usuario)
 - Agregar 4 plantillas a `src/lib/automations/templates.ts` marcadas como `requiresWhatsapp: false`.
 - En `AutomationTemplateGallery.tsx`, mostrar primero la sección "Funcionan sin WhatsApp" cuando el tenant no tiene canal de WhatsApp conectado.
 - Nueva acción de automatización `propose_task`: en vez de insertar en `tasks`, inserta una propuesta pendiente (se reutiliza `ai_proactive_suggestions`, que ya tiene tenant, entidad, prioridad y estado).
-- Nuevo componente `AiProposalsList` reutilizado en dos lugares: widget de Mi Día y pestaña "Propuestas" en Tareas. Aceptar crea la tarea real; rechazar marca la sugerencia como descartada.
+- Nuevo componente colapsable `AiProposalsPanel` (basado en Collapsible de shadcn) reutilizado en el widget de Mi Día y en la pestaña "Propuestas" de Tareas. Aceptar crea la tarea real; rechazar marca la sugerencia como descartada.
+- Hook `usePendingProposalsCount` que alimenta el badge del menú lateral (`Sidebar` y `BottomNav`) y el estado "nuevas" de la barra colapsada. El estado abierto/cerrado se guarda en preferencias del usuario.
 - Registrar el widget `midia.ai_proposals` en el catálogo de widgets para que se pueda ocultar desde "Personalizar mi vista".
-- La acción `notify_owner` escribe en `notifications` (campana) y, si el usuario tiene el switch de correo activo, encola el email con la plantilla transaccional existente.
+- La acción `notify_owner` escribe en `notifications` (campana) con deep link a `/mi-dia?proposals=open` y, si el usuario tiene el switch de correo activo, encola el email con la plantilla transaccional existente.
 - Agregar en Perfil → Notificaciones los switches de correo por categoría.
 
 ## Qué NO se hará
 
-- No se agregarán banners, chips ni toasts nuevos en Dashboard, Pipeline, Contactos ni Deals.
-- El único elemento nuevo visible es el bloque "Propuestas de Walix IA" en Mi Día y Tareas, ocultable y que desaparece cuando no hay propuestas.
+- No se agregarán banners, modales ni toasts intrusivos en Dashboard, Pipeline, Contactos ni Deals.
+- Los únicos elementos nuevos son la barra colapsable "Propuestas de Walix IA" y los badges numéricos en el menú; ambos desaparecen cuando no hay propuestas pendientes.
 - No se crearán tareas automáticamente sin aprobación del usuario.
 - No se enviarán mensajes de WhatsApp por ninguna vía.
+
 
 ## Métrica de éxito
 
