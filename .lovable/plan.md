@@ -97,17 +97,22 @@ Campana (siempre)            Correo (opt-in por usuario)
 
 ## Cambios técnicos esperados
 
-- Agregar 4 plantillas al archivo `src/lib/automations/templates.ts` marcadas como `requiresWhatsapp: false`.
-- En `AutomationTemplateGallery.tsx`, renderizar primero una sección **"Funcionan sin WhatsApp"** para tenants que no tienen canal de WhatsApp conectado.
-- Asegurar que las acciones `notify_owner` (in-app + email) y `create_task` funcionen sin depender de WhatsApp en el edge function de ejecución.
-- Agregar un campo `dry_run` en el builder/simulación para que el usuario vea el impacto antes de activar.
+- Agregar 4 plantillas a `src/lib/automations/templates.ts` marcadas como `requiresWhatsapp: false`.
+- En `AutomationTemplateGallery.tsx`, mostrar primero la sección "Funcionan sin WhatsApp" cuando el tenant no tiene canal de WhatsApp conectado.
+- Nueva acción de automatización `propose_task`: en vez de insertar en `tasks`, inserta una propuesta pendiente (se reutiliza `ai_proactive_suggestions`, que ya tiene tenant, entidad, prioridad y estado).
+- Nuevo componente `AiProposalsList` reutilizado en dos lugares: widget de Mi Día y pestaña "Propuestas" en Tareas. Aceptar crea la tarea real; rechazar marca la sugerencia como descartada.
+- Registrar el widget `midia.ai_proposals` en el catálogo de widgets para que se pueda ocultar desde "Personalizar mi vista".
+- La acción `notify_owner` escribe en `notifications` (campana) y, si el usuario tiene el switch de correo activo, encola el email con la plantilla transaccional existente.
+- Agregar en Perfil → Notificaciones los switches de correo por categoría.
 
 ## Qué NO se hará
 
-- No se agregarán widgets, banners, chips ni toasts nuevos en Dashboard, Mi Día, Pipeline, Contactos ni Deals.
-- No se forzará al usuario a conectar WhatsApp para usar estas plantillas.
+- No se agregarán banners, chips ni toasts nuevos en Dashboard, Pipeline, Contactos ni Deals.
+- El único elemento nuevo visible es el bloque "Propuestas de Walix IA" en Mi Día y Tareas, ocultable y que desaparece cuando no hay propuestas.
+- No se crearán tareas automáticamente sin aprobación del usuario.
 - No se enviarán mensajes de WhatsApp por ninguna vía.
 
 ## Métrica de éxito
 
-- Después de activar, el vendedor debería encontrar solo tareas y notificaciones nuevas en los lugares donde ya está acostumbrado a buscarlas, sin notar que "apareció algo nuevo" en la interfaz.
+- El vendedor solo ve un bloque de propuestas cuando la IA tiene algo que sugerir, y todo lo que acepta cae en las listas de tareas que ya usa a diario.
+
