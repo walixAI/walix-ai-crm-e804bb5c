@@ -299,26 +299,61 @@ Deno.serve(async (req) => {
 async function executeActions(admin: any, automation: any, entity: any) {
   const actions = automation.actions || [];
   const executed: any[] = [];
+  const entityType = automation.trigger_type?.startsWith("contact") ? "contact" : "deal";
+
   for (const action of actions) {
     try {
       if (action.type === "create_task") {
         await admin.from("tasks").insert({
           tenant_id: entity.tenant_id,
           title: action.config?.title || "Tarea automática",
-          description: action.config?.description || "",
-          assigned_to: entity.owner_id,
-          status: "pending",
-          deal_id: entity.id,
-          created_by: automation.created_by,
+          assignee_id: entity.owner_id,
+          completed: false,
+          task_kind: "seguimiento",
+          due_at: new Date().toISOString(),
+          [entityType === "contact" ? "contact_id" : "deal_id"]: entity.id,
+        });
+      } else if (action.type === "propose_task") {
+        // No crea la tarea: propone. El usuario acepta o rechaza en Mi Día / Tareas.
+        const title = action.config?.title || automation.name;
+        const expiresDays = Number(action.config?.expires_days || 7);
+        const expires = new Date(Date.now() + expiresDays * 86400000).toISOString();
+        const { error } = await admin.from("ai_proactive_suggestions").insert({
+          tenant_id: entity.tenant_id,
+          target_user_id: entity.owner_id,
+          entity_type: entityType,
+          entity_id: entity.id,
+          action_type: "propose_task",
+          suggestion_text: title,
+          action_payload: {
+            title,
+            subtitle: action.config?.subtitle || automation.name,
+            icon: action.config?.icon || "clock",
+            task_kind: action.config?.task_kind || "seguimiento",
+            due_at: action.config?.due_at || new Date().toISOString(),
+            assignee_id: entity.owner_id,
+            [entityType === "contact" ? "contact_id" : "deal_id"]: entity.id,
+          },
+          priority: Number(action.config?.priority || 0),
+          expires_at: expires,
+        });
+        if (error) throw error;
+        await notify(admin, {
+          tenantId: entity.tenant_id,
+          userId: entity.owner_id,
+          title: "Walix IA tiene una propuesta",
+          body: title,
+          category: "ai",
+          link: "/mi-dia?proposals=open",
         });
       } else if (action.type === "notify_owner") {
-        await admin.from("notifications").insert({
-          tenant_id: entity.tenant_id,
-          user_id: entity.owner_id,
+        await notify(admin, {
+          tenantId: entity.tenant_id,
+          userId: entity.owner_id,
           title: automation.name,
-          message: action.config?.message || "",
+          body: action.config?.message || "",
           category: "operational",
-          severity: "info",
+          link: action.config?.link || null,
         });
       }
       executed.push(action);
@@ -333,4 +368,42 @@ async function executeActions(admin: any, automation: any, entity: any) {
     actions_executed: executed,
     status: executed.length > 0 ? "success" : "partial",
   });
+}
+
+/** Notificación en la campana + email opcional según preferencias del perfil. */
+async function notify(
+  admin: any,
+  opts: { tenantId: string; userId: string | null; title: string; body: string; category: string; link?: string | null },
+) {
+  if (!opts.userId) return;
+  await admin.from("notifications").insert({
+    tenant_id: opts.tenantId,
+    user_id: opts.userId,
+    type: "automation",
+    title: opts.title,
+    body: opts.body,
+    category: opts.category,
+    severity: "info",
+    link: opts.link ?? null,
+  });
+
+  try {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("email, full_name, notification_prefs")
+      .eq("id", opts.userId)
+      .maybeSingle();
+    const prefs = (profile?.notification_prefs ?? {}) as Record<string, any>;
+    const emailOn = opts.category === "ai" ? prefs.email_ai === true : prefs.email_operational === true;
+    if (!emailOn || !profile?.email) return;
+    await admin.functions.invoke("send-email", {
+      body: {
+        to: profile.email,
+        subject: opts.title,
+        html: `<p>Hola ${profile.full_name ?? ""},</p><p>${opts.body}</p><p>Ábrelo en Walix: <a href="https://s1.walix.app${opts.link ?? "/mi-dia"}">ver en Walix</a></p>`,
+      },
+    });
+  } catch (e) {
+    console.error("notify email error", e);
+  }
 }
