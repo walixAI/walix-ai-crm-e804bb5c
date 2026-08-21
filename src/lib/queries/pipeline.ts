@@ -511,29 +511,42 @@ export function useMarkDealWon() {
     mutationFn: async (args: { dealId: string; stage: PipelineStage; wonAt?: Date | null }) => {
       const now = new Date();
       const when = args.wonAt && args.wonAt < now ? args.wonAt : now;
-      const { error } = await supabase
-        .from("deals")
-        .update({
-          stage_id: args.stage.id,
-          stage_name: args.stage.name,
-          is_won: true,
-          is_lost: false,
-          probability: 100,
-          won_at: when.toISOString(),
-        } as any)
-        .eq("id", args.dealId);
+
+      // Si la fecha de cierre es anterior a la creación, recorremos la fecha de
+      // creación a un día antes para que la oportunidad no quede "ganada antes de existir".
+      let createdAdjusted: string | null = null;
+      const { data: current } = await supabase
+        .from("deals").select("created_at").eq("id", args.dealId).maybeSingle();
+      const patch: Record<string, any> = {
+        stage_id: args.stage.id,
+        stage_name: args.stage.name,
+        is_won: true,
+        is_lost: false,
+        probability: 100,
+        won_at: when.toISOString(),
+      };
+      if (current?.created_at && new Date(current.created_at) > when) {
+        const newCreated = new Date(when.getTime() - 24 * 60 * 60 * 1000);
+        patch.created_at = newCreated.toISOString();
+        createdAdjusted = newCreated.toISOString();
+      }
+
+      const { error } = await supabase.from("deals").update(patch as any).eq("id", args.dealId);
       if (error) throw error;
       void aiMemory.logEvent("deal", args.dealId, "deal_stage_changed", {
         stage_id: args.stage.id,
         stage_name: args.stage.name,
         is_won: true,
         won_at: when.toISOString(),
+        created_at_adjusted: createdAdjusted,
       });
       try {
         const dates = await fetchNextServiceDates(args.dealId);
         if (dates.length > 0) toast.success(`Siguiente servicio programado: ${formatServiceMonths(dates)}`);
       } catch { /* noop */ }
+      return { createdAdjusted };
     },
+
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
       qc.invalidateQueries({ queryKey: ["pipeline-deal", v.dealId] });

@@ -180,7 +180,7 @@ const CRM_TOOLS = [
     type: "function",
     function: {
       name: "mark_deal_won",
-      description: "Marca una oportunidad como GANADA o corrige la fecha real de cierre de una que YA está ganada (úsala siempre que el usuario pida cambiar/corregir la fecha de ganado o de cobro de UN deal; no uses bulk_preview para eso). Permite fijar la fecha real de cierre (won_date) para que la venta se contabilice en el mes correcto. La fecha nunca puede ser futura; si se omite se usa la fecha y hora actual.",
+      description: "Marca una oportunidad como GANADA o corrige la fecha real de cierre de una que YA está ganada (úsala siempre que el usuario pida cambiar/corregir la fecha de ganado o de cobro de UN deal; no uses bulk_preview para eso). Permite fijar la fecha real de cierre (won_date) para que la venta se contabilice en el mes correcto. La fecha puede ser de cualquier día pasado (incluso meses atrás); nunca futura. Si se omite se usa la fecha y hora actual. Si la fecha es anterior a la creación del deal, la fecha de creación se recorre a un día antes y debes avisarle al usuario.",
       parameters: {
         type: "object",
         properties: {
@@ -733,16 +733,32 @@ async function executeTool(
           is_won: true, is_lost: false, probability: 100, won_at: wonAt.toISOString(),
         };
         if (wonStage?.id) { patch.stage_id = wonStage.id; patch.stage_name = wonStage.name; }
+        // La fecha puede ser del pasado. Si es anterior a la creación, movemos la
+        // fecha de creación a un día antes y avisamos al usuario.
+        let createdAdjusted: string | null = null;
+        const { data: cur } = await sb.from("deals")
+          .select("created_at").eq("id", args.deal_id).maybeSingle();
+        if (cur?.created_at && new Date(cur.created_at) > wonAt) {
+          createdAdjusted = new Date(wonAt.getTime() - 86400000).toISOString();
+          patch.created_at = createdAdjusted;
+        }
         const { data, error } = await sb.from("deals")
           .update(patch).eq("id", args.deal_id)
-          .select("id, name, amount, stage_name, won_at").single();
+          .select("id, name, amount, stage_name, won_at, created_at").single();
         if (error) return { ok: false, error: error.message };
         await sb.from("ai_memory_events").insert({
           tenant_id: tenantId, entity_type: "deal", entity_id: args.deal_id,
           event_type: "deal_won", event_data: { won_at: wonAt.toISOString(), by: "copilot" },
           actor_id: userId,
         });
-        return { ok: true, deal: data };
+        return {
+          ok: true,
+          deal: data,
+          created_at_adjusted: createdAdjusted,
+          warning: createdAdjusted
+            ? `La fecha de cierre era anterior a la creación de la oportunidad; se ajustó la fecha de creación a ${createdAdjusted.slice(0, 10)} (un día antes). Avísale al usuario.`
+            : undefined,
+        };
       }
 
       case "add_note": {

@@ -258,6 +258,7 @@ function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
       if (isNaN(parsed.getTime())) { rejected.push(k); continue; }
       const now = new Date();
       out.won_at = (parsed > now ? now : parsed).toISOString();
+      // La fecha puede ser del pasado; si queda antes de la creación se ajusta en bulkApply.
       // Cambiar la fecha de ganado implica que la oportunidad está ganada.
       out.is_won = true;
       out.is_lost = false;
@@ -455,6 +456,20 @@ export async function bulkApply(
   // Verificación real en base de datos antes de confirmar al usuario.
   const applied = updated?.length ?? 0;
 
+  // Si la fecha de ganado quedó antes de la creación, movemos la creación un día antes.
+  let createdAdjusted = 0;
+  if (entity === "deals" && op.changes?.won_at) {
+    const wonAt = new Date(op.changes.won_at);
+    const { data: bad } = await sb.from("deals")
+      .select("id").in("id", ids).eq("tenant_id", tenantId).gt("created_at", wonAt.toISOString());
+    if (bad?.length) {
+      const newCreated = new Date(wonAt.getTime() - 86400000).toISOString();
+      await sb.from("deals").update({ created_at: newCreated })
+        .in("id", bad.map((r: any) => r.id)).eq("tenant_id", tenantId);
+      createdAdjusted = bad.length;
+    }
+  }
+
   await sb.from("bulk_edit_operations").update({
     status: "applied",
     applied_count: applied,
@@ -467,7 +482,11 @@ export async function bulkApply(
     step: "applied",
     operation_id: opId,
     applied_count: applied,
+    created_at_adjusted: createdAdjusted,
     summary: op.summary,
+    warning: createdAdjusted
+      ? `En ${createdAdjusted} oportunidad(es) la fecha de ganado era anterior a la de creación; se recorrió la fecha de creación a un día antes. Avísale al usuario.`
+      : undefined,
     next: `Listo. Avisa que puede revertirse con "revertir cambio ${opId.slice(0, 8)}" (bulk_undo).`,
   };
 }
