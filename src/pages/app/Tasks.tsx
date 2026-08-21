@@ -84,12 +84,29 @@ export default function TasksPage() {
         </div>
       </header>
 
-      <Tabs value={view} onValueChange={setViewAndUrl}>
-        <TabsList className="bg-card border border-border">
+      <Tabs value={tab} onValueChange={setViewAndUrl}>
+        <TabsList className="bg-card border border-border flex-wrap h-auto">
           {VIEWS.map((v) => (
             <TabsTrigger key={v.id} value={v.id}>{v.label}</TabsTrigger>
           ))}
+          <TabsTrigger value="proposals" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Propuestas
+            {proposalsCount > 0 && (
+              <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                {proposalsCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="proposals" className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Walix IA detectó estos pendientes. Acepta para crear la tarea real o rechaza para descartarla.
+          </p>
+          <AiProposalsPanel variant="list" />
+        </TabsContent>
+
 
         {VIEWS.map((v) => (
           <TabsContent key={v.id} value={v.id} className="mt-4">
