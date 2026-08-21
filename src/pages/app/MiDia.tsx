@@ -171,6 +171,10 @@ export default function MiDia() {
             </div>
             </Widget>
 
+            <Widget k="midia.ai_proposals">
+              <AiProposalsPanel />
+            </Widget>
+
             <Widget k="midia.detail_expanded">
             <div ref={detailRef} className="scroll-mt-28">
               {expanded === "runrate" && <RunRateCard />}
