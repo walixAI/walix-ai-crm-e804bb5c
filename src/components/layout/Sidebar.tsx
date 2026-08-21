@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Logo } from "@/components/walix/Logo";
 import { WBadge } from "@/components/walix/Badge";
 import { useAiInboxCount } from "@/pages/app/AiInbox";
+import { usePendingProposalsCount } from "@/lib/queries/aiProposals";
 import { useState } from "react";
 
 export function Sidebar() {
