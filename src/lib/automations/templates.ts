@@ -12,6 +12,8 @@ export interface AutomationTemplate {
   enabledByDefault: boolean;
   isDraft: boolean;
   recommended?: boolean;
+  /** true = la plantilla envía mensajes de WhatsApp y requiere canal conectado. */
+  requiresWhatsapp?: boolean;
 }
 
 export const TEMPLATES: AutomationTemplate[] = [
@@ -30,6 +32,7 @@ export const TEMPLATES: AutomationTemplate[] = [
   },
   {
     key: "auto_assign_leads",
+    requiresWhatsapp: true,
     name: "Asignación automática de leads",
     description: "Cuando llega un lead nuevo por WhatsApp, asígnalo al vendedor con menos leads activos.",
     icon: "message-circle",
@@ -42,6 +45,7 @@ export const TEMPLATES: AutomationTemplate[] = [
   },
   {
     key: "welcome_message",
+    requiresWhatsapp: true,
     name: "Mensaje de bienvenida",
     description: "Envía un mensaje cálido por WhatsApp en cuanto se registra un contacto nuevo.",
     icon: "user-plus",
@@ -66,6 +70,7 @@ export const TEMPLATES: AutomationTemplate[] = [
   },
   {
     key: "celebrate_won",
+    requiresWhatsapp: true,
     name: "Celebrar al ganar",
     description: "Al cerrar un deal en Ganado, agradece al cliente por WhatsApp y crea una tarea de onboarding.",
     icon: "trophy",
@@ -108,6 +113,7 @@ export const TEMPLATES: AutomationTemplate[] = [
   },
   {
     key: "reengage_cold_contact",
+    requiresWhatsapp: true,
     name: "Reactivar cliente frío",
     description: "Si un contacto lleva 14 días sin responder, envía una plantilla de re-engagement.",
     icon: "messages-square",
@@ -118,6 +124,61 @@ export const TEMPLATES: AutomationTemplate[] = [
     enabledByDefault: false,
     isDraft: true,
     recommended: true,
+  },
+  // ---- Funcionan sin WhatsApp: proponen tareas que el usuario acepta o rechaza ----
+  {
+    key: "propose_maintenance_visit",
+    name: "Proponer visita de mantenimiento",
+    description: "15 días antes de una recurrencia de servicio, Walix IA propone la tarea de agendar la visita.",
+    icon: "calendar-clock",
+    triggerType: "recurrence_due",
+    triggerConfig: { days: 15 },
+    conditions: [],
+    actions: [{ type: "propose_task", config: { title: "Agendar mantenimiento del cliente", subtitle: "Recurrencia próxima a vencer", icon: "wrench", task_kind: "servicio", priority: 2 } }],
+    enabledByDefault: false,
+    isDraft: false,
+    recommended: true,
+    requiresWhatsapp: false,
+  },
+  {
+    key: "propose_stalled_deal_call",
+    name: "Proponer llamada a deal estancado",
+    description: "Si una oportunidad lleva 7 días sin movimiento, Walix IA propone llamar al cliente.",
+    icon: "clock",
+    triggerType: "deal_inactive",
+    triggerConfig: { days: 7 },
+    conditions: [],
+    actions: [{ type: "propose_task", config: { title: "Llamar al cliente: la oportunidad está detenida", subtitle: "7 días sin actividad", icon: "phone", task_kind: "llamada", priority: 1 } }],
+    enabledByDefault: false,
+    isDraft: false,
+    recommended: true,
+    requiresWhatsapp: false,
+  },
+  {
+    key: "propose_close_push",
+    name: "Proponer empujón de cierre",
+    description: "3 días antes de la fecha esperada de cierre, propone la tarea de confirmar el cierre.",
+    icon: "calendar-clock",
+    triggerType: "deal_close_date_near",
+    triggerConfig: { days: 3 },
+    conditions: [],
+    actions: [{ type: "propose_task", config: { title: "Confirmar cierre de la oportunidad", subtitle: "La fecha de cierre está cerca", icon: "calendar", task_kind: "seguimiento", priority: 2 } }],
+    enabledByDefault: false,
+    isDraft: false,
+    requiresWhatsapp: false,
+  },
+  {
+    key: "propose_reactivate_contact",
+    name: "Proponer reactivar cliente frío",
+    description: "Si un contacto lleva 30 días sin contacto, propone una llamada de recuperación.",
+    icon: "messages-square",
+    triggerType: "contact_no_reply",
+    triggerConfig: { days: 30 },
+    conditions: [],
+    actions: [{ type: "propose_task", config: { title: "Llamada de recuperación al cliente", subtitle: "30 días sin contacto", icon: "phone", task_kind: "llamada", priority: 0 } }],
+    enabledByDefault: false,
+    isDraft: false,
+    requiresWhatsapp: false,
   },
 ];
 
