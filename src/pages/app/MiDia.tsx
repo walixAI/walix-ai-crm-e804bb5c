@@ -26,6 +26,7 @@ import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
 import { cn } from "@/lib/utils";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
+import { AiProposalsPanel } from "@/components/walix/AiProposalsPanel";
 import { useResolvedLayout } from "@/lib/queries/dashboardLayout";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
