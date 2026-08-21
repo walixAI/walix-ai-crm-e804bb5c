@@ -258,6 +258,7 @@ function sanitizeChanges(entity: BulkEntity, changes: Record<string, any>) {
       if (isNaN(parsed.getTime())) { rejected.push(k); continue; }
       const now = new Date();
       out.won_at = (parsed > now ? now : parsed).toISOString();
+      // La fecha puede ser del pasado; si queda antes de la creación se ajusta en bulkApply.
       // Cambiar la fecha de ganado implica que la oportunidad está ganada.
       out.is_won = true;
       out.is_lost = false;
