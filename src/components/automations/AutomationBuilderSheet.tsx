@@ -355,6 +355,28 @@ export function AutomationBuilderSheet({ open, onOpenChange, editing, prefill, f
                         </div>
                       </div>
                     )}
+                    {a.type === "propose_task" && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          placeholder="Título de la propuesta" value={a.config.title ?? ""}
+                          onChange={(e) => updateAction(i, { config: { ...a.config, title: e.target.value } })}
+                          className="col-span-2"
+                        />
+                        <Input
+                          placeholder="Detalle (por qué se propone)" value={a.config.subtitle ?? ""}
+                          onChange={(e) => updateAction(i, { config: { ...a.config, subtitle: e.target.value } })}
+                          className="col-span-2"
+                        />
+                        <div className="col-span-2 sm:col-span-1">
+                          <label className="text-[11px] text-muted-foreground">Vigencia (días)</label>
+                          <Input type="number" min={1} value={a.config.expires_days ?? 7}
+                            onChange={(e) => updateAction(i, { config: { ...a.config, expires_days: Number(e.target.value) } })} />
+                        </div>
+                        <p className="col-span-2 text-[11px] text-muted-foreground">
+                          No crea la tarea: aparece como propuesta en Mi Día y Tareas para aceptar o rechazar.
+                        </p>
+                      </div>
+                    )}
                     {a.type === "notify_owner" && (
                       <Select value={a.config.channel ?? "in_app"} onValueChange={(v) => updateAction(i, { config: { ...a.config, channel: v } })}>
                         <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
