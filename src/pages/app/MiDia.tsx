@@ -26,6 +26,7 @@ import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
 import { cn } from "@/lib/utils";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
+import { AiProposalsPanel } from "@/components/walix/AiProposalsPanel";
 import { useResolvedLayout } from "@/lib/queries/dashboardLayout";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
@@ -169,6 +170,10 @@ export default function MiDia() {
               <SummaryChip icon={DollarSign} label="Por cobrar" value={totals?.collect ?? 0} sub={totals ? `$${totals.collectAmount.toLocaleString("es-MX")}` : undefined} tone="accent" onClick={() => scrollToColumn("collect")} />
               <SummaryChip icon={FileText} label="Por cotizar" value={totals?.quote ?? 0} tone="warning" onClick={() => scrollToColumn("quote")} />
             </div>
+            </Widget>
+
+            <Widget k="midia.ai_proposals">
+              <AiProposalsPanel />
             </Widget>
 
             <Widget k="midia.detail_expanded">

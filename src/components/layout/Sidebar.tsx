@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Logo } from "@/components/walix/Logo";
 import { WBadge } from "@/components/walix/Badge";
 import { useAiInboxCount } from "@/pages/app/AiInbox";
+import { usePendingProposalsCount } from "@/lib/queries/aiProposals";
 import { useState } from "react";
 
 export function Sidebar() {
@@ -29,14 +30,15 @@ export function Sidebar() {
     roles.includes("super_admin");
   const isOrgOwner = roles.includes("org_owner");
   const aiCount = useAiInboxCount();
+  const { total: proposalsCount } = usePendingProposalsCount();
 
   const items = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/mi-dia", label: "Mi Día", icon: Sun, accent: true },
+    { to: "/mi-dia", label: "Mi Día", icon: Sun, accent: true, badge: proposalsCount > 0 ? proposalsCount : undefined },
     { to: "/ai-inbox", label: "AI Inbox", icon: Sparkles, badge: aiCount > 0 ? aiCount : undefined, accent: true },
     { to: "/contacts", label: "Contactos", icon: Users },
     { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-    { to: "/tasks", label: "Tareas", icon: CheckSquare },
+    { to: "/tasks", label: "Tareas", icon: CheckSquare, badge: proposalsCount > 0 ? proposalsCount : undefined },
     { to: "/gastos", label: "Gastos", icon: Receipt },
     ...(isAdmin ? [{ to: "/equipo", label: "Equipo", icon: Trophy }] : []),
     { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle, badge: 12 },

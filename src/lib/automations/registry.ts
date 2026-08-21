@@ -6,6 +6,7 @@
 import {
   Clock, MessageCircle, UserPlus, ArrowRight, Trophy, XCircle, CalendarClock,
   MessagesSquare, Send, Bell, ListTodo, Users, Tag, ArrowRightCircle,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export type ActionType =
   | "send_whatsapp"
   | "notify_owner"
   | "create_task"
+  | "propose_task"
   | "reassign_contact"
   | "add_tag"
   | "move_deal_stage"
@@ -142,6 +144,7 @@ export const ACTIONS: ActionDef[] = [
   { type: "send_whatsapp", icon: Send, title: "Enviar mensaje de WhatsApp", description: "Envía una plantilla aprobada al contacto." },
   { type: "notify_owner", icon: Bell, title: "Notificar al vendedor", description: "Avisa por la campana y por correo al responsable." },
   { type: "create_task", icon: ListTodo, title: "Crear una tarea", description: "Genera un pendiente con fecha y asignado." },
+  { type: "propose_task", icon: Sparkles, title: "Proponer una tarea (Walix IA)", description: "Sugiere el pendiente en Mi Día y Tareas; el usuario acepta o rechaza." },
   { type: "reassign_contact", icon: Users, title: "Reasignar el contacto", description: "Cambia el responsable o usa round-robin." },
   { type: "add_tag", icon: Tag, title: "Agregar una etiqueta", description: "Etiqueta al contacto para segmentar." },
   { type: "move_deal_stage", icon: ArrowRightCircle, title: "Mover deal de etapa", description: "Avanza el deal al siguiente paso del pipeline." },

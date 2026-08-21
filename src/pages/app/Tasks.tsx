@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckSquare, Plus, Trash2, Calendar, User, Pencil } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Calendar, User, Pencil, Sparkles } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,6 +9,8 @@ import { useTasks, useToggleTask, useDeleteTask, type TaskRow, type TaskView } f
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
+import { AiProposalsPanel } from "@/components/walix/AiProposalsPanel";
+import { usePendingProposalsCount } from "@/lib/queries/aiProposals";
 
 const VIEWS: { id: TaskView; label: string }[] = [
   { id: "today", label: "Hoy" },
@@ -39,8 +41,11 @@ function statusBadge(t: TaskRow): { label: string; cls: string } {
 
 export default function TasksPage() {
   const [params, setParams] = useSearchParams();
-  const initial = (params.get("view") as TaskView) || "today";
-  const [view, setView] = useState<TaskView>(VIEWS.some(v => v.id === initial) ? initial : "today");
+  const initial = params.get("view") || "today";
+  const [tab, setTab] = useState<string>(
+    initial === "proposals" || VIEWS.some(v => v.id === initial) ? initial : "today",
+  );
+  const view: TaskView = (tab === "proposals" ? "today" : tab) as TaskView;
   const { isTenantAdmin, isManager, isPlatform } = usePermissions();
   const canSeeAll = isTenantAdmin || isManager || isPlatform;
   const [mineOnly, setMineOnly] = useState(!canSeeAll);
@@ -49,11 +54,12 @@ export default function TasksPage() {
   const { data: tasks = [], isLoading } = useTasks({ view, mineOnly: canSeeAll ? mineOnly : true });
   const toggle = useToggleTask();
   const remove = useDeleteTask();
+  const { total: proposalsCount } = usePendingProposalsCount();
 
   const counts = useMemo(() => ({}), []);
 
   const setViewAndUrl = (v: string) => {
-    setView(v as TaskView);
+    setTab(v);
     setParams({ view: v });
   };
 
@@ -78,12 +84,29 @@ export default function TasksPage() {
         </div>
       </header>
 
-      <Tabs value={view} onValueChange={setViewAndUrl}>
-        <TabsList className="bg-card border border-border">
+      <Tabs value={tab} onValueChange={setViewAndUrl}>
+        <TabsList className="bg-card border border-border flex-wrap h-auto">
           {VIEWS.map((v) => (
             <TabsTrigger key={v.id} value={v.id}>{v.label}</TabsTrigger>
           ))}
+          <TabsTrigger value="proposals" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Propuestas
+            {proposalsCount > 0 && (
+              <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                {proposalsCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="proposals" className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Walix IA detectó estos pendientes. Acepta para crear la tarea real o rechaza para descartarla.
+          </p>
+          <AiProposalsPanel variant="list" />
+        </TabsContent>
+
 
         {VIEWS.map((v) => (
           <TabsContent key={v.id} value={v.id} className="mt-4">

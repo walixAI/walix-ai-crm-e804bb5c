@@ -42,29 +42,45 @@ export function AutomationTemplateGallery({ open, onOpenChange, onSelect, onScra
           </button>
         </div>
 
-        <div className="mt-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Plantillas listas</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {TEMPLATES.map((t) => {
-              const Icon = iconByName(t.icon);
-              return (
-                <button key={t.key} onClick={() => onSelect(t)} className="text-left rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-card-hover transition-all">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-9 w-9 rounded-lg bg-primary/10 grid place-items-center"><Icon className="h-5 w-5 text-primary" /></div>
-                      <span className="text-sm font-semibold">{t.name}</span>
+        {[
+          {
+            id: "no-wa",
+            title: "Funcionan sin WhatsApp",
+            hint: "Generan propuestas de tarea que el usuario acepta o rechaza en Mi Día y Tareas.",
+            list: TEMPLATES.filter((t) => !t.requiresWhatsapp),
+          },
+          {
+            id: "wa",
+            title: "Requieren WhatsApp conectado",
+            hint: "Envían o reaccionan a mensajes de WhatsApp.",
+            list: TEMPLATES.filter((t) => t.requiresWhatsapp),
+          },
+        ].map((group) => group.list.length > 0 && (
+          <div className="mt-6" key={group.id}>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">{group.title}</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">{group.hint}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {group.list.map((t) => {
+                const Icon = iconByName(t.icon);
+                return (
+                  <button key={t.key} onClick={() => onSelect(t)} className="text-left rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-card-hover transition-all">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-9 w-9 rounded-lg bg-primary/10 grid place-items-center"><Icon className="h-5 w-5 text-primary" /></div>
+                        <span className="text-sm font-semibold">{t.name}</span>
+                      </div>
+                      {t.recommended && <WBadge variant="brand">Recomendada</WBadge>}
                     </div>
-                    {t.recommended && <WBadge variant="brand">Recomendada</WBadge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-3">{t.description}</p>
-                </button>
-              );
-            })}
+                    <p className="text-xs text-muted-foreground line-clamp-3">{t.description}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ))}
       </DialogContent>
     </Dialog>
   );
