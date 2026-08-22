@@ -114,7 +114,7 @@ const CRM_TOOLS = [
     type: "function",
     function: {
       name: "get_contact_context",
-      description: "Lee el contexto de memoria IA de un contacto (resumen, hechos clave, urgencia, sentimiento) y sus últimos 10 eventos.",
+      description: "Lee el contexto de un contacto (resumen, hechos clave, urgencia, sentimiento), sus últimos 10 eventos y TODAS sus oportunidades (abiertas, ganadas y perdidas) con etapa, monto y fecha de ganado.",
       parameters: {
         type: "object",
         properties: { contact_id: { type: "string" } },
