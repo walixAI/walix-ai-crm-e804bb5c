@@ -114,7 +114,7 @@ const CRM_TOOLS = [
     type: "function",
     function: {
       name: "get_contact_context",
-      description: "Lee el contexto de memoria IA de un contacto (resumen, hechos clave, urgencia, sentimiento) y sus últimos 10 eventos.",
+      description: "Lee el contexto de un contacto (resumen, hechos clave, urgencia, sentimiento), sus últimos 10 eventos y TODAS sus oportunidades (abiertas, ganadas y perdidas) con etapa, monto y fecha de ganado.",
       parameters: {
         type: "object",
         properties: { contact_id: { type: "string" } },
@@ -638,7 +638,7 @@ async function executeTool(
 
       case "get_contact_context": {
         const id = String(args.contact_id ?? "");
-        const [{ data: ctx }, { data: events }, { data: contact }] = await Promise.all([
+        const [{ data: ctx }, { data: events }, { data: contact }, { data: dealRows }] = await Promise.all([
           sb.from("ai_entity_context")
             .select("context_summary, key_facts, sentiment, urgency_score, last_interaction")
             .eq("entity_type", "contact").eq("entity_id", id).maybeSingle(),
@@ -649,9 +649,26 @@ async function executeTool(
           sb.from("contacts")
             .select("id, name, last_name, phone, email, status, source, owner_id")
             .eq("id", id).maybeSingle(),
+          // Oportunidades del contacto (abiertas, ganadas y perdidas) para que el
+          // copiloto nunca reporte "sin oportunidades" cuando sí existen.
+          sb.from("deals")
+            .select("id, name, amount, is_won, is_lost, won_at, created_at, expected_close_date, stage_id, pipeline_stages(name)")
+            .eq("contact_id", id)
+            .order("created_at", { ascending: false }).limit(25),
         ]);
-        return { ok: true, contact, context: ctx ?? null, recent_events: events ?? [] };
+        const deals = (dealRows ?? []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          amount: d.amount,
+          status: d.is_won ? "ganada" : d.is_lost ? "perdida" : "abierta",
+          stage: d.pipeline_stages?.name ?? null,
+          won_at: d.won_at,
+          created_at: d.created_at,
+          expected_close_date: d.expected_close_date,
+        }));
+        return { ok: true, contact, context: ctx ?? null, recent_events: events ?? [], deals, deals_count: deals.length };
       }
+
 
       case "create_contact": {
         const { data, error } = await sb.from("contacts").insert({
@@ -1432,6 +1449,9 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "En BORRADOS avisa siempre que se guarda respaldo y que se puede restaurar con `bulk_undo`. Puedes borrar actividades, tareas y oportunidades; nunca borres contactos.",
     "Si la tool responde que solo el dueño del Tenant puede hacerlo, explícalo con amabilidad y no insistas.",
     "Nunca hagas un cambio masivo sin filtros. La vista previa sí puede ir en el mismo turno; la EJECUCIÓN nunca sin el código escrito por el usuario.",
+    "`bulk_preview` NO es un buscador: si no incluyes campos a cambiar devolverá error. Ese error NO significa que no existan registros. Para localizar oportunidades de un contacto usa `search_contacts` y luego `get_contact_context` (devuelve TODAS sus oportunidades con etapa y estatus).",
+    "PROHIBIDO afirmar 'este contacto no tiene oportunidades' sin haber llamado `get_contact_context` y visto deals_count = 0. Si el título que dio el usuario no coincide exacto (p.ej. dijo 'agosto' y la oportunidad dice 'Julio'), muéstrale las oportunidades que sí existen y pregunta cuál es.",
+
 
     "",
     "PREGUNTA ANTES DE ACTUAR (obligatorio):",

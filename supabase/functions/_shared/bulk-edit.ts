@@ -293,7 +293,13 @@ export async function bulkPreview(
     ? { changes: {} as Record<string, any>, rejected: [] as string[] }
     : sanitizeChanges(entity, rawChanges);
   if (!isDelete && !Object.keys(changes).length)
-    return { ok: false, error: `Sin campos válidos que cambiar. Permitidos: ${(EDITABLE[entity] ?? []).join(", ")}` };
+    return {
+      ok: false,
+      error:
+        `bulk_preview no sirve para buscar: requiere al menos un campo a cambiar. Campos permitidos para ${LABEL[entity]}: ${(EDITABLE[entity] ?? []).join(", ")}. ` +
+        `Para localizar registros usa search_contacts / get_contact_context / get_pipeline_status y NO concluyas que no existen registros por este error.`,
+    };
+
   if (!filters || !Object.keys(filters).length)
     return { ok: false, error: "Debes indicar al menos un filtro; no se permiten cambios sin filtro." };
   const norm = await normalizeFilters(sb, tenantId, entity, filters);
