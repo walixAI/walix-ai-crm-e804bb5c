@@ -743,13 +743,26 @@ async function executeTool(
           if (isNaN(parsed.getTime())) return { ok: false, error: "Fecha inválida (usa YYYY-MM-DD)" };
           wonAt = parsed > now ? now : parsed;
         }
-        const { data: wonStage } = await sb.from("pipeline_stages")
-          .select("id, name").eq("tenant_id", tenantId).eq("is_won", true)
+        // Etapa ganada DEL MISMO pipeline del deal (un tenant puede tener varios).
+        const { data: curDeal } = await sb.from("deals")
+          .select("stage_id, created_at").eq("id", args.deal_id).maybeSingle();
+        if (!curDeal) return { ok: false, error: "No encontré esa oportunidad (deal_id inválido)." };
+        let pipelineId: string | null = null;
+        if (curDeal.stage_id) {
+          const { data: st } = await sb.from("pipeline_stages")
+            .select("pipeline_id").eq("id", curDeal.stage_id).maybeSingle();
+          pipelineId = st?.pipeline_id ?? null;
+        }
+        let wonQuery = sb.from("pipeline_stages")
+          .select("id, name").eq("tenant_id", tenantId).eq("is_won", true);
+        if (pipelineId) wonQuery = wonQuery.eq("pipeline_id", pipelineId);
+        const { data: wonStage } = await wonQuery
           .order("position", { ascending: true }).limit(1).maybeSingle();
         const patch: Record<string, any> = {
           is_won: true, is_lost: false, probability: 100, won_at: wonAt.toISOString(),
         };
         if (wonStage?.id) { patch.stage_id = wonStage.id; patch.stage_name = wonStage.name; }
+
         // La fecha puede ser del pasado. Si es anterior a la creación, movemos la
         // fecha de creación a un día antes y avisamos al usuario.
         let createdAdjusted: string | null = null;
