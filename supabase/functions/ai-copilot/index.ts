@@ -638,7 +638,7 @@ async function executeTool(
 
       case "get_contact_context": {
         const id = String(args.contact_id ?? "");
-        const [{ data: ctx }, { data: events }, { data: contact }] = await Promise.all([
+        const [{ data: ctx }, { data: events }, { data: contact }, { data: dealRows }] = await Promise.all([
           sb.from("ai_entity_context")
             .select("context_summary, key_facts, sentiment, urgency_score, last_interaction")
             .eq("entity_type", "contact").eq("entity_id", id).maybeSingle(),
@@ -649,9 +649,26 @@ async function executeTool(
           sb.from("contacts")
             .select("id, name, last_name, phone, email, status, source, owner_id")
             .eq("id", id).maybeSingle(),
+          // Oportunidades del contacto (abiertas, ganadas y perdidas) para que el
+          // copiloto nunca reporte "sin oportunidades" cuando sí existen.
+          sb.from("deals")
+            .select("id, name, amount, is_won, is_lost, won_at, created_at, expected_close_date, stage_id, pipeline_stages(name)")
+            .eq("contact_id", id)
+            .order("created_at", { ascending: false }).limit(25),
         ]);
-        return { ok: true, contact, context: ctx ?? null, recent_events: events ?? [] };
+        const deals = (dealRows ?? []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          amount: d.amount,
+          status: d.is_won ? "ganada" : d.is_lost ? "perdida" : "abierta",
+          stage: d.pipeline_stages?.name ?? null,
+          won_at: d.won_at,
+          created_at: d.created_at,
+          expected_close_date: d.expected_close_date,
+        }));
+        return { ok: true, contact, context: ctx ?? null, recent_events: events ?? [], deals, deals_count: deals.length };
       }
+
 
       case "create_contact": {
         const { data, error } = await sb.from("contacts").insert({
