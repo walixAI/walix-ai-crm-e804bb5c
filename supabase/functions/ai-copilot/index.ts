@@ -1449,6 +1449,9 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "En BORRADOS avisa siempre que se guarda respaldo y que se puede restaurar con `bulk_undo`. Puedes borrar actividades, tareas y oportunidades; nunca borres contactos.",
     "Si la tool responde que solo el dueño del Tenant puede hacerlo, explícalo con amabilidad y no insistas.",
     "Nunca hagas un cambio masivo sin filtros. La vista previa sí puede ir en el mismo turno; la EJECUCIÓN nunca sin el código escrito por el usuario.",
+    "`bulk_preview` NO es un buscador: si no incluyes campos a cambiar devolverá error. Ese error NO significa que no existan registros. Para localizar oportunidades de un contacto usa `search_contacts` y luego `get_contact_context` (devuelve TODAS sus oportunidades con etapa y estatus).",
+    "PROHIBIDO afirmar 'este contacto no tiene oportunidades' sin haber llamado `get_contact_context` y visto deals_count = 0. Si el título que dio el usuario no coincide exacto (p.ej. dijo 'agosto' y la oportunidad dice 'Julio'), muéstrale las oportunidades que sí existen y pregunta cuál es.",
+
 
     "",
     "PREGUNTA ANTES DE ACTUAR (obligatorio):",
