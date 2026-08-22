@@ -766,9 +766,9 @@ async function executeTool(
         // La fecha puede ser del pasado. Si es anterior a la creación, movemos la
         // fecha de creación a un día antes y avisamos al usuario.
         let createdAdjusted: string | null = null;
-        const { data: cur } = await sb.from("deals")
-          .select("created_at").eq("id", args.deal_id).maybeSingle();
+        const cur = curDeal;
         if (cur?.created_at && new Date(cur.created_at) > wonAt) {
+
           createdAdjusted = new Date(wonAt.getTime() - 86400000).toISOString();
           patch.created_at = createdAdjusted;
         }
