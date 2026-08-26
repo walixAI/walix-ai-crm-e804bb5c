@@ -18,11 +18,8 @@ import {
   suggestGoalSplit, type GoalDimension, type GoalMetric, type MonthlyGoal,
 } from "@/lib/queries/monthlyGoals";
 
-const DEAL_TYPES: Array<{ value: string; label: string }> = [
-  { value: "venta", label: "Venta" },
-  { value: "servicio", label: "Servicio / Mantenimiento" },
-  { value: "refaccion", label: "Refacción" },
-];
+import { useDealTypeOptions } from "@/lib/queries/dealTypes";
+
 
 function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
