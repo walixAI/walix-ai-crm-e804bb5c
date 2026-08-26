@@ -30,6 +30,19 @@ function formatCount(n: number) {
   return `${v.toLocaleString("es-MX")} ${v === 1 ? "venta" : "ventas"}`;
 }
 
+function DealTypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const options = useDealTypeOptions();
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="Elige un tipo" /></SelectTrigger>
+      <SelectContent>
+        {options.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
