@@ -41,12 +41,6 @@ const EVENT_OPTIONS: { value: string; label: string }[] = [
   { value: "task_completed", label: "Tarea completada" },
 ];
 
-const TEMPLATE_OPTIONS: { value: string; label: string }[] = [
-  { value: "ventas", label: "Ventas" },
-  { value: "mantenimiento", label: "Mantenimiento" },
-  { value: "refacciones", label: "Refacciones" },
-  { value: "renovaciones", label: "Renovaciones" },
-];
 
 export function PipelineSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
