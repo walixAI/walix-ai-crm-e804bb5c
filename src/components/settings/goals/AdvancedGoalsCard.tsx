@@ -9,9 +9,10 @@ import { usePipelines } from "@/lib/queries/pipeline";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { GoalBuilderDialog } from "./GoalBuilderDialog";
 import { GoalAssignmentsList } from "./GoalAssignmentsList";
+import { useDealTypeLabel } from "@/lib/queries/dealTypes";
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DEAL_TYPE_LABEL: Record<string, string> = { venta: "Venta", servicio: "Servicio / Mantenimiento", refaccion: "Refacción" };
+
 
 function periodLabel(y: number, m: number) { return `${MONTHS[m - 1]} ${y}`; }
 function shiftPeriod(y: number, m: number, delta: number) {
