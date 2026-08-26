@@ -10,10 +10,14 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const { email, password, full_name, tenant_id, role = "tenant_admin", mode = "simple" } = await req.json();
-    if (!email || !password || !tenant_id) {
-      return new Response(JSON.stringify({ error: "email, password, tenant_id required" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
+    const { email, password, full_name, tenant_id, company_name, role = "tenant_admin", mode = "simple" } = await req.json();
+    if (!email || !password) {
+      return new Response(JSON.stringify({ error: "email, password required" }), { status: 400, headers: { ...cors, "content-type": "application/json" } });
     }
+
+    // Modo "nuevo tenant": sin tenant_id se deja que el trigger handle_new_user
+    // cree organización + tenant y el usuario pase por el onboarding.
+    const freshSignup = !tenant_id;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
