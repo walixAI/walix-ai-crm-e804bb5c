@@ -254,7 +254,53 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         </div>
       </Card>
 
+      <Card className="p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold">Módulos activos</h2>
+          <p className="text-sm text-muted-foreground">Activa o desactiva funciones de Walix para este tenant.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-recurrences">Servicios y recurrencias</Label>
+              <p className="text-xs text-muted-foreground">Mantenimientos, suscripciones y agenda.</p>
+            </div>
+            <Switch
+              id="f-recurrences"
+              checked={featureRecurrences}
+              onCheckedChange={setFeatureRecurrences}
+              disabled={!canEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-expenses">Gastos y rentabilidad</Label>
+              <p className="text-xs text-muted-foreground">Módulo de gastos y widgets de rentabilidad.</p>
+            </div>
+            <Switch
+              id="f-expenses"
+              checked={featureExpenses}
+              onCheckedChange={setFeatureExpenses}
+              disabled={!canEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-dealtypes">Tipos de oportunidad</Label>
+              <p className="text-xs text-muted-foreground">Venta/servicio/refacción personalizados.</p>
+            </div>
+            <Switch
+              id="f-dealtypes"
+              checked={featureDealTypes}
+              onCheckedChange={setFeatureDealTypes}
+              disabled={!canEdit}
+            />
+          </div>
+        </div>
+      </Card>
+
       <div className="flex justify-end">
+
         <Button onClick={handleSave} disabled={!canEdit || saving} className="min-w-[160px]">
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Guardar cambios
