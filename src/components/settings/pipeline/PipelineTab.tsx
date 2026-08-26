@@ -20,10 +20,12 @@ import {
 import { SortableStage, type StageDraft } from "./SortableStage";
 import { DeleteStageDialog } from "./DeleteStageDialog";
 import { useCopyStageOutcomes } from "@/lib/queries/pipelineStages";
+import { usePipelineTemplateOptions } from "@/lib/queries/pipelineTemplates";
 import {
   usePipelineStageRules, useCreatePipelineStageRule, useDeletePipelineStageRule,
   useSeedPipelineTemplate, type PipelineStageRule,
 } from "@/lib/queries/pipeline";
+
 
 interface Pipeline {
   id: string;
