@@ -27,7 +27,10 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name ?? email, company_name: "Refrigeración G&R" },
+      user_metadata: {
+        full_name: full_name ?? email,
+        company_name: company_name ?? "Mi empresa",
+      },
     });
     if (cErr) {
       // If already exists, look them up
@@ -38,6 +41,19 @@ Deno.serve(async (req) => {
       await admin.auth.admin.updateUserById(userId, { password, email_confirm: true });
     } else {
       userId = created.user!.id;
+    }
+
+    if (freshSignup) {
+      // El trigger handle_new_user ya creó organización, tenant y roles.
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("tenant_id, onboarded")
+        .eq("id", userId!)
+        .maybeSingle();
+      return new Response(
+        JSON.stringify({ ok: true, user_id: userId, email, tenant_id: prof?.tenant_id ?? null, onboarded: prof?.onboarded ?? false }),
+        { headers: { ...cors, "content-type": "application/json" } },
+      );
     }
 
     // Ensure profile points at tenant + mode
