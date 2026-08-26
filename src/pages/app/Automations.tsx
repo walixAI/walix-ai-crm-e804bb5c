@@ -56,6 +56,11 @@ export default function Automations() {
   const featureRecurrences = features?.feature_recurrences ?? true;
   const tenantPlan = tenant?.plan ?? "starter";
 
+  useEffect(() => {
+    if (!featureRecurrences && (tab === "recurrence" || tab === "agenda")) setTab("active");
+  }, [featureRecurrences, tab]);
+
+
 
   const activeCount = automations.filter((a) => a.enabled && !a.isDraft).length;
   const limits = usePlanLimits(tenantPlan, activeCount);
