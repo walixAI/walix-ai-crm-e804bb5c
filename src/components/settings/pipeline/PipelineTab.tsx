@@ -20,10 +20,12 @@ import {
 import { SortableStage, type StageDraft } from "./SortableStage";
 import { DeleteStageDialog } from "./DeleteStageDialog";
 import { useCopyStageOutcomes } from "@/lib/queries/pipelineStages";
+import { usePipelineTemplateOptions } from "@/lib/queries/pipelineTemplates";
 import {
   usePipelineStageRules, useCreatePipelineStageRule, useDeletePipelineStageRule,
   useSeedPipelineTemplate, type PipelineStageRule,
 } from "@/lib/queries/pipeline";
+
 
 interface Pipeline {
   id: string;
@@ -39,12 +41,6 @@ const EVENT_OPTIONS: { value: string; label: string }[] = [
   { value: "task_completed", label: "Tarea completada" },
 ];
 
-const TEMPLATE_OPTIONS: { value: string; label: string }[] = [
-  { value: "ventas", label: "Ventas" },
-  { value: "mantenimiento", label: "Mantenimiento" },
-  { value: "refacciones", label: "Refacciones" },
-  { value: "renovaciones", label: "Renovaciones" },
-];
 
 export function PipelineSettingsTab({ tenantId }: { tenantId: string }) {
   const { toast } = useToast();
@@ -144,6 +140,8 @@ function PipelineCard({
   const createRule = useCreatePipelineStageRule();
   const deleteRule = useDeletePipelineStageRule();
   const seedTemplate = useSeedPipelineTemplate();
+  const templateOptions = usePipelineTemplateOptions();
+
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -267,10 +265,11 @@ function PipelineCard({
                     <SelectValue placeholder="Plantilla..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {TEMPLATE_OPTIONS.map(t => (
+                    {templateOptions.map(t => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
+
                 </Select>
                 <Button
                   size="sm"

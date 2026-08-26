@@ -6,9 +6,9 @@ export interface RunRateData {
   /** "amount" = meta en dinero, "count" = meta en cantidad de ventas. */
   metric: "amount" | "count";
   monthGoal: number;
-  goalByType: { venta: number; servicio: number; refaccion: number };
+  goalByType: Record<string, number>;
   sold: number;
-  soldByType: { venta: number; servicio: number; refaccion: number };
+  soldByType: Record<string, number>;
   expectedToday: number;
   runRatePct: number;
   projection: number;
@@ -27,6 +27,7 @@ export interface RunRateData {
   /** true si el Run Rate solo considera las categorías con meta. */
   scopedToCategories: boolean;
 }
+
 
 function countBizDays(from: Date, to: Date) {
   let n = 0;
@@ -78,12 +79,25 @@ export function useRunRate() {
         (g: any) => (g.metric ?? "amount") === metric,
       );
       const globalGoal = amountGoals.find((g: any) => g.dimension === "global");
-      const goalByType = { venta: 0, servicio: 0, refaccion: 0 };
+
+      // Tipos de deal configurados por el tenant (dinámico).
+      const { data: dealTypes } = await supabase
+        .from("deal_types")
+        .select("key")
+        .eq("tenant_id", tenantId!)
+        .eq("is_active", true)
+        .order("position", { ascending: true });
+      const typeKeys = (dealTypes ?? []).map((d: any) => d.key).filter(Boolean);
+      if (typeKeys.length === 0) typeKeys.push("venta");
+      const goalByType: Record<string, number> = {};
+      const soldByType: Record<string, number> = {};
+      typeKeys.forEach((k) => { goalByType[k] = 0; soldByType[k] = 0; });
+
       amountGoals
         .filter((g: any) => g.dimension === "deal_type")
         .forEach((g: any) => {
-          const t = (g.dimension_value_text ?? "") as keyof typeof goalByType;
-          if (t in goalByType) goalByType[t] += Number(g.amount ?? 0);
+          const t = g.dimension_value_text ?? "";
+          if (typeKeys.includes(t)) goalByType[t] += Number(g.amount ?? 0);
         });
 
       const monthGoal = globalGoal
@@ -91,6 +105,7 @@ export function useRunRate() {
         : amountGoals
             .filter((g: any) => g.dimension !== "global")
             .reduce((s: number, g: any) => s + Number(g.amount ?? 0), 0);
+
 
       // Metas por categoría/producto: el Run Rate se limita a esas categorías.
       const categoryGoals = amountGoals.filter(
@@ -121,7 +136,6 @@ export function useRunRate() {
         .gte("won_at", monthStart.toISOString())
         .lte("won_at", new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59).toISOString());
 
-      const soldByType = { venta: 0, servicio: 0, refaccion: 0 };
       const soldByCategory = new Map<string, number>();
       let sold = 0;
       (wonDeals ?? []).forEach((d: any) => {
@@ -133,9 +147,10 @@ export function useRunRate() {
         }
         if (scopedToCategories && !(catId && goalByCategory.has(catId))) return;
         sold += amt;
-        const t = (d.deal_type ?? "venta") as "venta" | "servicio" | "refaccion";
-        if (t in soldByType) soldByType[t] += amt;
+        const t = d.deal_type ?? "venta";
+        if (typeKeys.includes(t)) soldByType[t] += amt;
       });
+
 
       let categoryNames: Record<string, string> = {};
       if (goalByCategory.size > 0) {

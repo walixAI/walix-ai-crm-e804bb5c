@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTenantId } from "@/lib/queries/tenant";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import { GeneralTab } from "@/components/settings/general/GeneralTab";
 import { TeamTab } from "@/components/settings/team/TeamTab";
 import { PipelineSettingsTab } from "@/components/settings/pipeline/PipelineTab";
@@ -43,21 +45,26 @@ const ALL_TABS = [
 
 export default function Settings() {
   const { data: tenantId, isLoading } = useTenantId();
+  const { data: features, isLoading: featuresLoading } = useTenantFeatures();
   const { can } = usePermissions();
   const TABS = ALL_TABS.filter((t) => can(SETTINGS_TAB_PERMISSIONS[t.id] ?? "settings.read"));
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "expenses" && !featuresLoading && !features?.feature_expenses) return false;
+    return true;
+  });
   const [params, setParams] = useSearchParams();
   const initial = params.get("tab") ?? "general";
   const [tab, setTab] = useState(
-    TABS.some((t) => t.id === initial) ? initial : TABS[0]?.id ?? "me"
+    visibleTabs.some((t) => t.id === initial) ? initial : visibleTabs[0]?.id ?? "me"
   );
 
   useEffect(() => {
     const p = params.get("tab");
-    if (p && p !== tab && TABS.some((t) => t.id === p)) setTab(p);
+    if (p && p !== tab && visibleTabs.some((t) => t.id === p)) setTab(p);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params]);
+  }, [params, visibleTabs]);
 
-  const visible = (id: string) => TABS.some((t) => t.id === id);
+  const visible = (id: string) => visibleTabs.some((t) => t.id === id);
 
   function changeTab(v: string) {
     setTab(v);
@@ -65,6 +72,7 @@ export default function Settings() {
     next.set("tab", v);
     setParams(next, { replace: true });
   }
+
 
   if (isLoading) {
     return (
@@ -96,12 +104,13 @@ export default function Settings() {
 
       <Tabs value={tab} onValueChange={changeTab} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto p-1 flex flex-wrap gap-1 w-full justify-start">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <TabsTrigger key={t.id} value={t.id} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               {t.label}
             </TabsTrigger>
           ))}
         </TabsList>
+
 
         {visible("general") && <TabsContent value="general"><GeneralTab tenantId={tenantId} /></TabsContent>}
         {visible("team") && <TabsContent value="team"><TeamTab tenantId={tenantId} /></TabsContent>}

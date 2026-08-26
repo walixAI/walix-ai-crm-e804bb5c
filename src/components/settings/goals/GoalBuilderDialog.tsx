@@ -18,11 +18,8 @@ import {
   suggestGoalSplit, type GoalDimension, type GoalMetric, type MonthlyGoal,
 } from "@/lib/queries/monthlyGoals";
 
-const DEAL_TYPES: Array<{ value: string; label: string }> = [
-  { value: "venta", label: "Venta" },
-  { value: "servicio", label: "Servicio / Mantenimiento" },
-  { value: "refaccion", label: "Refacción" },
-];
+import { useDealTypeOptions } from "@/lib/queries/dealTypes";
+
 
 function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -32,6 +29,19 @@ function formatCount(n: number) {
   const v = Math.round(n * 10) / 10;
   return `${v.toLocaleString("es-MX")} ${v === 1 ? "venta" : "ventas"}`;
 }
+
+function DealTypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const options = useDealTypeOptions();
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="Elige un tipo" /></SelectTrigger>
+      <SelectContent>
+        {options.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
 
 interface Props {
   open: boolean;
@@ -230,15 +240,11 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
             </div>
             {dimension === "deal_type" && (
               <div>
-                <Label>Tipo de deal</Label>
-                <Select value={dimValueText} onValueChange={setDimValueText}>
-                  <SelectTrigger><SelectValue placeholder="Elige un tipo" /></SelectTrigger>
-                  <SelectContent>
-                    {DEAL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label>Tipo de oportunidad</Label>
+                <DealTypeSelect value={dimValueText} onChange={setDimValueText} />
               </div>
             )}
+
             {dimension === "pipeline" && (
               <div>
                 <Label>Pipeline</Label>

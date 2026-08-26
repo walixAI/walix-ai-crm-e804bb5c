@@ -4,7 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { fetchTenant, updateTenant, uploadTenantLogo } from "@/services/tenant";
 import { applyBrandPrimary, hexToHsl, hslToHex } from "@/lib/branding";
 import { logAudit } from "@/services/audit";
@@ -37,7 +39,11 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
   const [currency, setCurrency] = useState("MXN");
   const [color, setColor] = useState<string>("#5b6cf7");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [featureRecurrences, setFeatureRecurrences] = useState(true);
+  const [featureExpenses, setFeatureExpenses] = useState(true);
+  const [featureDealTypes, setFeatureDealTypes] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -48,11 +54,15 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
     setTz(tenant.timezone);
     setCurrency(tenant.currency);
     setLogoUrl(tenant.logo_url);
+    setFeatureRecurrences(tenant.feature_recurrences ?? true);
+    setFeatureExpenses(tenant.feature_expenses ?? true);
+    setFeatureDealTypes(tenant.feature_deal_types ?? true);
     if (tenant.brand_primary) {
       setColor(hslToHex(tenant.brand_primary));
       applyBrandPrimary(tenant.brand_primary);
     }
   }, [tenant]);
+
 
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -81,6 +91,9 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         currency,
         brand_primary,
         logo_url: logoUrl,
+        feature_recurrences: featureRecurrences,
+        feature_expenses: featureExpenses,
+        feature_deal_types: featureDealTypes,
       });
       applyBrandPrimary(brand_primary);
       await logAudit({
@@ -88,11 +101,13 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         tenantId,
         targetType: "tenant",
         targetId: tenantId,
-        metadata: { name, currency, timezone: tz, brand_primary },
+        metadata: { name, currency, timezone: tz, brand_primary, feature_recurrences: featureRecurrences, feature_expenses: featureExpenses, feature_deal_types: featureDealTypes },
       });
       qc.invalidateQueries({ queryKey: ["tenant", tenantId] });
+      qc.invalidateQueries({ queryKey: ["tenantFeatures"] });
       toast({ title: "Cambios guardados" });
     } catch (err: unknown) {
+
       const m = err instanceof Error ? err.message : "Error guardando";
       toast({ title: "Error", description: m, variant: "destructive" });
     } finally {
@@ -239,7 +254,53 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         </div>
       </Card>
 
+      <Card className="p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold">Módulos activos</h2>
+          <p className="text-sm text-muted-foreground">Activa o desactiva funciones de Walix para este tenant.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-recurrences">Servicios y recurrencias</Label>
+              <p className="text-xs text-muted-foreground">Mantenimientos, suscripciones y agenda.</p>
+            </div>
+            <Switch
+              id="f-recurrences"
+              checked={featureRecurrences}
+              onCheckedChange={setFeatureRecurrences}
+              disabled={!canEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-expenses">Gastos y rentabilidad</Label>
+              <p className="text-xs text-muted-foreground">Módulo de gastos y widgets de rentabilidad.</p>
+            </div>
+            <Switch
+              id="f-expenses"
+              checked={featureExpenses}
+              onCheckedChange={setFeatureExpenses}
+              disabled={!canEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-dealtypes">Tipos de oportunidad</Label>
+              <p className="text-xs text-muted-foreground">Venta/servicio/refacción personalizados.</p>
+            </div>
+            <Switch
+              id="f-dealtypes"
+              checked={featureDealTypes}
+              onCheckedChange={setFeatureDealTypes}
+              disabled={!canEdit}
+            />
+          </div>
+        </div>
+      </Card>
+
       <div className="flex justify-end">
+
         <Button onClick={handleSave} disabled={!canEdit || saving} className="min-w-[160px]">
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Guardar cambios

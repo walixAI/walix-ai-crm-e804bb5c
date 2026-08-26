@@ -9,9 +9,11 @@ import { usePipelines } from "@/lib/queries/pipeline";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { GoalBuilderDialog } from "./GoalBuilderDialog";
 import { GoalAssignmentsList } from "./GoalAssignmentsList";
+import { useDealTypes } from "@/lib/queries/dealTypes";
+
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DEAL_TYPE_LABEL: Record<string, string> = { venta: "Venta", servicio: "Servicio / Mantenimiento", refaccion: "Refacción" };
+
 
 function periodLabel(y: number, m: number) { return `${MONTHS[m - 1]} ${y}`; }
 function shiftPeriod(y: number, m: number, delta: number) {
@@ -63,13 +65,20 @@ export function AdvancedGoalsCard() {
     return g;
   }, [goals]);
 
+  const { data: dealTypes = [] } = useDealTypes();
+
   function labelFor(goal: MonthlyGoal): string {
     if (goal.dimension === "global") return "Meta global";
-    if (goal.dimension === "deal_type") return DEAL_TYPE_LABEL[goal.dimension_value_text ?? ""] ?? goal.dimension_value_text ?? "—";
+    if (goal.dimension === "deal_type") {
+      const k = goal.dimension_value_text ?? "";
+      return dealTypes.find((d) => d.key === k)?.label ?? (k === "venta" ? "Venta" : k || "—");
+    }
     if (goal.dimension === "pipeline") return pipelines.find((p: any) => p.id === goal.dimension_value_uuid)?.name ?? "Pipeline";
     if (goal.dimension === "product_category") return categories.find((c) => c.id === goal.dimension_value_uuid)?.name ?? "Categoría";
     return "";
   }
+
+
 
   function openNew() { setEditing(null); setOpen(true); }
   function openEdit(g: MonthlyGoal) { setEditing(g); setOpen(true); }
