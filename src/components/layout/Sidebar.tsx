@@ -10,7 +10,9 @@ import { Logo } from "@/components/walix/Logo";
 import { WBadge } from "@/components/walix/Badge";
 import { useAiInboxCount } from "@/pages/app/AiInbox";
 import { usePendingProposalsCount } from "@/lib/queries/aiProposals";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 import { useState } from "react";
+
 
 export function Sidebar() {
   const [hovered, setHovered] = useState(false);
@@ -18,6 +20,8 @@ export function Sidebar() {
   const collapsed = !expanded;
   const { roles } = useAuth();
   const { can, canAccess } = usePermissions();
+  const { data: features } = useTenantFeatures();
+  const featureExpenses = features?.feature_expenses ?? true;
   const isAdmin =
     roles.includes("tenant_admin") ||
     roles.includes("tenant_owner") ||
@@ -39,12 +43,13 @@ export function Sidebar() {
     { to: "/contacts", label: "Contactos", icon: Users },
     { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
     { to: "/tasks", label: "Tareas", icon: CheckSquare, badge: proposalsCount > 0 ? proposalsCount : undefined },
-    { to: "/gastos", label: "Gastos", icon: Receipt },
+    ...(featureExpenses ? [{ to: "/gastos", label: "Gastos", icon: Receipt }] : []),
     ...(isAdmin ? [{ to: "/equipo", label: "Equipo", icon: Trophy }] : []),
     { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle, badge: 12 },
     { to: "/reports", label: "Reportes", icon: BarChart3 },
     { to: "/automations", label: "Automatizaciones", icon: Zap },
   ].filter((i) => canAccess(i.to));
+
 
   const adminItems = [
     ...(isOrgOwner ? [{ to: "/org", label: "Mi organización", icon: Building2 }] : []),

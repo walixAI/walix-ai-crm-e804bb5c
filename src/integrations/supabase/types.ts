@@ -1807,6 +1807,47 @@ export type Database = {
         }
         Relationships: []
       }
+      deal_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          key: string
+          label: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          label: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          label?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deals: {
         Row: {
           amount: number
@@ -3701,6 +3742,9 @@ export type Database = {
           created_at: string
           currency: string
           customer_inactivity_months: number | null
+          feature_deal_types: boolean
+          feature_expenses: boolean
+          feature_recurrences: boolean
           id: string
           industry: string | null
           locale: string
@@ -3737,6 +3781,9 @@ export type Database = {
           created_at?: string
           currency?: string
           customer_inactivity_months?: number | null
+          feature_deal_types?: boolean
+          feature_expenses?: boolean
+          feature_recurrences?: boolean
           id?: string
           industry?: string | null
           locale?: string
@@ -3773,6 +3820,9 @@ export type Database = {
           created_at?: string
           currency?: string
           customer_inactivity_months?: number | null
+          feature_deal_types?: boolean
+          feature_expenses?: boolean
+          feature_recurrences?: boolean
           id?: string
           industry?: string | null
           locale?: string

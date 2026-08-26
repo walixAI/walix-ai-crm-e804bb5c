@@ -18,7 +18,11 @@ export interface Tenant {
   ai_vendor?: string | null;
   ai_model?: string | null;
   billing_start_date?: string | null;
+  feature_recurrences?: boolean;
+  feature_expenses?: boolean;
+  feature_deal_types?: boolean;
 }
+
 
 export interface Member {
   id: string;

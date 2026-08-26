@@ -22,13 +22,16 @@ import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import { RecurrenceList } from "@/components/automations/recurrence/RecurrenceList";
 import { RecurrenceBuilderSheet } from "@/components/automations/recurrence/RecurrenceBuilderSheet";
 import { MonthlyServicesView } from "@/components/automations/recurrence/MonthlyServicesView";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 import type { AutomationTemplate } from "@/lib/automations/templates";
+
 import type { AutomationDraft } from "@/services/automations";
 import type { RecurrenceDefinition } from "@/lib/queries/recurrence";
 
 type Tab = "active" | "paused" | "drafts" | "all" | "recurrence" | "agenda";
 
 export default function Automations() {
+
   const { toast } = useToast();
   const { data: automations = [], isLoading } = useAutomations();
   const toggle = useToggleAutomation();
@@ -49,7 +52,10 @@ export default function Automations() {
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [editingRecurrence, setEditingRecurrence] = useState<RecurrenceDefinition | null>(null);
   const { data: tenant } = useTenant();
+  const { data: features } = useTenantFeatures();
+  const featureRecurrences = features?.feature_recurrences ?? true;
   const tenantPlan = tenant?.plan ?? "starter";
+
 
   const activeCount = automations.filter((a) => a.enabled && !a.isDraft).length;
   const limits = usePlanLimits(tenantPlan, activeCount);
@@ -138,10 +144,11 @@ export default function Automations() {
           <TabsTrigger value="paused">Pausadas ({counts.paused})</TabsTrigger>
           <TabsTrigger value="drafts">Borradores ({counts.drafts})</TabsTrigger>
           <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
-          <TabsTrigger value="recurrence">Servicios recurrentes</TabsTrigger>
-          <TabsTrigger value="agenda">Agenda del mes</TabsTrigger>
+          {featureRecurrences && <TabsTrigger value="recurrence">Servicios recurrentes</TabsTrigger>}
+          {featureRecurrences && <TabsTrigger value="agenda">Agenda del mes</TabsTrigger>}
         </TabsList>
       </Tabs>
+
 
       {tab === "agenda" ? (
         <MonthlyServicesView />

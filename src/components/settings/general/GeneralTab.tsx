@@ -4,7 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { fetchTenant, updateTenant, uploadTenantLogo } from "@/services/tenant";
 import { applyBrandPrimary, hexToHsl, hslToHex } from "@/lib/branding";
 import { logAudit } from "@/services/audit";
@@ -37,7 +39,11 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
   const [currency, setCurrency] = useState("MXN");
   const [color, setColor] = useState<string>("#5b6cf7");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [featureRecurrences, setFeatureRecurrences] = useState(true);
+  const [featureExpenses, setFeatureExpenses] = useState(true);
+  const [featureDealTypes, setFeatureDealTypes] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -48,11 +54,15 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
     setTz(tenant.timezone);
     setCurrency(tenant.currency);
     setLogoUrl(tenant.logo_url);
+    setFeatureRecurrences(tenant.feature_recurrences ?? true);
+    setFeatureExpenses(tenant.feature_expenses ?? true);
+    setFeatureDealTypes(tenant.feature_deal_types ?? true);
     if (tenant.brand_primary) {
       setColor(hslToHex(tenant.brand_primary));
       applyBrandPrimary(tenant.brand_primary);
     }
   }, [tenant]);
+
 
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -81,6 +91,9 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         currency,
         brand_primary,
         logo_url: logoUrl,
+        feature_recurrences: featureRecurrences,
+        feature_expenses: featureExpenses,
+        feature_deal_types: featureDealTypes,
       });
       applyBrandPrimary(brand_primary);
       await logAudit({
@@ -88,11 +101,13 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         tenantId,
         targetType: "tenant",
         targetId: tenantId,
-        metadata: { name, currency, timezone: tz, brand_primary },
+        metadata: { name, currency, timezone: tz, brand_primary, feature_recurrences: featureRecurrences, feature_expenses: featureExpenses, feature_deal_types: featureDealTypes },
       });
       qc.invalidateQueries({ queryKey: ["tenant", tenantId] });
+      qc.invalidateQueries({ queryKey: ["tenantFeatures"] });
       toast({ title: "Cambios guardados" });
     } catch (err: unknown) {
+
       const m = err instanceof Error ? err.message : "Error guardando";
       toast({ title: "Error", description: m, variant: "destructive" });
     } finally {

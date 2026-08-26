@@ -24,6 +24,9 @@ import { MonthRecurrencesCard } from "@/components/walix/MonthRecurrencesCard";
 import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { useRunRate, formatMXN0 } from "@/lib/queries/runRate";
 import { useMonthProfitability } from "@/lib/queries/expenses";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
+import { useDealTypes } from "@/lib/queries/dealTypes";
+
 import { cn } from "@/lib/utils";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { AiProposalsPanel } from "@/components/walix/AiProposalsPanel";
@@ -31,11 +34,15 @@ import { useResolvedLayout } from "@/lib/queries/dashboardLayout";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
+
 type ExpandKey = "runrate" | "profit" | "won" | null;
 type ColumnKey = "tasks" | "collect" | "quote" | "services";
 
 export default function MiDia() {
   const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
+  const { data: features } = useTenantFeatures();
+  const featureRecurrences = features?.feature_recurrences ?? true;
+  const featureExpenses = features?.feature_expenses ?? true;
   const { data, isLoading } = useMiDiaData();
   const { data: profile } = useMyProfile();
   const [dialogOpen, setDialogOpen] = useState<null | { kind: string }>(null);
@@ -49,7 +56,8 @@ export default function MiDia() {
   const { data: prof } = useMonthProfitability();
   const [expanded, setExpanded] = useState<ExpandKey>(null);
   const miDiaLayout = useResolvedLayout("mi_dia");
-  const showProfit = miDiaLayout.isLoading ? true : miDiaLayout.isVisible("midia.profitability");
+  const showProfitRaw = miDiaLayout.isLoading ? true : miDiaLayout.isVisible("midia.profitability");
+  const showProfit = featureExpenses && showProfitRaw;
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [taskDate, setTaskDate] = useState<Date>(() => new Date());
   const isTaskDateToday = useMemo(
@@ -63,6 +71,7 @@ export default function MiDia() {
     quote: useRef<HTMLDivElement>(null),
     services: useRef<HTMLDivElement>(null),
   } as const;
+
 
   const toggleExpand = (k: Exclude<ExpandKey, null>) =>
     setExpanded(prev => (prev === k ? null : k));
@@ -202,16 +211,21 @@ export default function MiDia() {
               <JumboColumn title="Cotizar" description="Oportunidades esperando tu cotización." icon={FileText} items={data?.quote ?? []} emptyText="No tienes cotizaciones pendientes." />
             </div>
             </Widget>
+            {featureRecurrences && (
             <Widget k="midia.services">
             <div ref={columnRefs.services} className="scroll-mt-28 space-y-3">
               <MonthServicesInline />
             </div>
             </Widget>
+            )}
+            {featureRecurrences && (
             <Widget k="midia.recurrences">
             <div className="scroll-mt-28">
               <MonthRecurrencesCard />
             </div>
             </Widget>
+            )}
+
             <Widget k="midia.tasks">
             <div ref={columnRefs.tasks} className="scroll-mt-28">
               <JumboColumn
@@ -346,11 +360,14 @@ function KpiChip({
 
 function WonDetailCard({ rr }: { rr: NonNullable<ReturnType<typeof useRunRate>["data"]> }) {
   const pctOfGoal = rr.monthGoal > 0 ? Math.round((rr.sold / rr.monthGoal) * 100) : 0;
-  const rows: Array<{ label: string; value: number }> = [
-    { label: "Ventas", value: rr.soldByType.venta },
-    { label: "Servicios", value: rr.soldByType.servicio },
-    { label: "Refacciones", value: rr.soldByType.refaccion },
-  ];
+  const { data: dealTypes = [] } = useDealTypes();
+  const labelOf = (key: string) => dealTypes.find((d) => d.key === key)?.label ?? (key === "venta" ? "Venta" : key);
+  const rows = useMemo(
+    () => Object.entries(rr.soldByType).map(([key, value]) => ({ label: labelOf(key), value })),
+    [rr.soldByType, dealTypes],
+  );
+
+
   return (
     <Card className="border-2">
       <CardHeader className="pb-3">
