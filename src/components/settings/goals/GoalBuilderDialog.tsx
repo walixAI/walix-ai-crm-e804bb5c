@@ -227,15 +227,11 @@ export function GoalBuilderDialog({ open, onOpenChange, year, month, goal }: Pro
             </div>
             {dimension === "deal_type" && (
               <div>
-                <Label>Tipo de deal</Label>
-                <Select value={dimValueText} onValueChange={setDimValueText}>
-                  <SelectTrigger><SelectValue placeholder="Elige un tipo" /></SelectTrigger>
-                  <SelectContent>
-                    {DEAL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label>Tipo de oportunidad</Label>
+                <DealTypeSelect value={dimValueText} onChange={setDimValueText} />
               </div>
             )}
+
             {dimension === "pipeline" && (
               <div>
                 <Label>Pipeline</Label>
