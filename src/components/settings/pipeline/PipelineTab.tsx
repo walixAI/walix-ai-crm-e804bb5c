@@ -140,6 +140,8 @@ function PipelineCard({
   const createRule = useCreatePipelineStageRule();
   const deleteRule = useDeletePipelineStageRule();
   const seedTemplate = useSeedPipelineTemplate();
+  const templateOptions = usePipelineTemplateOptions();
+
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
