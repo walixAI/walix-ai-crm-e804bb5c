@@ -9,7 +9,8 @@ import { usePipelines } from "@/lib/queries/pipeline";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { GoalBuilderDialog } from "./GoalBuilderDialog";
 import { GoalAssignmentsList } from "./GoalAssignmentsList";
-import { useDealTypeLabel } from "@/lib/queries/dealTypes";
+import { useDealTypes } from "@/lib/queries/dealTypes";
+
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
