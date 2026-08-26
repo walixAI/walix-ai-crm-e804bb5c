@@ -64,13 +64,16 @@ export function AdvancedGoalsCard() {
     return g;
   }, [goals]);
 
+  const dealTypeLabel = useDealTypeLabel();
+
   function labelFor(goal: MonthlyGoal): string {
     if (goal.dimension === "global") return "Meta global";
-    if (goal.dimension === "deal_type") return DEAL_TYPE_LABEL[goal.dimension_value_text ?? ""] ?? goal.dimension_value_text ?? "—";
+    if (goal.dimension === "deal_type") return dealTypeLabel(goal.dimension_value_text ?? "");
     if (goal.dimension === "pipeline") return pipelines.find((p: any) => p.id === goal.dimension_value_uuid)?.name ?? "Pipeline";
     if (goal.dimension === "product_category") return categories.find((c) => c.id === goal.dimension_value_uuid)?.name ?? "Categoría";
     return "";
   }
+
 
   function openNew() { setEditing(null); setOpen(true); }
   function openEdit(g: MonthlyGoal) { setEditing(g); setOpen(true); }
