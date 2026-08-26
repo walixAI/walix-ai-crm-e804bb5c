@@ -265,10 +265,11 @@ function PipelineCard({
                     <SelectValue placeholder="Plantilla..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {TEMPLATE_OPTIONS.map(t => (
+                    {templateOptions.map(t => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
+
                 </Select>
                 <Button
                   size="sm"
