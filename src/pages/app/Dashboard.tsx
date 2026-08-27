@@ -32,6 +32,8 @@ import { ProfitabilityCard } from "@/components/walix/ProfitabilityCard";
 import { RecurrencesMonthCard } from "@/components/walix/RecurrencesMonthCard";
 import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
+
 
 function formatMXN(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -171,13 +173,18 @@ export default function Dashboard() {
           <RunRateCard compact showSellers />
         </Widget>
 
-        <Widget k="dash.profitability">
-          <ProfitabilityCard />
-        </Widget>
+        {features?.feature_expenses ? (
+          <Widget k="dash.profitability">
+            <ProfitabilityCard />
+          </Widget>
+        ) : null}
 
-        <Widget k="dash.recurrences_month">
-          <RecurrencesMonthCard />
-        </Widget>
+        {features?.feature_recurrences ? (
+          <Widget k="dash.recurrences_month">
+            <RecurrencesMonthCard />
+          </Widget>
+        ) : null}
+
 
         <Widget k="dash.kpi_cards">
           {kpisLoading && !kpis ? (
