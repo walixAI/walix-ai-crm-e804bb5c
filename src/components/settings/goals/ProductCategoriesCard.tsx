@@ -11,6 +11,7 @@ import {
 import {
   useProductCategories, useCreateProductCategory, useDeleteProductCategory, useUpdateProductCategory,
 } from "@/lib/queries/monthlyGoals";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 
 export function ProductCategoriesCard() {
   const { data: features } = useTenantFeatures();
