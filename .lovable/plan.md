@@ -109,6 +109,138 @@ Desde Contactos y Pipeline: seleccionar filtros (etapa, tipificación, asesor, p
 - Interruptor del módulo (y de rastreo de IP) en Configuración → General
 - Captura de UTMs en el sitio: script/snippet que guarda los parámetros y el referrer en el navegador y los manda con el formulario
 
+
+## Interfaces (bocetos de cada pantalla)
+
+**A. Campañas de WhatsApp — lista**
+```text
+Campañas de WhatsApp                       [ + Nueva campaña ]
+Buscar...      Estado: Todas ▾   Objetivo: Todos ▾
+-------------------------------------------------------------
+Nombre              Objetivo   Regla     Activos  Resp.  Estado
+Bienvenida Posgrado Calificar  Prompt      248    31%   ● Activa
+Reactivación 30d    Reactivar  Filtros      92    12%   ○ Pausada
+Cita Showroom       Agendar    Filtros      44    27%   ● Activa
+-------------------------------------------------------------
+```
+
+**B. Nueva campaña — paso 1: ¿quién entra?**
+```text
+Paso 1 de 3 · ¿Quién entra a esta campaña?
+
+( ) Por filtros        (•) Por prompt
++-----------------------------------------------------------+
+| Describe a quién quieres contactar:                        |
+| "Leads de Facebook Ads de CDMX que pidieron informes de    |
+|  posgrado y no han contestado en 3 días"                   |
+|                                    [ Interpretar con IA ]  |
++-----------------------------------------------------------+
+Esto entendí:
+  • Canal: Paid Social (Facebook Ads)      [x]
+  • Ciudad: Ciudad de México               [x]
+  • Producto: Posgrado                     [x]
+  • Sin respuesta: 3 días                  [x]
+  ⚠ No pude interpretar: "que ya vieron el video"
+                                     [ Cambiar a filtros ]
+Vista previa: 248 leads cumplen hoy   [ Ver muestra ]
+                                   [ Atrás ]  [ Siguiente ]
+```
+
+**B2. Mismo paso en modo filtros**
+```text
+Origen: Meta Ads ▾   Producto: Posgrado ▾   Etiqueta: — ▾
+Asesor: Todos ▾      Etapa: Nuevo ▾         Ciudad: CDMX ▾
+UTM source: facebook   Canal GA4: Paid Social ▾
+Vista previa: 248 leads                [ Ver muestra ]
+```
+
+**C. Nueva campaña — paso 2: secuencia**
+```text
+Objetivo: Calificar ▾     Prioridad: 1 ▾
+Horario: L-V 9:00–20:00, Sáb 10:00–14:00 ▾
+
+Paso 1 · Día 0 · Plantilla  [bienvenida_posgrado ▾]
+   Variables: {{1}}=Nombre  {{2}}=Programa  {{3}}=Asesor
+   Vista previa: "Hola Ana, gracias por tu interés en..."
+Paso 2 · +48 h · Texto libre (dentro de 24 h)
+   "¿Te comparto el plan de estudios?"
+Paso 3 · +72 h · Plantilla  [ultimo_intento ▾]
+[ + Agregar paso ]
+
+Cortar secuencia si: [x] responde  [x] cambia de etapa
+                     [x] se marca ganado/perdido
+                                   [ Atrás ]  [ Siguiente ]
+```
+
+**D. Detalle de campaña — métricas y bitácora**
+```text
+Bienvenida Posgrado           ● Activa   [ Pausar ] [ Editar ]
+Enviados 1,204 | Entregados 1,180 | Respondidos 372 (31%)
+Avance de etapa 118 | Oportunidades 46
+Por paso:  P1 100% · P2 64% · P3 38%
+-------------------------------------------------------------
+Contacto      Paso  Estado     Resultado     Etapa    Fecha
+Ana Ruiz      P2    Leído      Respondió     Contacto 27/08/26 10:12
+Luis Mora     P1    Entregado  Sin respuesta Nuevo    27/08/26 09:40
+Sara Gil      P1    Falló      Núm. inválido Nuevo    27/08/26 09:38
+```
+
+**E. Envío puntual por segmento (desde Contactos / Pipeline)**
+```text
+Enviar WhatsApp a un segmento
+Etapa ▾  Tipificación ▾  Asesor ▾  Producto ▾  Origen ▾  Antigüedad ▾
+→ 312 contactos impactados (280 fuera de ventana de 24 h)
+Mensaje: (•) Plantilla [promo_agosto ▾]  ( ) Texto libre
+Vista previa con datos reales:
+  "Hola Ana, tenemos una promoción..."
+                        [ Cancelar ]  [ Enviar a 312 ]
+```
+
+**F. Mapeo de formularios de Meta (Configuración → Leads)**
+```text
+Formularios de Meta Ads          ⚠ 2 sin mapear
+-------------------------------------------------------------
+Formulario            Campaña          Estado     Leads
+Informes Posgrado     Posgrado_Ago     Mapeado      248
+Descarga Brochure     Brochure_Q3      Sin mapear    31
+-------------------------------------------------------------
+Editar "Informes Posgrado":
+  utm_source  = facebook
+  utm_medium  = paid_social
+  utm_campaign= {{campaign_name}}
+  utm_content = {{ad_name}}
+  utm_term    = {{adset_name}}
+Campos del formulario → Walix:
+  full_name  → Nombre        phone → Teléfono
+  email      → Correo        "¿Qué programa?" → Producto
+Regla por defecto para formularios nuevos: [x] activa
+```
+
+**G. Tarjeta "Origen" en el detalle del contacto**
+```text
+Origen
+Primer toque  27/08/26 09:12 · Paid Social · facebook / paid_social
+              Campaña: Posgrado_Ago · Anuncio: Video_15s
+Último toque  27/08/26 10:02 · Referral · google.com
+Ubicación     Ciudad de México, CDMX, MX · CP 03100
+Dispositivo   Móvil · Android · Chrome · es-MX
+Landing       /posgrados?utm_source=facebook...
+Toques 3
+```
+
+**H. Bloque de campaña en el contacto e Inbox**
+```text
+Campaña: Bienvenida Posgrado · Paso 2 de 3
+Próximo envío: 29/08/26 10:00        [ Sacar de campaña ]
+```
+
+**I. Configuración → General (interruptores)**
+```text
+[x] Campañas de WhatsApp
+[x] Guardar IP y geolocalización de leads
+```
+
+
 ## Orden de entrega
 1. Base de datos, interruptor y sincronización de plantillas de Meta
 2. Atribución (UTMs, canal GA4, IP/geo) + entrada de leads (manual, importación, web/API)
