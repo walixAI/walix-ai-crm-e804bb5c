@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: channels } = await sb
       .from("whatsapp_channels")
-      .select("id, access_token, waba_id, phone_number_id")
+      .select("id, access_token, business_account_id, phone_number_id")
       .eq("tenant_id", tenantId)
       .neq("status", "disabled");
 
@@ -35,8 +35,8 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
 
     for (const ch of channels ?? []) {
-      if (!ch.access_token || !ch.waba_id) { errors.push("Canal sin WABA o token"); continue; }
-      const url = `${META_API}/${ch.waba_id}/message_templates?limit=200&access_token=${ch.access_token}`;
+      if (!ch.access_token || !ch.business_account_id) { errors.push("Canal sin cuenta de WhatsApp Business o token"); continue; }
+      const url = `${META_API}/${ch.business_account_id}/message_templates?limit=200&access_token=${ch.access_token}`;
       const res = await fetch(url);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
