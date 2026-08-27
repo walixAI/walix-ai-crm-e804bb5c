@@ -45,11 +45,21 @@ export function CustomizeSheet({ open, onOpenChange, surface, scope = "user", ti
   const save = useSaveLayout(surface);
   const reset = useResetUserLayout(surface);
 
+  const { data: features } = useTenantFeatures();
+  const featureRecurrences = features?.feature_recurrences ?? true;
+  const featureExpenses = features?.feature_expenses ?? true;
+
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    const next: Row[] = resolved.widgets.map((r) => ({
+    const next: Row[] = resolved.widgets
+      .filter((r) => {
+        if (!featureRecurrences && RECURRENCE_WIDGETS.has(r.widget.key)) return false;
+        if (!featureExpenses && EXPENSE_WIDGETS.has(r.widget.key)) return false;
+        return true;
+      })
+      .map((r) => ({
       key: r.widget.key,
       name: r.widget.name,
       description: r.widget.description,
