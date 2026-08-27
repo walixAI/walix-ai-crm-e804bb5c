@@ -21,6 +21,8 @@ export interface Tenant {
   feature_recurrences?: boolean;
   feature_expenses?: boolean;
   feature_deal_types?: boolean;
+  feature_wa_campaigns?: boolean;
+  track_ip?: boolean;
 }
 
 
