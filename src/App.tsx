@@ -39,6 +39,7 @@ const Tasks = lazy(() => import("@/pages/app/Tasks"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
 const MiDia = lazy(() => import("@/pages/app/MiDia"));
 const Expenses = lazy(() => import("@/pages/app/Expenses"));
+const Campaigns = lazy(() => import("@/pages/app/Campaigns"));
 const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 const Team = lazy(() => import("@/pages/app/Team"));
 const WhatsappSim = lazy(() => import("@/pages/app/WhatsappSim"));
@@ -119,6 +120,7 @@ const AppRoutes = () => {
         <Route path="/ai-inbox" element={<AiInbox />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/automations" element={<Automations />} />
+        <Route path="/campanas" element={<Campaigns />} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "platform_owner", "platform_staff", "super_admin"]}>
             <Settings />

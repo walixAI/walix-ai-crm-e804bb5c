@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot, Sun, Receipt, Trophy
+  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot, Sun, Receipt, Trophy, Megaphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +22,7 @@ export function Sidebar() {
   const { can, canAccess } = usePermissions();
   const { data: features } = useTenantFeatures();
   const featureExpenses = features?.feature_expenses ?? true;
+  const featureCampaigns = features?.feature_wa_campaigns ?? false;
   const isAdmin =
     roles.includes("tenant_admin") ||
     roles.includes("tenant_owner") ||
@@ -48,6 +49,7 @@ export function Sidebar() {
     { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle, badge: 12 },
     { to: "/reports", label: "Reportes", icon: BarChart3 },
     { to: "/automations", label: "Automatizaciones", icon: Zap },
+    ...(featureCampaigns ? [{ to: "/campanas", label: "Campañas WA", icon: Megaphone }] : []),
   ].filter((i) => canAccess(i.to));
 
 
