@@ -36,14 +36,27 @@ Meta no envía UTMs: envía `ad_id`, `adset_id`, `campaign_id`, `form_id`, `page
 
 
 ### 2. Reglas de enrolamiento
-Una pantalla nueva **Campañas de WhatsApp** donde se define:
-- **Condición de entrada**: canal de origen, producto/categoría, etiqueta, asesor, etapa del pipeline.
+Una pantalla nueva **Campañas de WhatsApp** donde la condición de entrada se puede definir de dos formas, intercambiables en cualquier momento:
+
+**a) Por filtros (modo visual)**
+- **Condición de entrada**: canal de origen, producto/categoría, etiqueta, asesor, etapa del pipeline, atribución (UTM, canal GA4, ciudad/estado).
+
+**b) Por prompt (modo texto libre)**
+- El usuario escribe en español lo que quiere, por ejemplo: *"Todos los leads de Facebook Ads de CDMX que pidieron informes de posgrado y no han contestado en 3 días"*.
+- Walix interpreta el prompt con IA y lo traduce a las mismas condiciones estructuradas del modo visual, mostrando el resultado en pantalla ("esto entendí") para que el usuario lo revise, ajuste o acepte.
+- Antes de guardar se muestra una **vista previa con el conteo y una muestra de leads** que hoy cumplirían la regla, para validar que el prompt hace lo esperado.
+- El prompt queda guardado junto a la regla: se puede editar el texto y volver a generar, o pasar a modo filtros y seguir afinando a mano.
+- Si el prompt pide algo que no se puede traducir a datos existentes, se avisa qué parte no se pudo interpretar en lugar de inventar la condición.
+- El prompt también puede definir el **objetivo y tono de la conversación**, que se usa para sugerir los pasos de la secuencia.
+
+Y en ambos modos:
 - **Objetivo de la conversación**: calificar, agendar cita, cotizar, reactivar, cobrar, encuesta.
 - **Secuencia**: pasos con espera (ej. día 0 plantilla de bienvenida, día 2 recordatorio, día 5 último intento).
 - **Corte automático**: si el lead responde, avanza de etapa o se marca ganado/perdido, la secuencia se detiene.
 - **Horario permitido**: no enviar de noche ni en fines de semana (configurable).
 
 El primer lead que cumpla más de una regla entra solo a la de mayor prioridad.
+
 
 ### 3. Mensajes que sí se pueden enviar
 - **Paso 1 (abrir conversación)**: plantilla aprobada de Meta. Sincronizamos las plantillas ya aprobadas de la cuenta WhatsApp del tenant y se eligen desde un selector, mapeando sus variables a datos del contacto (nombre, empresa, producto, asesor, monto).
