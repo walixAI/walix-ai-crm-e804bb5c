@@ -325,6 +325,27 @@ Deno.serve(async (req) => {
                 event_data: { from, length: body.length, wamid: msg.id, conversation_id: convId },
               },
             ]);
+
+            // Campañas: detener las secuencias activas cuando el contacto responde.
+            try {
+              const { data: enrolls } = await sb
+                .from("wa_enrollments")
+                .select("id, campaign_id, wa_campaigns!inner(stop_on_reply)")
+                .eq("tenant_id", channel.tenant_id)
+                .eq("contact_id", contactId)
+                .eq("status", "active");
+              const toStop = (enrolls ?? [])
+                .filter((e: any) => e.wa_campaigns?.stop_on_reply !== false)
+                .map((e: any) => e.id);
+              if (toStop.length) {
+                await sb.from("wa_enrollments")
+                  .update({ status: "stopped", exit_reason: "el contacto respondió", next_send_at: null })
+                  .in("id", toStop);
+              }
+            } catch (e) {
+              console.error("stop enrollments failed", e);
+            }
+
           } else if (channel.kind === "team") {
             // Verify user authorization
             const phoneVariants = phoneMatchVariants(from);
