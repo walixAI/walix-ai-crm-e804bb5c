@@ -201,6 +201,12 @@ export function CopilotCapabilitiesTab() {
 
   const nativeRows = items.filter((r) => r.kind === "native");
   const customRows = items.filter((r) => r.kind !== "native");
+  const visibleNativeCaps = NATIVE_CAPABILITIES.filter((c) => {
+    if (!tenantFeatures?.feature_recurrences && c.id === "get_scheduled_services") return false;
+    if (!tenantFeatures?.feature_expenses && (c.id === "get_profitability" || c.id === "get_expenses_summary")) return false;
+    return true;
+  });
+
   const nativeState = (id: string) => {
     const row = nativeRows.find((r) => r.recipe_json?.native_tool === id);
     return { row, enabled: row ? row.is_active : true };
@@ -277,7 +283,7 @@ export function CopilotCapabilitiesTab() {
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          {NATIVE_CAPABILITIES.map((c) => {
+          {visibleNativeCaps.map((c) => {
             const { enabled } = nativeState(c.id);
             return (
               <Card key={c.id} className={`p-3 ${enabled ? "" : "opacity-60"}`}>

@@ -8,6 +8,10 @@ import { useResolvedLayout, useSaveLayout, type Surface } from "@/lib/queries/da
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
+
+const RECURRENCE_WIDGETS = ["midia.recurrences", "midia.services", "dash.recurrences_month"];
+const EXPENSE_WIDGETS = ["midia.profitability", "dash.profitability"];
 
 export function WidgetsTab() {
   const { isTenantAdmin } = usePermissions();
@@ -62,6 +66,12 @@ export function WidgetsTab() {
 function WidgetsList({ surface, canEdit }: { surface: Surface; canEdit: boolean }) {
   const resolved = useResolvedLayout(surface);
   const save = useSaveLayout(surface);
+  const { data: features } = useTenantFeatures();
+  const visibleWidgets = resolved.widgets.filter((r) => {
+    if (!features?.feature_recurrences && RECURRENCE_WIDGETS.includes(r.widget.key)) return false;
+    if (!features?.feature_expenses && EXPENSE_WIDGETS.includes(r.widget.key)) return false;
+    return true;
+  });
 
   async function toggle(key: string, visible: boolean) {
     const items = resolved.widgets.map((r) => ({
@@ -80,7 +90,7 @@ function WidgetsList({ surface, canEdit }: { surface: Surface; canEdit: boolean 
   if (resolved.isLoading) return <div className="text-sm text-muted-foreground">Cargando…</div>;
   return (
     <ul className="divide-y divide-border rounded-lg border border-border">
-      {resolved.widgets.map((r) => (
+      {visibleWidgets.map((r) => (
         <li key={r.widget.key} className="flex items-center gap-3 p-3">
           <div className="flex-1 min-w-0">
             <div className="font-medium">{r.widget.name}</div>
