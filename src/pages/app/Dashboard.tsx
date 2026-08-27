@@ -67,6 +67,8 @@ export default function Dashboard() {
   const [closedRange, setClosedRange] = useState<RangeValue>({ preset: "30d" });
 
   const { data: kpis, isLoading: kpisLoading } = useDashboardKpis();
+  const { data: features } = useTenantFeatures();
+
   // Legacy hardcoded suggestions replaced by ProactiveBriefing (uses ai_proactive_suggestions).
   const stageP = rangeParams(stageRange);
   const closedP = rangeParams(closedRange);
