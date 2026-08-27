@@ -107,6 +107,8 @@ Desde Contactos y Pipeline: seleccionar filtros (etapa, tipificación, asesor, p
 - Diálogo de envío por segmento reutilizable desde Contactos y Pipeline
 - Bloque de campaña en el detalle del contacto y en la conversación del Inbox
 - Interruptor del módulo (y de rastreo de IP) en Configuración → General
+- Captura de UTMs en el sitio: script/snippet que guarda los parámetros y el referrer en el navegador y los manda con el formulario
+
 
 ## Interfaces (bocetos de cada pantalla)
 
