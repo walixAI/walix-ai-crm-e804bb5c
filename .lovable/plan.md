@@ -97,6 +97,8 @@ Desde Contactos y Pipeline: seleccionar filtros (etapa, tipificación, asesor, p
 - Ampliar `whatsapp-send` para soportar `type: template` con variables
 - Ampliar `whatsapp-webhook` para registrar respuestas y estados (entregado/leído) contra `wa_step_sends` y cortar la secuencia al responder
 - Regla de canal GA4 y geolocalización por IP compartidas en `_shared/attribution.ts`
+- `wa-campaign-rule-ai` — traduce el prompt en español a condiciones estructuradas validadas contra el esquema (campos y valores reales del tenant) vía Lovable AI; devuelve también qué parte no pudo interpretar y una vista previa con conteo de leads. El motor de enrolamiento siempre evalúa el JSON resuelto, nunca el prompt en crudo.
+
 
 **Frontend** (todo en español, oculto si el interruptor está apagado):
 - `src/pages/app/Campaigns.tsx` con lista, constructor de secuencia y panel de métricas
