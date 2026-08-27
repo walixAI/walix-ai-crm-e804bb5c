@@ -72,22 +72,32 @@ Desde Contactos y Pipeline: seleccionar filtros (etapa, tipificación, asesor, p
 - `wa_enrollments` — contacto + campaña, estado, paso actual, próximo envío, motivo de salida
 - `wa_step_sends` — bitácora por envío: estado, etapa del deal, resultado, tipificación, comentario, id de mensaje de Meta
 - `lead_intake_keys` — llave por tenant para el endpoint público de leads
+- `contact_attribution` — atribución por contacto: tipo (first/last touch), UTMs, click ids, canal GA4 resuelto, referrer, landing URL, IP, país, estado, ciudad, CP, zona horaria, dispositivo, SO, navegador, user agent, idioma, fecha del toque
+- `deals.attribution_id` — la oportunidad congela la atribución vigente al crearse
+- `meta_form_mappings` — por formulario de Meta: mapeo a UTMs (valor fijo o token) y mapeo de campos del formulario a campos del contacto; más una regla por defecto
+- `tenants.track_ip` (boolean) — permite apagar el guardado de IP por tenant
 
 **Funciones edge**:
-- `lead-intake` — endpoint público (API y formularios web) que crea contacto + enrola
-- `meta-leadgen-webhook` — recibe formularios de Meta Ads
+- `lead-intake` — endpoint público (API y formularios web) que crea contacto, resuelve atribución (UTMs → canal GA4, IP → ciudad/estado) y enrola
+- `meta-leadgen-webhook` — recibe formularios de Meta Ads, aplica el mapeo configurado y normaliza a UTMs
 - `wa-campaign-worker` — corre cada 15 min por cron; lote acotado, lock de ejecución única, marca progreso idempotente, se pausa y avisa ante errores repetidos de Meta
 - Ampliar `whatsapp-send` para soportar `type: template` con variables
 - Ampliar `whatsapp-webhook` para registrar respuestas y estados (entregado/leído) contra `wa_step_sends` y cortar la secuencia al responder
+- Regla de canal GA4 y geolocalización por IP compartidas en `_shared/attribution.ts`
 
 **Frontend** (todo en español, oculto si el interruptor está apagado):
 - `src/pages/app/Campaigns.tsx` con lista, constructor de secuencia y panel de métricas
+- Pantalla de **Mapeo de formularios de Meta** dentro de Configuración → WhatsApp/Leads
+- Tarjeta "Origen" en el detalle del contacto y filtros/columnas de atribución en Contactos y Pipeline
 - Diálogo de envío por segmento reutilizable desde Contactos y Pipeline
 - Bloque de campaña en el detalle del contacto y en la conversación del Inbox
-- Interruptor del módulo en Configuración → General
+- Interruptor del módulo (y de rastreo de IP) en Configuración → General
+- Captura de UTMs en el sitio: script/snippet que guarda los parámetros y el referrer en el navegador y los manda con el formulario
 
 ## Orden de entrega
 1. Base de datos, interruptor y sincronización de plantillas de Meta
-2. Entrada de leads (manual, importación, web/API, Meta Ads)
-3. Constructor de campañas + worker de secuencias + bitácora
-4. Envío puntual por segmento y panel de métricas
+2. Atribución (UTMs, canal GA4, IP/geo) + entrada de leads (manual, importación, web/API)
+3. Meta Ads: webhook de leadgen y pantalla de mapeo
+4. Constructor de campañas + worker de secuencias + bitácora
+5. Envío puntual por segmento y panel de métricas (incluye reporte por canal, campaña y ciudad)
+
