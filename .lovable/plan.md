@@ -80,7 +80,7 @@ Desde Contactos y Pipeline: seleccionar filtros (etapa, tipificación, asesor, p
 **Base de datos** (todas con RLS por `get_user_tenant(auth.uid())` + GRANTs):
 - `tenants.feature_wa_campaigns` (boolean, default false; true solo para SCALA)
 - `wa_templates` — caché de plantillas aprobadas de Meta por tenant (nombre, idioma, categoría, variables, estado)
-- `wa_campaigns` — nombre, objetivo, condiciones de entrada (jsonb), prioridad, horario, activa
+- `wa_campaigns` — nombre, objetivo, modo de regla (filtros/prompt), texto del prompt, condiciones de entrada resueltas (jsonb), prioridad, horario, activa
 - `wa_campaign_steps` — orden, espera en horas, tipo (plantilla/texto), contenido, condición de corte
 - `wa_enrollments` — contacto + campaña, estado, paso actual, próximo envío, motivo de salida
 - `wa_step_sends` — bitácora por envío: estado, etapa del deal, resultado, tipificación, comentario, id de mensaje de Meta
