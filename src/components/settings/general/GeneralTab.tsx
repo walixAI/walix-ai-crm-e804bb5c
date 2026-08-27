@@ -42,6 +42,8 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
   const [featureRecurrences, setFeatureRecurrences] = useState(true);
   const [featureExpenses, setFeatureExpenses] = useState(true);
   const [featureDealTypes, setFeatureDealTypes] = useState(true);
+  const [featureWaCampaigns, setFeatureWaCampaigns] = useState(false);
+  const [trackIp, setTrackIp] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [uploading, setUploading] = useState(false);
@@ -57,6 +59,8 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
     setFeatureRecurrences(tenant.feature_recurrences ?? true);
     setFeatureExpenses(tenant.feature_expenses ?? true);
     setFeatureDealTypes(tenant.feature_deal_types ?? true);
+    setFeatureWaCampaigns((tenant as { feature_wa_campaigns?: boolean }).feature_wa_campaigns ?? false);
+    setTrackIp((tenant as { track_ip?: boolean }).track_ip ?? true);
     if (tenant.brand_primary) {
       setColor(hslToHex(tenant.brand_primary));
       applyBrandPrimary(tenant.brand_primary);
@@ -94,6 +98,8 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         feature_recurrences: featureRecurrences,
         feature_expenses: featureExpenses,
         feature_deal_types: featureDealTypes,
+        feature_wa_campaigns: featureWaCampaigns,
+        track_ip: trackIp,
       });
       applyBrandPrimary(brand_primary);
       await logAudit({
@@ -101,7 +107,7 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         tenantId,
         targetType: "tenant",
         targetId: tenantId,
-        metadata: { name, currency, timezone: tz, brand_primary, feature_recurrences: featureRecurrences, feature_expenses: featureExpenses, feature_deal_types: featureDealTypes },
+        metadata: { name, currency, timezone: tz, brand_primary, feature_recurrences: featureRecurrences, feature_expenses: featureExpenses, feature_deal_types: featureDealTypes, feature_wa_campaigns: featureWaCampaigns, track_ip: trackIp },
       });
       qc.invalidateQueries({ queryKey: ["tenant", tenantId] });
       qc.invalidateQueries({ queryKey: ["tenant-features"] });
@@ -293,6 +299,30 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
               id="f-dealtypes"
               checked={featureDealTypes}
               onCheckedChange={setFeatureDealTypes}
+              disabled={!canEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-wacampaigns">Campañas de WhatsApp</Label>
+              <p className="text-xs text-muted-foreground">Secuencias automáticas y envíos segmentados.</p>
+            </div>
+            <Switch
+              id="f-wacampaigns"
+              checked={featureWaCampaigns}
+              onCheckedChange={setFeatureWaCampaigns}
+              disabled={!canEdit}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="f-trackip">Rastreo de IP y ubicación</Label>
+              <p className="text-xs text-muted-foreground">Guarda IP, ciudad y estado del lead para análisis.</p>
+            </div>
+            <Switch
+              id="f-trackip"
+              checked={trackIp}
+              onCheckedChange={setTrackIp}
               disabled={!canEdit}
             />
           </div>
