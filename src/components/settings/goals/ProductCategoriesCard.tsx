@@ -13,6 +13,8 @@ import {
 } from "@/lib/queries/monthlyGoals";
 
 export function ProductCategoriesCard() {
+  const { data: features } = useTenantFeatures();
+  const featureRecurrences = features?.feature_recurrences ?? true;
   const { data: categories = [], isLoading } = useProductCategories();
   const create = useCreateProductCategory();
   const del = useDeleteProductCategory();
