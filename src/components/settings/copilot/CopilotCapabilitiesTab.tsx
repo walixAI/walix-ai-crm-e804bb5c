@@ -9,6 +9,7 @@ import { Plus, Trash2, Sparkles, ShieldAlert } from "lucide-react";
 import { NewCapabilityWizard } from "./NewCapabilityWizard";
 import { useTenantId } from "@/lib/queries/tenant";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 
 const BULK_ENTITIES: { id: string; label: string; hint: string }[] = [
   { id: "contacts", label: "Contactos", hint: "Solo edición (nunca borrado)" },
@@ -201,6 +202,7 @@ export function CopilotCapabilitiesTab() {
 
   const nativeRows = items.filter((r) => r.kind === "native");
   const customRows = items.filter((r) => r.kind !== "native");
+  const { data: tenantFeatures } = useTenantFeatures();
   const visibleNativeCaps = NATIVE_CAPABILITIES.filter((c) => {
     if (!tenantFeatures?.feature_recurrences && c.id === "get_scheduled_services") return false;
     if (!tenantFeatures?.feature_expenses && (c.id === "get_profitability" || c.id === "get_expenses_summary")) return false;
