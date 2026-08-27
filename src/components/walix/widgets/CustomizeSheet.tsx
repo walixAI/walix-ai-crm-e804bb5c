@@ -60,16 +60,16 @@ export function CustomizeSheet({ open, onOpenChange, surface, scope = "user", ti
         return true;
       })
       .map((r) => ({
-      key: r.widget.key,
-      name: r.widget.name,
-      description: r.widget.description,
-      hidden: r.hidden,
-      mandatory: r.widget.is_mandatory,
-      position: r.position,
-    }));
+        key: r.widget.key,
+        name: r.widget.name,
+        description: r.widget.description,
+        hidden: r.hidden,
+        mandatory: r.widget.is_mandatory,
+        position: r.position,
+      }));
     next.sort((a, b) => a.position - b.position);
     setRows(next);
-  }, [open, resolved.widgets]);
+  }, [open, resolved.widgets, featureRecurrences, featureExpenses]);
 
   const scopeKey = useMemo(() => {
     if (scope === "tenant_default") return "tenant_default";
