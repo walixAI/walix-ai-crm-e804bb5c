@@ -6,6 +6,8 @@ export interface TenantFeatures {
   feature_recurrences: boolean;
   feature_expenses: boolean;
   feature_deal_types: boolean;
+  feature_wa_campaigns: boolean;
+  track_ip: boolean;
   industry: string | null;
 }
 
@@ -18,7 +20,7 @@ export function useTenantFeatures() {
     queryFn: async (): Promise<TenantFeatures> => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("feature_recurrences, feature_expenses, feature_deal_types, industry")
+        .select("feature_recurrences, feature_expenses, feature_deal_types, feature_wa_campaigns, track_ip, industry")
         .eq("id", tenantId!)
         .maybeSingle();
       if (error) throw error;
@@ -26,11 +28,14 @@ export function useTenantFeatures() {
         feature_recurrences: !!data?.feature_recurrences,
         feature_expenses: !!data?.feature_expenses,
         feature_deal_types: !!data?.feature_deal_types,
+        feature_wa_campaigns: !!data?.feature_wa_campaigns,
+        track_ip: data?.track_ip !== false,
         industry: data?.industry ?? null,
       };
     },
   });
 }
+
 
 export function useIsRefrigerationIndustry(): boolean {
   const { data } = useTenantFeatures();
