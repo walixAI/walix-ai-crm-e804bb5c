@@ -43,9 +43,13 @@ export function ProductCategoriesCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Crea categorías propias (ej. "Refrigerador 36\"", "Mantenimientos") para definir metas por producto.
-          Marca una categoría como <strong>servicio recurrente</strong> para que cada oportunidad genere
-          automáticamente la suscripción y los ciclos futuros del cliente.
+          Crea categorías propias (ej. "Producto A", "Plan anual") para definir metas por producto o línea de negocio.
+          {featureRecurrences && (
+            <>
+              {" "}Marca una categoría como <strong>servicio recurrente</strong> para que cada oportunidad genere
+              automáticamente la suscripción y los ciclos futuros del cliente.
+            </>
+          )}
         </p>
         <div className="flex gap-2">
           <Input
