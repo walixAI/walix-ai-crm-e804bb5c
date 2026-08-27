@@ -13,6 +13,28 @@ Todo lead nuevo entra por el mismo punto, sin importar el origen:
 
 Cada lead queda marcado con su **canal de origen** (meta_ads, web, api, manual, importación) y su **tipificación** (producto, campaña de origen, etiquetas).
 
+### 1b. Atribución: UTMs, canal estándar y geolocalización
+Cada contacto guarda su **atribución de primer toque** (first touch, inmutable) y la de **último toque** (last touch, se actualiza en cada nueva interacción rastreable), y cada oportunidad hereda la atribución vigente al crearse.
+
+Se captura:
+- **UTMs**: `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, más `gclid`, `fbclid`, `msclkid`, `wbraid`/`gbraid`.
+- **Canal estándar de Google Analytics** (agrupación por defecto): Direct, Organic Search, Paid Search, Organic Social, Paid Social, Display, Email, Affiliates, Referral, Organic Video, Paid Video, Cross-network, Unassigned. Se calcula con las mismas reglas de GA4 (combinación de source/medium/campaign) y se guarda ya resuelto para poder segmentar y reportar sin recalcular.
+- **Página de aterrizaje**, **referrer**, y **landing URL completa**.
+- **Rastreo técnico y geográfico**: IP, país, estado/región, ciudad, código postal aproximado, zona horaria, idioma del navegador, dispositivo (móvil/escritorio/tablet), sistema operativo, navegador y user agent. La resolución de IP a ciudad/estado se hace en el servidor al recibir el lead (no en el navegador), así no se puede falsear desde el cliente.
+- **Marca de tiempo** de primer y último toque y número de toques.
+
+En Contactos y Pipeline estos campos quedan disponibles como **filtros y columnas**, y sirven como condición de entrada a las campañas de WhatsApp (ej. "leads de Paid Social de CDMX entran a la secuencia X"). En el detalle del contacto se ve una tarjeta de "Origen" con todo el rastro.
+
+**Aviso de privacidad**: la IP y la geolocalización se guardan como dato de negocio; conviene reflejarlo en el aviso de privacidad del tenant. Se puede apagar el guardado de IP por tenant.
+
+### 1c. Mapeo de formularios de Meta Ads
+Meta no envía UTMs: envía `ad_id`, `adset_id`, `campaign_id`, `form_id`, `page_id`, `platform` (facebook/instagram) y los campos personalizados del formulario. Por eso se agrega una pantalla de **mapeo por formulario**:
+- Lista de formularios detectados de la cuenta de Meta del tenant.
+- Para cada uno, se define a mano a qué valor de UTM corresponde: por ejemplo `utm_source = facebook`, `utm_medium = paid_social`, `utm_campaign = {{campaign_name}}`, `utm_content = {{ad_name}}`, `utm_term = {{adset_name}}`. Se pueden usar valores fijos o tokens con los datos que Meta manda.
+- Mapeo de los **campos del formulario** (nombre completo, teléfono, correo, preguntas personalizadas) hacia campos del contacto o campos personalizados.
+- Regla por defecto para formularios nuevos aún no mapeados, para que ningún lead se pierda, y aviso en pantalla de que hay formularios sin mapear.
+
+
 ### 2. Reglas de enrolamiento
 Una pantalla nueva **Campañas de WhatsApp** donde se define:
 - **Condición de entrada**: canal de origen, producto/categoría, etiqueta, asesor, etapa del pipeline.
