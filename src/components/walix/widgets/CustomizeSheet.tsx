@@ -17,6 +17,10 @@ import {
   useResolvedLayout, useSaveLayout, useResetUserLayout,
   type Surface, type LayoutItem,
 } from "@/lib/queries/dashboardLayout";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
+
+const RECURRENCE_WIDGETS = new Set(["midia.recurrences", "midia.services", "dash.recurrences_month"]);
+const EXPENSE_WIDGETS = new Set(["midia.profitability", "dash.profitability"]);
 
 interface Props {
   open: boolean;
