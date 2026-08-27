@@ -71,6 +71,7 @@ export function ProductCategoriesCard() {
             {categories.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
                 <span className="flex-1 min-w-[120px]">{c.name}</span>
+                {featureRecurrences && (
                 <div className="flex items-center gap-2">
                   <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">Recurrente</span>
@@ -84,7 +85,8 @@ export function ProductCategoriesCard() {
                     }
                   />
                 </div>
-                {c.is_recurring && (
+                )}
+                {featureRecurrences && c.is_recurring && (
                   <Select
                     value={String(c.default_period_months ?? 12)}
                     onValueChange={(v) =>
