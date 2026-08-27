@@ -239,7 +239,6 @@ Próximo envío: 29/08/26 10:00        [ Sacar de campaña ]
 [x] Campañas de WhatsApp
 [x] Guardar IP y geolocalización de leads
 ```
-- Captura de UTMs en el sitio: script/snippet que guarda los parámetros y el referrer en el navegador y los manda con el formulario
 
 
 ## Orden de entrega
