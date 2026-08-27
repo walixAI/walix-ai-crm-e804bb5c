@@ -1138,6 +1138,147 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_attribution: {
+        Row: {
+          browser: string | null
+          city: string | null
+          contact_id: string
+          country: string | null
+          created_at: string
+          device_type: string | null
+          fbclid: string | null
+          ga_channel: string | null
+          gbraid: string | null
+          gclid: string | null
+          id: string
+          ip_address: string | null
+          landing_path: string | null
+          landing_url: string | null
+          language: string | null
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          meta_campaign_id: string | null
+          meta_form_id: string | null
+          meta_platform: string | null
+          msclkid: string | null
+          os: string | null
+          postal_code: string | null
+          referrer: string | null
+          region: string | null
+          source_kind: string | null
+          tenant_id: string
+          timezone: string | null
+          touch_count: number
+          touch_type: string
+          touched_at: string
+          updated_at: string
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          wbraid: string | null
+        }
+        Insert: {
+          browser?: string | null
+          city?: string | null
+          contact_id: string
+          country?: string | null
+          created_at?: string
+          device_type?: string | null
+          fbclid?: string | null
+          ga_channel?: string | null
+          gbraid?: string | null
+          gclid?: string | null
+          id?: string
+          ip_address?: string | null
+          landing_path?: string | null
+          landing_url?: string | null
+          language?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_form_id?: string | null
+          meta_platform?: string | null
+          msclkid?: string | null
+          os?: string | null
+          postal_code?: string | null
+          referrer?: string | null
+          region?: string | null
+          source_kind?: string | null
+          tenant_id: string
+          timezone?: string | null
+          touch_count?: number
+          touch_type?: string
+          touched_at?: string
+          updated_at?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          wbraid?: string | null
+        }
+        Update: {
+          browser?: string | null
+          city?: string | null
+          contact_id?: string
+          country?: string | null
+          created_at?: string
+          device_type?: string | null
+          fbclid?: string | null
+          ga_channel?: string | null
+          gbraid?: string | null
+          gclid?: string | null
+          id?: string
+          ip_address?: string | null
+          landing_path?: string | null
+          landing_url?: string | null
+          language?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_form_id?: string | null
+          meta_platform?: string | null
+          msclkid?: string | null
+          os?: string | null
+          postal_code?: string | null
+          referrer?: string | null
+          region?: string | null
+          source_kind?: string | null
+          tenant_id?: string
+          timezone?: string | null
+          touch_count?: number
+          touch_type?: string
+          touched_at?: string
+          updated_at?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          wbraid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_attribution_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_attribution_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_custom_fields: {
         Row: {
           created_at: string
@@ -1852,6 +1993,7 @@ export type Database = {
         Row: {
           amount: number
           amount_paid: number | null
+          attribution_id: string | null
           blocker_expected_at: string | null
           blocker_note: string | null
           blocker_set_at: string | null
@@ -1891,6 +2033,7 @@ export type Database = {
         Insert: {
           amount?: number
           amount_paid?: number | null
+          attribution_id?: string | null
           blocker_expected_at?: string | null
           blocker_note?: string | null
           blocker_set_at?: string | null
@@ -1930,6 +2073,7 @@ export type Database = {
         Update: {
           amount?: number
           amount_paid?: number | null
+          attribution_id?: string | null
           blocker_expected_at?: string | null
           blocker_note?: string | null
           blocker_set_at?: string | null
@@ -1967,6 +2111,13 @@ export type Database = {
           won_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "deals_attribution_id_fkey"
+            columns: ["attribution_id"]
+            isOneToOne: false
+            referencedRelation: "contact_attribution"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deals_contact_id_fkey"
             columns: ["contact_id"]
@@ -2450,6 +2601,44 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_intake_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_intake_keys_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           category: string | null
@@ -2539,6 +2728,56 @@ export type Database = {
           },
           {
             foreignKeyName: "messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_form_mappings: {
+        Row: {
+          created_at: string
+          field_map: Json
+          form_id: string | null
+          form_name: string | null
+          id: string
+          is_default: boolean
+          last_lead_at: string | null
+          leads_count: number
+          tenant_id: string
+          updated_at: string
+          utm_map: Json
+        }
+        Insert: {
+          created_at?: string
+          field_map?: Json
+          form_id?: string | null
+          form_name?: string | null
+          id?: string
+          is_default?: boolean
+          last_lead_at?: string | null
+          leads_count?: number
+          tenant_id: string
+          updated_at?: string
+          utm_map?: Json
+        }
+        Update: {
+          created_at?: string
+          field_map?: Json
+          form_id?: string | null
+          form_name?: string | null
+          id?: string
+          is_default?: boolean
+          last_lead_at?: string | null
+          leads_count?: number
+          tenant_id?: string
+          updated_at?: string
+          utm_map?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_form_mappings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3745,6 +3984,7 @@ export type Database = {
           feature_deal_types: boolean
           feature_expenses: boolean
           feature_recurrences: boolean
+          feature_wa_campaigns: boolean
           id: string
           industry: string | null
           locale: string
@@ -3762,6 +4002,7 @@ export type Database = {
           status: string
           team_size: string | null
           timezone: string
+          track_ip: boolean
           trial_ends_at: string | null
           wa_team_dedicated: boolean
           whatsapp_phone: string | null
@@ -3784,6 +4025,7 @@ export type Database = {
           feature_deal_types?: boolean
           feature_expenses?: boolean
           feature_recurrences?: boolean
+          feature_wa_campaigns?: boolean
           id?: string
           industry?: string | null
           locale?: string
@@ -3801,6 +4043,7 @@ export type Database = {
           status?: string
           team_size?: string | null
           timezone?: string
+          track_ip?: boolean
           trial_ends_at?: string | null
           wa_team_dedicated?: boolean
           whatsapp_phone?: string | null
@@ -3823,6 +4066,7 @@ export type Database = {
           feature_deal_types?: boolean
           feature_expenses?: boolean
           feature_recurrences?: boolean
+          feature_wa_campaigns?: boolean
           id?: string
           industry?: string | null
           locale?: string
@@ -3840,6 +4084,7 @@ export type Database = {
           status?: string
           team_size?: string | null
           timezone?: string
+          track_ip?: boolean
           trial_ends_at?: string | null
           wa_team_dedicated?: boolean
           whatsapp_phone?: string | null
@@ -3879,6 +4124,391 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_campaign_steps: {
+        Row: {
+          body_text: string | null
+          campaign_id: string
+          created_at: string
+          id: string
+          kind: string
+          step_order: number
+          template_id: string | null
+          template_variables: Json
+          tenant_id: string
+          updated_at: string
+          wait_hours: number
+        }
+        Insert: {
+          body_text?: string | null
+          campaign_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          step_order?: number
+          template_id?: string | null
+          template_variables?: Json
+          tenant_id: string
+          updated_at?: string
+          wait_hours?: number
+        }
+        Update: {
+          body_text?: string | null
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          step_order?: number
+          template_id?: string | null
+          template_variables?: Json
+          tenant_id?: string
+          updated_at?: string
+          wait_hours?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_campaign_steps_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_campaign_steps_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "wa_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_campaign_steps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_campaigns: {
+        Row: {
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          objective: string
+          priority: number
+          rule_mode: string
+          rule_prompt: string | null
+          rule_unresolved: Json
+          schedule: Json
+          stop_on_closed: boolean
+          stop_on_reply: boolean
+          stop_on_stage_change: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          objective?: string
+          priority?: number
+          rule_mode?: string
+          rule_prompt?: string | null
+          rule_unresolved?: Json
+          schedule?: Json
+          stop_on_closed?: boolean
+          stop_on_reply?: boolean
+          stop_on_stage_change?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          objective?: string
+          priority?: number
+          rule_mode?: string
+          rule_prompt?: string | null
+          rule_unresolved?: Json
+          schedule?: Json
+          stop_on_closed?: boolean
+          stop_on_reply?: boolean
+          stop_on_stage_change?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_enrollments: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          current_step: number
+          deal_id: string | null
+          exit_reason: string | null
+          id: string
+          next_send_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          created_at?: string
+          current_step?: number
+          deal_id?: string | null
+          exit_reason?: string | null
+          id?: string
+          next_send_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string
+          current_step?: number
+          deal_id?: string | null
+          exit_reason?: string | null
+          id?: string
+          next_send_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_enrollments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_enrollments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_enrollments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_step_sends: {
+        Row: {
+          blast_id: string | null
+          campaign_id: string | null
+          comment: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          enrollment_id: string | null
+          error_message: string | null
+          id: string
+          result: string | null
+          result_typification: string | null
+          sent_at: string | null
+          stage_id: string | null
+          stage_name: string | null
+          status: string
+          step_id: string | null
+          step_order: number | null
+          tenant_id: string
+          updated_at: string
+          wamid: string | null
+        }
+        Insert: {
+          blast_id?: string | null
+          campaign_id?: string | null
+          comment?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          enrollment_id?: string | null
+          error_message?: string | null
+          id?: string
+          result?: string | null
+          result_typification?: string | null
+          sent_at?: string | null
+          stage_id?: string | null
+          stage_name?: string | null
+          status?: string
+          step_id?: string | null
+          step_order?: number | null
+          tenant_id: string
+          updated_at?: string
+          wamid?: string | null
+        }
+        Update: {
+          blast_id?: string | null
+          campaign_id?: string | null
+          comment?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          enrollment_id?: string | null
+          error_message?: string | null
+          id?: string
+          result?: string | null
+          result_typification?: string | null
+          sent_at?: string | null
+          stage_id?: string | null
+          stage_name?: string | null
+          status?: string
+          step_id?: string | null
+          step_order?: number | null
+          tenant_id?: string
+          updated_at?: string
+          wamid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_step_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_step_sends_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_step_sends_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_step_sends_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "wa_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_step_sends_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "wa_campaign_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_step_sends_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_templates: {
+        Row: {
+          body_text: string | null
+          category: string | null
+          channel_id: string | null
+          components: Json | null
+          created_at: string
+          id: string
+          language: string
+          name: string
+          status: string
+          synced_at: string | null
+          tenant_id: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          body_text?: string | null
+          category?: string | null
+          channel_id?: string | null
+          components?: Json | null
+          created_at?: string
+          id?: string
+          language?: string
+          name: string
+          status?: string
+          synced_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          body_text?: string | null
+          category?: string | null
+          channel_id?: string | null
+          components?: Json | null
+          created_at?: string
+          id?: string
+          language?: string
+          name?: string
+          status?: string
+          synced_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_templates_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "platform_whatsapp_bot"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_templates_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_templates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
