@@ -104,7 +104,7 @@ export function GeneralTab({ tenantId }: { tenantId: string }) {
         metadata: { name, currency, timezone: tz, brand_primary, feature_recurrences: featureRecurrences, feature_expenses: featureExpenses, feature_deal_types: featureDealTypes },
       });
       qc.invalidateQueries({ queryKey: ["tenant", tenantId] });
-      qc.invalidateQueries({ queryKey: ["tenantFeatures"] });
+      qc.invalidateQueries({ queryKey: ["tenant-features"] });
       toast({ title: "Cambios guardados" });
     } catch (err: unknown) {
 
