@@ -11,8 +11,11 @@ import {
 import {
   useProductCategories, useCreateProductCategory, useDeleteProductCategory, useUpdateProductCategory,
 } from "@/lib/queries/monthlyGoals";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 
 export function ProductCategoriesCard() {
+  const { data: features } = useTenantFeatures();
+  const featureRecurrences = features?.feature_recurrences ?? true;
   const { data: categories = [], isLoading } = useProductCategories();
   const create = useCreateProductCategory();
   const del = useDeleteProductCategory();
@@ -40,9 +43,13 @@ export function ProductCategoriesCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Crea categorías propias (ej. "Refrigerador 36\"", "Mantenimientos") para definir metas por producto.
-          Marca una categoría como <strong>servicio recurrente</strong> para que cada oportunidad genere
-          automáticamente la suscripción y los ciclos futuros del cliente.
+          Crea categorías propias (ej. "Producto A", "Plan anual") para definir metas por producto o línea de negocio.
+          {featureRecurrences && (
+            <>
+              {" "}Marca una categoría como <strong>servicio recurrente</strong> para que cada oportunidad genere
+              automáticamente la suscripción y los ciclos futuros del cliente.
+            </>
+          )}
         </p>
         <div className="flex gap-2">
           <Input
@@ -64,6 +71,7 @@ export function ProductCategoriesCard() {
             {categories.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
                 <span className="flex-1 min-w-[120px]">{c.name}</span>
+                {featureRecurrences && (
                 <div className="flex items-center gap-2">
                   <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">Recurrente</span>
@@ -77,7 +85,8 @@ export function ProductCategoriesCard() {
                     }
                   />
                 </div>
-                {c.is_recurring && (
+                )}
+                {featureRecurrences && c.is_recurring && (
                   <Select
                     value={String(c.default_period_months ?? 12)}
                     onValueChange={(v) =>

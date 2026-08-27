@@ -17,6 +17,10 @@ import {
   useResolvedLayout, useSaveLayout, useResetUserLayout,
   type Surface, type LayoutItem,
 } from "@/lib/queries/dashboardLayout";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
+
+const RECURRENCE_WIDGETS = new Set(["midia.recurrences", "midia.services", "dash.recurrences_month"]);
+const EXPENSE_WIDGETS = new Set(["midia.profitability", "dash.profitability"]);
 
 interface Props {
   open: boolean;
@@ -41,21 +45,31 @@ export function CustomizeSheet({ open, onOpenChange, surface, scope = "user", ti
   const save = useSaveLayout(surface);
   const reset = useResetUserLayout(surface);
 
+  const { data: features } = useTenantFeatures();
+  const featureRecurrences = features?.feature_recurrences ?? true;
+  const featureExpenses = features?.feature_expenses ?? true;
+
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    const next: Row[] = resolved.widgets.map((r) => ({
-      key: r.widget.key,
-      name: r.widget.name,
-      description: r.widget.description,
-      hidden: r.hidden,
-      mandatory: r.widget.is_mandatory,
-      position: r.position,
-    }));
+    const next: Row[] = resolved.widgets
+      .filter((r) => {
+        if (!featureRecurrences && RECURRENCE_WIDGETS.has(r.widget.key)) return false;
+        if (!featureExpenses && EXPENSE_WIDGETS.has(r.widget.key)) return false;
+        return true;
+      })
+      .map((r) => ({
+        key: r.widget.key,
+        name: r.widget.name,
+        description: r.widget.description,
+        hidden: r.hidden,
+        mandatory: r.widget.is_mandatory,
+        position: r.position,
+      }));
     next.sort((a, b) => a.position - b.position);
     setRows(next);
-  }, [open, resolved.widgets]);
+  }, [open, resolved.widgets, featureRecurrences, featureExpenses]);
 
   const scopeKey = useMemo(() => {
     if (scope === "tenant_default") return "tenant_default";
