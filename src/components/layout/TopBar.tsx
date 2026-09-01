@@ -57,18 +57,18 @@ export function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur border-b border-border flex items-center gap-3 px-4 md:px-6">
-      <Button variant="ghost" size="icon" className="md:hidden">
-        <Menu className="h-5 w-5" />
-      </Button>
+    <header className="sticky top-0 z-30 h-16 w-full max-w-full overflow-hidden bg-card/80 backdrop-blur border-b border-border flex items-center gap-2 md:gap-3 px-3 md:px-6">
+      <MobileNavSheet />
 
       <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-border">
         <TenantSwitcher />
       </div>
 
-      <AgentsActivityIndicator />
+      <div className="hidden sm:flex">
+        <AgentsActivityIndicator />
+      </div>
 
-      <div className="flex-1 max-w-2xl" data-tour="ai-prompt">
+      <div className="flex-1 min-w-0 max-w-2xl" data-tour="ai-prompt">
         {copilotWebAllowed && (
         <button
           type="button"
