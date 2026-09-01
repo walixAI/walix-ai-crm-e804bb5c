@@ -109,7 +109,7 @@ export function PipelineFilters({ value, onChange }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Etiqueta del deal</Label>
+            <Label className="text-xs">Etiqueta de la oportunidad</Label>
             <Input className="h-8" value={value.tag} onChange={e => onChange({ ...value, tag: e.target.value })} placeholder="ej. premium" />
           </div>
         </div>

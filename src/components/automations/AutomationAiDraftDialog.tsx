@@ -15,7 +15,7 @@ interface Props {
 const EXAMPLES = [
   "Avísame cuando un cliente lleve 3 días sin contestarme un WhatsApp",
   "Cuando llegue un lead nuevo, asígnalo al vendedor con menos clientes",
-  "Si un deal de más de $10,000 lleva 7 días sin movimiento, notifica al gerente",
+  "Si una oportunidad de más de $10,000 lleva 7 días sin movimiento, notifica al gerente",
 ];
 
 export function AutomationAiDraftDialog({ open, onOpenChange, onDraftReady }: Props) {
