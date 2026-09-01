@@ -54,10 +54,11 @@ Deno.serve(async (req) => {
         finished++; continue;
       }
 
-      // Idempotencia: si el paso ya se envió, avanzar sin reenviar.
-      const { data: already } = await sb
-        .from("wa_step_sends").select("id").eq("enrollment_id", e.id).eq("step_id", step.id).maybeSingle();
-      if (already) { await advance(sb, e, list); skipped++; continue; }
+      // Idempotencia: si el paso ya se envió con éxito, avanzar sin reenviar.
+      const { data: prevSends } = await sb
+        .from("wa_step_sends").select("id, status").eq("enrollment_id", e.id).eq("step_id", step.id);
+      const attempts = (prevSends ?? []).length;
+      if ((prevSends ?? []).some((s: any) => s.status === "sent")) { await advance(sb, e, list); skipped++; continue; }
 
       const { data: contact } = await sb
         .from("contacts").select("id, name, phone, company, owner_id").eq("id", e.contact_id).maybeSingle();
