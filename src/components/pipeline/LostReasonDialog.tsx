@@ -70,7 +70,7 @@ export function LostReasonDialog({ open, deal, lostStage, onClose }: Props) {
           ...(useCatalog ? { loss_reason_id: parsed.data.reason } : {}),
         } as any,
       });
-      toast.success("Deal marcado como perdido");
+      toast.success("Oportunidad marcada como perdida");
       onClose(true);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo guardar");

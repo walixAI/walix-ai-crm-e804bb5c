@@ -197,7 +197,7 @@ export default function MiDia() {
             <div ref={columnRefs.collect} className="scroll-mt-28">
               <JumboColumn
                 title="Cobrar hoy"
-                description="Deals con pago pendiente que vencen hoy o antes."
+                description="Oportunidades con pago pendiente que vencen hoy o antes."
                 icon={DollarSign}
                 items={data?.collect ?? []}
                 emptyText="No hay cobros programados."

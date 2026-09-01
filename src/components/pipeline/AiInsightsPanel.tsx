@@ -155,10 +155,10 @@ export function AiInsightsPanel({ open, onClose, deals, contactLastActivityById 
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <Wand2 className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Sugerencias por deal</span>
+                  <span className="text-sm font-semibold">Sugerencias por oportunidad</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Genera una recomendación específica para cada deal activo y muéstrala en su tarjeta del Kanban.
+                  Genera una recomendación específica para cada oportunidad activa y muéstrala en su tarjeta del Kanban.
                 </p>
                 <Button size="sm" className="w-full bg-primary hover:bg-primary/90" onClick={runBulk} disabled={bulk.isPending}>
                   <Wand2 className={cn("h-3.5 w-3.5", bulk.isPending && "animate-pulse")} />

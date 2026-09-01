@@ -1,4 +1,4 @@
-import { Sparkles, Menu, LogOut, User as UserIcon, HelpCircle, Zap } from "lucide-react";
+import { Sparkles, LogOut, User as UserIcon, HelpCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -15,6 +15,7 @@ import { useCopilotWebAccess } from "@/hooks/useCopilotAccess";
 import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AgentsActivityIndicator } from "@/components/agents/AgentsActivityIndicator";
+import { MobileNavSheet } from "@/components/layout/MobileNavSheet";
 
 const ROTATING_PLACEHOLDERS = [
   "¿Qué oportunidades están en riesgo?",
@@ -57,18 +58,18 @@ export function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur border-b border-border flex items-center gap-3 px-4 md:px-6">
-      <Button variant="ghost" size="icon" className="md:hidden">
-        <Menu className="h-5 w-5" />
-      </Button>
+    <header className="sticky top-0 z-30 h-16 w-full max-w-full overflow-hidden bg-card/80 backdrop-blur border-b border-border flex items-center gap-2 md:gap-3 px-3 md:px-6">
+      <MobileNavSheet />
 
       <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-border">
         <TenantSwitcher />
       </div>
 
-      <AgentsActivityIndicator />
+      <div className="hidden sm:flex">
+        <AgentsActivityIndicator />
+      </div>
 
-      <div className="flex-1 max-w-2xl" data-tour="ai-prompt">
+      <div className="flex-1 min-w-0 max-w-2xl" data-tour="ai-prompt">
         {copilotWebAllowed && (
         <button
           type="button"
@@ -78,7 +79,7 @@ export function TopBar() {
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-br from-primary/15 to-accent/15 border border-primary/20 text-[9px] font-bold uppercase tracking-wide text-primary cursor-help">
+                <span className="hidden sm:inline-flex absolute left-2 top-1/2 -translate-y-1/2 items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-br from-primary/15 to-accent/15 border border-primary/20 text-[9px] font-bold uppercase tracking-wide text-primary cursor-help">
                   <Zap className="h-2.5 w-2.5" /> Beta
                 </span>
               </TooltipTrigger>
@@ -87,14 +88,14 @@ export function TopBar() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <div className="pl-[68px] pr-20 h-10 flex items-center bg-background border border-border rounded-xl text-sm text-muted-foreground group-hover:border-primary/40 group-hover:shadow-glow transition-all">
+          <div className="pl-3 sm:pl-[68px] pr-3 md:pr-20 h-10 flex items-center min-w-0 bg-background border border-border rounded-xl text-sm text-muted-foreground group-hover:border-primary/40 group-hover:shadow-glow transition-all">
             <Sparkles className="h-3.5 w-3.5 mr-2 text-accent shrink-0" />
             <span className="truncate">
-              Pregunta a tu copiloto… <span className="opacity-70">ej: {ROTATING_PLACEHOLDERS[phIndex]}</span>
+              Pregunta a tu copiloto…<span className="hidden sm:inline opacity-70"> ej: {ROTATING_PLACEHOLDERS[phIndex]}</span>
             </span>
           </div>
           {proactiveCount > 0 && (
-            <span className="absolute left-[60px] top-2 h-2 w-2 rounded-full bg-destructive animate-pulse ring-2 ring-background" />
+            <span className="absolute left-2 sm:left-[60px] top-2 h-2 w-2 rounded-full bg-destructive animate-pulse ring-2 ring-background" />
           )}
           <kbd className="hidden md:inline-flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
             ⌘ K
@@ -103,13 +104,13 @@ export function TopBar() {
         )}
       </div>
 
-      <div data-tour="notifications">
+      <div data-tour="notifications" className="shrink-0">
         <NotificationsBell />
       </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="rounded-full">
+          <button className="rounded-full shrink-0">
             <Avatar className="h-9 w-9 border-2 border-primary/20">
               <AvatarFallback className="bg-gradient-brand text-primary-foreground text-xs font-semibold">
                 {initials}

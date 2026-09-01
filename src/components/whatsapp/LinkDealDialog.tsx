@@ -91,7 +91,7 @@ export function LinkDealDialog({ open, onOpenChange, conversationId, contactId, 
         <DialogHeader>
           <DialogTitle>Vincular deal</DialogTitle>
           <DialogDescription>
-            Asocia un deal existente o crea uno nuevo desde esta conversación con <span className="font-medium">{contactName}</span>.
+            Asocia una oportunidad existente o crea uno nuevo desde esta conversación con <span className="font-medium">{contactName}</span>.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,7 +113,7 @@ export function LinkDealDialog({ open, onOpenChange, conversationId, contactId, 
         {tab === "link" && (
           <div className="space-y-2">
             {deals.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">Este contacto aún no tiene deals.</p>
+              <p className="text-sm text-muted-foreground text-center py-6">Este contacto aún no tiene oportunidades.</p>
             )}
             <ScrollArea className="max-h-[280px]">
               <ul className="space-y-1.5">

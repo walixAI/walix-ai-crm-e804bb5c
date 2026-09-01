@@ -110,7 +110,7 @@ export function TeamActivityHeatmap() {
                               <div className="font-semibold">{s.name} · {days[di]}</div>
                               <div>WhatsApp: {cell.whatsapp}</div>
                               <div>Notas: {cell.notes}</div>
-                              <div>Deals movidos: {cell.dealsMoved}</div>
+                              <div>Oportunidades movidas: {cell.dealsMoved}</div>
                             </div>
                           </TooltipContent>
                         </Tooltip>

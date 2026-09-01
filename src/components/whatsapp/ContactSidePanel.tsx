@@ -181,11 +181,11 @@ export function ContactSidePanel({
           {/* Deals */}
           <section>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Deals vinculados
+              Oportunidades vinculadas
             </h3>
             <div className="space-y-2">
               {(deals ?? []).length === 0 && (
-                <p className="text-xs text-muted-foreground">Sin deals aún</p>
+                <p className="text-xs text-muted-foreground">Sin oportunidades aún</p>
               )}
               {(deals ?? []).map((d) => (
                 <Link

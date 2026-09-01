@@ -216,7 +216,7 @@ export function PipelineManagerDialog({ open, onClose, onSelect }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar "{confirmDelete?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará el pipeline y todas sus etapas. Los deals asociados quedarán sin etapa.
+              Se eliminará el pipeline y todas sus etapas. Las oportunidades asociadas quedarán sin etapa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

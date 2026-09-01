@@ -147,7 +147,7 @@ const NATIVE_CAPABILITIES: { id: string; label: string; risk: "read" | "write"; 
   { id: "get_scheduled_services", label: "Consultar mantenimientos", risk: "read", description: "Servicios recurrentes programados por mes." },
   { id: "get_my_tasks", label: "Consultar pendientes", risk: "read", description: "Lista tus tareas o las del tenant si eres admin." },
   { id: "get_my_suggestions", label: "Sugerencias proactivas", risk: "read", description: "Devuelve las sugerencias generadas por los agentes IA." },
-  { id: "get_my_deals", label: "Consultar oportunidades", risk: "read", description: "Deals abiertos, filtrables por cierre en el mes." },
+  { id: "get_my_deals", label: "Consultar oportunidades", risk: "read", description: "Oportunidades abiertas, filtrables por cierre en el mes." },
   { id: "get_profitability", label: "Consultar rentabilidad", risk: "read", description: "Margen del mes vs. gastos e ingresos." },
   { id: "get_run_rate", label: "Consultar run-rate", risk: "read", description: "Proyección de cierre de mes vs. meta." },
   { id: "get_expenses_summary", label: "Consultar gastos", risk: "read", description: "Totales de gastos fijos y variables del periodo." },

@@ -316,7 +316,7 @@ const FALLBACK_SUGGESTION: Omit<PipelineSuggestion, "source"> = {
   ],
   automations: [
     { trigger: "Lead nuevo sin atender >2h", action: "Notificar al vendedor y enviar mensaje de bienvenida." },
-    { trigger: "Deal sin actividad >7 días", action: "Crear tarea de seguimiento para el dueño." },
+    { trigger: "Oportunidad sin actividad >7 días", action: "Crear tarea de seguimiento para el dueño." },
     { trigger: "Cliente abre la cotización 3 veces", action: "Sugerir llamada inmediata al vendedor." },
   ],
 };
@@ -431,7 +431,7 @@ const FALLBACK_DASHBOARD: Omit<DashboardAiResponse, "generatedAt" | "week" | "so
     status: "good",
     summary: "Pipeline saludable con algunos deals que requieren seguimiento.",
     signals: [
-      { label: "Deals activos", value: "—", tone: "neutral" },
+      { label: "Oportunidades activas", value: "—", tone: "neutral" },
       { label: "Forecast ponderado", value: "—", tone: "positive" },
       { label: "Estancados", value: "—", tone: "negative" },
     ],

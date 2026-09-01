@@ -41,7 +41,7 @@ export function buildReportsCSV(
     header,
     section(
       "Embudo de ventas",
-      ["Etapa", "Deals", "Valor MXN", "Conversión %"],
+      ["Etapa", "Oportunidades", "Valor MXN", "Conversión %"],
       data.funnel.map(s => [s.name, s.count, s.value, s.conversionFromPrev ?? ""]),
     ),
     section(
@@ -59,7 +59,7 @@ export function buildReportsCSV(
     ),
     section(
       "Razones de pérdida",
-      ["Razón", "Deals", "Monto MXN"],
+      ["Razón", "Oportunidades", "Monto MXN"],
       data.lostReasons.map(r => [r.reason, r.count, r.amount]),
     ),
     section(
