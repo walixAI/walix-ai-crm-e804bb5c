@@ -29,7 +29,7 @@ function Header() {
           : "bg-transparent",
       )}
     >
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between gap-2">
         <Link to="/" aria-label="Walix.ai inicio"><Logo /></Link>
         <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
           <a href="#producto" className="hover:text-foreground transition-colors">Producto</a>
@@ -37,18 +37,18 @@ function Header() {
           <a href="#paquetes" className="hover:text-foreground transition-colors">Paquetes</a>
           <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={toggle}
             aria-label="Cambiar tema"
-            className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-card hover:bg-accent/10 transition-colors"
+            className="hidden sm:grid h-9 w-9 place-items-center rounded-lg border border-border bg-card hover:bg-accent/10 transition-colors"
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+          <Button asChild variant="ghost" size="sm" className="px-2 sm:px-3">
             <Link to="/login">Entrar</Link>
           </Button>
-          <Button asChild size="sm" className="bg-gradient-brand hover:opacity-90 shadow-glow">
+          <Button asChild size="sm" className="bg-gradient-brand hover:opacity-90 shadow-glow whitespace-nowrap px-3">
             <Link to="/login">Empieza gratis</Link>
           </Button>
         </div>
