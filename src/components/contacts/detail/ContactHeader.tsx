@@ -52,15 +52,15 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
 
   return (
     <div className="space-y-2">
-      <div className="rounded-xl border border-border bg-card px-5 py-4 flex items-center gap-5 shadow-card">
-        <Avatar className="h-14 w-14 shrink-0">
+      <div className="rounded-xl border border-border bg-card px-4 sm:px-5 py-4 flex flex-wrap items-center gap-3 sm:gap-5 shadow-card">
+        <Avatar className="h-12 w-12 sm:h-14 sm:w-14 shrink-0">
           <AvatarFallback style={{ background: contact.avatarColor, color: "white" }} className="text-lg font-semibold">
             {contact.name[0]}{contact.lastName?.[0]}
           </AvatarFallback>
         </Avatar>
-        <div className="min-w-0 max-w-xs">
+        <div className="min-w-0 flex-1 lg:flex-none lg:max-w-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold tracking-tight truncate">{contact.name} {contact.lastName}</h1>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">{contact.name} {contact.lastName}</h1>
             <ChangeStatusPopover
               current={contact.status}
               onSelect={changeStatus}
@@ -87,8 +87,8 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Button onClick={onWhatsApp} size="sm" className="bg-success hover:bg-success/90 text-success-foreground">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+          <Button onClick={onWhatsApp} size="sm" className="flex-1 sm:flex-none bg-success hover:bg-success/90 text-success-foreground">
             <MessageCircle className="h-4 w-4" /> WhatsApp
           </Button>
           <Button variant="outline" size="icon" onClick={callPhone} title="Llamar"><Phone className="h-4 w-4" /></Button>

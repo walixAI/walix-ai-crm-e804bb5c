@@ -57,7 +57,7 @@ export default function ContactDetail() {
   const openWA = () => { if (blockWhatsappAction(contact.phone)) return; navigate(`/whatsapp?contactId=${contact.id}`); };
 
   return (
-    <div className="space-y-4 max-w-[1600px]">
+    <div className="space-y-4 max-w-[1600px] min-w-0">
       <Link to="/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="h-4 w-4" /> Contactos
       </Link>
@@ -68,11 +68,11 @@ export default function ContactDetail() {
       <div className="flex gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><PanelLeft className="h-4 w-4" /> Info</Button></SheetTrigger>
-          <SheetContent side="left" className="w-[300px]"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
+          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
         </Sheet>
         <Sheet>
-          <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Deals</Button></SheetTrigger>
-          <SheetContent side="right" className="w-[300px]"><div className="mt-6"><DealsSidePanel contactId={contact.id} /></div></SheetContent>
+          <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Oportunidades</Button></SheetTrigger>
+          <SheetContent side="right" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6"><DealsSidePanel contactId={contact.id} /></div></SheetContent>
         </Sheet>
       </div>
 
@@ -88,7 +88,7 @@ export default function ContactDetail() {
 
         <div className="min-w-0">
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList>
+            <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
               <TabsTrigger value="summary">Resumen</TabsTrigger>
               <TabsTrigger value="tasks">Tareas</TabsTrigger>
               <TabsTrigger value="conversations">

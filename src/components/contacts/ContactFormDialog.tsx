@@ -94,11 +94,11 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar contacto" : "Nuevo contacto"}</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 py-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 py-2">
           <div className="col-span-2 sm:col-span-1">
             <Label>Nombre *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lucía" autoFocus />
@@ -171,7 +171,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
             </div>
           </div>
         </div>
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sticky bottom-0 bg-background pt-3 -mb-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}><X className="h-4 w-4" /> Cancelar</Button>
           <Button variant="secondary" onClick={() => handleSave(false)} disabled={create.isPending || update.isPending}>
             <Save className="h-4 w-4" /> {editing ? "Guardar cambios" : "Solo guardar"}
