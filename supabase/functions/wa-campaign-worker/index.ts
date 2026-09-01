@@ -140,6 +140,16 @@ Deno.serve(async (req) => {
         sent++;
       } else if (result.error) {
         failed++;
+        // Reintentar el mismo paso con espera creciente antes de darlo por perdido.
+        const MAX_ATTEMPTS = 3;
+        const tried = attempts + 1;
+        if (tried < MAX_ATTEMPTS) {
+          const waitMin = status === "pending_template" ? 120 * tried : 30 * tried;
+          await sb.from("wa_enrollments")
+            .update({ next_send_at: new Date(Date.now() + waitMin * 60_000).toISOString() })
+            .eq("id", e.id);
+          continue;
+        }
       }
 
       await advance(sb, e, list);
