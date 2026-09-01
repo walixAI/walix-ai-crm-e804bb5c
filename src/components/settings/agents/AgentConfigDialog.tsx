@@ -20,7 +20,7 @@ interface Props {
 }
 
 const BRIEFING_SECTIONS = [
-  { key: "include_deals",    label: "Deals" },
+  { key: "include_deals",    label: "Oportunidades" },
   { key: "include_contacts", label: "Contactos" },
   { key: "include_tasks",    label: "Tareas" },
   { key: "include_metrics",  label: "Métricas" },

@@ -24,7 +24,7 @@ export function SellerDetailDrawer({ sellerId, open, onClose }: Props) {
             </span>
             {seller?.name}
           </SheetTitle>
-          <SheetDescription>Deals activos y cerrados en el período</SheetDescription>
+          <SheetDescription>Oportunidades activas y cerradas en el período</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-2">

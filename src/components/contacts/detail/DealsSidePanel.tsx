@@ -77,7 +77,7 @@ export function DealsSidePanel({ contactId }: Props) {
             </button>
           ))}
           {deals.length === 0 && (
-            <div className="text-xs text-muted-foreground italic text-center py-4">Sin deals activos</div>
+            <div className="text-xs text-muted-foreground italic text-center py-4">Sin oportunidades activas</div>
           )}
         </div>
       </div>

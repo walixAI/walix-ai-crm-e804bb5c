@@ -209,7 +209,7 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   }
   autoTable(doc, {
     startY: y,
-    head: [["Etapa", "Deals", "Valor", "Conv. desde anterior"]],
+    head: [["Etapa", "Oportunidades", "Valor", "Conv. desde anterior"]],
     body: opts.data.funnel.map(s => [
       s.name,
       String(s.count),
@@ -273,7 +273,7 @@ export async function exportReportsPdf(opts: PdfExportOptions): Promise<void> {
   y += 8;
   autoTable(doc, {
     startY: y,
-    head: [["Razón", "Deals", "Monto"]],
+    head: [["Razón", "Oportunidades", "Monto"]],
     body: opts.data.lostReasons.map(r => [r.reason, String(r.count), fmtMXN(r.amount)]),
     headStyles: { fillColor: PRIMARY, textColor: "#FFFFFF" },
     styles: { fontSize: 9 },

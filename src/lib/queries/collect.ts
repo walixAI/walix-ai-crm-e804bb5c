@@ -19,7 +19,7 @@ export function useRegisterDealPayment() {
         .eq("id", input.dealId)
         .maybeSingle();
       if (dErr) throw dErr;
-      if (!deal) throw new Error("Deal no encontrado");
+      if (!deal) throw new Error("Oportunidad no encontrada");
 
       const total = Number(deal.amount ?? 0);
       const prevPaid = Number(deal.amount_paid ?? 0);
@@ -49,7 +49,7 @@ export function useRegisterDealPayment() {
           type: "note",
           description: `Pago registrado — $${input.amount.toLocaleString("es-MX")} (${input.method})${
             input.reference ? ` · Ref: ${input.reference}` : ""
-          }${fullyPaid ? " — Deal cerrado como Ganado." : " — Pago parcial."}`,
+          }${fullyPaid ? " — Oportunidad cerrada como Ganada." : " — Pago parcial."}`,
           occurred_at: input.paidAt ?? new Date().toISOString(),
           metadata: {
             payment: true,

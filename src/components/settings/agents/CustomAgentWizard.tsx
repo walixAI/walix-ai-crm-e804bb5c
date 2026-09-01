@@ -20,7 +20,7 @@ interface Props {
 }
 
 const SCOPES = [
-  { key: "pipeline",  label: "Pipeline / Deals", tools: ["get_pipeline_status"] },
+  { key: "pipeline",  label: "Pipeline / Oportunidades", tools: ["get_pipeline_status"] },
   { key: "contacts",  label: "Contactos",        tools: ["search_contacts", "get_contact_context"] },
   { key: "whatsapp",  label: "WhatsApp",         tools: ["search_whatsapp_messages"] },
   { key: "reports",   label: "Reportes",         tools: ["get_pipeline_status"] },
