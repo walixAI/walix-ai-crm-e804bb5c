@@ -58,13 +58,6 @@ export async function matchContacts(
   limit = 500,
 ): Promise<{ ids: string[]; total: number }> {
   const c = conditions ?? {};
-  let query = sb
-    .from("contacts")
-    .select("id, tags, owner_id, custom_fields, created_at, last_activity_at, status, contact_attribution!inner(ga_channel, city, region, utm_source, utm_campaign, source_kind, touch_type)", { count: "exact" })
-    .eq("tenant_id", tenantId)
-    .eq("contact_attribution.touch_type", "first")
-    .not("phone", "is", null);
-
   const attrFilters: Array<[string, string[] | undefined]> = [
     ["contact_attribution.ga_channel", c.ga_channels],
     ["contact_attribution.city", c.cities],
@@ -73,8 +66,22 @@ export async function matchContacts(
     ["contact_attribution.utm_campaign", c.utm_campaigns],
     ["contact_attribution.source_kind", c.source_kinds],
   ];
-  for (const [col, values] of attrFilters) {
-    if (values && values.length) query = query.in(col, values);
+  // Solo se exige atribución cuando la campaña filtra por ella; si no, entran
+  // también los contactos importados, manuales o creados desde WhatsApp.
+  const needsAttribution = attrFilters.some(([, v]) => v && v.length);
+  const join = needsAttribution ? "contact_attribution!inner" : "contact_attribution";
+
+  let query = sb
+    .from("contacts")
+    .select(`id, tags, owner_id, custom_fields, created_at, last_activity_at, status, ${join}(ga_channel, city, region, utm_source, utm_campaign, source_kind, touch_type)`, { count: "exact" })
+    .eq("tenant_id", tenantId)
+    .not("phone", "is", null);
+
+  if (needsAttribution) {
+    query = query.eq("contact_attribution.touch_type", "first");
+    for (const [col, values] of attrFilters) {
+      if (values && values.length) query = query.in(col, values);
+    }
   }
   if (c.owner_ids?.length) query = query.in("owner_id", c.owner_ids);
   if (c.lifecycle?.length) query = query.in("status", c.lifecycle);
