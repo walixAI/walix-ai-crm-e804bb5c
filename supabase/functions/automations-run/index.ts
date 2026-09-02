@@ -121,8 +121,11 @@ Deno.serve(async (req) => {
                 await admin.from("notifications").insert({
                   tenant_id: tenantId,
                   user_id: contact.owner_id,
+                  type: "recurrence_due",
                   title: rec.name,
-                  message: action.config?.message || `Servicio programado para ${dueDate.slice(0, 7)}. Contacta al cliente para acordar precio y día.`,
+                  body: action.config?.message || `Servicio programado para ${dueDate.slice(0, 7)}. Contacta al cliente para acordar precio y día.`,
+                  link: generatedDealId ? `/pipeline?deal=${generatedDealId}` : `/contactos/${sub.contact_id}`,
+                  icon: "RefreshCw",
                   category: "operational",
                   severity: "info",
                 });
@@ -132,6 +135,34 @@ Deno.serve(async (req) => {
             console.error("recurrence action error", rec.id, action.type, e);
           }
         }
+
+        // Aviso al responsable de lo que Walix generó automáticamente
+        const notifyUser = occ.assigned_to ?? contact?.owner_id ?? null;
+        const hasNotifyAction = actions.some((a) => a.type === "notify_owner");
+        if (notifyUser && !hasNotifyAction && (generatedDealId || generatedTaskId)) {
+          const partes: string[] = [];
+          if (generatedDealId) partes.push("una oportunidad");
+          if (generatedTaskId) partes.push("una tarea de seguimiento");
+          await admin.from("notifications").insert({
+            tenant_id: tenantId,
+            user_id: notifyUser,
+            type: "recurrence_generated",
+            title: `${rec.name} — ${dueDate.slice(0, 7)}`,
+            body: `Walix creó ${partes.join(" y ")} para el servicio recurrente programado en ${dueDate.slice(0, 7)}.`,
+            link: generatedDealId ? `/pipeline?deal=${generatedDealId}` : `/tareas`,
+            icon: "RefreshCw",
+            category: "operational",
+            severity: "info",
+            data: {
+              recurrence_id: rec.id,
+              occurrence_id: occ.id,
+              deal_id: generatedDealId,
+              task_id: generatedTaskId,
+              due_date: dueDate,
+            },
+          });
+        }
+
 
         // Actualizar ocurrencia con referencias generadas
         await admin.from("recurrence_occurrences").update({
