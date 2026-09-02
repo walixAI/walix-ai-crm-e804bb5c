@@ -199,6 +199,11 @@ export function useLogFollowUp() {
         if (input.outcome?.isWon) {
           patch.is_won = true;
           patch.is_lost = false;
+          // Usa la fecha del seguimiento como fecha de cierre (no la de hoy).
+          const wonAt = new Date(input.occurredAt);
+          if (!isNaN(wonAt.getTime()) && wonAt.getTime() <= Date.now()) {
+            patch.won_at = wonAt.toISOString();
+          }
         }
         if (input.outcome?.isLost) {
           patch.is_lost = true;
