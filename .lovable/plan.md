@@ -1,29 +1,39 @@
-# Reparar horizonte de recurrencias (Refrigeración G&R)
+# Alta de 35 mantenimientos recurrentes (Septiembre 2026) — Refrigeración G&R
 
-## Contexto
-El flujo automático funciona así: al ganar una oportunidad de servicio recurrente, `close_recurrence_from_deal` marca la ocurrencia como ejecutada y `recurrence_fill_horizon` agenda las 2 siguientes citas. El job `automations-run` (cada hora) mantiene ese horizonte y, 5 días antes de cada mes de servicio, crea oportunidad + tarea + notificación.
+Carga de los 35 registros del archivo `Septiembre_Erick.xlsx` como oportunidades de mantenimiento con fecha 01/09/2026 y recurrencia semestral.
 
-**Problema detectado:** 114 de 325 suscripciones activas del tenant Refrigeración González y Rodríguez no tienen ninguna ocurrencia futura (deberían tener 2). Sin ocurrencias, no se crearán tareas ni oportunidades para esos clientes.
+## Decisiones ya confirmadas
 
-## Pasos
+- Monto por oportunidad: $2,000 MXN
+- Etapa inicial: Intento de Contacto
+- Responsable: Norma Heredia
+- Contactos faltantes: se crean nuevos
 
-1. **Diagnóstico del job** (solo lectura)
-   - Revisar logs de `automations-run` (edge function) para ver si la ejecución horaria falla o se corta antes de la sección 1b (horizonte). Revisar `cron.job_run_details` con paginación acotada.
-   - Causa probable: la sección 1 procesa cientos de ocurrencias pendientes secuencialmente y la función excede el tiempo límite antes de llegar a 1b; o un error no capturado aborta el run.
+## Qué haré exactamente
 
-2. **Backfill inmediato de las 114 suscripciones**
-   - Ejecutar `SELECT public.recurrence_fill_horizon(id)` para cada suscripción activa del tenant sin ocurrencias futuras. Es idempotente (`ON CONFLICT DO NOTHING`), seguro de correr.
+1. **Contactos**
+   - Busco cada fila por teléfono (últimos 10 dígitos) en el tenant Refrigeración. Hoy 36 de 45 teléfonos ya existen.
+   - A los existentes les completo dirección y equipo (columna 3) si están vacíos, y agrego el segundo teléfono como teléfono alterno.
+   - Los que no existan se crean como contacto de tipo cliente, con nombre, dirección, teléfono principal, teléfono alterno, equipo/modelo del refrigerador y propietario Norma.
 
-3. **Robustecer `automations-run`**
-   - Mover la sección 1b (horizonte) **antes** de la sección 1 (materialización), o envolver cada sección en su propio try/catch para que un fallo en una no impida las demás.
-   - Limitar el lote de ocurrencias por ejecución (ej. 200 más urgentes) para evitar timeout.
-   - El RPC `recurrence_fill_horizon` por suscripción ya está envuelto en try/catch global; agregar try/catch por suscripción para que una que falle no detenga las demás.
+2. **Oportunidades (35)**
+   - Una por fila: título `Mantenimiento semestral — <equipo>`, contacto asociado, monto $2,000, categoría de producto **Mantenimientos**, etapa **Intento de Contacto**, cierre estimado **01/09/2026**, responsable Norma.
+   - Se marcan como recurrentes semestrales para que el motor de recurrencias las reconozca.
 
-4. **Verificación**
-   - Re-correr la consulta de auditoría: suscripciones activas sin citas futuras debe bajar a ~0.
-   - Confirmar en logs que el job horario completa la sección de horizonte.
+3. **Recurrencia semestral**
+   - Creo la suscripción de recurrencia por contacto ligada a la definición **Mantenimiento semestral** (cada 6 meses), con la ocurrencia de **01/09/2026** vinculada a su oportunidad y `next_due_date` en 01/03/2027.
+   - Así, cuando Norma pase la oportunidad a Ganado, Walix agenda solo las siguientes citas y, 5 días antes del mes de servicio, genera la oportunidad + tarea + notificación.
+
+4. **Tarea de seguimiento**
+   - Una tarea por oportunidad para Norma, con vencimiento 01/09/2026: “Contactar y agendar mantenimiento de septiembre”.
+
+5. **Verificación**
+   - Consulto conteos finales: contactos creados vs. actualizados, 35 oportunidades en Intento de Contacto con cierre 01/09/2026, 35 suscripciones semestrales activas y 35 tareas, y te entrego el resumen con la lista de contactos nuevos.
 
 ## Notas técnicas
-- Funciones involucradas: `recurrence_fill_horizon` (crea hasta `future_horizon`=2 ocurrencias futuras, idempotente), `close_recurrence_from_deal`, edge function `supabase/functions/automations-run/index.ts`.
-- No se toca el flujo de usuario ni la UI; Norma y el equipo no cambian nada de cómo operan.
-- El backfill es una operación de datos puntual (no migración de esquema); se ejecuta vía SQL directo.
+
+- Todo se hace con inserciones/actualizaciones de datos (tool de SQL de datos), sin cambios de esquema ni de código de la app.
+- Teléfonos se normalizan al formato `+52##########` que ya usa el tenant.
+- Filas sin apellido (“Aurora”, “Irene”, “Pola”, “Ariela”, “Marcos”, “Ovadia”, “Kalb”, “Charfen”, “Rubio”, “Cerisola”, “Askenazi”) se cargan con el nombre tal cual viene en el archivo.
+- Fila “Marcos”: el teléfono viene como “Esposa 5521078667”; se guarda el número y la nota “Esposa” en el contacto.
+- Idempotencia: si ya existe una oportunidad de mantenimiento con cierre 01/09/2026 para ese contacto, no se duplica.
