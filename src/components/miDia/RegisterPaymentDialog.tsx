@@ -25,6 +25,7 @@ export function RegisterPaymentDialog({ open, onOpenChange, deal }: Props) {
   const [amount, setAmount] = useState<string>("");
   const [method, setMethod] = useState<RegisterPaymentInput["method"]>("transferencia");
   const [reference, setReference] = useState("");
+  const [paidDate, setPaidDate] = useState<Date>(() => new Date());
   const register = useRegisterDealPayment();
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export function RegisterPaymentDialog({ open, onOpenChange, deal }: Props) {
       setAmount(String(deal.amount ?? ""));
       setMethod("transferencia");
       setReference("");
+      setPaidDate(new Date());
     }
   }, [open, deal?.id]); // eslint-disable-line
 
@@ -39,12 +41,18 @@ export function RegisterPaymentDialog({ open, onOpenChange, deal }: Props) {
     if (!deal) return;
     const n = Number(amount);
     if (!n || n <= 0) { toast.error("Escribe un monto válido"); return; }
+    // Fin del día elegido, sin pasar del momento actual.
+    const paid = new Date(paidDate);
+    paid.setHours(23, 59, 0, 0);
+    const now = new Date();
+    const paidAt = (paid > now ? now : paid).toISOString();
     try {
       const res = await register.mutateAsync({
         dealId: deal.id,
         amount: n,
         method,
         reference: reference.trim() || undefined,
+        paidAt,
       });
       toast.success(res.fullyPaid ? "Pago registrado y deal ganado" : "Pago parcial registrado");
       onOpenChange(false);
@@ -95,6 +103,37 @@ export function RegisterPaymentDialog({ open, onOpenChange, deal }: Props) {
               <Label>Referencia (opc.)</Label>
               <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Folio / últimos 4" />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Fecha del pago</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal", !paidDate && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {paidDate ? format(paidDate, "dd/MM/yyyy", { locale: es }) : "Elegir fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={paidDate}
+                  onSelect={(d) => d && setPaidDate(d)}
+                  disabled={(d) => d > new Date()}
+                  fromYear={2000}
+                  toDate={new Date()}
+                  captionLayout="dropdown-buttons"
+                  initialFocus
+                  locale={es}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              Si el pago liquida la oportunidad, esta fecha será su fecha de cierre (Ganada).
+            </p>
           </div>
         </div>
         <DialogFooter>
