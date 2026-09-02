@@ -30,7 +30,13 @@ export function useRegisterDealPayment() {
         amount_paid: newPaid,
         payment_status: fullyPaid ? "pagado" : "parcial",
       };
-      if (fullyPaid) patch.is_won = true;
+      if (fullyPaid) {
+        patch.is_won = true;
+        patch.is_lost = false;
+        // Respeta la fecha de pago elegida (nunca futura); sin ella, hoy.
+        const nowIso = new Date().toISOString();
+        patch.won_at = input.paidAt && input.paidAt < nowIso ? input.paidAt : nowIso;
+      }
 
       const { error: uErr } = await supabase
         .from("deals")
