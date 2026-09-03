@@ -8,6 +8,13 @@
       "when": 1788379460108,
       "tag": "0000_notify_recurrence_scheduled",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788400223446,
+      "tag": "0001_contact_lifecycle_proposals",
+      "breakpoints": true
     }
   ]
 }

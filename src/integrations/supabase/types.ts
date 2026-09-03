@@ -1415,6 +1415,11 @@ export type Database = {
           source: string
           source_id: string | null
           status: Database["public"]["Enums"]["contact_lifecycle"]
+          status_locked_until: string | null
+          status_proposed: string | null
+          status_proposed_at: string | null
+          status_proposed_reason: string | null
+          status_set_manually_at: string | null
           tags: string[]
           tenant_id: string
           updated_at: string
@@ -1439,6 +1444,11 @@ export type Database = {
           source?: string
           source_id?: string | null
           status?: Database["public"]["Enums"]["contact_lifecycle"]
+          status_locked_until?: string | null
+          status_proposed?: string | null
+          status_proposed_at?: string | null
+          status_proposed_reason?: string | null
+          status_set_manually_at?: string | null
           tags?: string[]
           tenant_id: string
           updated_at?: string
@@ -1463,6 +1473,11 @@ export type Database = {
           source?: string
           source_id?: string | null
           status?: Database["public"]["Enums"]["contact_lifecycle"]
+          status_locked_until?: string | null
+          status_proposed?: string | null
+          status_proposed_at?: string | null
+          status_proposed_reason?: string | null
+          status_set_manually_at?: string | null
           tags?: string[]
           tenant_id?: string
           updated_at?: string
@@ -3987,6 +4002,7 @@ export type Database = {
           feature_wa_campaigns: boolean
           id: string
           industry: string | null
+          lifecycle_grace_days: number
           locale: string
           logo_url: string | null
           monthly_goal_by_type: Json
@@ -4028,6 +4044,7 @@ export type Database = {
           feature_wa_campaigns?: boolean
           id?: string
           industry?: string | null
+          lifecycle_grace_days?: number
           locale?: string
           logo_url?: string | null
           monthly_goal_by_type?: Json
@@ -4069,6 +4086,7 @@ export type Database = {
           feature_wa_campaigns?: boolean
           id?: string
           industry?: string | null
+          lifecycle_grace_days?: number
           locale?: string
           logo_url?: string | null
           monthly_goal_by_type?: Json

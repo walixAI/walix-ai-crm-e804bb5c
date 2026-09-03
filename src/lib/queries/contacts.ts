@@ -37,6 +37,10 @@ export interface ContactRow {
   lastActivity: string;
   createdAt: string;
   customFields: Record<string, any>;
+  statusProposed: ContactLifecycle | null;
+  statusProposedAt: string | null;
+  statusProposedReason: string | null;
+  statusLockedUntil: string | null;
 }
 
 function colorFromId(id: string) {
@@ -70,6 +74,10 @@ function mapContact(r: any, users?: TenantUser[]): ContactRow {
     lastActivity: r.last_activity_at ?? r.updated_at ?? r.created_at,
     createdAt: r.created_at,
     customFields: (r.custom_fields ?? {}) as Record<string, any>,
+    statusProposed: (r.status_proposed ?? null) as ContactLifecycle | null,
+    statusProposedAt: r.status_proposed_at ?? null,
+    statusProposedReason: r.status_proposed_reason ?? null,
+    statusLockedUntil: r.status_locked_until ?? null,
   };
 }
 
@@ -151,12 +159,57 @@ export function useUpdateContact() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: ContactInput }) => {
-      const { error } = await supabase.from("contacts").update(patch).eq("id", id);
+      const payload: any = { ...patch };
+      if (patch.status) {
+        payload.status_set_manually_at = new Date().toISOString();
+        payload.status_locked_until = new Date(Date.now() + 60 * 86_400_000).toISOString();
+        payload.status_proposed = null;
+        payload.status_proposed_at = null;
+        payload.status_proposed_reason = null;
+      }
+      const { error } = await supabase.from("contacts").update(payload).eq("id", id);
       if (error) throw error;
     },
     onSuccess: (_d, { id }) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: ["contact", id] });
+    },
+  });
+}
+
+/**
+ * Responde a una propuesta automática de cambio de ciclo de vida.
+ * Aceptar => aplica el cambio. Rechazar => bloquea el motor por `graceDays` días.
+ */
+export function useRespondLifecycleProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      accept,
+      toStatus,
+      graceDays = 60,
+    }: { contactId: string; accept: boolean; toStatus?: ContactLifecycle; graceDays?: number }) => {
+      const now = new Date();
+      const patch: any = {
+        status_proposed: null,
+        status_proposed_at: null,
+        status_proposed_reason: null,
+      };
+      if (accept) {
+        if (toStatus) patch.status = toStatus;
+        patch.status_set_manually_at = now.toISOString();
+        patch.status_locked_until = null;
+      } else {
+        patch.status_locked_until = new Date(now.getTime() + graceDays * 86_400_000).toISOString();
+      }
+      const { error } = await supabase.from("contacts").update(patch).eq("id", contactId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, { contactId }) => {
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["contact", contactId] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }

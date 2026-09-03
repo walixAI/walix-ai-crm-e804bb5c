@@ -25,6 +25,10 @@ const baseContact: ContactRow = {
   avatarColor: "hsl(0 0% 50%)",
   lastActivity: new Date().toISOString(),
   createdAt: new Date().toISOString(),
+  statusProposed: null,
+  statusProposedAt: null,
+  statusProposedReason: null,
+  statusLockedUntil: null,
 };
 
 function daysAgo(n: number) {

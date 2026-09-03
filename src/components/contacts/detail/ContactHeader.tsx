@@ -8,6 +8,7 @@ import { lifecycleLabel, statusBadgeClass } from "@/lib/contacts/badges";
 import { useContactTags, getTagMetaFromList } from "@/lib/queries/contactTags";
 import { useUpdateContact, useDeleteContact, useContactStats, type ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
+import { LifecycleProposalBanner } from "@/components/contacts/LifecycleProposalBanner";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ReassignPopover } from "@/components/contacts/ReassignPopover";
 import { ChangeStatusPopover } from "@/components/contacts/ChangeStatusPopover";
@@ -52,6 +53,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
 
   return (
     <div className="space-y-2">
+      <LifecycleProposalBanner contact={contact} />
       <div className="rounded-xl border border-border bg-card px-4 sm:px-5 py-4 flex flex-wrap items-center gap-3 sm:gap-5 shadow-card">
         <Avatar className="h-12 w-12 sm:h-14 sm:w-14 shrink-0">
           <AvatarFallback style={{ background: contact.avatarColor, color: "white" }} className="text-lg font-semibold">
