@@ -20,8 +20,8 @@ export interface ReceiptInput {
   includedWaCredits?: number;
 }
 
-/** Genera el "Recibo de compra" del mes con el detalle del periodo. */
-export function generateReceiptPdf({
+/** Construye el documento del "Recibo de compra" del mes con el detalle del periodo. */
+export function buildReceiptDoc({
   invoice,
   tenantName,
   planLabel,
@@ -136,5 +136,11 @@ export function generateReceiptPdf({
     endY + 14,
   );
 
-  doc.save(`Recibo-Walix-${invoice.period.slice(0, 7)}.pdf`);
+  return doc;
+}
+
+/** Genera y descarga el recibo de compra del mes. */
+export function generateReceiptPdf(input: ReceiptInput) {
+  const doc = buildReceiptDoc(input);
+  doc.save(`Recibo-Walix-${input.invoice.period.slice(0, 7)}.pdf`);
 }
