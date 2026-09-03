@@ -16,6 +16,9 @@ import {
   type NotificationRow,
   type NotificationCategory,
 } from "@/lib/queries/notifications";
+import { useRespondLifecycleProposal } from "@/lib/queries/contacts";
+import { useTenant } from "@/lib/queries/tenant";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -31,6 +34,41 @@ const SEVERITY_DOT: Record<string, string> = {
   warning: "bg-amber-500",
   danger: "bg-danger",
 };
+
+function LifecycleActions({ n, onDone }: { n: NotificationRow; onDone: () => void }) {
+  const respond = useRespondLifecycleProposal();
+  const { data: tenant } = useTenant();
+  const graceDays = tenant?.lifecycleGraceDays ?? 60;
+  const contactId = n.data?.contact_id as string | undefined;
+  const toStatus = n.data?.to_status as any;
+  if (!contactId) return null;
+
+  const answer = (accept: boolean) =>
+    respond.mutate(
+      { contactId, accept, toStatus, graceDays },
+      {
+        onSuccess: () => {
+          toast.success(
+            accept ? "Ciclo de vida actualizado" : `Se mantiene igual. Preguntaremos en ${graceDays} días.`,
+          );
+          onDone();
+        },
+      },
+    );
+
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <Button size="sm" variant="outline" className="h-7 text-xs" disabled={respond.isPending}
+        onClick={(e) => { e.stopPropagation(); answer(false); }}>
+        No, mantener
+      </Button>
+      <Button size="sm" className="h-7 text-xs" disabled={respond.isPending}
+        onClick={(e) => { e.stopPropagation(); answer(true); }}>
+        Sí, cambiar
+      </Button>
+    </div>
+  );
+}
 
 export function NotificationsBell() {
   const navigate = useNavigate();
@@ -113,8 +151,10 @@ export function NotificationsBell() {
                     {Meta.label}
                   </div>
                   {items.map((n) => (
-                    <button
+                    <div
                       key={n.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleClick(n)}
                       className={cn(
                         "w-full text-left px-4 py-2.5 hover:bg-muted/60 transition-colors flex gap-3 items-start border-l-2",
@@ -140,8 +180,11 @@ export function NotificationsBell() {
                             locale: es,
                           })}
                         </div>
+                        {n.type === "lifecycle_change_request" && (
+                          <LifecycleActions n={n} onDone={() => !n.read_at && markRead.mutate(n.id)} />
+                        )}
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               );
