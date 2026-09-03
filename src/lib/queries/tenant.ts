@@ -31,6 +31,7 @@ export interface TenantInfo {
   trialEndsAt: string | null;
   contactInactivityDays: number;
   customerInactivityMonths: number;
+  lifecycleGraceDays: number;
 }
 
 export function useTenant() {
@@ -42,7 +43,7 @@ export function useTenant() {
     queryFn: async (): Promise<TenantInfo | null> => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("id, name, plan, brand_name, logo_url, currency, locale, trial_ends_at, contact_inactivity_days, customer_inactivity_months")
+        .select("id, name, plan, brand_name, logo_url, currency, locale, trial_ends_at, contact_inactivity_days, customer_inactivity_months, lifecycle_grace_days")
         .eq("id", tenantId!)
         .maybeSingle();
       if (error) throw error;
@@ -58,6 +59,7 @@ export function useTenant() {
         trialEndsAt: data.trial_ends_at,
         contactInactivityDays: data.contact_inactivity_days ?? 90,
         customerInactivityMonths: data.customer_inactivity_months ?? 6,
+        lifecycleGraceDays: (data as any).lifecycle_grace_days ?? 60,
       };
     },
   });
