@@ -83,30 +83,16 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
         model={tenant?.ai_model ?? null}
       />
 
-      <Card className="overflow-hidden">
-        <div className="px-5 py-3 border-b border-border bg-muted/30 text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-          Historial de facturas
-        </div>
-        <div className="divide-y divide-border">
-          {invoices.length === 0 && (
-            <div className="px-5 py-6 text-sm text-muted-foreground text-center">
-              Aún no hay facturas emitidas.
-            </div>
-          )}
-          {invoices.map((inv) => (
-            <div key={inv.id} className="flex items-center gap-4 px-5 py-3">
-              <div className="flex-1">
-                <div className="text-sm font-medium">{inv.id}</div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(`${inv.date}T00:00:00`).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" })}
-                </div>
-              </div>
-              <div className="text-sm font-semibold">{fmt(limit?.monthly_price ?? 0)}</div>
-              <WBadge variant="success"><Check className="h-3 w-3" /> Pagado</WBadge>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <InvoiceHistoryCard
+        tenantId={tenantId}
+        tenantName={tenant?.name ?? "Mi empresa"}
+        planLabel={tenantPlanLabel(currentPlan)}
+        fallbackPrice={limit?.monthly_price ?? 0}
+        includedAiCredits={limit?.ai_credits}
+        includedWaCredits={limit?.whatsapp_credits}
+        fallbackInvoices={invoices}
+      />
+
 
       <p className="text-xs text-muted-foreground text-center">
         Las facturas se generan automáticamente. Para datos fiscales, contacta a soporte.
