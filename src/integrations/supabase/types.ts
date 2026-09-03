@@ -3894,6 +3894,77 @@ export type Database = {
           },
         ]
       }
+      tenant_invoices: {
+        Row: {
+          concept: string | null
+          created_at: string
+          currency: string
+          folio: string | null
+          id: string
+          issuer_name: string | null
+          issuer_rfc: string | null
+          pdf_path: string | null
+          period: string
+          receiver_name: string | null
+          receiver_rfc: string | null
+          status: string
+          subtotal: number | null
+          tax: number | null
+          tenant_id: string
+          total: number
+          uuid_fiscal: string | null
+          xml_path: string | null
+        }
+        Insert: {
+          concept?: string | null
+          created_at?: string
+          currency?: string
+          folio?: string | null
+          id?: string
+          issuer_name?: string | null
+          issuer_rfc?: string | null
+          pdf_path?: string | null
+          period: string
+          receiver_name?: string | null
+          receiver_rfc?: string | null
+          status?: string
+          subtotal?: number | null
+          tax?: number | null
+          tenant_id: string
+          total?: number
+          uuid_fiscal?: string | null
+          xml_path?: string | null
+        }
+        Update: {
+          concept?: string | null
+          created_at?: string
+          currency?: string
+          folio?: string | null
+          id?: string
+          issuer_name?: string | null
+          issuer_rfc?: string | null
+          pdf_path?: string | null
+          period?: string
+          receiver_name?: string | null
+          receiver_rfc?: string | null
+          status?: string
+          subtotal?: number | null
+          tax?: number | null
+          tenant_id?: string
+          total?: number
+          uuid_fiscal?: string | null
+          xml_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_modules: {
         Row: {
           activated_at: string
