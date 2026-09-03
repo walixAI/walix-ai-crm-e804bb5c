@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatMXN } from "@/lib/plans";
+const money = (n: number) =>
+  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 import type { PeriodUsage, TenantInvoice } from "@/lib/queries/invoices";
 
 const BRAND: [number, number, number] = [79, 70, 229];
@@ -71,7 +72,7 @@ export function buildReceiptDoc({
       [
         invoice.concept ?? `Suscripción mensual Walix (${period})`,
         "1",
-        formatMXN(invoice.subtotal ?? invoice.total),
+        money(invoice.subtotal ?? invoice.total),
       ],
     ],
     theme: "grid",
@@ -83,9 +84,9 @@ export function buildReceiptDoc({
 
   let afterY = (doc as any).lastAutoTable.finalY + 12;
   const totals: [string, string][] = [
-    ["Subtotal", formatMXN(invoice.subtotal ?? invoice.total)],
-    ["IVA 16%", formatMXN(invoice.tax ?? 0)],
-    ["Total", `${formatMXN(invoice.total)} ${invoice.currency}`],
+    ["Subtotal", money(invoice.subtotal ?? invoice.total)],
+    ["IVA 16%", money(invoice.tax ?? 0)],
+    ["Total", `${money(invoice.total)} ${invoice.currency}`],
   ];
   totals.forEach(([k, v], i) => {
     doc.setFont("helvetica", i === totals.length - 1 ? "bold" : "normal");
