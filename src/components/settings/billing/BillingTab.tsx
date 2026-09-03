@@ -10,6 +10,7 @@ import { CreditsCard } from "./CreditsCard";
 import { AiEngineCard } from "./AiEngineCard";
 import { AiUsageBreakdown } from "./AiUsageBreakdown";
 import { WhatsappUsageBreakdown } from "./WhatsappUsageBreakdown";
+import { InvoiceHistoryCard } from "./InvoiceHistoryCard";
 import { usePermissions } from "@/hooks/usePermissions";
 
 /** Genera el historial de facturas desde el mes de inicio de facturación del tenant hasta hoy. */
