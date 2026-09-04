@@ -96,11 +96,26 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
           </TableHeader>
           <TableBody>
             {sorted.map(d => (
-              <TableRow key={d.id} className="cursor-pointer" onClick={() => onOpenDeal(d)}>
+              <TableRow key={d.id} className={cn("cursor-pointer", (d.isWon || d.isLost) && "opacity-80")} onClick={() => onOpenDeal(d)}>
                 <TableCell className="font-medium">{d.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{contactName(d.contactId) ?? "—"}</TableCell>
                 <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
                 <TableCell className="text-sm">{d.stageName}</TableCell>
+                {showStatus && (
+                  <TableCell>
+                    {d.isWon ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success text-[10px] font-medium px-2 py-0.5">
+                        <CheckCircle2 className="h-3 w-3" /> Ganado
+                      </span>
+                    ) : d.isLost ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground text-[10px] font-medium px-2 py-0.5">
+                        <XCircle className="h-3 w-3" /> Perdido
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-sm">{d.probability}%</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -118,7 +133,7 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
             ))}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">Sin resultados</TableCell>
+                <TableCell colSpan={showStatus ? 9 : 8} className="text-center text-sm text-muted-foreground py-10">Sin resultados</TableCell>
               </TableRow>
             )}
           </TableBody>
