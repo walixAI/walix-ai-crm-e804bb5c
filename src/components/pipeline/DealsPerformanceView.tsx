@@ -140,10 +140,16 @@ export function DealsPerformanceView({
       const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
       const createdIn = created >= start && created < end;
       const closeIn = closeRef >= start && closeRef < end;
+      // Las oportunidades ya cerradas (ganadas/perdidas) siempre se ubican por su
+      // fecha de cierre real, no por cuándo se capturaron (evita que cargas
+      // históricas aparezcan en el mes en curso).
+      if (d.isWon || d.isLost) {
+        if (lens === "all" || closedSelected || lens === "created") return dealClosedInPeriod(d);
+        return false;
+      }
       if (lens === "created") return createdIn;
-      if (lens === "all" || closedSelected) return createdIn || closeIn || dealClosedInPeriod(d);
+      if (lens === "all" || closedSelected) return createdIn || closeIn;
       // active: open deals whose expected close falls inside the period
-      if (d.isWon || d.isLost) return false;
       return closeIn;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
