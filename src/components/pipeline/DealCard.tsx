@@ -239,8 +239,11 @@ function DealCardImpl({
               onClick={(e) => e.stopPropagation()}
             >
               <div
-                className={cn("h-full transition-all", probabilityColor(effectiveProbability(deal)))}
-                style={{ width: `${deal.isLost ? 100 : effectiveProbability(deal)}%` }}
+                className={cn(
+                  "h-full transition-all",
+                  deal.isWon ? "bg-success" : deal.isLost ? "bg-muted" : probabilityColor(effectiveProbability(deal)),
+                )}
+                style={{ width: `${deal.isWon || deal.isLost ? 100 : effectiveProbability(deal)}%` }}
               />
             </div>
           </TooltipTrigger>
