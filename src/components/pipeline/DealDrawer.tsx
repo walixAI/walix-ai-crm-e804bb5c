@@ -201,7 +201,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                   display={deal.wonAt ? format(new Date(deal.wonAt), "PPP", { locale: es }) : "—"}
                   value={deal.wonAt ? format(new Date(deal.wonAt), "yyyy-MM-dd") : ""}
                   onSave={async (v) => {
-                    if (!v) return toast.error("Elige una fecha");
+                    if (!v) { toast.error("Elige una fecha"); return; }
                     const [y, m, d] = v.split("-").map(Number);
                     let next = new Date(y, m - 1, d, 12, 0, 0, 0);
                     if (next.getTime() > Date.now()) next = new Date();
