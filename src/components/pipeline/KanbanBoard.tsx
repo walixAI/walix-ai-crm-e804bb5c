@@ -14,10 +14,12 @@ import { DealCard } from "./DealCard";
 import { WonDateDialog } from "./WonDateDialog";
 import { RequireCategoryDialog } from "./RequireCategoryDialog";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   stages: PipelineStage[];
   deals: PipelineDeal[];
+  lens: PipelineLens;
   contactName: (id: string | null) => string | undefined;
   contactColor: (id: string | null) => string | null | undefined;
   contactLastActivityAt: (id: string | null) => string | null | undefined;
@@ -33,12 +35,13 @@ interface Props {
 }
 
 export function KanbanBoard(props: Props) {
-  const { stages, deals } = props;
+  const { stages, deals, lens } = props;
   const [active, setActive] = useState<PipelineDeal | null>(null);
   const [wonTarget, setWonTarget] = useState<{ deal: PipelineDeal; stage: PipelineStage } | null>(null);
   const [categoryTarget, setCategoryTarget] = useState<{ deal: PipelineDeal; stage: PipelineStage } | null>(null);
   const update = useUpdateDealStage();
   const selectionActive = props.selectedIds.size > 0;
+  const dragDisabled = lens !== "active";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -47,7 +50,9 @@ export function KanbanBoard(props: Props) {
 
   function onDragStart(e: DragStartEvent) {
     const deal = deals.find(d => d.id === e.active.id);
-    if (deal) setActive(deal);
+    if (!deal) return;
+    if (dragDisabled || deal.isWon || deal.isLost) return;
+    setActive(deal);
   }
 
   function applyMove(deal: PipelineDeal, stage: PipelineStage) {
@@ -113,6 +118,7 @@ export function KanbanBoard(props: Props) {
             stage={stage}
             allStages={stages}
             deals={deals.filter(d => d.stageId === stage.id)}
+            lens={lens}
             contactName={props.contactName}
             contactColor={props.contactColor}
             contactLastActivityAt={props.contactLastActivityAt}

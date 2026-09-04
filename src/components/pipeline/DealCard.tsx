@@ -2,7 +2,7 @@ import { effectiveProbability } from "@/lib/pipeline/probability";
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ClipboardList, MessageCircle, Sparkles, PauseCircle, MessageSquareOff } from "lucide-react";
+import { ClipboardList, MessageCircle, Sparkles, PauseCircle, MessageSquareOff, CheckCircle2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,10 +16,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { scoreDeal } from "@/services/ai";
 import { useEntityUrgency } from "@/hooks/useEntityUrgency";
 import { useDealBlockers, daysSince } from "@/lib/queries/dealDiagnostics";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   deal: PipelineDeal;
   stages?: PipelineStage[];
+  lens?: PipelineLens;
   contactName?: string;
   contactColor?: string | null;
   contactLastActivityAt?: string | null;
@@ -42,7 +44,7 @@ function probabilityColor(p: number): string {
 }
 
 function DealCardImpl({
-  deal, stages = [], contactName, contactColor, contactLastActivityAt, tasks, unread = 0, aiSuggestion,
+  deal, stages = [], lens = "active", contactName, contactColor, contactLastActivityAt, tasks, unread = 0, aiSuggestion,
   onOpen, selected, onToggleSelect, selectionActive, onRequestLost, onNewTask, isOverlay,
 }: Props) {
   const navigate = useNavigate();
@@ -52,6 +54,8 @@ function DealCardImpl({
   const { data: blockers = [] } = useDealBlockers();
   const blocker = blockers.find((b) => b.id === deal.currentBlockerId) ?? null;
   const blockerAge = daysSince(deal.blockerSetAt);
+  const isClosed = deal.isWon || deal.isLost;
+  const dragDisabled = lens !== "active" || isClosed;
 
   // Tooltip explanation for the probability bar.
   // Reuses the shared `scoreDeal()` helper so the explanation phrasing
@@ -73,6 +77,7 @@ function DealCardImpl({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
     data: { deal },
+    disabled: dragDisabled,
   });
 
   const style = {
@@ -143,6 +148,20 @@ function DealCardImpl({
       </div>
 
       <div className="text-success font-bold text-base mb-2">{formatMXN(deal.amount)} MXN</div>
+
+      {isClosed && (
+        <div className="flex items-center gap-1.5 mb-2">
+          {deal.isWon ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success text-[10px] font-medium px-2 py-0.5">
+              <CheckCircle2 className="h-3 w-3" /> Ganado
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground text-[10px] font-medium px-2 py-0.5">
+              <XCircle className="h-3 w-3" /> Perdido
+            </span>
+          )}
+        </div>
+      )}
 
       {contactName && (
         <button
@@ -220,8 +239,11 @@ function DealCardImpl({
               onClick={(e) => e.stopPropagation()}
             >
               <div
-                className={cn("h-full transition-all", probabilityColor(effectiveProbability(deal)))}
-                style={{ width: `${deal.isLost ? 100 : effectiveProbability(deal)}%` }}
+                className={cn(
+                  "h-full transition-all",
+                  deal.isWon ? "bg-success" : deal.isLost ? "bg-muted" : probabilityColor(effectiveProbability(deal)),
+                )}
+                style={{ width: `${deal.isWon || deal.isLost ? 100 : effectiveProbability(deal)}%` }}
               />
             </div>
           </TooltipTrigger>

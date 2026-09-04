@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, Download } from "lucide-react";
+import { ArrowUpDown, Download, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -9,17 +9,20 @@ import {
   daysSince, formatMXN, type PipelineDeal,
 } from "@/lib/queries/pipeline";
 import { cn } from "@/lib/utils";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   deals: PipelineDeal[];
+  lens: PipelineLens;
   contactName: (id: string | null) => string | undefined;
   onOpenDeal: (deal: PipelineDeal) => void;
 }
 
 type SortKey = "name" | "contact" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
 
-export function DealsListView({ deals, contactName, onOpenDeal }: Props) {
+export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
+  const showStatus = lens !== "active";
 
   const sorted = useMemo(() => {
     const arr = [...deals];
@@ -80,23 +83,39 @@ export function DealsListView({ deals, contactName, onOpenDeal }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><SortBtn k="name" label="Deal" /></TableHead>
-              <TableHead><SortBtn k="contact" label="Contacto" /></TableHead>
-              <TableHead className="text-right"><SortBtn k="amount" label="Monto" /></TableHead>
-              <TableHead><SortBtn k="stage" label="Etapa" /></TableHead>
-              <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
-              <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
-              <TableHead><SortBtn k="days" label="Días" /></TableHead>
-              <TableHead><SortBtn k="close" label="Cierre" /></TableHead>
+            <TableHead><SortBtn k="name" label="Deal" /></TableHead>
+            <TableHead><SortBtn k="contact" label="Contacto" /></TableHead>
+            <TableHead className="text-right"><SortBtn k="amount" label="Monto" /></TableHead>
+            <TableHead><SortBtn k="stage" label="Etapa" /></TableHead>
+            {showStatus && <TableHead>Estado</TableHead>}
+            <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
+            <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
+            <TableHead><SortBtn k="days" label="Días" /></TableHead>
+            <TableHead><SortBtn k="close" label="Cierre" /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sorted.map(d => (
-              <TableRow key={d.id} className="cursor-pointer" onClick={() => onOpenDeal(d)}>
+              <TableRow key={d.id} className={cn("cursor-pointer", (d.isWon || d.isLost) && "opacity-80")} onClick={() => onOpenDeal(d)}>
                 <TableCell className="font-medium">{d.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{contactName(d.contactId) ?? "—"}</TableCell>
                 <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
                 <TableCell className="text-sm">{d.stageName}</TableCell>
+                {showStatus && (
+                  <TableCell>
+                    {d.isWon ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success text-[10px] font-medium px-2 py-0.5">
+                        <CheckCircle2 className="h-3 w-3" /> Ganado
+                      </span>
+                    ) : d.isLost ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground text-[10px] font-medium px-2 py-0.5">
+                        <XCircle className="h-3 w-3" /> Perdido
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-sm">{d.probability}%</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -114,7 +133,7 @@ export function DealsListView({ deals, contactName, onOpenDeal }: Props) {
             ))}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">Sin resultados</TableCell>
+                <TableCell colSpan={showStatus ? 9 : 8} className="text-center text-sm text-muted-foreground py-10">Sin resultados</TableCell>
               </TableRow>
             )}
           </TableBody>

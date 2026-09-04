@@ -19,7 +19,7 @@ import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
-import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
+import { usePipelinePrefs, type PipelineLens } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
   type PipelineDeal, type PipelineStage,
@@ -81,6 +81,8 @@ export default function Pipeline() {
 
   const view = prefs.view;
   const setView = (v: "kanban" | "list" | "performance") => setPrefs({ ...prefs, view: v });
+  const lens = prefs.pipelineLens;
+  const setLens = (v: PipelineLens) => setPrefs({ ...prefs, pipelineLens: v });
   const search = prefs.search;
   const setSearch = (v: string) => setPrefs({ ...prefs, search: v });
 
@@ -169,27 +171,42 @@ export default function Pipeline() {
     });
   }, [deals, filters, search, contactById, stages]);
 
-  const activeDeals = filtered.filter(d => !d.isWon && !d.isLost);
-  const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
-  const weightedAmount = activeDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
-
-  // Stale deals (>10 días sin actividad reciente del contacto / sin updates)
-  const staleDeals = useMemo(() => {
-    const now = Date.now();
-    return activeDeals.filter((d) => {
-      const lastContact = d.contactId ? contactLastActivityById.get(d.contactId) : null;
-      const ref = lastContact ?? d.updatedAt;
-      return (now - new Date(ref).getTime()) / 86_400_000 > 10;
-    });
-  }, [activeDeals, contactLastActivityById]);
-  const staleAmount = staleDeals.reduce((s, d) => s + d.amount, 0);
-
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const closingThisMonth = activeDeals
+  const lensedDeals = useMemo(() => {
+    switch (lens) {
+      case "created":
+        return filtered.filter(d => {
+          const created = new Date(d.createdAt);
+          return created >= startOfMonth && created < endOfMonth;
+        });
+      case "won":
+        return filtered.filter(d => d.isWon && d.wonAt && new Date(d.wonAt) >= startOfMonth && new Date(d.wonAt) < endOfMonth);
+      case "active":
+      default:
+        return filtered.filter(d => !d.isWon && !d.isLost);
+    }
+  }, [filtered, lens, startOfMonth, endOfMonth]);
+
+  const totalAmount = lensedDeals.reduce((s, d) => s + d.amount, 0);
+  const weightedAmount = lensedDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
+
+  // Stale deals (>10 días sin actividad reciente del contacto / sin updates)
+  const staleDeals = useMemo(() => {
+    if (lens !== "active") return [];
+    const now = Date.now();
+    return lensedDeals.filter((d) => {
+      const lastContact = d.contactId ? contactLastActivityById.get(d.contactId) : null;
+      const ref = lastContact ?? d.updatedAt;
+      return (now - new Date(ref).getTime()) / 86_400_000 > 10;
+    });
+  }, [lensedDeals, contactLastActivityById, lens]);
+  const staleAmount = staleDeals.reduce((s, d) => s + d.amount, 0);
+
+  const closingThisMonth = lensedDeals
     .filter(d => d.expectedCloseDate && parseCalendarDate(d.expectedCloseDate) >= startOfMonth && parseCalendarDate(d.expectedCloseDate) < endOfMonth)
     .reduce((s, d) => s + d.amount, 0);
 
@@ -220,6 +237,8 @@ export default function Pipeline() {
       <PipelineHeader
         view={view}
         onView={setView}
+        lens={lens}
+        onLens={setLens}
         filters={filters}
         onFilters={setFilters}
         search={search}
@@ -234,7 +253,7 @@ export default function Pipeline() {
         weightedAmount={weightedAmount}
         closingThisMonth={closingThisMonth}
         closingDeltaPct={closingDeltaPct}
-        activeCount={activeDeals.length}
+        activeCount={lensedDeals.length}
       />
 
       {staleDeals.length > 0 && (
@@ -255,10 +274,30 @@ export default function Pipeline() {
           description="Organiza tus oportunidades en etapas y arrastra para mover entre columnas."
           action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
         />
+      ) : lensedDeals.length === 0 ? (
+        <EmptyState
+          illustration={<EmptyIllustration variant="pipeline" />}
+          title={
+            lens === "won"
+              ? "No hay oportunidades ganadas este mes"
+              : lens === "created"
+                ? "No se crearon oportunidades este mes"
+                : "No hay oportunidades activas"
+          }
+          description={
+            lens === "won"
+              ? "Las oportunidades ganadas aparecerán aquí según su fecha de ganado."
+              : lens === "created"
+                ? "Las oportunidades creadas este mes aparecerán aquí."
+                : "Todas las oportunidades están cerradas. Cambia el filtro arriba para verlas."
+          }
+          action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
+        />
       ) : view === "kanban" ? (
         <KanbanBoard
           stages={stages}
-          deals={filtered}
+          deals={lensedDeals}
+          lens={lens}
           contactName={contactName}
           contactColor={contactColor}
           contactLastActivityAt={contactLastActivityAt}
@@ -286,7 +325,7 @@ export default function Pipeline() {
           onPeriodMonth={(v) => setPrefs({ ...prefs, perfMonth: v })}
         />
       ) : (
-        <DealsListView deals={filtered} contactName={contactName} onOpenDeal={setOpenDeal} />
+        <DealsListView deals={lensedDeals} lens={lens} contactName={contactName} onOpenDeal={setOpenDeal} />
       )}
 
       <NewDealDialog

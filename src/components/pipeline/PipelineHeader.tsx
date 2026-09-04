@@ -4,15 +4,21 @@ import { Input } from "@/components/ui/input";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PipelineFilters, type PipelineFiltersValue } from "./PipelineFilters";
 import { ForecastKpis } from "./ForecastKpis";
 import { RunRateChip } from "@/components/walix/RunRateChip";
 import type { Pipeline } from "@/lib/queries/pipeline";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   view: "kanban" | "list" | "performance";
   onView: (v: "kanban" | "list" | "performance") => void;
+  lens: PipelineLens;
+  onLens: (v: PipelineLens) => void;
   filters: PipelineFiltersValue;
   onFilters: (v: PipelineFiltersValue) => void;
   search: string;
@@ -31,7 +37,7 @@ interface Props {
 }
 
 export function PipelineHeader({
-  view, onView, filters, onFilters, search, onSearch, onNew, onOpenAi,
+  view, onView, lens, onLens, filters, onFilters, search, onSearch, onNew, onOpenAi,
   pipelines, activePipeline, onSelectPipeline, onManagePipelines,
   totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount,
 }: Props) {
@@ -99,6 +105,19 @@ export function PipelineHeader({
               <Activity className="h-3.5 w-3.5" /> Desempeño
             </ToggleGroupItem>
           </ToggleGroup>
+
+          {(view === "kanban" || view === "list") && (
+            <Select value={lens} onValueChange={(v) => onLens(v as PipelineLens)}>
+              <SelectTrigger className="h-9 w-[170px] text-xs">
+                <SelectValue placeholder="Mostrar…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Activas</SelectItem>
+                <SelectItem value="created">Creadas este mes</SelectItem>
+                <SelectItem value="won">Ganadas este mes</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
 
           <PipelineFilters value={filters} onChange={onFilters} />
 

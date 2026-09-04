@@ -5,11 +5,13 @@ import { cn } from "@/lib/utils";
 import { formatMXN, type DealTaskRow, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
 import { DealCard } from "./DealCard";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   stage: PipelineStage;
   allStages: PipelineStage[];
   deals: PipelineDeal[];
+  lens: PipelineLens;
   contactName: (id: string | null) => string | undefined;
   contactColor: (id: string | null) => string | null | undefined;
   contactLastActivityAt: (id: string | null) => string | null | undefined;
@@ -27,7 +29,7 @@ interface Props {
 }
 
 export function KanbanColumn({
-  stage, allStages, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, aiSuggestionsByDeal,
+  stage, allStages, deals, lens, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, aiSuggestionsByDeal,
   onOpenDeal, onAddDeal, selectedIds, onToggleSelect, selectionActive, onRequestLost, onNewTask, wipLimit = 10,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage } });
@@ -81,6 +83,7 @@ export function KanbanColumn({
             key={d.id}
             deal={d}
             stages={allStages}
+            lens={lens}
             contactName={contactName(d.contactId)}
             contactColor={contactColor(d.contactId)}
             contactLastActivityAt={contactLastActivityAt(d.contactId)}
