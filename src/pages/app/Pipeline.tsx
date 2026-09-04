@@ -171,27 +171,42 @@ export default function Pipeline() {
     });
   }, [deals, filters, search, contactById, stages]);
 
-  const activeDeals = filtered.filter(d => !d.isWon && !d.isLost);
-  const totalAmount = activeDeals.reduce((s, d) => s + d.amount, 0);
-  const weightedAmount = activeDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
-
-  // Stale deals (>10 días sin actividad reciente del contacto / sin updates)
-  const staleDeals = useMemo(() => {
-    const now = Date.now();
-    return activeDeals.filter((d) => {
-      const lastContact = d.contactId ? contactLastActivityById.get(d.contactId) : null;
-      const ref = lastContact ?? d.updatedAt;
-      return (now - new Date(ref).getTime()) / 86_400_000 > 10;
-    });
-  }, [activeDeals, contactLastActivityById]);
-  const staleAmount = staleDeals.reduce((s, d) => s + d.amount, 0);
-
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const closingThisMonth = activeDeals
+  const lensedDeals = useMemo(() => {
+    switch (lens) {
+      case "created":
+        return filtered.filter(d => {
+          const created = new Date(d.createdAt);
+          return created >= startOfMonth && created < endOfMonth;
+        });
+      case "won":
+        return filtered.filter(d => d.isWon && d.wonAt && new Date(d.wonAt) >= startOfMonth && new Date(d.wonAt) < endOfMonth);
+      case "active":
+      default:
+        return filtered.filter(d => !d.isWon && !d.isLost);
+    }
+  }, [filtered, lens, startOfMonth, endOfMonth]);
+
+  const totalAmount = lensedDeals.reduce((s, d) => s + d.amount, 0);
+  const weightedAmount = lensedDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
+
+  // Stale deals (>10 días sin actividad reciente del contacto / sin updates)
+  const staleDeals = useMemo(() => {
+    if (lens !== "active") return [];
+    const now = Date.now();
+    return lensedDeals.filter((d) => {
+      const lastContact = d.contactId ? contactLastActivityById.get(d.contactId) : null;
+      const ref = lastContact ?? d.updatedAt;
+      return (now - new Date(ref).getTime()) / 86_400_000 > 10;
+    });
+  }, [lensedDeals, contactLastActivityById, lens]);
+  const staleAmount = staleDeals.reduce((s, d) => s + d.amount, 0);
+
+  const closingThisMonth = lensedDeals
     .filter(d => d.expectedCloseDate && parseCalendarDate(d.expectedCloseDate) >= startOfMonth && parseCalendarDate(d.expectedCloseDate) < endOfMonth)
     .reduce((s, d) => s + d.amount, 0);
 
