@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, Download } from "lucide-react";
+import { ArrowUpDown, Download, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -9,9 +9,11 @@ import {
   daysSince, formatMXN, type PipelineDeal,
 } from "@/lib/queries/pipeline";
 import { cn } from "@/lib/utils";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   deals: PipelineDeal[];
+  lens: PipelineLens;
   contactName: (id: string | null) => string | undefined;
   onOpenDeal: (deal: PipelineDeal) => void;
 }
