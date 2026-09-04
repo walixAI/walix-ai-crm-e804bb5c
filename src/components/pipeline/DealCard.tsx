@@ -2,7 +2,7 @@ import { effectiveProbability } from "@/lib/pipeline/probability";
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ClipboardList, MessageCircle, Sparkles, PauseCircle, MessageSquareOff } from "lucide-react";
+import { ClipboardList, MessageCircle, Sparkles, PauseCircle, MessageSquareOff, CheckCircle2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,10 +16,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { scoreDeal } from "@/services/ai";
 import { useEntityUrgency } from "@/hooks/useEntityUrgency";
 import { useDealBlockers, daysSince } from "@/lib/queries/dealDiagnostics";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   deal: PipelineDeal;
   stages?: PipelineStage[];
+  lens?: PipelineLens;
   contactName?: string;
   contactColor?: string | null;
   contactLastActivityAt?: string | null;
