@@ -14,10 +14,12 @@ import { DealCard } from "./DealCard";
 import { WonDateDialog } from "./WonDateDialog";
 import { RequireCategoryDialog } from "./RequireCategoryDialog";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   stages: PipelineStage[];
   deals: PipelineDeal[];
+  lens: PipelineLens;
   contactName: (id: string | null) => string | undefined;
   contactColor: (id: string | null) => string | null | undefined;
   contactLastActivityAt: (id: string | null) => string | null | undefined;
