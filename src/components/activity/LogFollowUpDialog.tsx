@@ -225,6 +225,9 @@ export function LogFollowUpDialog({
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
     if (available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
     if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
+    if (outcome?.isWon && new Date(fromLocalInput(occurred)).getTime() > Date.now()) {
+      return toast.error("La fecha de ganado no puede ser futura");
+    }
     if (diagMode === "blocked" && !blockerId) return toast.error("Indica qué está esperando el cliente");
     if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona por qué se perdió");
     try {
