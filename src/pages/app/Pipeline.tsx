@@ -81,6 +81,8 @@ export default function Pipeline() {
 
   const view = prefs.view;
   const setView = (v: "kanban" | "list" | "performance") => setPrefs({ ...prefs, view: v });
+  const lens = prefs.pipelineLens;
+  const setLens = (v: PipelineLens) => setPrefs({ ...prefs, pipelineLens: v });
   const search = prefs.search;
   const setSearch = (v: string) => setPrefs({ ...prefs, search: v });
 
