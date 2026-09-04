@@ -237,6 +237,8 @@ export default function Pipeline() {
       <PipelineHeader
         view={view}
         onView={setView}
+        lens={lens}
+        onLens={setLens}
         filters={filters}
         onFilters={setFilters}
         search={search}
@@ -251,7 +253,7 @@ export default function Pipeline() {
         weightedAmount={weightedAmount}
         closingThisMonth={closingThisMonth}
         closingDeltaPct={closingDeltaPct}
-        activeCount={activeDeals.length}
+        activeCount={lensedDeals.length}
       />
 
       {staleDeals.length > 0 && (
@@ -272,10 +274,30 @@ export default function Pipeline() {
           description="Organiza tus oportunidades en etapas y arrastra para mover entre columnas."
           action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
         />
+      ) : lensedDeals.length === 0 ? (
+        <EmptyState
+          illustration={<EmptyIllustration variant="pipeline" />}
+          title={
+            lens === "won"
+              ? "No hay oportunidades ganadas este mes"
+              : lens === "created"
+                ? "No se crearon oportunidades este mes"
+                : "No hay oportunidades activas"
+          }
+          description={
+            lens === "won"
+              ? "Las oportunidades ganadas aparecerán aquí según su fecha de ganado."
+              : lens === "created"
+                ? "Las oportunidades creadas este mes aparecerán aquí."
+                : "Todas las oportunidades están cerradas. Cambia el filtro arriba para verlas."
+          }
+          action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
+        />
       ) : view === "kanban" ? (
         <KanbanBoard
           stages={stages}
-          deals={filtered}
+          deals={lensedDeals}
+          lens={lens}
           contactName={contactName}
           contactColor={contactColor}
           contactLastActivityAt={contactLastActivityAt}
@@ -303,7 +325,7 @@ export default function Pipeline() {
           onPeriodMonth={(v) => setPrefs({ ...prefs, perfMonth: v })}
         />
       ) : (
-        <DealsListView deals={filtered} contactName={contactName} onOpenDeal={setOpenDeal} />
+        <DealsListView deals={lensedDeals} lens={lens} contactName={contactName} onOpenDeal={setOpenDeal} />
       )}
 
       <NewDealDialog
