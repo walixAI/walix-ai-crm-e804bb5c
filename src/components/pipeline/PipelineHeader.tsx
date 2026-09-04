@@ -37,7 +37,7 @@ interface Props {
 }
 
 export function PipelineHeader({
-  view, onView, filters, onFilters, search, onSearch, onNew, onOpenAi,
+  view, onView, lens, onLens, filters, onFilters, search, onSearch, onNew, onOpenAi,
   pipelines, activePipeline, onSelectPipeline, onManagePipelines,
   totalAmount, weightedAmount, closingThisMonth, closingDeltaPct, activeCount,
 }: Props) {
