@@ -106,6 +106,19 @@ export function PipelineHeader({
             </ToggleGroupItem>
           </ToggleGroup>
 
+          {(view === "kanban" || view === "list") && (
+            <Select value={lens} onValueChange={(v) => onLens(v as PipelineLens)}>
+              <SelectTrigger className="h-9 w-[170px] text-xs">
+                <SelectValue placeholder="Mostrar…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Activas</SelectItem>
+                <SelectItem value="created">Creadas este mes</SelectItem>
+                <SelectItem value="won">Ganadas este mes</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
           <PipelineFilters value={filters} onChange={onFilters} />
 
           <Button
