@@ -118,6 +118,7 @@ export function KanbanBoard(props: Props) {
             stage={stage}
             allStages={stages}
             deals={deals.filter(d => d.stageId === stage.id)}
+            lens={lens}
             contactName={props.contactName}
             contactColor={props.contactColor}
             contactLastActivityAt={props.contactLastActivityAt}
