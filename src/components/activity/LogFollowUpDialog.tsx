@@ -225,6 +225,9 @@ export function LogFollowUpDialog({
     if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
     if (available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
     if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
+    if (outcome?.isWon && new Date(fromLocalInput(occurred)).getTime() > Date.now()) {
+      return toast.error("La fecha de ganado no puede ser futura");
+    }
     if (diagMode === "blocked" && !blockerId) return toast.error("Indica qué está esperando el cliente");
     if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona por qué se perdió");
     try {
@@ -354,6 +357,24 @@ export function LogFollowUpDialog({
               placeholder="Escribe con tus palabras qué te dijo el cliente…"
             />
           </div>
+
+          {outcome?.isWon && (
+            <div className="space-y-1.5 rounded-lg border border-success/40 bg-success/5 p-3">
+              <Label className="text-base">Fecha de ganado</Label>
+              <Input
+                type="datetime-local"
+                className="h-12 text-base"
+                max={toLocalInput(new Date())}
+                value={occurred}
+                onChange={(e) => setOccurred(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Es la fecha en que se cerró la venta; define en qué mes se contabiliza. No puede ser futura.
+              </p>
+            </div>
+          )}
+
+
 
           {/* 3. ¿Cuándo le vuelves a hablar? */}
           <div className="space-y-2">

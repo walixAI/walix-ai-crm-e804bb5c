@@ -66,7 +66,14 @@ export function WonDateDialog({ deal, stage, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* El diálogo se monta dentro de la tarjeta del Kanban: sin esto, los clics
+          burbujean por el árbol de React y abren el detalle de la oportunidad. */}
+      <DialogContent
+        className="sm:max-w-md"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" /> Marcar como ganada
