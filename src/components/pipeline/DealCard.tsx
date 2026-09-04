@@ -149,6 +149,20 @@ function DealCardImpl({
 
       <div className="text-success font-bold text-base mb-2">{formatMXN(deal.amount)} MXN</div>
 
+      {isClosed && (
+        <div className="flex items-center gap-1.5 mb-2">
+          {deal.isWon ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success text-[10px] font-medium px-2 py-0.5">
+              <CheckCircle2 className="h-3 w-3" /> Ganado
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground text-[10px] font-medium px-2 py-0.5">
+              <XCircle className="h-3 w-3" /> Perdido
+            </span>
+          )}
+        </div>
+      )}
+
       {contactName && (
         <button
           type="button"
