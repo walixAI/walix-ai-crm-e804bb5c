@@ -83,6 +83,7 @@ export function KanbanColumn({
             key={d.id}
             deal={d}
             stages={allStages}
+            lens={lens}
             contactName={contactName(d.contactId)}
             contactColor={contactColor(d.contactId)}
             contactLastActivityAt={contactLastActivityAt(d.contactId)}
