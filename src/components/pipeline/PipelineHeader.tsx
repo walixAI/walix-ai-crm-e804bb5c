@@ -17,6 +17,8 @@ import type { PipelineLens } from "@/lib/usePipelinePrefs";
 interface Props {
   view: "kanban" | "list" | "performance";
   onView: (v: "kanban" | "list" | "performance") => void;
+  lens: PipelineLens;
+  onLens: (v: PipelineLens) => void;
   filters: PipelineFiltersValue;
   onFilters: (v: PipelineFiltersValue) => void;
   search: string;
