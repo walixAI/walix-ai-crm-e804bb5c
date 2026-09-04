@@ -29,7 +29,7 @@ interface Props {
 }
 
 export function KanbanColumn({
-  stage, allStages, deals, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, aiSuggestionsByDeal,
+  stage, allStages, deals, lens, contactName, contactColor, contactLastActivityAt, tasksByDeal, unreadByContact, aiSuggestionsByDeal,
   onOpenDeal, onAddDeal, selectedIds, onToggleSelect, selectionActive, onRequestLost, onNewTask, wipLimit = 10,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage } });
