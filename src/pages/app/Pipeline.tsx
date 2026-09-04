@@ -180,6 +180,12 @@ export default function Pipeline() {
     switch (lens) {
       case "created":
         return filtered.filter(d => {
+          // Las cerradas se ubican por su fecha de cierre real, no por la captura.
+          if (d.isWon) return !!d.wonAt && new Date(d.wonAt) >= startOfMonth && new Date(d.wonAt) < endOfMonth;
+          if (d.isLost) {
+            const u = new Date(d.updatedAt);
+            return u >= startOfMonth && u < endOfMonth;
+          }
           const created = new Date(d.createdAt);
           return created >= startOfMonth && created < endOfMonth;
         });
