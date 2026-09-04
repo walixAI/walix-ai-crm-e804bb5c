@@ -195,6 +195,41 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 </p>
               </Field>
 
+              {deal.isWon && (
+                <EditableField
+                  label="Fecha de ganado"
+                  display={deal.wonAt ? format(new Date(deal.wonAt), "PPP", { locale: es }) : "—"}
+                  value={deal.wonAt ? format(new Date(deal.wonAt), "yyyy-MM-dd") : ""}
+                  onSave={async (v) => {
+                    if (!v) return toast.error("Elige una fecha");
+                    const [y, m, d] = v.split("-").map(Number);
+                    let next = new Date(y, m - 1, d, 12, 0, 0, 0);
+                    if (next.getTime() > Date.now()) next = new Date();
+                    const prev = deal.wonAt ? new Date(deal.wonAt) : null;
+                    if (prev && format(prev, "yyyy-MM-dd") === v) return;
+                    await savePatch({ won_at: next.toISOString() });
+                    const fmt = (x: Date | null) => (x ? format(x, "PPP", { locale: es }) : "sin fecha");
+                    await logFieldChange.mutateAsync({
+                      field: "won_at",
+                      from: prev ? prev.toISOString() : null,
+                      to: next.toISOString(),
+                      contactId: deal.contactId,
+                      description: `Fecha de ganado cambiada de ${fmt(prev)} a ${fmt(next)}`,
+                    });
+                  }}
+                  render={(v, set) => (
+                    <Input
+                      type="date"
+                      autoFocus
+                      max={format(new Date(), "yyyy-MM-dd")}
+                      value={v}
+                      onChange={(e) => set(e.target.value)}
+                    />
+                  )}
+                />
+              )}
+
+
               <RecurringServiceBlock dealId={deal.id} isWon={deal.isWon} />
 
               <EditableField
