@@ -19,7 +19,7 @@ import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
-import { usePipelinePrefs } from "@/lib/usePipelinePrefs";
+import { usePipelinePrefs, type PipelineLens } from "@/lib/usePipelinePrefs";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
   type PipelineDeal, type PipelineStage,
