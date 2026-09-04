@@ -4,11 +4,15 @@ import { Input } from "@/components/ui/input";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PipelineFilters, type PipelineFiltersValue } from "./PipelineFilters";
 import { ForecastKpis } from "./ForecastKpis";
 import { RunRateChip } from "@/components/walix/RunRateChip";
 import type { Pipeline } from "@/lib/queries/pipeline";
+import type { PipelineLens } from "@/lib/usePipelinePrefs";
 
 interface Props {
   view: "kanban" | "list" | "performance";
