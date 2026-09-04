@@ -20,8 +20,9 @@ interface Props {
 
 type SortKey = "name" | "contact" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
 
-export function DealsListView({ deals, contactName, onOpenDeal }: Props) {
+export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
+  const showStatus = lens !== "active";
 
   const sorted = useMemo(() => {
     const arr = [...deals];
