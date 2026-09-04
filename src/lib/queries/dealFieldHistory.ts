@@ -45,7 +45,7 @@ export function useLogDealFieldChange(dealId: string | undefined) {
   const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async (args: {
-      field: "amount" | "expected_close_date";
+      field: "amount" | "expected_close_date" | "won_at";
       from: string | null;
       to: string | null;
       description: string;
