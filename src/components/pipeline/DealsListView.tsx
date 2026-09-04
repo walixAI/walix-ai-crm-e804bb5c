@@ -83,14 +83,15 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><SortBtn k="name" label="Deal" /></TableHead>
-              <TableHead><SortBtn k="contact" label="Contacto" /></TableHead>
-              <TableHead className="text-right"><SortBtn k="amount" label="Monto" /></TableHead>
-              <TableHead><SortBtn k="stage" label="Etapa" /></TableHead>
-              <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
-              <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
-              <TableHead><SortBtn k="days" label="Días" /></TableHead>
-              <TableHead><SortBtn k="close" label="Cierre" /></TableHead>
+            <TableHead><SortBtn k="name" label="Deal" /></TableHead>
+            <TableHead><SortBtn k="contact" label="Contacto" /></TableHead>
+            <TableHead className="text-right"><SortBtn k="amount" label="Monto" /></TableHead>
+            <TableHead><SortBtn k="stage" label="Etapa" /></TableHead>
+            {showStatus && <TableHead>Estado</TableHead>}
+            <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
+            <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
+            <TableHead><SortBtn k="days" label="Días" /></TableHead>
+            <TableHead><SortBtn k="close" label="Cierre" /></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
