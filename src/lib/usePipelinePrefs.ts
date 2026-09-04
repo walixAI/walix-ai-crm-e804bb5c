@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 
+export type PipelineLens = "active" | "created" | "won";
+
 export interface PipelinePrefs {
   view: "kanban" | "list" | "performance";
   search: string;
   pipelineId: string | null;
+  pipelineLens: PipelineLens;
   perfLens: "created" | "active" | "all";
   perfMonth: string | null; // "YYYY-MM"
   filters: {
@@ -20,6 +23,7 @@ const DEFAULT_PREFS: PipelinePrefs = {
   view: "kanban",
   search: "",
   pipelineId: null,
+  pipelineLens: "active",
   perfLens: "active",
   perfMonth: null,
   filters: {
