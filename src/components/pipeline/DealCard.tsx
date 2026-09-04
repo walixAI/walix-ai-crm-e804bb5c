@@ -44,7 +44,7 @@ function probabilityColor(p: number): string {
 }
 
 function DealCardImpl({
-  deal, stages = [], contactName, contactColor, contactLastActivityAt, tasks, unread = 0, aiSuggestion,
+  deal, stages = [], lens = "active", contactName, contactColor, contactLastActivityAt, tasks, unread = 0, aiSuggestion,
   onOpen, selected, onToggleSelect, selectionActive, onRequestLost, onNewTask, isOverlay,
 }: Props) {
   const navigate = useNavigate();
@@ -54,6 +54,8 @@ function DealCardImpl({
   const { data: blockers = [] } = useDealBlockers();
   const blocker = blockers.find((b) => b.id === deal.currentBlockerId) ?? null;
   const blockerAge = daysSince(deal.blockerSetAt);
+  const isClosed = deal.isWon || deal.isLost;
+  const dragDisabled = lens !== "active" || isClosed;
 
   // Tooltip explanation for the probability bar.
   // Reuses the shared `scoreDeal()` helper so the explanation phrasing
@@ -75,6 +77,7 @@ function DealCardImpl({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
     data: { deal },
+    disabled: dragDisabled,
   });
 
   const style = {
