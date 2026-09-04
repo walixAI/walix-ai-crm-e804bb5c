@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowUpDown, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { ArrowUpDown, CheckCircle2, ChevronDown, ChevronRight, Download, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -624,6 +624,7 @@ export function DealsPerformanceView({
               <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
               <TableHead className="min-w-[160px]"><SortBtn k="stage" label="Etapa" /></TableHead>
               <TableHead><SortBtn k="days" label="Días" /></TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead>Salud</TableHead>
               <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
               <TableHead><SortBtn k="close" label="Cierre" /></TableHead>
@@ -656,6 +657,19 @@ export function DealsPerformanceView({
                     {health.daysSinceContactActivity === null ? "Sin actividad" : `${health.daysSinceContactActivity}d sin contacto`}
                   </div>
                 </TableCell>
+                <TableCell>
+                  {d.isWon ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success text-[10px] font-medium px-2 py-0.5">
+                      <CheckCircle2 className="h-3 w-3" /> Ganado
+                    </span>
+                  ) : d.isLost ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground text-[10px] font-medium px-2 py-0.5">
+                      <XCircle className="h-3 w-3" /> Perdido
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-border text-[10px] text-muted-foreground px-2 py-0.5">Activa</span>
+                  )}
+                </TableCell>
                 <TableCell><HealthBadges health={health} /></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -674,7 +688,7 @@ export function DealsPerformanceView({
             ))}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                   Sin oportunidades para este periodo y lente.
                 </TableCell>
               </TableRow>
