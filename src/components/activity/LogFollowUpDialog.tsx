@@ -355,6 +355,24 @@ export function LogFollowUpDialog({
             />
           </div>
 
+          {outcome?.isWon && (
+            <div className="space-y-1.5 rounded-lg border border-success/40 bg-success/5 p-3">
+              <Label className="text-base">Fecha de ganado</Label>
+              <Input
+                type="datetime-local"
+                className="h-12 text-base"
+                max={toLocalInput(new Date())}
+                value={occurred}
+                onChange={(e) => setOccurred(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Es la fecha en que se cerró la venta; define en qué mes se contabiliza. No puede ser futura.
+              </p>
+            </div>
+          )}
+
+
+
           {/* 3. ¿Cuándo le vuelves a hablar? */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
