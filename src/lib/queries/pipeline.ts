@@ -385,12 +385,21 @@ export function useDeals() {
   return useQuery({
     queryKey: ["pipeline-deals", users?.length ?? 0],
     queryFn: async (): Promise<PipelineDeal[]> => {
-      const { data, error } = await supabase
-        .from("deals")
-        .select("*")
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((r) => mapDeal(r, users));
+      // El backend devuelve máx. 1000 filas por consulta: paginamos para traerlas todas.
+      const PAGE = 1000;
+      const all: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from("deals")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        all.push(...(data ?? []));
+        if (!data || data.length < PAGE) break;
+      }
+      return all.map((r) => mapDeal(r, users));
     },
   });
 }
