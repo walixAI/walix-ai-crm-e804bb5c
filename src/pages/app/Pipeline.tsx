@@ -280,7 +280,7 @@ export default function Pipeline() {
           description="Organiza tus oportunidades en etapas y arrastra para mover entre columnas."
           action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
         />
-      ) : lensedDeals.length === 0 ? (
+      ) : view !== "performance" && lensedDeals.length === 0 ? (
         <EmptyState
           illustration={<EmptyIllustration variant="pipeline" />}
           title={
