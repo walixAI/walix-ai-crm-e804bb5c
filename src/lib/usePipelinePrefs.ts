@@ -9,6 +9,7 @@ export interface PipelinePrefs {
   pipelineLens: PipelineLens;
   perfLens: "created" | "active" | "all";
   perfMonth: string | null; // "YYYY-MM"
+  perfFilters: { productIds: string[]; frequency: string; owner: string; stageId: string };
   filters: {
     ownerName: string;
     amountMin: string;
@@ -26,6 +27,7 @@ const DEFAULT_PREFS: PipelinePrefs = {
   pipelineLens: "active",
   perfLens: "active",
   perfMonth: null,
+  perfFilters: { productIds: [], frequency: "all", owner: "all", stageId: "all" },
   filters: {
     ownerName: "all",
     amountMin: "",
@@ -48,6 +50,7 @@ function read(): PipelinePrefs {
       ...DEFAULT_PREFS,
       ...parsed,
       filters: { ...DEFAULT_PREFS.filters, ...(parsed?.filters ?? {}) },
+      perfFilters: { ...DEFAULT_PREFS.perfFilters, ...(parsed?.perfFilters ?? {}) },
     };
   } catch {
     return DEFAULT_PREFS;
