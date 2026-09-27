@@ -4,7 +4,10 @@ import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { KanbanSkeleton, TableSkeleton } from "@/components/walix/Skeletons";
 import { KanbanBoard } from "@/components/pipeline/KanbanBoard";
 import { DealsListView } from "@/components/pipeline/DealsListView";
-import { DealsPerformanceView, currentMonthKey } from "@/components/pipeline/DealsPerformanceView";
+import {
+  DealsPerformanceView, currentMonthKey, parsePeriod, filterPeriodSet, applySecondaryFilters,
+} from "@/components/pipeline/DealsPerformanceView";
+import { PeriodFiltersBar, type PeriodFiltersValue } from "@/components/pipeline/PeriodFiltersBar";
 import { NewDealDialog } from "@/components/pipeline/NewDealDialog";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { type PipelineFiltersValue } from "@/components/pipeline/PipelineFilters";
@@ -81,8 +84,6 @@ export default function Pipeline() {
 
   const view = prefs.view;
   const setView = (v: "kanban" | "list" | "performance") => setPrefs({ ...prefs, view: v });
-  const lens = prefs.pipelineLens;
-  const setLens = (v: PipelineLens) => setPrefs({ ...prefs, pipelineLens: v });
   const search = prefs.search;
   const setSearch = (v: string) => setPrefs({ ...prefs, search: v });
 
@@ -176,26 +177,28 @@ export default function Pipeline() {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
+  const periodValue: PeriodFiltersValue = {
+    lens: prefs.perfLens,
+    period: prefs.perfMonth ?? currentMonthKey(),
+    ...prefs.perfFilters,
+  };
+  const setPeriodValue = (v: PeriodFiltersValue) =>
+    setPrefs({
+      ...prefs,
+      perfLens: v.lens,
+      perfMonth: v.period,
+      perfFilters: { productIds: v.productIds, frequency: v.frequency, owner: v.owner, stageId: v.stageId },
+    });
+  const perfLens = prefs.perfLens;
+  // Kanban/Lista usan el mismo lente/periodo/filtros que Desempeño
+  const lens: PipelineLens = perfLens === "active" ? "active" : "created";
+
   const lensedDeals = useMemo(() => {
-    switch (lens) {
-      case "created":
-        return filtered.filter(d => {
-          // Las cerradas se ubican por su fecha de cierre real, no por la captura.
-          if (d.isWon) return !!d.wonAt && new Date(d.wonAt) >= startOfMonth && new Date(d.wonAt) < endOfMonth;
-          if (d.isLost) {
-            const u = new Date(d.updatedAt);
-            return u >= startOfMonth && u < endOfMonth;
-          }
-          const created = new Date(d.createdAt);
-          return created >= startOfMonth && created < endOfMonth;
-        });
-      case "won":
-        return filtered.filter(d => d.isWon && d.wonAt && new Date(d.wonAt) >= startOfMonth && new Date(d.wonAt) < endOfMonth);
-      case "active":
-      default:
-        return filtered.filter(d => !d.isWon && !d.isLost);
-    }
-  }, [filtered, lens, startOfMonth, endOfMonth]);
+    const { start, end } = parsePeriod(periodValue.period);
+    const inPeriod = filterPeriodSet(filtered, periodValue.lens, start, end, periodValue.stageId, stages);
+    return applySecondaryFilters(inPeriod, periodValue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, stages, prefs.perfLens, prefs.perfMonth, prefs.perfFilters]);
 
   const totalAmount = lensedDeals.reduce((s, d) => s + d.amount, 0);
   const weightedAmount = lensedDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
@@ -244,7 +247,7 @@ export default function Pipeline() {
         view={view}
         onView={setView}
         lens={lens}
-        onLens={setLens}
+        onLens={() => {}}
         filters={filters}
         onFilters={setFilters}
         search={search}
@@ -261,6 +264,8 @@ export default function Pipeline() {
         closingDeltaPct={closingDeltaPct}
         activeCount={lensedDeals.length}
       />
+
+      <PeriodFiltersBar value={periodValue} onChange={setPeriodValue} deals={filtered} allStages={stages} />
 
       {staleDeals.length > 0 && (
         <AiAlertBanner
@@ -284,18 +289,14 @@ export default function Pipeline() {
         <EmptyState
           illustration={<EmptyIllustration variant="pipeline" />}
           title={
-            lens === "won"
-              ? "No hay oportunidades ganadas este mes"
-              : lens === "created"
-                ? "No se crearon oportunidades este mes"
-                : "No hay oportunidades activas"
+            perfLens === "created"
+              ? "No hay oportunidades creadas en el periodo"
+              : perfLens === "all"
+                ? "No hay oportunidades en el periodo"
+                : "No hay oportunidades activas en el periodo"
           }
           description={
-            lens === "won"
-              ? "Las oportunidades ganadas aparecerán aquí según su fecha de ganado."
-              : lens === "created"
-                ? "Las oportunidades creadas este mes aparecerán aquí."
-                : "Todas las oportunidades están cerradas. Cambia el filtro arriba para verlas."
+            "Prueba con otro periodo, lente o filtro arriba."
           }
           action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
         />
@@ -329,6 +330,7 @@ export default function Pipeline() {
           onLens={(v) => setPrefs({ ...prefs, perfLens: v })}
           periodMonth={prefs.perfMonth ?? currentMonthKey()}
           onPeriodMonth={(v) => setPrefs({ ...prefs, perfMonth: v })}
+          {...prefs.perfFilters}
         />
       ) : (
         <DealsListView deals={lensedDeals} lens={lens} contactName={contactName} onOpenDeal={setOpenDeal} />
