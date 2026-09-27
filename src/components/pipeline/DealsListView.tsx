@@ -16,11 +16,12 @@ interface Props {
   lens: PipelineLens;
   contactName: (id: string | null) => string | undefined;
   onOpenDeal: (deal: PipelineDeal) => void;
+  toolbar?: (exportButton: React.ReactNode) => React.ReactNode;
 }
 
 type SortKey = "name" | "contact" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
 
-export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
+export function DealsListView({ deals, lens, contactName, onOpenDeal, toolbar }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
   const showStatus = lens !== "active";
 
@@ -72,13 +73,15 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal }: Props) {
     </button>
   );
 
+  const exportBtn = (
+    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={exportCsv} title="Exportar CSV" aria-label="Exportar CSV">
+      <Download className="h-4 w-4" />
+    </Button>
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download className="h-3.5 w-3.5" /> Exportar CSV
-        </Button>
-      </div>
+      {toolbar ? toolbar(exportBtn) : <div className="flex justify-end">{exportBtn}</div>}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <Table>
           <TableHeader>

@@ -380,17 +380,16 @@ export function DealsPerformanceView({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar: lente + filtros + export — one row */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" className="h-9 ml-auto" onClick={exportCsv}>
-          <Download className="h-3.5 w-3.5" /> Exportar CSV
-        </Button>
-      </div>
 
       {/* Funnel */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="text-sm font-semibold">Embudo de avance</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Embudo de avance</h3>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={exportCsv} title="Exportar CSV" aria-label="Exportar CSV">
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
           {funnelTop > 0 && (
             <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
               Conversión total {funnelConversionPct}%
