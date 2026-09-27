@@ -33,6 +33,10 @@ interface Props {
   onLens: (v: PerformanceLens) => void;
   periodMonth: string; // "YYYY-MM"
   onPeriodMonth: (v: string) => void;
+  productIds: string[];
+  frequency: string;
+  owner: string;
+  stageId: string;
 }
 
 type SortKey = "name" | "amount" | "stage" | "probability" | "owner" | "days" | "close";
@@ -53,7 +57,7 @@ function parseCalendarDate(value: string) {
 }
 
 /** Resolves a period value ("month" | "prev" | "90d" | "year" | "custom:from:to" | legacy "YYYY-MM"). */
-function parsePeriod(value: string): { start: Date; end: Date; label: string } {
+export function parsePeriod(value: string): { start: Date; end: Date; label: string } {
   const now = new Date();
   const monthLabel = (d: Date) => d.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 
@@ -93,7 +97,7 @@ function parsePeriod(value: string): { start: Date; end: Date; label: string } {
   }
 }
 
-const PERIOD_PRESETS = [
+export const PERIOD_PRESETS = [
   { key: "month", label: "Este mes" },
   { key: "prev", label: "Mes anterior" },
   { key: "90d", label: "Últimos 90 días" },
@@ -101,59 +105,63 @@ const PERIOD_PRESETS = [
   { key: "custom", label: "Personalizado" },
 ] as const;
 
+/** Deals inside the period according to the lens (closed deals by real close date). */
+export function filterPeriodSet(
+  deals: PipelineDeal[], lens: PerformanceLens, start: Date, end: Date,
+  stageId: string, allStages: PipelineStage[],
+) {
+  const selected = allStages.find((s) => s.id === stageId);
+  const closedSelected = !!selected && (selected.isWon || selected.isLost);
+  const dealClosedInPeriod = (d: PipelineDeal) => {
+    if (d.isWon && d.wonAt) {
+      const w = new Date(d.wonAt);
+      return w >= start && w < end;
+    }
+    if (d.isLost) {
+      const u = new Date(d.updatedAt);
+      return u >= start && u < end;
+    }
+    return false;
+  };
+  return deals.filter((d) => {
+    const created = new Date(d.createdAt);
+    const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
+    const createdIn = created >= start && created < end;
+    const closeIn = closeRef >= start && closeRef < end;
+    if (d.isWon || d.isLost) {
+      if (lens === "all" || closedSelected || lens === "created") return dealClosedInPeriod(d);
+      return false;
+    }
+    if (lens === "created") return createdIn;
+    if (lens === "all" || closedSelected) return createdIn || closeIn;
+    return closeIn;
+  });
+}
+
+/** Applies the secondary filters (category, frequency, user, stage). */
+export function applySecondaryFilters(
+  deals: PipelineDeal[], f: { productIds: string[]; frequency: string; owner: string; stageId: string },
+) {
+  return deals.filter((d) =>
+    (f.productIds.length === 0 || (d.productCategoryId ? f.productIds.includes(d.productCategoryId) : false)) &&
+    (f.frequency === "all" || String(d.serviceFrequencyMonths ?? "") === f.frequency) &&
+    (f.owner === "all" || d.ownerName === f.owner) &&
+    (f.stageId === "all" || d.stageId === f.stageId));
+}
+
 export function DealsPerformanceView({
   deals, stages, allStages, contactName, contactLastActivityById, onOpenDeal,
-  lens, onLens, periodMonth, onPeriodMonth,
+  lens, periodMonth, productIds, frequency, owner, stageId,
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "amount", dir: "desc" });
   const [chip, setChip] = useState<Chip>("all");
-  const [productIds, setProductIds] = useState<string[]>([]);
-  const [frequency, setFrequency] = useState<string>("all");
-  const [owner, setOwner] = useState<string>("all");
-  const [stageId, setStageId] = useState<string>("all");
   const [openStage, setOpenStage] = useState<string | null>(null);
-  const { data: products = [] } = useProductCategories();
 
   const { start, end, label: periodLabel } = useMemo(() => parsePeriod(periodMonth), [periodMonth]);
-  const presetKey = periodMonth.startsWith("custom:")
-    ? "custom"
-    : (PERIOD_PRESETS.some((p) => p.key === periodMonth) ? periodMonth : "month");
-  const [, customFrom = "", customTo = ""] = periodMonth.startsWith("custom:") ? periodMonth.split(":") : [];
-
-  // Set inside the period according to the lens (before the secondary filters)
-  const periodSet = useMemo(() => {
-    const selected = (allStages ?? stages).find((s) => s.id === stageId);
-    const closedSelected = !!selected && (selected.isWon || selected.isLost);
-    const dealClosedInPeriod = (d: PipelineDeal) => {
-      if (d.isWon && d.wonAt) {
-        const w = new Date(d.wonAt);
-        return w >= start && w < end;
-      }
-      if (d.isLost) {
-        const u = new Date(d.updatedAt);
-        return u >= start && u < end;
-      }
-      return false;
-    };
-    return deals.filter((d) => {
-      const created = new Date(d.createdAt);
-      const closeRef = d.expectedCloseDate ? parseCalendarDate(d.expectedCloseDate) : created;
-      const createdIn = created >= start && created < end;
-      const closeIn = closeRef >= start && closeRef < end;
-      // Las oportunidades ya cerradas (ganadas/perdidas) siempre se ubican por su
-      // fecha de cierre real, no por cuándo se capturaron (evita que cargas
-      // históricas aparezcan en el mes en curso).
-      if (d.isWon || d.isLost) {
-        if (lens === "all" || closedSelected || lens === "created") return dealClosedInPeriod(d);
-        return false;
-      }
-      if (lens === "created") return createdIn;
-      if (lens === "all" || closedSelected) return createdIn || closeIn;
-      // active: open deals whose expected close falls inside the period
-      return closeIn;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deals, lens, start, end, stageId, allStages, stages]);
+  const periodSet = useMemo(
+    () => filterPeriodSet(deals, lens, start, end, stageId, allStages ?? stages),
+    [deals, lens, start, end, stageId, allStages, stages],
+  );
 
   const base = useMemo(() => {
     return periodSet.filter((d) =>
@@ -374,142 +382,10 @@ export function DealsPerformanceView({
     <div className="space-y-3">
       {/* Toolbar: lente + filtros + export — one row */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={lens} onValueChange={(v) => v && onLens(v as PerformanceLens)}>
-          <SelectTrigger className="h-9 w-[210px] shrink-0" aria-label="Lente">
-            <SelectValue placeholder="Lente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Activas en el periodo</SelectItem>
-            <SelectItem value="created">Creadas en el periodo</SelectItem>
-            <SelectItem value="all">Todas del periodo</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={presetKey}
-          onValueChange={(v) => {
-            if (v === "custom") {
-              const to = iso(new Date());
-              const from = iso(new Date(Date.now() - 29 * 86400000));
-              onPeriodMonth(`custom:${customFrom || from}:${customTo || to}`);
-            } else {
-              onPeriodMonth(v);
-            }
-          }}
-        >
-          <SelectTrigger className="h-9 w-[150px]" aria-label="Periodo">
-            <SelectValue placeholder="Periodo" />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_PRESETS.map((p) => (
-              <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 w-[200px] justify-between font-normal">
-              <span className="truncate">
-                {productIds.length === 0
-                  ? "Todas las categorías"
-                  : productIds.length === 1
-                    ? (products.find((p) => p.id === productIds[0])?.name ?? "1 categoría")
-                    : `${productIds.length} categorías`}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-[260px] p-2">
-            <div className="max-h-64 overflow-auto space-y-1">
-              {products.map((p) => {
-                const checked = productIds.includes(p.id);
-                return (
-                  <label key={p.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={() =>
-                        setProductIds((prev) => (checked ? prev.filter((x) => x !== p.id) : [...prev, p.id]))
-                      }
-                    />
-                    <span className="flex-1 truncate">{p.name}</span>
-                    <span className="text-xs text-muted-foreground">{categoryCounts.m.get(p.id) ?? 0}</span>
-                  </label>
-                );
-              })}
-              {categoryCounts.none > 0 && (
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Sin categoría: {categoryCounts.none}
-                </div>
-              )}
-            </div>
-            {productIds.length > 0 && (
-              <Button variant="ghost" size="sm" className="w-full mt-1 h-8" onClick={() => setProductIds([])}>
-                Quitar selección
-              </Button>
-            )}
-          </PopoverContent>
-        </Popover>
-        {frequencyCounts.size > 0 && (
-          <Select value={frequency} onValueChange={setFrequency}>
-            <SelectTrigger className="h-9 w-[150px]" aria-label="Frecuencia">
-              <SelectValue placeholder="Frecuencia" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toda frecuencia</SelectItem>
-              {SERVICE_FREQUENCY_OPTIONS.filter((o) => frequencyCounts.has(o.months)).map((o) => (
-                <SelectItem key={o.months} value={String(o.months)}>
-                  {o.label} ({frequencyCounts.get(o.months)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="h-9 w-[160px]" aria-label="Usuario">
-            <SelectValue placeholder="Usuario" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los usuarios</SelectItem>
-            {ownerNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={stageId} onValueChange={setStageId}>
-          <SelectTrigger className="h-9 w-[160px]" aria-label="Etapa">
-            <SelectValue placeholder="Etapa" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las etapas</SelectItem>
-            {(allStages ?? stages).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Button variant="outline" size="sm" className="h-9 ml-auto" onClick={exportCsv}>
           <Download className="h-3.5 w-3.5" /> Exportar CSV
         </Button>
       </div>
-
-      {presetKey === "custom" && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            type="date"
-            value={customFrom}
-            onChange={(e) => onPeriodMonth(`custom:${e.target.value}:${customTo}`)}
-            className="h-9 w-[160px] text-xs"
-          />
-          <Input
-            type="date"
-            value={customTo}
-            onChange={(e) => onPeriodMonth(`custom:${customFrom}:${e.target.value}`)}
-            className="h-9 w-[160px] text-xs"
-          />
-        </div>
-      )}
-
-      {(productIds.length > 0 || owner !== "all" || stageId !== "all") && (
-        <div>
-          <Button variant="ghost" size="sm" className="h-8" onClick={() => { setProductIds([]); setOwner("all"); setStageId("all"); }}>
-            Limpiar filtros
-          </Button>
-        </div>
-      )}
 
       {/* Funnel */}
       <div className="rounded-xl border border-border bg-card p-4">
