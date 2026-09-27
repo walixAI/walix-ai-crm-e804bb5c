@@ -17,6 +17,7 @@ import { BulkActionsBar } from "@/components/pipeline/BulkActionsBar";
 import { PipelineManagerDialog } from "@/components/pipeline/PipelineManagerDialog";
 import { AiInsightsPanel } from "@/components/pipeline/AiInsightsPanel";
 import { useAiSuggestionsByDeal } from "@/lib/queries/pipelineAi";
+import { DealChipsRow, useDealChips, type DealChip } from "@/components/pipeline/DealChips";
 import { AiAlertBanner } from "@/components/walix/AiAlertBanner";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,10 @@ export default function Pipeline() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, stages, prefs.perfLens, prefs.perfMonth, prefs.perfFilters]);
 
+  const [chip, setChip] = useState<DealChip>("all");
+  const periodRange = useMemo(() => parsePeriod(periodValue.period), [periodValue.period]);
+  const chipData = useDealChips(lensedDeals, chip, periodRange.start, periodRange.end, contactLastActivityById);
+
   const totalAmount = lensedDeals.reduce((s, d) => s + d.amount, 0);
   const weightedAmount = lensedDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
 
@@ -301,9 +306,11 @@ export default function Pipeline() {
           action={{ label: "+ Nueva Oportunidad", onClick: () => openNewDeal() }}
         />
       ) : view === "kanban" ? (
+        <>
+        <DealChipsRow chips={chipData.chips} value={chip} onChange={setChip} />
         <KanbanBoard
           stages={stages}
-          deals={lensedDeals}
+          deals={chipData.filtered}
           lens={lens}
           contactName={contactName}
           contactColor={contactColor}
@@ -318,6 +325,7 @@ export default function Pipeline() {
           onRequestLost={setLostDeal}
           onNewTask={setTaskDeal}
         />
+        </>
       ) : view === "performance" ? (
         <DealsPerformanceView
           deals={filtered}
@@ -333,7 +341,13 @@ export default function Pipeline() {
           {...prefs.perfFilters}
         />
       ) : (
-        <DealsListView deals={lensedDeals} lens={lens} contactName={contactName} onOpenDeal={setOpenDeal} />
+        <DealsListView
+          deals={chipData.filtered}
+          lens={lens}
+          contactName={contactName}
+          onOpenDeal={setOpenDeal}
+          toolbar={(btn) => <DealChipsRow chips={chipData.chips} value={chip} onChange={setChip} trailing={btn} />}
+        />
       )}
 
       <NewDealDialog
