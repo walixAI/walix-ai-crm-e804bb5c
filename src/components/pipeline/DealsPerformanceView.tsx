@@ -382,23 +382,15 @@ export function DealsPerformanceView({
     <div className="space-y-3">
 
       {/* Funnel */}
+      {funnelTop > 0 && (
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">Embudo de avance</h3>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={exportCsv} title="Exportar CSV" aria-label="Exportar CSV">
-              <Download className="h-4 w-4" />
-            </Button>
-          </div>
-          {funnelTop > 0 && (
-            <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
-              Conversión total {funnelConversionPct}%
-            </span>
-          )}
+          <h3 className="text-sm font-semibold">Embudo de avance</h3>
+          <span className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 text-primary px-2 py-0.5">
+            Conversión total {funnelConversionPct}%
+          </span>
         </div>
-        {funnelTop === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin oportunidades para calcular el embudo.</p>
-        ) : (
+        {(
           <>
             <div className="flex items-stretch gap-1 w-full">
               {funnel.map((f, i) => {
@@ -477,9 +469,11 @@ export function DealsPerformanceView({
           </>
         )}
       </div>
+      )}
 
       {/* Chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-start gap-2">
+      <div className="flex flex-wrap gap-2 flex-1">
         {chips.map((c) => (
           <button
             key={c.key}
@@ -494,6 +488,10 @@ export function DealsPerformanceView({
             {c.label} · {c.count}
           </button>
         ))}
+      </div>
+        <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={exportCsv} title="Exportar CSV" aria-label="Exportar CSV">
+          <Download className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
