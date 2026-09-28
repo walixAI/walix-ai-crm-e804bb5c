@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import type { ConversationItem, ConversationStatus } from "@/lib/queries/whatsapp";
+import { BotTakeoverButton } from "./BotTakeoverButton";
 
 const STATUSES: ConversationStatus[] = ["Nuevo", "En atención", "Esperando", "Resuelto"];
 
@@ -38,6 +39,7 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
       </Link>
 
       <div className="ml-auto flex items-center gap-1.5">
+        <BotTakeoverButton contactId={conv.contactId} conversationId={conv.id} />
         {/* Status */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
