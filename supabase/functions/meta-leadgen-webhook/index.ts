@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
         let fields: Record<string, string> = {};
         let adCtx: Record<string, string> = {};
         if (channel?.access_token) {
-          const res = await fetch(`${META_API}/${leadgenId}?access_token=${channel.access_token}`);
+          const res = await fetch(`${META_API}/${leadgenId}?fields=id,created_time,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic,field_data&access_token=${channel.access_token}`);
           const lead = await res.json().catch(() => ({}));
           if (!res.ok) console.error("meta lead fetch failed", JSON.stringify(lead).slice(0, 400));
           for (const f of lead?.field_data ?? []) fields[String(f.name)] = String(f.values?.[0] ?? "");
@@ -71,7 +71,13 @@ Deno.serve(async (req) => {
             ad_id: lead?.ad_id ?? "", adset_id: lead?.adset_id ?? "", campaign_id: lead?.campaign_id ?? "",
             ad_name: lead?.ad_name ?? "", adset_name: lead?.adset_name ?? "", campaign_name: lead?.campaign_name ?? "",
             form_name: lead?.form_name ?? "", platform: lead?.platform ?? "facebook", page_id: pageId,
+            created_time: lead?.created_time ?? "", is_organic: lead?.is_organic ? "1" : "",
           };
+          if (!adCtx.form_name && formId) {
+            const fr = await fetch(`${META_API}/${formId}?fields=name&access_token=${channel.access_token}`);
+            const fj = await fr.json().catch(() => ({}));
+            if (fr.ok && fj?.name) adCtx.form_name = String(fj.name);
+          }
         }
 
         // Mapeo configurado (por formulario o el predeterminado)
@@ -144,6 +150,17 @@ Deno.serve(async (req) => {
           meta_campaign_id: adCtx.campaign_id || null,
           meta_form_id: formId,
           meta_platform: adCtx.platform || "facebook",
+          utm_adgroup: adCtx.adset_name || null,
+          ad_campaign_name: adCtx.campaign_name || null,
+          ad_group_name: adCtx.adset_name || null,
+          ad_name: adCtx.ad_name || null,
+          meta_form_name: adCtx.form_name || null,
+          meta_placement: utmMap.placement ? applyTokens(utmMap.placement, adCtx) : null,
+          meta_lead_id: String(leadgenId),
+          meta_page_id: pageId ? String(pageId) : null,
+          meta_is_organic: adCtx.is_organic ? true : adCtx.ad_id ? false : null,
+          meta_created_time: adCtx.created_time || null,
+          extra: { form_fields: fields },
         };
 
         const { data: tenant } = await sb.from("tenants").select("track_ip, feature_wa_campaigns").eq("id", tenantId).maybeSingle();
