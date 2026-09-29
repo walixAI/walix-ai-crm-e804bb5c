@@ -43,6 +43,13 @@
       "when": 1790707278371,
       "tag": "0005_tenant_update_with_check",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790707685911,
+      "tag": "0006_lead_source_rules",
+      "breakpoints": true
     }
   ]
 }
