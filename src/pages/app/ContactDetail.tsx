@@ -1,3 +1,4 @@
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, PanelLeft, KanbanSquare } from "lucide-react";
@@ -92,6 +93,7 @@ export default function ContactDetail() {
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
               <TabsTrigger value="summary">Resumen</TabsTrigger>
+              <TabsTrigger value="ai">Asistente IA</TabsTrigger>
               <TabsTrigger value="tasks">Tareas</TabsTrigger>
               <TabsTrigger value="conversations">
                 Conversaciones {convs.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{convs.length}</span>}
@@ -104,6 +106,10 @@ export default function ContactDetail() {
 
             <TabsContent value="summary" className="mt-4">
               <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} />
+            </TabsContent>
+
+            <TabsContent value="ai" className="mt-4 max-w-2xl">
+              <LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} />
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4">
