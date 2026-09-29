@@ -17,7 +17,14 @@ interface Props {
 
 export function CampaignSequenceEditor({ steps, onChange }: Props) {
   const { data: templates = [] } = useWaTemplates();
-  const approved = templates.filter((t) => (t.status ?? "").toLowerCase() === "approved");
+  const approved = templates;
+  const statusLabel = (st?: string | null) => {
+    const v = (st ?? "").toLowerCase();
+    if (v === "approved") return "Aprobada";
+    if (v === "pending") return "En revisión de Meta";
+    if (v === "rejected") return "Rechazada";
+    return "Borrador, falta enviar a Meta";
+  };
 
   const update = (i: number, patch: StepDraft) => {
     const next = [...steps];
@@ -76,10 +83,20 @@ export function CampaignSequenceEditor({ steps, onChange }: Props) {
                   <SelectContent>
                     {approved.length === 0 && <SelectItem value="none" disabled>Sin plantillas sincronizadas</SelectItem>}
                     {approved.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name} ({t.language})</SelectItem>
+                      <SelectItem key={t.id} value={t.id}>{t.name} ({t.language}) · {statusLabel(t.status)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {(() => {
+                  const t = templates.find((x) => x.id === s.template_id);
+                  if (!t) return null;
+                  return (
+                    <div className="rounded-md border border-border bg-muted/40 p-3 text-sm space-y-1">
+                      <Badge variant="outline" className="text-[10px]">{statusLabel(t.status)}</Badge>
+                      <p className="whitespace-pre-wrap">{t.body_text}</p>
+                    </div>
+                  );
+                })()}
                 <Input
                   className="mt-2"
                   placeholder="Variables separadas por coma. Ej. {{nombre}}, {{empresa}}"
