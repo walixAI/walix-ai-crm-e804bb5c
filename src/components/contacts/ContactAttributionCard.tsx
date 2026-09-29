@@ -6,26 +6,34 @@ import { LeadSourceBadge } from "@/components/walix/LeadSourceBadge";
 
 interface Props { contactId: string }
 
-const FIELDS: [string, string][] = [
-  ["utm_source", "utm_source"],
-  ["utm_medium", "utm_medium"],
-  ["utm_campaign", "utm_campaign"],
-  ["utm_content", "utm_content"],
-  ["utm_term", "utm_term"],
-  ["ga_channel", "Canal"],
-  ["meta_platform", "Plataforma Meta"],
-  ["meta_campaign_id", "Campaña Meta (ID)"],
-  ["meta_adset_id", "Conjunto (ID)"],
-  ["meta_ad_id", "Anuncio (ID)"],
-  ["meta_form_id", "Formulario (ID)"],
-  ["gclid", "gclid"],
-  ["fbclid", "fbclid / ctwa_clid"],
-  ["msclkid", "msclkid"],
-  ["landing_url", "Página de entrada"],
-  ["referrer", "Referente"],
-  ["language", "Idioma"],
-  ["ip_address", "IP"],
+const GROUPS: { title: string; fields: [string, string][] }[] = [
+  { title: "Campaña (UTMs)", fields: [
+    ["utm_source", "utm_source"], ["utm_medium", "utm_medium"], ["utm_campaign", "utm_campaign"],
+    ["utm_adgroup", "Conjunto / grupo de anuncios"], ["utm_term", "utm_term"], ["utm_content", "utm_content"],
+    ["utm_id", "utm_id"], ["ga_channel", "Canal"],
+    ["ad_campaign_name", "Nombre de campaña"], ["ad_group_name", "Nombre del conjunto / grupo"], ["ad_name", "Nombre del anuncio"],
+  ]},
+  { title: "Google Ads", fields: [
+    ["google_campaign_id", "Campaña (ID)"], ["google_adgroup_id", "Grupo de anuncios (ID)"], ["google_creative_id", "Anuncio (ID)"],
+    ["google_keyword", "Palabra clave"], ["google_matchtype", "Concordancia"], ["google_network", "Red"],
+    ["google_placement", "Ubicación (placement)"], ["google_device", "Dispositivo"], ["google_devicemodel", "Modelo"],
+    ["google_adposition", "Posición"], ["google_target_id", "Segmentación (ID)"], ["google_loc_physical", "Ubicación física (ID)"],
+    ["google_loc_interest", "Ubicación de interés (ID)"], ["google_feed_item_id", "Extensión (ID)"],
+    ["gclid", "gclid"], ["wbraid", "wbraid"], ["gbraid", "gbraid"], ["msclkid", "msclkid"],
+  ]},
+  { title: "Meta Ads", fields: [
+    ["meta_platform", "Plataforma"], ["meta_placement", "Ubicación (placement)"], ["meta_site_source", "Sitio"],
+    ["meta_campaign_id", "Campaña (ID)"], ["meta_adset_id", "Conjunto (ID)"], ["meta_ad_id", "Anuncio (ID)"],
+    ["meta_form_name", "Formulario"], ["meta_form_id", "Formulario (ID)"], ["meta_lead_id", "Lead (ID)"],
+    ["meta_page_id", "Página (ID)"], ["meta_is_organic", "Orgánico"], ["meta_created_time", "Fecha en Meta"],
+    ["fbclid", "fbclid / ctwa_clid"],
+  ]},
+  { title: "Visita", fields: [
+    ["landing_url", "Página de entrada"], ["referrer", "Referente"], ["language", "Idioma"], ["ip_address", "IP"],
+  ]},
 ];
+
+const show = (v: unknown) => typeof v === "boolean" ? (v ? "Sí" : "No") : String(v);
 
 export function ContactAttributionCard({ contactId }: Props) {
   const { data } = useQuery({
@@ -72,12 +80,32 @@ function Touch({ title, row }: { title: string; row: any }) {
         <span>{title}</span>
         <span className="text-muted-foreground">{row.touched_at ? format(new Date(row.touched_at), "dd/MM/yy HH:mm") : ""}</span>
       </div>
-      {FIELDS.map(([k, label]) => row[k] ? (
-        <div key={k} className="flex justify-between gap-2">
-          <span className="text-muted-foreground shrink-0">{label}</span>
-          <span className="text-right truncate" title={String(row[k])}>{String(row[k])}</span>
+      {GROUPS.map((g) => {
+        const present = g.fields.filter(([k]) => row[k] != null && row[k] !== "");
+        if (!present.length) return null;
+        return (
+          <div key={g.title} className="pt-1">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">{g.title}</div>
+            {present.map(([k, label]) => (
+              <div key={k} className="flex justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">{label}</span>
+                <span className="text-right truncate" title={show(row[k])}>{show(row[k])}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {row.extra?.form_fields && Object.keys(row.extra.form_fields).length > 0 && (
+        <div className="pt-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">Respuestas del formulario</div>
+          {Object.entries(row.extra.form_fields as Record<string, string>).map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">{k}</span>
+              <span className="text-right truncate" title={String(v)}>{String(v)}</span>
+            </div>
+          ))}
         </div>
-      ) : null)}
+      )}
       {(row.city || row.region || row.country) && (
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <MapPin className="h-3 w-3" />{[row.city, row.region, row.country, row.postal_code].filter(Boolean).join(", ")}
