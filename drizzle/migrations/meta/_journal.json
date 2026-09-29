@@ -36,6 +36,13 @@
       "when": 1790706838346,
       "tag": "0004_feature_advanced_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790707278371,
+      "tag": "0005_tenant_update_with_check",
+      "breakpoints": true
     }
   ]
 }

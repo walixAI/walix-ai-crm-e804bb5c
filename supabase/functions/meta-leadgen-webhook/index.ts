@@ -50,12 +50,11 @@ Deno.serve(async (req) => {
         const { data: mappedForm } = await sb
           .from("meta_form_mappings").select("tenant_id").eq("form_id", formId).maybeSingle();
         tenantId = mappedForm?.tenant_id ?? null;
+        // Aislamiento: nunca adivinar la empresa. Formularios sin empresa asignada se descartan.
         if (!tenantId) {
-          const { data: anyTenant } = await sb
-            .from("tenants").select("id").eq("feature_wa_campaigns", true).limit(1).maybeSingle();
-          tenantId = anyTenant?.id ?? null;
+          console.warn("leadgen sin empresa asignada; se descarta", formId, pageId);
+          continue;
         }
-        if (!tenantId) continue;
 
         // Traer el lead desde Meta con el token del canal del tenant
         const { data: channel } = await sb
