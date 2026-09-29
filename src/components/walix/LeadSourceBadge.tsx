@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Globe, MessageCircle, FileText, Megaphone, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +34,6 @@ export function LeadSourceBadge({ source, className }: { source?: string | null;
     </span>
   );
 }
-
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 /** Origen del contacto leído de su primer toque de atribución (o del campo source del contacto). */
 export function ContactOriginBadge({ contactId, className }: { contactId: string; className?: string }) {
