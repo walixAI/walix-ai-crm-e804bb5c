@@ -40,10 +40,15 @@ const DEFAULT_PREFS: PipelinePrefs = {
 
 const KEY = "walix.pipeline.prefs.v1";
 
-function read(): PipelinePrefs {
+function keyFor(tenantId?: string | null) {
+  return tenantId ? `${KEY}.${tenantId}` : KEY;
+}
+
+function read(tenantId?: string | null): PipelinePrefs {
   if (typeof window === "undefined") return DEFAULT_PREFS;
   try {
-    const raw = localStorage.getItem(KEY);
+    // Preferencias por empresa: filtros de otra empresa (etapas, usuarios) no deben ocultar oportunidades.
+    const raw = localStorage.getItem(keyFor(tenantId));
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw);
     return {
@@ -57,16 +62,27 @@ function read(): PipelinePrefs {
   }
 }
 
-export function usePipelinePrefs() {
-  const [prefs, setPrefs] = useState<PipelinePrefs>(() => read());
+export function usePipelinePrefs(tenantId?: string | null) {
+  const [state, setState] = useState<{ tenantId: string | null | undefined; prefs: PipelinePrefs }>(
+    () => ({ tenantId, prefs: read(tenantId) }),
+  );
+  if (state.tenantId !== tenantId) {
+    // Cambio de empresa: cargar sus propias preferencias.
+    const next = { tenantId, prefs: read(tenantId) };
+    setState(next);
+  }
+  const prefs = state.tenantId === tenantId ? state.prefs : read(tenantId);
+  const setPrefs = (p: PipelinePrefs | ((prev: PipelinePrefs) => PipelinePrefs)) =>
+    setState((s) => ({ ...s, prefs: typeof p === "function" ? (p as (x: PipelinePrefs) => PipelinePrefs)(s.prefs) : p }));
 
   useEffect(() => {
+    if (!tenantId) return;
     try {
-      localStorage.setItem(KEY, JSON.stringify(prefs));
+      localStorage.setItem(keyFor(tenantId), JSON.stringify(state.prefs));
     } catch {
       /* storage full / disabled */
     }
-  }, [prefs]);
+  }, [state.prefs, tenantId]);
 
   return [prefs, setPrefs] as const;
 }
