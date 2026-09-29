@@ -24,9 +24,10 @@ interface Props {
   /** Si se pasa, los mensajes muestran "Usar" para llenar el chat. */
   onUseMessage?: (text: string) => void;
   compact?: boolean;
+  hideProbability?: boolean;
 }
 
-export function LeadAssistantPanel({ contactId, signal, onUseMessage, compact }: Props) {
+export function LeadAssistantPanel({ contactId, signal, onUseMessage, compact, hideProbability }: Props) {
   const { data, isLoading, isFetching, error, regenerate } = useLeadAssistant(contactId, signal);
   const [busy, setBusy] = useState(false);
   const b = data?.brief;
@@ -64,12 +65,12 @@ export function LeadAssistantPanel({ contactId, signal, onUseMessage, compact }:
           {(error as Error).message}
         </div>
       )}
-      {b && <BriefView b={b} onUseMessage={onUseMessage} compact={compact} />}
+      {b && <BriefView b={b} onUseMessage={onUseMessage} compact={compact} hideProbability={hideProbability} />}
     </div>
   );
 }
 
-function BriefView({ b, onUseMessage, compact }: { b: LeadBrief; onUseMessage?: (t: string) => void; compact?: boolean }) {
+function BriefView({ b, onUseMessage, compact, hideProbability }: { b: LeadBrief; onUseMessage?: (t: string) => void; compact?: boolean; hideProbability?: boolean }) {
   const Icon = ACTION_ICON[b.next_step.action] ?? Target;
   const copy = (t: string) => { navigator.clipboard.writeText(t); toast.success("Mensaje copiado"); };
 
@@ -147,14 +148,14 @@ function BriefView({ b, onUseMessage, compact }: { b: LeadBrief; onUseMessage?: 
       </Section>
 
       {/* Probabilidad */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      {!hideProbability && <div className="rounded-xl border border-border bg-card p-4">
         <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Probabilidad de cierre (IA)</div>
         <div className="flex items-center gap-2">
           <span className="text-3xl font-bold">{b.close_probability.pct}%</span>
           <span className={cn("text-[10px] font-semibold rounded-full border px-2 py-0.5", tone(b.close_probability.label))}>{b.close_probability.label}</span>
         </div>
         <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{b.close_probability.reason}</p>
-      </div>
+      </div>}
     </>
   );
 }
