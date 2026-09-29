@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { formatMXN, type DealTaskRow, type PipelineDeal, type PipelineStage } from "@/lib/queries/pipeline";
 import { computeDealHealth } from "@/lib/dealHealth";
 import { HealthBadges } from "./HealthBadges";
+import { LeadSourceBadge } from "@/components/walix/LeadSourceBadge";
 import { QuickActions } from "./QuickActions";
 import type { DealAiSuggestion } from "@/lib/queries/pipelineAi";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -185,7 +186,7 @@ function DealCardImpl({
       )}
 
       <div className="flex items-center justify-between gap-2 mt-3">
-        <HealthBadges health={health} />
+        <div className="flex items-center gap-1 flex-wrap min-w-0"><LeadSourceBadge source={deal.source} /><HealthBadges health={health} /></div>
         <Avatar className="h-5 w-5">
           <AvatarFallback className="text-[9px] text-white" style={{ backgroundColor: deal.ownerColor }}>
             {deal.ownerInitials}

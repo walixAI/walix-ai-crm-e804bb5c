@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164 } from "../_shared/phone.ts";
 import { buildAttributionRow, clientIpFrom, type RawAttribution } from "../_shared/attribution.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
+import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,10 +92,19 @@ Deno.serve(async (req) => {
     await sb.from("contact_attribution").update({ touch_count: (firstExisting.touch_count ?? 1) + 1 }).eq("id", firstExisting.id);
   }
 
+  const { data: firstRow } = await sb.from("contact_attribution").select("id")
+    .eq("contact_id", contactId).eq("touch_type", "first").maybeSingle();
+  const isMeta = raw.source_kind === "meta_ads";
+  const dealId = await ensureLeadDeal(sb, tenantId, contactId!, {
+    name: name || phone || email || "Lead",
+    source: isMeta ? "Formulario Meta" : "Sitio web",
+    attributionId: firstRow?.id ?? null,
+  });
+
   let enrolled: string | null = null;
   if (tenant?.feature_wa_campaigns && phone) {
     enrolled = await enrollContact(sb, tenantId, contactId!);
   }
 
-  return json({ ok: true, contact_id: contactId, created: isNew, enrolled_campaign_id: enrolled });
+  return json({ ok: true, contact_id: contactId, deal_id: dealId, created: isNew, enrolled_campaign_id: enrolled });
 });

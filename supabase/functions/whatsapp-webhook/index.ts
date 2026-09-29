@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164, phoneMatchVariants } from "../_shared/phone.ts";
+import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -252,18 +253,59 @@ Deno.serve(async (req) => {
               .limit(1)
               .maybeSingle();
             let contactId = existing?.id;
+            const profileName = String(
+              (value?.contacts ?? []).find((c: any) => String(c.wa_id) === from)?.profile?.name
+                ?? value?.contacts?.[0]?.profile?.name ?? "",
+            ).trim();
+            const referral = msg.referral ?? null;
+            let isNewContact = false;
             if (!contactId) {
               const { data: created } = await sb
                 .from("contacts")
-                .insert({ tenant_id: channel.tenant_id, phone: canonical, name: canonical, source: "WhatsApp" })
+                .insert({ tenant_id: channel.tenant_id, phone: canonical, name: profileName || canonical, source: "WhatsApp" })
                 .select("id")
                 .single();
               contactId = created?.id;
+              isNewContact = true;
             } else if (existing && existing.phone !== canonical) {
               // Heal legacy rows: store canonical going forward.
               await sb.from("contacts").update({ phone: canonical }).eq("id", contactId);
             }
             if (!contactId) continue;
+
+            // Atribución: primer mensaje o mensaje que llega desde un anuncio (Click to WhatsApp)
+            if (isNewContact || referral) {
+              try {
+                const isAd = !!referral;
+                const attr: Record<string, unknown> = {
+                  tenant_id: channel.tenant_id, contact_id: contactId,
+                  source_kind: isAd ? "whatsapp_ad" : "whatsapp",
+                  utm_source: isAd ? (referral.source_type === "post" ? "facebook" : "meta") : "whatsapp",
+                  utm_medium: isAd ? "paid_social" : "chat",
+                  utm_campaign: isAd ? (referral.headline ?? null) : null,
+                  utm_content: isAd ? (referral.body ?? null) : null,
+                  ga_channel: isAd ? "Paid Social" : "Direct",
+                  meta_ad_id: isAd && referral.source_type === "ad" ? (referral.source_id ?? null) : null,
+                  meta_platform: isAd ? "whatsapp_ctwa" : null,
+                  fbclid: isAd ? (referral.ctwa_clid ?? null) : null,
+                  landing_url: isAd ? (referral.source_url ?? null) : null,
+                  touched_at: new Date().toISOString(),
+                };
+                await sb.from("contact_attribution").upsert({ ...attr, touch_type: "last" }, { onConflict: "contact_id,touch_type" });
+                const { data: first } = await sb.from("contact_attribution").select("id")
+                  .eq("contact_id", contactId).eq("touch_type", "first").maybeSingle();
+                let attributionId = first?.id ?? null;
+                if (!first) {
+                  const { data: f } = await sb.from("contact_attribution").insert({ ...attr, touch_type: "first" }).select("id").single();
+                  attributionId = f?.id ?? null;
+                }
+                await ensureLeadDeal(sb, channel.tenant_id, contactId, {
+                  name: profileName || canonical,
+                  source: isAd ? "WhatsApp (anuncio)" : "WhatsApp",
+                  attributionId,
+                });
+              } catch (e) { console.error("wa attribution", e); }
+            }
 
             // Upsert open conversation
             const { data: conv } = await sb

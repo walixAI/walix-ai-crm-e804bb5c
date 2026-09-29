@@ -1,6 +1,7 @@
 // Webhook de formularios nativos de Meta Ads (leadgen) con mapeo configurable a UTMs y campos del contacto.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164 } from "../_shared/phone.ts";
+import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 import { buildAttributionRow, clientIpFrom, type RawAttribution } from "../_shared/attribution.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
 
@@ -154,6 +155,12 @@ Deno.serve(async (req) => {
           .from("contact_attribution").select("id, touch_count").eq("contact_id", contactId).eq("touch_type", "first").maybeSingle();
         if (!first) await sb.from("contact_attribution").insert({ ...row, touch_type: "first" });
         else await sb.from("contact_attribution").update({ touch_count: (first.touch_count ?? 1) + 1 }).eq("id", first.id);
+
+        const { data: firstRow } = await sb.from("contact_attribution").select("id")
+          .eq("contact_id", contactId).eq("touch_type", "first").maybeSingle();
+        await ensureLeadDeal(sb, tenantId, contactId!, {
+          name: name || phone || email || "Lead", source: "Formulario Meta", attributionId: firstRow?.id ?? null,
+        });
 
         if (tenant?.feature_wa_campaigns && phone) await enrollContact(sb, tenantId, contactId!);
       }

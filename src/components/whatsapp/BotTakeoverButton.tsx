@@ -15,7 +15,7 @@ export function BotTakeoverButton({ contactId, conversationId }: { contactId: st
         .from("wa_enrollments")
         .select("id", { count: "exact", head: true })
         .eq("contact_id", contactId)
-        .eq("status", "active");
+        .or("exit_reason.is.null,exit_reason.neq.el asesor tomó el control");
       if (error) throw error;
       return count ?? 0;
     },
@@ -27,8 +27,7 @@ export function BotTakeoverButton({ contactId, conversationId }: { contactId: st
       const { error } = await supabase
         .from("wa_enrollments")
         .update({ status: "stopped", exit_reason: "el asesor tomó el control", next_send_at: null })
-        .eq("contact_id", contactId)
-        .eq("status", "active");
+        .eq("contact_id", contactId);
       if (error) throw error;
       if (user) {
         await supabase.from("conversations").update({ assignee_id: user.id, status: "En atención" }).eq("id", conversationId);
@@ -53,7 +52,7 @@ export function BotTakeoverButton({ contactId, conversationId }: { contactId: st
       title="El bot está dando seguimiento. Tócalo para atender tú al prospecto."
     >
       <Bot className="h-3 w-3" />
-      <span className="hidden md:inline">Bot activo ·</span>
+      <span className="hidden md:inline">Bot ·</span>
       <Hand className="h-3 w-3" />
       Tomar control
     </Button>
