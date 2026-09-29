@@ -123,7 +123,7 @@ export default function Pricing() {
           <Link to="/" className="flex items-center gap-3">
             <Logo />
             <span className="hidden md:block text-xs text-muted-foreground border-l border-border pl-3">
-              El CRM para PyMEs que venden por WhatsApp
+              El CRM para tu negocio que vende por WhatsApp
             </span>
           </Link>
           <div className="flex items-center gap-2">
