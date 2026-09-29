@@ -1,3 +1,4 @@
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -446,41 +447,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 
             <TabsContent value="ai" className="space-y-4 m-0">
               <AiContextPanel entityType="deal" entityId={deal.id} />
-              <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-7 w-7 rounded-lg bg-gradient-brand grid place-items-center">
-                    <Sparkles className="h-4 w-4 text-primary-foreground" />
-                  </div>
-                  <span className="text-xs font-semibold text-primary uppercase tracking-wide flex-1">Siguiente paso</span>
-                  {aiSuggestion && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={runSuggestNextStep} disabled={suggestNextStep.isPending}>
-                      <RefreshCw className={cn("h-3 w-3", suggestNextStep.isPending && "animate-spin")} />
-                    </Button>
-                  )}
-                </div>
-                {aiSuggestion ? (
-                  <>
-                    <p className="text-sm leading-relaxed font-medium">{aiSuggestion.next_step}</p>
-                    <p className="text-xs text-muted-foreground mt-2 italic">{aiSuggestion.reasoning}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <WBadge variant={aiSuggestion.urgency === "high" ? "danger" : aiSuggestion.urgency === "medium" ? "warning" : "info"}>
-                        Urgencia: {aiSuggestion.urgency}
-                      </WBadge>
-                    </div>
-                  </>
-                ) : suggestNextStep.isPending ? (
-                  <div className="text-sm text-muted-foreground animate-pulse">Pensando…</div>
-                ) : (
-                  <>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      {aiSuggestions[0]?.text ?? "Genera una recomendación de IA basada en el contexto actual del deal."}
-                    </p>
-                    <Button size="sm" className="mt-3 bg-primary hover:bg-primary/90 h-8" onClick={runSuggestNextStep}>
-                      <Sparkles className="h-3 w-3" /> Sugerir siguiente paso
-                    </Button>
-                  </>
-                )}
-              </div>
+              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} signal={deal.stageName} hideProbability />}
 
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-2 mb-2">

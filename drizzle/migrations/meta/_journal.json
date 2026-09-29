@@ -57,6 +57,13 @@
       "when": 1790709527791,
       "tag": "0007_rejected_leads",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790710842056,
+      "tag": "0008_lead_assistant_briefs",
+      "breakpoints": true
     }
   ]
 }

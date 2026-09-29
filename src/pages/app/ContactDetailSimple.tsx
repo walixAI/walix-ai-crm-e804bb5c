@@ -1,3 +1,4 @@
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 import { ContactAttributionCard } from "@/components/contacts/ContactAttributionCard";
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -63,6 +64,7 @@ export default function ContactDetailSimple() {
 
       <main className="max-w-4xl mx-auto px-6 py-6 space-y-4">
         <PendingList contactId={contact.id} focusTaskId={focusTaskId} />
+        <section className="rounded-2xl border border-border bg-card p-4"><LeadAssistantPanel contactId={contact.id} compact /></section>
         <ContactAttributionCard contactId={contact.id} />
 
         {recent.length > 0 && (

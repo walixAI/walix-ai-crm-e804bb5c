@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { Guidance } from "@/lib/whatsapp/guidance";
 import type { ServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -34,9 +35,12 @@ interface Props {
   onOpenTemplates?: () => void;
   aiLoading?: boolean;
   serviceWindow?: ServiceWindow | null;
+  onUseMessage?: (text: string) => void;
+  refreshSignal?: string | null;
 }
 
 export function ContactSidePanel({
+  onUseMessage, refreshSignal,
   conv, notesDraft, onNotesChange, onSaveNotes, onLinkDeal,
   guidance, onAiSuggest, onOpenTemplates, aiLoading, serviceWindow,
 }: Props) {
@@ -67,6 +71,7 @@ export function ContactSidePanel({
     <aside className="w-[320px] shrink-0 border-l border-border bg-card hidden lg:flex flex-col h-full">
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-5">
+          {conv.contactId && <LeadAssistantPanel contactId={conv.contactId} signal={refreshSignal} onUseMessage={onUseMessage} compact />}
           {/* Guía: qué hacer ahora */}
           {guidance && (
             <section

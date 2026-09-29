@@ -375,6 +375,8 @@ export default function Whatsapp() {
           {activeConv && panelOpen && (
             <ContactSidePanel
               conv={activeConv}
+              onUseMessage={(t) => { setDraft(t); setAiDraftActive(true); }}
+              refreshSignal={lastMsg?.id ?? null}
               notesDraft={notesDraft}
               onNotesChange={setNotesDraft}
               onSaveNotes={handleSaveNotes}

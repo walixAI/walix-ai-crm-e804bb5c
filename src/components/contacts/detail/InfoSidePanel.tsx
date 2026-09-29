@@ -3,6 +3,7 @@ import { ChevronDown, Phone, Mail, Building2, User, Target, UserCircle2, MapPin,
 import type { ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 import { AiContextPanel } from "@/components/walix/AiContextPanel";
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 
 interface Props { contact: ContactRow }
 
@@ -45,6 +46,7 @@ export function InfoSidePanel({ contact }: Props) {
   return (
     <div className="space-y-2">
       <AiContextPanel entityType="contact" entityId={contact.id} />
+      <div className="rounded-xl border border-border bg-card p-3 shadow-card"><LeadAssistantPanel contactId={contact.id} compact /></div>
       {sections.map(s => (
         <div key={s.key} className="rounded-xl border border-border bg-card overflow-hidden shadow-card">
           <button
