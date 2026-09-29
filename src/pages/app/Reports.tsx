@@ -11,6 +11,7 @@ import { SalesFunnelChart } from "@/components/reports/SalesFunnelChart";
 import { SellerPerformanceTable } from "@/components/reports/SellerPerformanceTable";
 import { LeadSourcesPie } from "@/components/reports/LeadSourcesPie";
 import { LostDealsChart } from "@/components/reports/LostDealsChart";
+import { LeadJourneyReport } from "@/components/reports/LeadJourneyReport";
 import { StalledDealsCard } from "@/components/reports/StalledDealsCard";
 import { TeamActivityHeatmap } from "@/components/reports/TeamActivityHeatmap";
 import { StageConversionsSection } from "@/components/reports/StageConversionsSection";
@@ -59,6 +60,8 @@ export default function Reports() {
           </div>
           <LostDealsChart />
         </div>
+
+        <LeadJourneyReport />
 
         <StalledDealsCard />
 
