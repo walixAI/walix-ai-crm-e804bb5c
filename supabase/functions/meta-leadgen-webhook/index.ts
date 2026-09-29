@@ -2,6 +2,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164 } from "../_shared/phone.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
+import { tenantForMetaForm } from "../_shared/source-rules.ts";
 import { buildAttributionRow, clientIpFrom, type RawAttribution } from "../_shared/attribution.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
 
@@ -49,7 +50,7 @@ Deno.serve(async (req) => {
         let tenantId: string | null = null;
         const { data: mappedForm } = await sb
           .from("meta_form_mappings").select("tenant_id").eq("form_id", formId).maybeSingle();
-        tenantId = mappedForm?.tenant_id ?? null;
+        tenantId = (await tenantForMetaForm(sb, formId)) ?? mappedForm?.tenant_id ?? null;
         // Aislamiento: nunca adivinar la empresa. Formularios sin empresa asignada se descartan.
         if (!tenantId) {
           console.warn("leadgen sin empresa asignada; se descarta", formId, pageId);

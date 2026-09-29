@@ -4,6 +4,7 @@ import { toE164 } from "../_shared/phone.ts";
 import { buildAttributionRow, clientIpFrom, type RawAttribution } from "../_shared/attribution.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
+import { checkLeadSource, domainFrom } from "../_shared/source-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +44,16 @@ Deno.serve(async (req) => {
   const phone = rawPhone ? toE164(rawPhone) : null;
 
   const { data: tenant } = await sb.from("tenants").select("track_ip, feature_wa_campaigns").eq("id", tenantId).maybeSingle();
+
+  // Fuentes permitidas definidas por la empresa
+  const at = payload?.attribution ?? {};
+  const srcCheck = await checkLeadSource(sb, tenantId, {
+    domain: domainFrom(at.landing_url ?? payload?.landing_url) ?? domainFrom(req.headers.get("origin")) ?? domainFrom(req.headers.get("referer")),
+    metaFormId: at.meta_form_id ?? null,
+    metaAdAccount: at.meta_ad_account_id ?? at.meta_account_id ?? null,
+    googleAdsAccount: at.google_ads_account ?? at.google_customer_id ?? null,
+  });
+  if (!srcCheck.ok) return json({ error: srcCheck.reason }, 403);
 
   // Contacto: buscar por teléfono o correo, si no crear
   let contactId: string | null = null;
