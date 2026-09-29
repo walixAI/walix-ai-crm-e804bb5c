@@ -11,6 +11,7 @@ import {
 import { relativeTime } from "@/lib/format/relativeTime";
 import { ContactHeader } from "@/components/contacts/detail/ContactHeader";
 import { ContactInfoCard } from "@/components/contacts/detail/ContactInfoCard";
+import { ContactAttributionCard } from "@/components/contacts/ContactAttributionCard";
 import { CompanyCard } from "@/components/contacts/detail/CompanyCard";
 import { SubscriptionsCard } from "@/components/contacts/detail/SubscriptionsCard";
 import { DealsSidePanel } from "@/components/contacts/detail/DealsSidePanel";
@@ -68,7 +69,7 @@ export default function ContactDetail() {
       <div className="flex gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><PanelLeft className="h-4 w-4" /> Info</Button></SheetTrigger>
-          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
+          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><ContactAttributionCard contactId={contact.id} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
         </Sheet>
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Oportunidades</Button></SheetTrigger>
@@ -81,6 +82,7 @@ export default function ContactDetail() {
         <aside className="hidden lg:block">
           <div className="sticky top-4 space-y-2">
             <ContactInfoCard contact={contact} />
+            <ContactAttributionCard contactId={contact.id} />
             <CompanyCard contact={contact} />
             <SubscriptionsCard contactId={contact.id} />
           </div>
