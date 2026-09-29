@@ -37,7 +37,7 @@ export function BotTakeoverButton({ contactId, conversationId }: { contactId: st
     onSuccess: () => {
       toast.success("Tomaste el control. El bot ya no le escribirá a este prospecto.");
       qc.invalidateQueries({ queryKey: key });
-      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["wa-conversations"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
