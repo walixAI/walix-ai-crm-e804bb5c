@@ -39,11 +39,12 @@ export interface SourceCheckInput {
 }
 
 /** Valida el lead contra las reglas de la empresa. Devuelve el motivo si se rechaza. */
-export async function checkLeadSource(sb: any, tenantId: string, input: SourceCheckInput): Promise<{ ok: boolean; reason?: string }> {
+export async function checkLeadSource(sb: any, tenantId: string, input: SourceCheckInput): Promise<{ ok: boolean; reason?: string; kind?: RuleKind; value?: string }> {
   const { data: rules } = await sb.from("lead_source_rules").select("id, kind, value, leads_count")
     .eq("tenant_id", tenantId).eq("is_active", true);
   const list = (rules ?? []) as { id: string; kind: RuleKind; value: string; leads_count: number }[];
   const matched: string[] = [];
+  let failKind: RuleKind | undefined; let failValue: string | undefined;
 
   const check = (kind: RuleKind, raw: string | null | undefined, label: string) => {
     const ofKind = list.filter((r) => r.kind === kind);
@@ -51,7 +52,7 @@ export async function checkLeadSource(sb: any, tenantId: string, input: SourceCh
     if (!raw) return null; // el lead no trae este dato: no aplica
     const v = normalizeRuleValue(kind, raw);
     const hit = ofKind.find((r) => (kind === "web_domain" ? domainMatches(r.value, v) : r.value === v));
-    if (!hit) return `${label} no autorizado: ${v}`;
+    if (!hit) { failKind = kind; failValue = v; return `${label} no autorizado: ${v}`; }
     matched.push(hit.id);
     return null;
   };
@@ -61,7 +62,7 @@ export async function checkLeadSource(sb: any, tenantId: string, input: SourceCh
     check("meta_form", input.metaFormId, "Formulario de Meta") ??
     check("meta_ad_account", input.metaAdAccount, "Cuenta publicitaria de Meta") ??
     check("google_ads_account", input.googleAdsAccount, "Cuenta de Google Ads");
-  if (reason) return { ok: false, reason };
+  if (reason) return { ok: false, reason, kind: failKind, value: failValue };
 
   const now = new Date().toISOString();
   for (const id of matched) {

@@ -45,15 +45,29 @@ Deno.serve(async (req) => {
 
   const { data: tenant } = await sb.from("tenants").select("track_ip, feature_wa_campaigns").eq("id", tenantId).maybeSingle();
 
-  // Fuentes permitidas definidas por la empresa
+  // Fuentes permitidas definidas por la empresa (se omite al aceptar un lead rechazado desde Walix)
+  const bypass = payload?._bypass_rules === true &&
+    req.headers.get("authorization") === `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
   const at = payload?.attribution ?? {};
-  const srcCheck = await checkLeadSource(sb, tenantId, {
-    domain: domainFrom(at.landing_url ?? payload?.landing_url) ?? domainFrom(req.headers.get("origin")) ?? domainFrom(req.headers.get("referer")),
-    metaFormId: at.meta_form_id ?? null,
-    metaAdAccount: at.meta_ad_account_id ?? at.meta_account_id ?? null,
-    googleAdsAccount: at.google_ads_account ?? at.google_customer_id ?? null,
-  });
-  if (!srcCheck.ok) return json({ error: srcCheck.reason }, 403);
+  if (!bypass) {
+    const srcCheck = await checkLeadSource(sb, tenantId, {
+      domain: domainFrom(at.landing_url ?? payload?.landing_url) ?? domainFrom(req.headers.get("origin")) ?? domainFrom(req.headers.get("referer")),
+      metaFormId: at.meta_form_id ?? null,
+      metaAdAccount: at.meta_ad_account_id ?? at.meta_account_id ?? null,
+      googleAdsAccount: at.google_ads_account ?? at.google_customer_id ?? null,
+    });
+    if (!srcCheck.ok) {
+      const { key: _k, ...stored } = payload ?? {};
+      if (!stored.attribution?.landing_url && req.headers.get("origin")) {
+        stored.attribution = { ...(stored.attribution ?? {}), landing_url: stored.attribution?.landing_url ?? req.headers.get("referer") ?? req.headers.get("origin") };
+      }
+      await sb.from("rejected_leads").insert({
+        tenant_id: tenantId, reason: srcCheck.reason, rule_kind: srcCheck.kind ?? null, rule_value: srcCheck.value ?? null,
+        name: name || null, phone, email, payload: stored,
+      });
+      return json({ error: srcCheck.reason, saved_for_review: true }, 403);
+    }
+  }
 
   // Contacto: buscar por teléfono o correo, si no crear
   let contactId: string | null = null;
