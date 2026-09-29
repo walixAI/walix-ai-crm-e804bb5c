@@ -113,8 +113,8 @@ export function LeadJourneyReport() {
   const exportCsv = () => {
     const head = ["Lead", "Origen", "Campaña", "UTM", "Anuncio", "Score", "Entrada", ...stageCols, "Etapa actual", "Días en etapa", "Días totales", "Estado", "Último resultado", "Asesor"];
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = filtered.map((r) => [r.name, r.origin, r.campaign, r.utm, r.adId, r.createdAt?.slice(0, 10),
-      r.score, ...stageCols.map((s) => r.stageDates[s]?.slice(0, 10) ?? ""), r.stageName, r.daysInStage, r.totalDays, r.status, r.outcome, r.ownerName].map(esc).join(","));
+    const lines = filtered.map((r) => [r.name, r.origin, r.campaign, r.utm, r.adId, r.score, r.createdAt?.slice(0, 10),
+      ...stageCols.map((s) => r.stageDates[s]?.slice(0, 10) ?? ""), r.stageName, r.daysInStage, r.totalDays, r.status, r.outcome, r.ownerName].map(esc).join(","));
     downloadCSV(`recorrido-leads-${new Date().toISOString().slice(0, 10)}.csv`, [head.map(esc).join(","), ...lines].join("\n"));
   };
 
@@ -154,7 +154,7 @@ export function LeadJourneyReport() {
       <div className="overflow-x-auto">
         <Table>
           <TableHeader><TableRow>
-            <TableHead>Lead</TableHead><TableHead>Origen</TableHead><TableHead>Campaña / UTM</TableHead><TableHead>Entrada</TableHead>
+            <TableHead>Lead</TableHead><TableHead>Origen</TableHead><TableHead>Campaña / UTM</TableHead><TableHead className="text-center" title="Avance en el embudo, seguimiento, recencia y datos completos">Score</TableHead><TableHead>Entrada</TableHead>
             {stageCols.map((s) => <TableHead key={s} className="whitespace-nowrap">{s}</TableHead>)}
             <TableHead>Etapa actual</TableHead><TableHead className="text-right">Días en etapa</TableHead>
             <TableHead>Último resultado</TableHead><TableHead>Asesor</TableHead>
@@ -165,6 +165,7 @@ export function LeadJourneyReport() {
                 <TableCell className="font-medium whitespace-nowrap">{r.name}</TableCell>
                 <TableCell><LeadSourceBadge source={r.origin} /></TableCell>
                 <TableCell className="text-xs"><div>{r.campaign ?? "—"}</div><div className="text-muted-foreground">{r.utm}</div></TableCell>
+                <TableCell className="text-center"><span className={`inline-block min-w-8 rounded-full px-2 py-0.5 text-xs font-semibold ${scoreClass(r.score)}`}>{r.score}</span></TableCell>
                 <TableCell className="text-xs whitespace-nowrap">{fmt(r.createdAt)}</TableCell>
                 {stageCols.map((s) => <TableCell key={s} className="text-xs whitespace-nowrap">{fmt(r.stageDates[s])}</TableCell>)}
                 <TableCell className="text-xs whitespace-nowrap">{r.stageName}{r.status !== "Abierto" && <span className="text-muted-foreground"> · {r.status}</span>}</TableCell>
@@ -174,7 +175,7 @@ export function LeadJourneyReport() {
               </TableRow>
             ))}
             {!isLoading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={8 + stageCols.length} className="text-center text-sm text-muted-foreground py-8">Sin leads en este periodo.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9 + stageCols.length} className="text-center text-sm text-muted-foreground py-8">Sin leads en este periodo.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
