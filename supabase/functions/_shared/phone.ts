@@ -16,6 +16,9 @@ export function digitsOnly(input: string | null | undefined): string {
 export function toE164(input: string | null | undefined): string {
   const d = digitsOnly(input);
   if (!d) return "";
+  // MX: número nacional de 10 dígitos sin lada de país -> +52
+  const hasPlus = String(input ?? "").trim().startsWith("+");
+  if (!hasPlus && d.length === 10) return "+52" + d;
   // MX: 52 + 1 + 10 digits  -> drop the "1"
   if (d.startsWith("52") && d.length === 13 && d[2] === "1") {
     return "+52" + d.slice(3);
