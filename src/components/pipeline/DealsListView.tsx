@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LeadSourceBadge } from "@/components/walix/LeadSourceBadge";
 import { ArrowUpDown, Download, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -90,6 +91,7 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal, toolbar }:
             <TableHead><SortBtn k="contact" label="Contacto" /></TableHead>
             <TableHead className="text-right"><SortBtn k="amount" label="Monto" /></TableHead>
             <TableHead><SortBtn k="stage" label="Etapa" /></TableHead>
+            <TableHead>Origen</TableHead>
             {showStatus && <TableHead>Estado</TableHead>}
             <TableHead><SortBtn k="probability" label="Prob." /></TableHead>
             <TableHead><SortBtn k="owner" label="Vendedor" /></TableHead>
@@ -104,6 +106,7 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal, toolbar }:
                 <TableCell className="text-sm text-muted-foreground">{contactName(d.contactId) ?? "—"}</TableCell>
                 <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
                 <TableCell className="text-sm">{d.stageName}</TableCell>
+                <TableCell><LeadSourceBadge source={d.source} /></TableCell>
                 {showStatus && (
                   <TableCell>
                     {d.isWon ? (
