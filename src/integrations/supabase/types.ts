@@ -2735,6 +2735,53 @@ export type Database = {
           },
         ]
       }
+      lead_source_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          kind: string
+          label: string | null
+          last_lead_at: string | null
+          leads_count: number
+          tenant_id: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind: string
+          label?: string | null
+          last_lead_at?: string | null
+          leads_count?: number
+          tenant_id: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: string
+          label?: string | null
+          last_lead_at?: string | null
+          leads_count?: number
+          tenant_id?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_source_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           category: string | null
