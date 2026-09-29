@@ -1,0 +1,2 @@
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS feature_advanced_tracking boolean NOT NULL DEFAULT false;
+UPDATE public.tenants SET feature_advanced_tracking = true WHERE id = 'ea25d919-6aa6-4497-8d5f-fed9d75b1699';

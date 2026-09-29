@@ -4148,6 +4148,7 @@ export type Database = {
           created_at: string
           currency: string
           customer_inactivity_months: number | null
+          feature_advanced_tracking: boolean
           feature_deal_types: boolean
           feature_expenses: boolean
           feature_recurrences: boolean
@@ -4190,6 +4191,7 @@ export type Database = {
           created_at?: string
           currency?: string
           customer_inactivity_months?: number | null
+          feature_advanced_tracking?: boolean
           feature_deal_types?: boolean
           feature_expenses?: boolean
           feature_recurrences?: boolean
@@ -4232,6 +4234,7 @@ export type Database = {
           created_at?: string
           currency?: string
           customer_inactivity_months?: number | null
+          feature_advanced_tracking?: boolean
           feature_deal_types?: boolean
           feature_expenses?: boolean
           feature_recurrences?: boolean
