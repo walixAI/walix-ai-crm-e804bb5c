@@ -2697,6 +2697,51 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_assistant_briefs: {
+        Row: {
+          basis_at: string | null
+          brief: Json
+          contact_id: string
+          generated_at: string
+          id: string
+          model: string | null
+          tenant_id: string
+        }
+        Insert: {
+          basis_at?: string | null
+          brief?: Json
+          contact_id: string
+          generated_at?: string
+          id?: string
+          model?: string | null
+          tenant_id: string
+        }
+        Update: {
+          basis_at?: string | null
+          brief?: Json
+          contact_id?: string
+          generated_at?: string
+          id?: string
+          model?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_assistant_briefs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assistant_briefs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_intake_keys: {
         Row: {
           api_key: string
