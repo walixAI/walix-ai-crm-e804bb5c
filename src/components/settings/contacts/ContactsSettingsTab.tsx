@@ -1,6 +1,7 @@
 import { ContactLifecycleSettings } from "./ContactLifecycleSettings";
 import { SourcesEditor } from "./SourcesEditor";
 import { LeadSourceRulesEditor } from "./LeadSourceRulesEditor";
+import { RejectedLeadsCard } from "./RejectedLeadsCard";
 
 export function ContactsSettingsTab() {
   return (
@@ -8,6 +9,7 @@ export function ContactsSettingsTab() {
       <ContactLifecycleSettings />
       <SourcesEditor />
       <LeadSourceRulesEditor />
+      <RejectedLeadsCard />
     </div>
   );
 }
