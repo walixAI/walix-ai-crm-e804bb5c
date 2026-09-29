@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Globe2, MapPin, Monitor } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 import { LeadSourceBadge } from "@/components/walix/LeadSourceBadge";
 
 interface Props { contactId: string }
@@ -33,6 +34,9 @@ const GROUPS: { title: string; fields: [string, string][] }[] = [
   ]},
 ];
 
+// Campos básicos visibles para todos los tenants; el resto solo con rastreo avanzado activo.
+const BASIC = new Set(["utm_source","utm_medium","utm_campaign","utm_content","utm_term","ga_channel","meta_platform","meta_campaign_id","meta_adset_id","meta_ad_id","meta_form_id","gclid","fbclid","msclkid","landing_url","referrer","language","ip_address"]);
+
 const show = (v: unknown) => typeof v === "boolean" ? (v ? "Sí" : "No") : String(v);
 
 export function ContactAttributionCard({ contactId }: Props) {
@@ -47,6 +51,8 @@ export function ContactAttributionCard({ contactId }: Props) {
     },
   });
 
+  const { data: features } = useTenantFeatures();
+  const advanced = !!features?.feature_advanced_tracking;
   const first = data?.first;
   const last = data?.last;
 
@@ -64,15 +70,15 @@ export function ContactAttributionCard({ contactId }: Props) {
             <LeadSourceBadge source={(first ?? last)?.source_kind} />
             {first?.touch_count > 1 && <span className="text-muted-foreground">{first.touch_count} visitas</span>}
           </div>
-          <Touch title="Primer contacto" row={first} />
-          {last && first && last.touched_at !== first.touched_at && <Touch title="Último contacto" row={last} />}
+          <Touch title="Primer contacto" row={first} advanced={advanced} />
+          {last && first && last.touched_at !== first.touched_at && <Touch title="Último contacto" row={last} advanced={advanced} />}
         </div>
       )}
     </div>
   );
 }
 
-function Touch({ title, row }: { title: string; row: any }) {
+function Touch({ title, row, advanced }: { title: string; row: any; advanced: boolean }) {
   if (!row) return null;
   return (
     <div className="space-y-1">
@@ -81,7 +87,7 @@ function Touch({ title, row }: { title: string; row: any }) {
         <span className="text-muted-foreground">{row.touched_at ? format(new Date(row.touched_at), "dd/MM/yy HH:mm") : ""}</span>
       </div>
       {GROUPS.map((g) => {
-        const present = g.fields.filter(([k]) => row[k] != null && row[k] !== "");
+        const present = g.fields.filter(([k]) => (advanced || BASIC.has(k)) && row[k] != null && row[k] !== "");
         if (!present.length) return null;
         return (
           <div key={g.title} className="pt-1">
@@ -95,7 +101,7 @@ function Touch({ title, row }: { title: string; row: any }) {
           </div>
         );
       })}
-      {row.extra?.form_fields && Object.keys(row.extra.form_fields).length > 0 && (
+      {advanced && row.extra?.form_fields && Object.keys(row.extra.form_fields).length > 0 && (
         <div className="pt-1">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">Respuestas del formulario</div>
           {Object.entries(row.extra.form_fields as Record<string, string>).map(([k, v]) => (
