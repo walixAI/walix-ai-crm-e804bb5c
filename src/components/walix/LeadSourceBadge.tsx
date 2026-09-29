@@ -32,3 +32,23 @@ export function LeadSourceBadge({ source, className }: { source?: string | null;
     </span>
   );
 }
+
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+/** Origen del contacto leído de su primer toque de atribución (o del campo source del contacto). */
+export function ContactOriginBadge({ contactId, className }: { contactId: string; className?: string }) {
+  const { data } = useQuery({
+    queryKey: ["contact-origin", contactId],
+    enabled: !!contactId,
+    queryFn: async () => {
+      const { data: a } = await supabase.from("contact_attribution").select("source_kind")
+        .eq("contact_id", contactId).eq("touch_type", "first").maybeSingle();
+      if (a?.source_kind) return a.source_kind as string;
+      const { data: c } = await supabase.from("contacts").select("source").eq("id", contactId).maybeSingle();
+      return (c?.source as string) ?? null;
+    },
+  });
+  if (data === undefined) return null;
+  return <LeadSourceBadge source={data === "meta_ads" ? "Formulario Meta" : data} className={className} />;
+}

@@ -8,6 +8,7 @@ import {
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import type { ConversationItem, ConversationStatus } from "@/lib/queries/whatsapp";
 import { BotTakeoverButton } from "./BotTakeoverButton";
+import { ContactOriginBadge } from "@/components/walix/LeadSourceBadge";
 
 const STATUSES: ConversationStatus[] = ["Nuevo", "En atención", "Esperando", "Resuelto"];
 
@@ -39,6 +40,7 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
       </Link>
 
       <div className="ml-auto flex items-center gap-1.5">
+        <ContactOriginBadge contactId={conv.contactId} className="hidden sm:inline-flex" />
         <BotTakeoverButton contactId={conv.contactId} conversationId={conv.id} />
         {/* Status */}
         <DropdownMenu>
