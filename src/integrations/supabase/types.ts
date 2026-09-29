@@ -3875,6 +3875,65 @@ export type Database = {
           },
         ]
       }
+      rejected_leads: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          payload: Json
+          phone: string | null
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          rule_kind: string | null
+          rule_value: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          payload?: Json
+          phone?: string | null
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_kind?: string | null
+          rule_value?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          payload?: Json
+          phone?: string | null
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_kind?: string | null
+          rule_value?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rejected_leads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
