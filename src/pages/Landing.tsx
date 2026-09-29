@@ -187,7 +187,7 @@ function Hero() {
               <span className="grid h-4 w-4 place-items-center rounded-full bg-gradient-brand">
                 <Sparkles className="h-2.5 w-2.5 text-primary-foreground" />
               </span>
-              CRM con IA hecho para PyMEs mexicanas
+              CRM con IA hecho para tu negocio
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
               Si sabes usar <span className="text-gradient-brand">WhatsApp</span>,
@@ -364,7 +364,7 @@ function Testimonials() {
   const stats = [
     { v: "2.3×", l: "más cierres en 30 días" },
     { v: "<3min", l: "tiempo medio de respuesta" },
-    { v: "1,200+", l: "equipos PyME activos" },
+    { v: "1,200+", l: "negocios activos" },
     { v: "98%", l: "de adopción al día 1" },
   ];
   const quotes = [
@@ -537,7 +537,7 @@ function Footer() {
         <div>
           <Logo />
           <p className="mt-4 text-sm text-muted-foreground max-w-xs">
-            El CRM con WhatsApp + IA hecho para PyMEs mexicanas.
+            El CRM con WhatsApp + IA hecho para tu negocio.
           </p>
         </div>
         <FCol title="Producto" links={["Funciones", "Paquetes", "Integraciones", "Novedades"]} />
