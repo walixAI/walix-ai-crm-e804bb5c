@@ -8,6 +8,7 @@ export interface TenantFeatures {
   feature_deal_types: boolean;
   feature_wa_campaigns: boolean;
   track_ip: boolean;
+  feature_advanced_tracking: boolean;
   industry: string | null;
 }
 
@@ -20,7 +21,7 @@ export function useTenantFeatures() {
     queryFn: async (): Promise<TenantFeatures> => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("feature_recurrences, feature_expenses, feature_deal_types, feature_wa_campaigns, track_ip, industry")
+        .select("feature_recurrences, feature_expenses, feature_deal_types, feature_wa_campaigns, track_ip, industry, feature_advanced_tracking")
         .eq("id", tenantId!)
         .maybeSingle();
       if (error) throw error;
@@ -31,6 +32,7 @@ export function useTenantFeatures() {
         feature_wa_campaigns: !!data?.feature_wa_campaigns,
         track_ip: data?.track_ip !== false,
         industry: data?.industry ?? null,
+        feature_advanced_tracking: !!(data as any)?.feature_advanced_tracking,
       };
     },
   });
