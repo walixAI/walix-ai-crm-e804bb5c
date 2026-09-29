@@ -1140,16 +1140,34 @@ export type Database = {
       }
       contact_attribution: {
         Row: {
+          ad_campaign_name: string | null
+          ad_group_name: string | null
+          ad_name: string | null
           browser: string | null
           city: string | null
           contact_id: string
           country: string | null
           created_at: string
           device_type: string | null
+          extra: Json
           fbclid: string | null
           ga_channel: string | null
           gbraid: string | null
           gclid: string | null
+          google_adgroup_id: string | null
+          google_adposition: string | null
+          google_campaign_id: string | null
+          google_creative_id: string | null
+          google_device: string | null
+          google_devicemodel: string | null
+          google_feed_item_id: string | null
+          google_keyword: string | null
+          google_loc_interest: string | null
+          google_loc_physical: string | null
+          google_matchtype: string | null
+          google_network: string | null
+          google_placement: string | null
+          google_target_id: string | null
           id: string
           ip_address: string | null
           landing_path: string | null
@@ -1158,8 +1176,15 @@ export type Database = {
           meta_ad_id: string | null
           meta_adset_id: string | null
           meta_campaign_id: string | null
+          meta_created_time: string | null
           meta_form_id: string | null
+          meta_form_name: string | null
+          meta_is_organic: boolean | null
+          meta_lead_id: string | null
+          meta_page_id: string | null
+          meta_placement: string | null
           meta_platform: string | null
+          meta_site_source: string | null
           msclkid: string | null
           os: string | null
           postal_code: string | null
@@ -1173,24 +1198,44 @@ export type Database = {
           touched_at: string
           updated_at: string
           user_agent: string | null
+          utm_adgroup: string | null
           utm_campaign: string | null
           utm_content: string | null
+          utm_id: string | null
           utm_medium: string | null
           utm_source: string | null
           utm_term: string | null
           wbraid: string | null
         }
         Insert: {
+          ad_campaign_name?: string | null
+          ad_group_name?: string | null
+          ad_name?: string | null
           browser?: string | null
           city?: string | null
           contact_id: string
           country?: string | null
           created_at?: string
           device_type?: string | null
+          extra?: Json
           fbclid?: string | null
           ga_channel?: string | null
           gbraid?: string | null
           gclid?: string | null
+          google_adgroup_id?: string | null
+          google_adposition?: string | null
+          google_campaign_id?: string | null
+          google_creative_id?: string | null
+          google_device?: string | null
+          google_devicemodel?: string | null
+          google_feed_item_id?: string | null
+          google_keyword?: string | null
+          google_loc_interest?: string | null
+          google_loc_physical?: string | null
+          google_matchtype?: string | null
+          google_network?: string | null
+          google_placement?: string | null
+          google_target_id?: string | null
           id?: string
           ip_address?: string | null
           landing_path?: string | null
@@ -1199,8 +1244,15 @@ export type Database = {
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          meta_created_time?: string | null
           meta_form_id?: string | null
+          meta_form_name?: string | null
+          meta_is_organic?: boolean | null
+          meta_lead_id?: string | null
+          meta_page_id?: string | null
+          meta_placement?: string | null
           meta_platform?: string | null
+          meta_site_source?: string | null
           msclkid?: string | null
           os?: string | null
           postal_code?: string | null
@@ -1214,24 +1266,44 @@ export type Database = {
           touched_at?: string
           updated_at?: string
           user_agent?: string | null
+          utm_adgroup?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
+          utm_id?: string | null
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
           wbraid?: string | null
         }
         Update: {
+          ad_campaign_name?: string | null
+          ad_group_name?: string | null
+          ad_name?: string | null
           browser?: string | null
           city?: string | null
           contact_id?: string
           country?: string | null
           created_at?: string
           device_type?: string | null
+          extra?: Json
           fbclid?: string | null
           ga_channel?: string | null
           gbraid?: string | null
           gclid?: string | null
+          google_adgroup_id?: string | null
+          google_adposition?: string | null
+          google_campaign_id?: string | null
+          google_creative_id?: string | null
+          google_device?: string | null
+          google_devicemodel?: string | null
+          google_feed_item_id?: string | null
+          google_keyword?: string | null
+          google_loc_interest?: string | null
+          google_loc_physical?: string | null
+          google_matchtype?: string | null
+          google_network?: string | null
+          google_placement?: string | null
+          google_target_id?: string | null
           id?: string
           ip_address?: string | null
           landing_path?: string | null
@@ -1240,8 +1312,15 @@ export type Database = {
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          meta_created_time?: string | null
           meta_form_id?: string | null
+          meta_form_name?: string | null
+          meta_is_organic?: boolean | null
+          meta_lead_id?: string | null
+          meta_page_id?: string | null
+          meta_placement?: string | null
           meta_platform?: string | null
+          meta_site_source?: string | null
           msclkid?: string | null
           os?: string | null
           postal_code?: string | null
@@ -1255,8 +1334,10 @@ export type Database = {
           touched_at?: string
           updated_at?: string
           user_agent?: string | null
+          utm_adgroup?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
+          utm_id?: string | null
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
