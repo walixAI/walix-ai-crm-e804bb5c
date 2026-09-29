@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { usePipelinePrefs, type PipelineLens } from "@/lib/usePipelinePrefs";
+import { useTenantId } from "@/lib/queries/tenant";
 import {
   useStages, useDeals, useDealTasksMap, useUnreadByContactMap, useContactsLite, usePipelines,
   type PipelineDeal, type PipelineStage,
@@ -37,7 +38,8 @@ function parseCalendarDate(value: string) {
 
 export default function Pipeline() {
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines();
-  const [prefs, setPrefs] = usePipelinePrefs();
+  const { data: tenantId } = useTenantId();
+  const [prefs, setPrefs] = usePipelinePrefs(tenantId);
 
   // Resolve active pipeline (prefer prefs, fall back to default)
   const activePipeline =
@@ -55,6 +57,16 @@ export default function Pipeline() {
 
   const { data: stages = [], isLoading: stagesLoading } = useStages(activePipeline?.id);
   const { data: deals = [], isLoading: dealsLoading } = useDeals();
+
+  // Filtro de etapa guardado que ya no existe en este embudo (p. ej. de otra empresa): volver a "Todas".
+  useEffect(() => {
+    if (stagesLoading || stages.length === 0) return;
+    const sid = prefs.perfFilters.stageId;
+    if (sid !== "all" && !stages.some((s) => s.id === sid)) {
+      setPrefs({ ...prefs, perfFilters: { ...prefs.perfFilters, stageId: "all" } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stagesLoading, stages, prefs.perfFilters.stageId]);
   const { data: tasksByDeal = new Map() } = useDealTasksMap();
   const { data: unreadByContact = new Map() } = useUnreadByContactMap();
   const { data: contacts = [] } = useContactsLite();
