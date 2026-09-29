@@ -48,7 +48,7 @@ function read(tenantId?: string | null): PipelinePrefs {
   if (typeof window === "undefined") return DEFAULT_PREFS;
   try {
     // Preferencias por empresa: filtros de otra empresa (etapas, usuarios) no deben ocultar oportunidades.
-    const raw = localStorage.getItem(keyFor(tenantId));
+    const raw = localStorage.getItem(keyFor(tenantId)) ?? localStorage.getItem(KEY);
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw);
     return {
