@@ -156,6 +156,7 @@ export async function sendTemplate(
   language: string,
   params: string[],
 ): Promise<{ wamid?: string; error?: string }> {
+  if (isSimChannel(channel)) return simSend();
   if (!channel.access_token || !channel.phone_number_id) return { error: "Canal de WhatsApp sin credenciales" };
   const body: Record<string, unknown> = {
     messaging_product: "whatsapp",
@@ -173,6 +174,7 @@ export async function sendTemplate(
 }
 
 export async function sendText(channel: WaChannel, to: string, text: string): Promise<{ wamid?: string; error?: string }> {
+  if (isSimChannel(channel)) return simSend();
   if (!channel.access_token || !channel.phone_number_id) return { error: "Canal de WhatsApp sin credenciales" };
   return await postToMeta(channel, {
     messaging_product: "whatsapp",
@@ -180,6 +182,14 @@ export async function sendText(channel: WaChannel, to: string, text: string): Pr
     type: "text",
     text: { body: text },
   });
+}
+
+/** Canales de prueba (phone_number_id "SIM-..."): no se manda nada a Meta. */
+export function isSimChannel(channel: WaChannel): boolean {
+  return String(channel.phone_number_id ?? "").startsWith("SIM");
+}
+function simSend() {
+  return { wamid: `sim.${crypto.randomUUID()}`, simulated: true } as { wamid?: string; error?: string };
 }
 
 async function postToMeta(channel: WaChannel, body: Record<string, unknown>) {

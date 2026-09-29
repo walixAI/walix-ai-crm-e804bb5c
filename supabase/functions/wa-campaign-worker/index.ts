@@ -1,7 +1,7 @@
 // Worker periódico e idempotente: ejecuta los pasos programados de cada enrolamiento activo.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
-  defaultClientsChannel, ensureConversation, isWithinSchedule, renderText,
+  defaultClientsChannel, ensureConversation, isSimChannel, isWithinSchedule, renderText,
   sendTemplate, sendText, serviceWindowOpen,
 } from "../_shared/wa-campaigns.ts";
 
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
         await sb.from("messages").insert({
           tenant_id: e.tenant_id, conversation_id: conversationId, channel_id: channel.id,
           direction: "outbound", type: "text", body: bodyPreview, sent_at: nowIso,
-          metadata: { wamid: result.wamid, campaign_id: e.campaign_id, step_id: step.id, kind: usedKind },
+          metadata: { simulated: isSimChannel(channel), bot: true, wamid: result.wamid, campaign_id: e.campaign_id, step_id: step.id, kind: usedKind },
         });
         await sb.from("conversations").update({ last_message_at: nowIso, preview: bodyPreview.slice(0, 120) }).eq("id", conversationId);
         sent++;
