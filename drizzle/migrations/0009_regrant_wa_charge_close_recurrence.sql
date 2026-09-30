@@ -1,0 +1,2 @@
+GRANT EXECUTE ON FUNCTION public.wa_charge_conversation(uuid, uuid, uuid, uuid, text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.close_recurrence_from_deal(uuid) TO authenticated, service_role;

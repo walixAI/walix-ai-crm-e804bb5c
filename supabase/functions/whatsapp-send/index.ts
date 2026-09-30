@@ -105,7 +105,13 @@ Deno.serve(async (req) => {
         _category: body.category ?? "service",
         _direction: "outbound",
       });
-      if (chargeErr) throw chargeErr;
+      if (chargeErr) {
+        console.error("wa_charge_conversation failed", chargeErr);
+        return new Response(
+          JSON.stringify({ error: "No se pudo validar el cobro del mensaje. Intenta de nuevo en un momento.", code: "billing_failed" }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       billing = charge;
       if (billing?.reason === "insufficient_credits") {
         return new Response(
