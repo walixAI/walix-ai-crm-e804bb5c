@@ -64,6 +64,13 @@
       "when": 1790710842056,
       "tag": "0008_lead_assistant_briefs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790736475805,
+      "tag": "0009_regrant_wa_charge_close_recurrence",
+      "breakpoints": true
     }
   ]
 }
