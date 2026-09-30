@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
       body: string;
       internal?: boolean;
       category?: "service" | "utility" | "marketing" | "authentication";
+      template?: { name: string; language?: string; params?: string[] };
     };
     if (!body.conversationId || !body.body?.trim()) {
       return new Response(JSON.stringify({ error: "Faltan parámetros" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -94,6 +95,32 @@ Deno.serve(async (req) => {
       if (data) channel = data as any;
     }
 
+    const jsonRes = (obj: unknown, status = 200) =>
+      new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    // Control de gasto: fuera de la ventana de 24 h solo plantillas, con límites por lead/asesor/empresa.
+    const tpl = body.template && typeof body.template.name === "string" && body.template.name.trim()
+      ? { name: body.template.name.trim(), language: body.template.language || "es_MX", params: (body.template.params ?? []).map(String) }
+      : null;
+    let policy: any = null;
+    if (conv.contact_id) {
+      const { data: pol, error: polErr } = await sb.rpc("wa_template_policy_check", {
+        _tenant_id: conv.tenant_id, _contact_id: conv.contact_id, _user_id: userData.user.id, _bot: false,
+      });
+      if (polErr) console.error("wa_template_policy_check failed", polErr);
+      policy = pol;
+      if (policy && !policy.window_open && !tpl) {
+        return jsonRes({
+          error: "Pasaron más de 24 h desde el último mensaje del cliente. Para escribirle, elige una plantilla aprobada.",
+          code: "window_closed",
+        }, 409);
+      }
+      if (policy && !policy.window_open && tpl && !policy.allowed) {
+        return jsonRes({ error: policy.message ?? "Límite de plantillas alcanzado", code: "spend_limit", next_at: policy.next_at }, 429);
+      }
+    }
+    const isTemplateSend = !!tpl && !!policy && !policy.window_open;
+
     // Cobro por conversación (ventana de 24 h). Si ya hay ventana abierta no cobra.
     let billing: any = null;
     if (channel?.status === "connected" && conv.contact_id) {
@@ -102,43 +129,45 @@ Deno.serve(async (req) => {
         _contact_id: conv.contact_id,
         _conversation_id: conv.id,
         _channel_id: channel.id,
-        _category: body.category ?? "service",
+        _category: body.category ?? (isTemplateSend ? "marketing" : "service"),
         _direction: "outbound",
       });
       if (chargeErr) {
         console.error("wa_charge_conversation failed", chargeErr);
-        return new Response(
-          JSON.stringify({ error: "No se pudo validar el cobro del mensaje. Intenta de nuevo en un momento.", code: "billing_failed" }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        return jsonRes({ error: "No se pudo validar el cobro del mensaje. Intenta de nuevo en un momento.", code: "billing_failed" }, 503);
       }
       billing = charge;
       if (billing?.reason === "insufficient_credits") {
-        return new Response(
-          JSON.stringify({ error: "Sin créditos de WhatsApp disponibles. Compra un paquete para seguir enviando.", code: "insufficient_credits" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        return jsonRes({ error: "Sin créditos de WhatsApp disponibles. Compra un paquete para seguir enviando.", code: "insufficient_credits" }, 402);
       }
     }
 
     let wamid: string | null = null;
     let providerError: string | null = null;
+    const isSim = String(channel?.phone_number_id ?? "").startsWith("SIM");
 
-    if (channel?.status === "connected" && channel.access_token && channel.phone_number_id) {
+    if (channel?.status === "connected" && isSim) {
+      wamid = `sim.${crypto.randomUUID()}`;
+    } else if (channel?.status === "connected" && channel.access_token && channel.phone_number_id) {
       const phone = (conv as any).contacts?.phone;
       if (!phone) {
-        return new Response(JSON.stringify({ error: "Contacto sin teléfono" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (billing?.charged) await sb.rpc("wa_refund_last_charge", { _tenant_id: conv.tenant_id, _contact_id: conv.contact_id });
+        return jsonRes({ error: "Contacto sin teléfono" }, 400);
       }
       const toNumber = toWaId(phone);
+      const payload = isTemplateSend
+        ? {
+            messaging_product: "whatsapp", to: toNumber, type: "template",
+            template: {
+              name: tpl!.name, language: { code: tpl!.language },
+              ...(tpl!.params.length ? { components: [{ type: "body", parameters: tpl!.params.map((t: string) => ({ type: "text", text: t })) }] } : {}),
+            },
+          }
+        : { messaging_product: "whatsapp", to: toNumber, type: "text", text: { body: body.body } };
       const res = await fetch(`${META_API}/${channel.phone_number_id}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${channel.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: toNumber,
-          type: "text",
-          text: { body: body.body },
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -148,6 +177,13 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Si Meta rechazó el mensaje, devolvemos el crédito cobrado.
+    if (providerError && billing?.charged && conv.contact_id) {
+      const { error: refErr } = await sb.rpc("wa_refund_last_charge", { _tenant_id: conv.tenant_id, _contact_id: conv.contact_id });
+      if (refErr) console.error("refund failed", refErr);
+      else billing = { ...billing, refunded: true };
+    }
+
     const { error: insErr } = await sb.from("messages").insert({
       tenant_id: conv.tenant_id,
       conversation_id: conv.id,
@@ -155,7 +191,11 @@ Deno.serve(async (req) => {
       direction: "outbound",
       body: body.body,
       type: "text",
-      metadata: { wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected", sent_by_user_id: userData.user.id, billing },
+      metadata: {
+        wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected" || isSim,
+        sent_by_user_id: userData.user.id, billing,
+        ...(isTemplateSend ? { kind: "template", template_name: tpl!.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
+      },
     });
     if (insErr) throw insErr;
     await sb.from("conversations").update({ preview: previewWithSender(body.body), last_message_at: new Date().toISOString(), ...(channel ? { channel_id: channel.id } : {}) }).eq("id", conv.id);
