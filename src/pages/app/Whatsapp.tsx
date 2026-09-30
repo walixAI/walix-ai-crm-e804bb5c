@@ -15,6 +15,7 @@ import { ConversationList } from "@/components/whatsapp/ConversationList";
 import { ChatHeader } from "@/components/whatsapp/ChatHeader";
 import { MessageList } from "@/components/whatsapp/MessageList";
 import { Composer } from "@/components/whatsapp/Composer";
+import { PaidTemplateBar } from "@/components/whatsapp/PaidTemplateBar";
 import { ContactSidePanel } from "@/components/whatsapp/ContactSidePanel";
 import { TemplatesDialog } from "@/components/whatsapp/TemplatesDialog";
 import { LinkDealDialog } from "@/components/whatsapp/LinkDealDialog";
@@ -189,6 +190,18 @@ export default function Whatsapp() {
       setAiDraftActive(false);
     } catch (e: any) {
       toast({ title: "Error al enviar", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
+    }
+  };
+
+  const handleSendTemplate = async (t: { name: string; language: string; params: string[]; preview: string }) => {
+    if (!activeConv || !tenantId) return;
+    try {
+      await sendMutation.mutateAsync({
+        conversationId: activeConv.id, tenantId, body: t.preview || `Plantilla ${t.name}`,
+        template: { name: t.name, language: t.language, params: t.params },
+      });
+    } catch (e: any) {
+      toast({ title: "No se envió la plantilla", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
     }
   };
 
@@ -367,6 +380,18 @@ export default function Whatsapp() {
                   }
                   onClearAiDraft={() => { setDraft(""); setAiDraftActive(false); }}
                   blockedReason={waBlockedReason}
+                  paidSlot={
+                    serviceWindow && !serviceWindow.open ? (
+                      <PaidTemplateBar
+                        tenantId={tenantId}
+                        contactId={activeConv.contactId}
+                        contactName={activeConv.contactName}
+                        signal={lastMsg?.id ?? null}
+                        sending={sendMutation.isPending}
+                        onSendTemplate={handleSendTemplate}
+                      />
+                    ) : undefined
+                  }
                 />
               </>
             )}
