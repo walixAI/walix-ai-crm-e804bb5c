@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { WaSpendPolicyCard } from "./WaSpendPolicyCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -333,6 +334,8 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
           )}
         </div>
       </Card>
+
+      {isTenantAdmin && <WaSpendPolicyCard />}
 
       {/* Horario */}
       <Card className="p-6">
