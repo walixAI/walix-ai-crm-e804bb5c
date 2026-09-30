@@ -228,12 +228,14 @@ export function useSendMessage() {
       tenantId: string;
       body: string;
       isInternalNote?: boolean;
+      template?: { name: string; language: string; params: string[] };
     }) => {
       const { data, error } = await supabase.functions.invoke("whatsapp-send", {
         body: {
           conversationId: input.conversationId,
           body: input.body,
           internal: !!input.isInternalNote,
+          ...(input.template ? { template: input.template } : {}),
         },
       });
       if (error) {
