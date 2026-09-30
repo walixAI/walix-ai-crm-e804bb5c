@@ -35,13 +35,15 @@ interface Props {
    * el envío a clientes (las notas internas siguen disponibles).
    */
   blockedReason?: string | null;
+  /** Fuera de la ventana de 24 h: reemplaza la caja de texto por el envío de plantillas pagadas. */
+  paidSlot?: React.ReactNode;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
   onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
-  guidance, windowNotice, blockedReason,
+  guidance, windowNotice, blockedReason, paidSlot,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -224,6 +226,7 @@ export function Composer({
           <StickyNote className="h-4 w-4" />
         </Button>
 
+        {paidSlot && !internal && !blockedReason ? paidSlot : (<>
         <div className="flex-1 relative">
           {aiDraftActive && (
             <div className="absolute -top-2 left-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
@@ -271,6 +274,7 @@ export function Composer({
         >
           <Send className="h-4 w-4" />
         </Button>
+        </>)}
       </div>
     </div>
   );

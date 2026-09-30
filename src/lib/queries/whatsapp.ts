@@ -228,12 +228,14 @@ export function useSendMessage() {
       tenantId: string;
       body: string;
       isInternalNote?: boolean;
+      template?: { name: string; language: string; params: string[] };
     }) => {
       const { data, error } = await supabase.functions.invoke("whatsapp-send", {
         body: {
           conversationId: input.conversationId,
           body: input.body,
           internal: !!input.isInternalNote,
+          ...(input.template ? { template: input.template } : {}),
         },
       });
       if (error) {
@@ -246,6 +248,9 @@ export function useSendMessage() {
         throw new Error(msg || error.message || "Error al enviar");
       }
       return data as { ok: boolean; simulated?: boolean };
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["wa-template-policy"] });
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["wa-messages", vars.conversationId] });

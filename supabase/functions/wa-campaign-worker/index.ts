@@ -100,6 +100,18 @@ Deno.serve(async (req) => {
       if (step.kind === "text" && windowOpen) {
         result = await sendText(channel, contact.phone, bodyPreview);
       } else if (template?.name) {
+        // Control de gasto: los mensajes del bot cuentan dentro del límite por lead.
+        const { data: pol } = await sb.rpc("wa_template_policy_check", {
+          _tenant_id: e.tenant_id, _contact_id: e.contact_id, _user_id: null, _bot: true,
+        });
+        if (pol && !pol.window_open && !pol.allowed) {
+          if (pol.reason === "lead_gap" && pol.next_at) {
+            await sb.from("wa_enrollments").update({ next_send_at: pol.next_at }).eq("id", e.id);
+          } else {
+            await sb.from("wa_enrollments").update({ status: "stopped", exit_reason: "límite de gasto", next_send_at: null }).eq("id", e.id);
+          }
+          skipped++; continue;
+        }
         usedKind = "template";
         const params = ((step.template_variables ?? []) as string[]).map((p) => renderText(String(p), vars));
         bodyPreview = renderText(template.body_text ?? step.body_text ?? `Plantilla ${template.name}`, vars);

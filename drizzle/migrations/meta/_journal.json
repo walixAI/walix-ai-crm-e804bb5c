@@ -71,6 +71,20 @@
       "when": 1790736475805,
       "tag": "0009_regrant_wa_charge_close_recurrence",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790793069732,
+      "tag": "0010_wa_spend_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790793130549,
+      "tag": "0011_wa_request_extra_attempt",
+      "breakpoints": true
     }
   ]
 }
