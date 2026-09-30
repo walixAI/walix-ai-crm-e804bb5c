@@ -249,6 +249,9 @@ export function useSendMessage() {
       }
       return data as { ok: boolean; simulated?: boolean };
     },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["wa-template-policy"] });
+    },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["wa-messages", vars.conversationId] });
       qc.invalidateQueries({ queryKey: ["wa-conversations"] });
