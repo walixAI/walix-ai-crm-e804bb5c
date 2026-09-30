@@ -4324,6 +4324,7 @@ export type Database = {
           timezone: string
           track_ip: boolean
           trial_ends_at: string | null
+          wa_spend_policy: Json
           wa_team_dedicated: boolean
           whatsapp_phone: string | null
         }
@@ -4367,6 +4368,7 @@ export type Database = {
           timezone?: string
           track_ip?: boolean
           trial_ends_at?: string | null
+          wa_spend_policy?: Json
           wa_team_dedicated?: boolean
           whatsapp_phone?: string | null
         }
@@ -4410,6 +4412,7 @@ export type Database = {
           timezone?: string
           track_ip?: boolean
           trial_ends_at?: string | null
+          wa_spend_policy?: Json
           wa_team_dedicated?: boolean
           whatsapp_phone?: string | null
         }
@@ -5433,9 +5436,27 @@ export type Database = {
         }
         Returns: Json
       }
+      wa_grant_extra_attempt: { Args: { _contact_id: string }; Returns: Json }
+      wa_is_spend_manager: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       wa_open_window: {
         Args: { _contact_id: string; _tenant_id: string }
         Returns: string
+      }
+      wa_refund_last_charge: {
+        Args: { _contact_id: string; _tenant_id: string }
+        Returns: boolean
+      }
+      wa_template_policy_check: {
+        Args: {
+          _bot?: boolean
+          _contact_id: string
+          _tenant_id: string
+          _user_id?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
