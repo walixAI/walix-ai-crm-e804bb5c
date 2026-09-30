@@ -375,7 +375,7 @@ export default function Login() {
           <div
             role="tablist"
             aria-label="Modo de acceso"
-            className="relative grid grid-cols-2 p-1 rounded-xl bg-muted mb-6"
+            className="relative grid grid-cols-1 p-1 rounded-xl bg-muted mb-6"
           >
             <button
               type="button"
