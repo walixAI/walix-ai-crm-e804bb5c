@@ -22,6 +22,7 @@ import { getInitialHash, readRecoveryHash } from "@/lib/auth/recoveryHash";
 
 // Lazy: rutas pesadas
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
+const CreateAccount = lazy(() => import("@/pages/CreateAccount"));
 const Pricing = lazy(() => import("@/pages/Pricing"));
 const ContactDetail = lazy(() => import("@/pages/app/ContactDetail"));
 const Pipeline = lazy(() => import("@/pages/app/Pipeline"));
@@ -100,6 +101,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/invitacion" element={<AcceptInvite />} />
+      <Route path="/crear-cuenta" element={<CreateAccount />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />

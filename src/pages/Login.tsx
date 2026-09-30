@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/store/auth";
@@ -179,7 +179,7 @@ export default function Login() {
   const [params] = useSearchParams();
 
   useEffect(() => {
-    if (params.get("mode") === "signup") setMode("signup");
+    // Registro deshabilitado por ahora
   }, [params]);
 
   const pwChecks = useMemo(() => evaluatePassword(password), [password]);
@@ -392,21 +392,6 @@ export default function Login() {
               <LogIn className="h-4 w-4" />
               Iniciar sesión
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isSignup}
-              onClick={() => switchMode("signup")}
-              className={cn(
-                "relative z-10 flex items-center justify-center gap-2 h-10 rounded-lg text-sm font-semibold transition-all",
-                isSignup
-                  ? "bg-gradient-brand text-primary-foreground shadow-glow"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Sparkles className="h-4 w-4" />
-              Crear cuenta
-            </button>
           </div>
 
           {/* Header dinámico */}
@@ -580,13 +565,9 @@ export default function Login() {
             ) : (
               <>
                 ¿Primera vez en Walix?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("signup")}
-                  className="inline-flex items-center gap-0.5 text-primary font-medium hover:underline"
-                >
-                  Empieza gratis <ArrowRight className="h-3 w-3" />
-                </button>
+                <Link to="/crear-cuenta" className="inline-flex items-center gap-0.5 text-primary font-medium hover:underline">
+                  Crea una cuenta <ArrowRight className="h-3 w-3" />
+                </Link>
               </>
             )}
           </div>
