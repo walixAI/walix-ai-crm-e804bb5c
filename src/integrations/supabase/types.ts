@@ -5449,6 +5449,10 @@ export type Database = {
         Args: { _contact_id: string; _tenant_id: string }
         Returns: boolean
       }
+      wa_request_extra_attempt: {
+        Args: { _contact_id: string }
+        Returns: number
+      }
       wa_template_policy_check: {
         Args: {
           _bot?: boolean
