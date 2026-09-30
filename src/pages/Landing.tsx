@@ -49,7 +49,7 @@ function Header() {
             <Link to="/login">Entrar</Link>
           </Button>
           <Button asChild size="sm" className="bg-gradient-brand hover:opacity-90 shadow-glow whitespace-nowrap px-3">
-            <Link to="/login">Empieza gratis</Link>
+            <Link to="/crear-cuenta">Crea una cuenta</Link>
           </Button>
         </div>
       </div>
@@ -199,7 +199,7 @@ function Hero() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="bg-gradient-brand hover:opacity-90 shadow-glow text-base h-12 px-6">
-                <Link to="/login">Empieza gratis <ArrowRight className="ml-1 h-4 w-4" /></Link>
+                <Link to="/crear-cuenta">Crea una cuenta <ArrowRight className="ml-1 h-4 w-4" /></Link>
               </Button>
               <Button variant="outline" size="lg" className="h-12 px-6 text-base">
                 <PlayCircle className="mr-2 h-4 w-4" /> Ver demo de 90s
@@ -510,11 +510,11 @@ function FinalCTA() {
             Tu próximo cierre te está escribiendo ahora.
           </h2>
           <p className="mt-5 text-lg text-primary-foreground/80 max-w-xl mx-auto">
-            Empieza gratis. En 5 minutos estás respondiendo más rápido que nunca.
+            Crea tu cuenta. En 5 minutos estás respondiendo más rápido que nunca.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="bg-background text-foreground hover:bg-background/90 h-12 px-6 text-base">
-              <Link to="/login">Empieza gratis <ArrowRight className="ml-1 h-4 w-4" /></Link>
+              <Link to="/crear-cuenta">Crea una cuenta <ArrowRight className="ml-1 h-4 w-4" /></Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="h-12 px-6 text-base bg-transparent border-white/30 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground">
               <a href="#producto">Ver producto</a>
