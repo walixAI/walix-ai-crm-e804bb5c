@@ -219,10 +219,10 @@ function Hero() {
         {/* Logos / proof */}
         <div className="mt-20 lg:mt-28 border-t border-border pt-10">
           <p className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6">
-            Más de 1,200 equipos de venta ya cierran con Walix
+            Negocios como el tuyo ya están cerrando ventas con Walix
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-70">
-            {["Tortillería La Joya", "Distribuidora Norte", "Boutique Marisol", "Refacciones MX", "Grupo Rivera", "Café del Centro"].map((n) => (
+            {["Universidades", "Instituciones financieras", "Telecomunicaciones", "Clínicas y hospitales", "Sector salud", "Tecnología", "Inmobiliarias", "Aseguradoras", "Automotriz", "Retail y comercio", "Turismo y hotelería", "Servicios profesionales"].map((n) => (
               <span key={n} className="text-sm font-semibold text-muted-foreground tracking-tight">{n}</span>
             ))}
           </div>
