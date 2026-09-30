@@ -237,10 +237,13 @@ export function useSendMessage() {
         },
       });
       if (error) {
-        const msg = (error as any)?.context?.body
-          ? (() => { try { return JSON.parse((error as any).context.body).error; } catch { return error.message; } })()
-          : error.message;
-        throw new Error(msg || "Error al enviar");
+        let msg: string | undefined;
+        const ctx = (error as any)?.context;
+        try {
+          if (ctx && typeof ctx.json === "function") msg = (await ctx.clone().json())?.error;
+          else if (typeof ctx?.body === "string") msg = JSON.parse(ctx.body)?.error;
+        } catch { /* ignore */ }
+        throw new Error(msg || error.message || "Error al enviar");
       }
       return data as { ok: boolean; simulated?: boolean };
     },
