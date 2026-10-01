@@ -63,7 +63,7 @@ serve(async (req) => {
           type: "lifecycle_change_request",
           title: "¿Cambiamos el ciclo de vida?",
           body: `${c.name ?? "Contacto"} pasaría de ${LABEL[c.status] ?? c.status} a ${LABEL[target] ?? target}. ${reason}`,
-          link: `/contactos/${c.id}`,
+          link: `/contacts/${c.id}`,
           icon: "UserCog",
           severity: "warning",
           data: {

@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
             type: "recurrence_generated",
             title: `${rec.name} — ${dueDate.slice(0, 7)}`,
             body: `Walix creó ${partes.join(" y ")} para el servicio recurrente programado en ${dueDate.slice(0, 7)}.`,
-            link: generatedDealId ? `/pipeline?deal=${generatedDealId}` : `/tareas`,
+            link: generatedDealId ? `/pipeline?deal=${generatedDealId}` : `/tasks`,
             icon: "RefreshCw",
             category: "operational",
             severity: "info",

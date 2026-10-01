@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
             tenant_id: e.tenant_id, user_id: contact.owner_id, category: "operational", severity: "warning",
             type: "wa_campaign", title: "Seguimiento de campaña pendiente",
             body: `No se pudo enviar el paso ${(step.step_order ?? 0) + 1} de "${campaign.name}" a ${contact.name}: se necesita una plantilla aprobada.`,
-            link: `/contactos/${contact.id}`,
+            link: `/contacts/${contact.id}`,
           });
         }
       }
