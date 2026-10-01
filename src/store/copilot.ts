@@ -248,7 +248,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
         conversationId = newConvo.id;
       }
       const { error: sendErr } = await supabase.functions.invoke("whatsapp-send", {
-        body: { conversation_id: conversationId, body: draft },
+        body: { conversationId, body: draft },
       });
       if (sendErr) throw sendErr;
       set((s) => ({
