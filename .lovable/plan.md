@@ -5,6 +5,14 @@ Documento Word (.docx) en español, tamaño carta, con el estilo azul de Walix. 
 ## Contenido
 
 1. **Resumen ejecutivo**: qué hace Walix con WhatsApp, en una página.
+1b. **Mapa de módulos**: un diagrama que muestra cómo se conecta WhatsApp con Contactos, Pipeline, Bandeja, Campañas/Bot, Asistente IA, Copiloto, Reportes, Configuración y Facturación. Cada módulo lleva una ficha con tres partes: qué hace, sus funciones principales y con qué secciones se relaciona (qué datos recibe y qué datos entrega).
+
+**Gráficos incluidos** (imágenes PNG dentro del documento):
+- Diagrama del recorrido de un lead: anuncio o formulario → contacto → oportunidad → bot → asesor → cierre.
+- Diagrama de la arquitectura para IT: Meta, Walix y la base de datos.
+- Línea de tiempo del bot (días 0, 1, 3 y 7) y de la ventana de 24 h.
+- Barras con el costo estimado de WhatsApp por categoría.
+- Barras con el consumo estimado de IA y de WhatsApp en los escenarios de 500, 2,000 y 5,000 leads al mes.
 2. **Cómo llega cada lead**: Meta Lead Ads, Click to WhatsApp, sitio web y Make.com o webhooks. Cómo se asigna cada lead al asesor con menos carga y cómo entra a la etapa "Nuevo".
 3. **Rastreo de origen**: UTMs, Google Ads, Meta Ads, tarjeta "Origen y rastreo", reporte "Recorrido de leads" con score, fuentes de ingreso autorizadas y "Leads rechazados".
 4. **Bandeja de WhatsApp**: conversaciones, etiqueta de origen, ventana de 24 h, plantillas aprobadas y "Tomar control" del bot.
@@ -21,5 +29,6 @@ Documento Word (.docx) en español, tamaño carta, con el estilo azul de Walix. 
 
 ## Detalles técnicos
 - Generado con docx-js: encabezados, tablas con DXA y numeración real. Se valida con el script de la skill y se convierte a PDF para revisar visualmente.
+- Gráficos generados con matplotlib en la paleta azul de Walix e insertados con ImageRun.
 - Las cifras de planes y créditos salen de la memoria del proyecto y de la tabla `plan_limits`. Las tarifas de Meta se confirman con una búsqueda web.
 - El documento no incluye credenciales ni la llave de entrada. Solo explica dónde se consultan.
