@@ -226,7 +226,29 @@ export function Composer({
           <StickyNote className="h-4 w-4" />
         </Button>
 
-        {paidSlot && !internal && !blockedReason ? paidSlot : (<>
+        {paidSlot && !internal && !blockedReason ? (
+          <div className="flex-1 space-y-2">
+            {draft.trim() && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-primary mb-1">
+                  <Sparkles className="h-2.5 w-2.5" /> {aiDraftActive ? "Borrador IA" : "Borrador"}
+                </div>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed max-h-32 overflow-auto">{draft}</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Pasaron más de 24 h desde el último mensaje del lead: Meta no permite enviar texto libre. Usa una plantilla aprobada, o cópialo para llamarle o guardarlo como nota.
+                </p>
+                <div className="flex gap-1.5 mt-2 justify-end flex-wrap">
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigator.clipboard.writeText(draft)}>Copiar</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setInternal(true)}>
+                    <StickyNote className="h-3 w-3" /> Guardar como nota
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { onDraftChange(""); onClearAiDraft?.(); }}>Descartar</Button>
+                </div>
+              </div>
+            )}
+            {paidSlot}
+          </div>
+        ) : (<>
         <div className="flex-1 relative">
           {aiDraftActive && (
             <div className="absolute -top-2 left-2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
