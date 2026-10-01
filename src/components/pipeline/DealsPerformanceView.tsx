@@ -56,10 +56,11 @@ function parseCalendarDate(value: string) {
   return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
 }
 
-/** Resolves a period value ("month" | "prev" | "90d" | "year" | "custom:from:to" | legacy "YYYY-MM"). */
+/** Resolves a period value ("month" | "prev" | "90d" | "year" | "todo" | "custom:from:to" | legacy "YYYY-MM"). */
 export function parsePeriod(value: string): { start: Date; end: Date; label: string } {
   const now = new Date();
   const monthLabel = (d: Date) => d.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+
 
   if (value.startsWith("custom:")) {
     const [, from, to] = value.split(":");
@@ -90,7 +91,12 @@ export function parsePeriod(value: string): { start: Date; end: Date; label: str
       const end = new Date(now.getFullYear() + 1, 0, 1);
       return { start, end, label: `el año ${now.getFullYear()}` };
     }
+    case "todo": {
+      // Sin límite práctico de fechas: el lente manda (activas / creadas / todas).
+      return { start: new Date(2000, 0, 1), end: new Date(2100, 0, 1), label: "todo el tiempo" };
+    }
     default: {
+
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       return { start, end: new Date(now.getFullYear(), now.getMonth() + 1, 1), label: monthLabel(start) };
     }
@@ -102,8 +108,10 @@ export const PERIOD_PRESETS = [
   { key: "prev", label: "Mes anterior" },
   { key: "90d", label: "Últimos 90 días" },
   { key: "year", label: "Todo el año" },
+  { key: "todo", label: "Todo" },
   { key: "custom", label: "Personalizado" },
 ] as const;
+
 
 /** Deals inside the period according to the lens (closed deals by real close date). */
 export function filterPeriodSet(
@@ -594,13 +602,20 @@ export function DealsPerformanceView({
       )}
 
       <p className="text-xs text-muted-foreground">
-        {lens === "created"
+        {periodLabel === "todo el tiempo"
+          ? lens === "created"
+            ? "Todas las oportunidades creadas desde el inicio, sin importar cuándo cierren."
+            : lens === "all"
+              ? "Todas las oportunidades históricas: abiertas, ganadas y perdidas."
+              : "Todas las oportunidades abiertas de la empresa, sin importar cuándo entraron."
+          : lens === "created"
           ? `Oportunidades creadas en ${periodLabel}, sin importar cuándo cierren.`
           : lens === "all"
             ? `Todas las oportunidades relacionadas con ${periodLabel}: creadas, con cierre esperado o cerradas en el periodo (abiertas y cerradas).`
             : `Oportunidades abiertas con cierre esperado dentro de ${periodLabel}.`}
         {" "}La salud se calcula al día de hoy.
       </p>
+
     </div>
   );
 }
