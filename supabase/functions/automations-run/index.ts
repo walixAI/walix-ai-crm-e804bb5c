@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
                   type: "recurrence_due",
                   title: rec.name,
                   body: action.config?.message || `Servicio programado para ${dueDate.slice(0, 7)}. Contacta al cliente para acordar precio y día.`,
-                  link: generatedDealId ? `/pipeline?deal=${generatedDealId}` : `/contactos/${sub.contact_id}`,
+                  link: generatedDealId ? `/pipeline?deal=${generatedDealId}` : `/contacts/${sub.contact_id}`,
                   icon: "RefreshCw",
                   category: "operational",
                   severity: "info",
