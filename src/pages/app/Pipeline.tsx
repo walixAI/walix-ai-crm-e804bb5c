@@ -190,11 +190,13 @@ export default function Pipeline() {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
+  // Default por vista: Kanban y Lista abren con "Todo lo activo"; Desempeño con "Este mes".
   const periodValue: PeriodFiltersValue = {
     lens: prefs.perfLens,
-    period: prefs.perfMonth ?? currentMonthKey(),
+    period: prefs.perfMonth ?? (view === "performance" ? currentMonthKey() : "todo"),
     ...prefs.perfFilters,
   };
+
   const setPeriodValue = (v: PeriodFiltersValue) =>
     setPrefs({
       ...prefs,
@@ -211,11 +213,18 @@ export default function Pipeline() {
     const inPeriod = filterPeriodSet(filtered, periodValue.lens, start, end, periodValue.stageId, stages);
     return applySecondaryFilters(inPeriod, periodValue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, stages, prefs.perfLens, prefs.perfMonth, prefs.perfFilters]);
+  }, [filtered, stages, prefs.perfLens, prefs.perfMonth, prefs.perfFilters, view]);
 
   const [chip, setChip] = useState<DealChip>("all");
   const periodRange = useMemo(() => parsePeriod(periodValue.period), [periodValue.period]);
-  const chipData = useDealChips(lensedDeals, chip, periodRange.start, periodRange.end, contactLastActivityById);
+  // Con "Todo", el chip de cierre se ancla al mes actual para seguir teniendo sentido.
+  const periodIsTodo = periodValue.period === "todo";
+  const chipRange = periodIsTodo ? { start: startOfMonth, end: endOfMonth } : periodRange;
+  const chipData = useDealChips(
+    lensedDeals, chip, chipRange.start, chipRange.end, contactLastActivityById,
+    periodIsTodo ? "Cierran este mes" : undefined,
+  );
+
 
   const totalAmount = lensedDeals.reduce((s, d) => s + d.amount, 0);
   const weightedAmount = lensedDeals.reduce((s, d) => s + (d.amount * d.probability) / 100, 0);
@@ -307,11 +316,12 @@ export default function Pipeline() {
           illustration={<EmptyIllustration variant="pipeline" />}
           title={
             perfLens === "created"
-              ? "No hay oportunidades creadas en el periodo"
+              ? periodIsTodo ? "No hay oportunidades creadas" : "No hay oportunidades creadas en el periodo"
               : perfLens === "all"
-                ? "No hay oportunidades en el periodo"
-                : "No hay oportunidades activas en el periodo"
+                ? periodIsTodo ? "No hay oportunidades" : "No hay oportunidades en el periodo"
+                : periodIsTodo ? "No hay oportunidades activas" : "No hay oportunidades activas en el periodo"
           }
+
           description={
             "Prueba con otro periodo, lente o filtro arriba."
           }

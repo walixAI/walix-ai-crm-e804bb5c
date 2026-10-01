@@ -8,7 +8,7 @@ export interface PipelinePrefs {
   pipelineId: string | null;
   pipelineLens: PipelineLens;
   perfLens: "created" | "active" | "all";
-  perfMonth: string | null; // "YYYY-MM"
+  perfMonth: string | null; // preset ("month"…"todo", "custom:from:to") o "YYYY-MM" legado
   perfFilters: { productIds: string[]; frequency: string; owner: string; stageId: string };
   filters: {
     ownerName: string;
