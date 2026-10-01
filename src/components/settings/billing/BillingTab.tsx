@@ -11,6 +11,7 @@ import { AiEngineCard } from "./AiEngineCard";
 import { AiUsageBreakdown } from "./AiUsageBreakdown";
 import { WhatsappUsageBreakdown } from "./WhatsappUsageBreakdown";
 import { InvoiceHistoryCard } from "./InvoiceHistoryCard";
+import { MonthlyUsageSummary } from "./MonthlyUsageSummary";
 import { usePermissions } from "@/hooks/usePermissions";
 
 /** Genera el historial de facturas desde el mes de inicio de facturación del tenant hasta hoy. */
@@ -70,6 +71,8 @@ export function BillingTab({ tenantId }: { tenantId: string }) {
           </div>
         )}
       </Card>
+
+      <MonthlyUsageSummary tenantId={tenantId} plan={currentPlan} />
 
       <CreditsCard tenantId={tenantId} plan={currentPlan} />
 

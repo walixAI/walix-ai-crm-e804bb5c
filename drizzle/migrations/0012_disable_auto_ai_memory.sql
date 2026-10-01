@@ -1,0 +1,2 @@
+-- Apaga el análisis automático con IA de cada evento de memoria (no se usaba ni se cobraba). Los eventos se siguen guardando.
+ALTER TABLE public.ai_memory_events DISABLE TRIGGER ai_memory_events_after_insert;
