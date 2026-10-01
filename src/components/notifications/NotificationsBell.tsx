@@ -84,7 +84,7 @@ export function NotificationsBell() {
 
   const handleClick = (n: NotificationRow) => {
     if (!n.read_at) markRead.mutate(n.id);
-    if (n.link) navigate(n.link);
+    if (n.link) navigate(n.link.replace(/^\/contactos(?=\/|$)/, "/contacts").replace(/^\/tareas(?=\/|\?|$)/, "/tasks"));
   };
 
   return (
