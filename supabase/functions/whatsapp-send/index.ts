@@ -107,7 +107,10 @@ Deno.serve(async (req) => {
       const { data: pol, error: polErr } = await sb.rpc("wa_template_policy_check", {
         _tenant_id: conv.tenant_id, _contact_id: conv.contact_id, _user_id: userData.user.id, _bot: false,
       });
-      if (polErr) console.error("wa_template_policy_check failed", polErr);
+      if (polErr) {
+        console.error("wa_template_policy_check failed", polErr);
+        return jsonRes({ error: "No se pudo validar el límite de envíos. Intenta de nuevo en un momento.", code: "policy_failed" }, 503);
+      }
       policy = pol;
       if (policy && !policy.window_open && !tpl) {
         return jsonRes({
