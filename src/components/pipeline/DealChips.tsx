@@ -14,6 +14,7 @@ function parseCalendarDate(value: string) {
 export function useDealChips(
   deals: PipelineDeal[], chip: DealChip, start: Date, end: Date,
   lastActivity: Map<string, string | null>,
+  closingLabel?: string,
 ) {
   return useMemo(() => {
     const rows = deals.map((d) => ({
@@ -33,8 +34,9 @@ export function useDealChips(
     };
     const labels: [DealChip, string][] = [
       ["all", "Todas"], ["won", "Cobradas"], ["lost", "Perdidas"], ["risk", "En riesgo"],
-      ["stale", "Estancadas +14d"], ["overdue", "Vencidas"], ["closing", "Cierran en el periodo"],
+      ["stale", "Estancadas +14d"], ["overdue", "Vencidas"], ["closing", closingLabel ?? "Cierran en el periodo"],
     ];
+
     const chips = labels.map(([key, label]) => ({ key, label, count: rows.filter(tests[key]).length }));
     const filtered = rows.filter(tests[chip]).map((r) => r.deal);
     return { chips, filtered };

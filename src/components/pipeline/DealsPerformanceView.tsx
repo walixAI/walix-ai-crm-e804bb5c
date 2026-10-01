@@ -576,7 +576,7 @@ export function DealsPerformanceView({
             {sorted.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
-                  Sin oportunidades para este periodo y lente.
+                  {periodLabel === "todo el tiempo" ? "Sin oportunidades para este lente." : "Sin oportunidades para este periodo y lente."}
                 </TableCell>
               </TableRow>
             )}
