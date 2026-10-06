@@ -177,6 +177,28 @@ Deno.serve(async (req) => {
       const info = await gget(`/${id}?fields=id,name,currency,timezone_id`, token);
       if (!info.ok) {
         if (id === manualWaba) {
+          // Some tokens can't read WABA fields but can list its phones directly.
+          const directPhones = await gget(`/${id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status&limit=100`, token);
+          const dp = ((directPhones.raw as { data?: PhoneInfo[] })?.data) ?? [];
+          if (directPhones.ok && dp.length) {
+            extra.push({ id, shared: true, phones: dp });
+            continue;
+          }
+          // Maybe it is the business portfolio ID: list its WABAs.
+          const bizWabas: Array<{ id: string; name?: string }> = [];
+          for (const edge of ["owned_whatsapp_business_accounts", "client_whatsapp_business_accounts"]) {
+            const r = await gget(`/${id}/${edge}?fields=id,name&limit=100`, token);
+            for (const w of ((r.raw as { data?: Array<{ id: string; name?: string }> })?.data) ?? []) bizWabas.push(w);
+          }
+          if (bizWabas.length) {
+            for (const w of bizWabas) {
+              if (seen.has(w.id)) continue;
+              const pr = await gget(`/${w.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status&limit=100`, token);
+              extra.push({ id: w.id, name: w.name, shared: true, phones: ((pr.raw as { data?: PhoneInfo[] })?.data) ?? [] });
+            }
+            continue;
+          }
+          console.log("discover-waba manual direct", JSON.stringify({ id, phones_status: directPhones.status, phones_raw: directPhones.raw }));
           // Maybe the user pasted the phone-number ID instead of the WABA ID.
           const asPhone = await gget(`/${id}?fields=id,display_phone_number,verified_name`, token);
           const err = (info.raw as { error?: { message?: string } })?.error?.message ?? "sin acceso";
@@ -188,7 +210,7 @@ Deno.serve(async (req) => {
               details: `Ese ID es del número ${ph.display_phone_number}, no de la cuenta. Pega el "Identificador de la cuenta de WhatsApp Business": está en Configuración del negocio → Cuentas → Cuentas de WhatsApp, debajo del nombre de la cuenta.`,
             }, 400);
           }
-          return json({ error: "waba_not_accessible", details: `Meta no deja que el token vea la cuenta ${id}: ${err}` }, 400);
+          return json({ error: "waba_not_accessible", details: `El token no tiene acceso a la cuenta ${id}. En Configuración del negocio → Usuarios del sistema → tu usuario → Asignar activos → Cuentas de WhatsApp, dale Control total a esa cuenta y genera un token nuevo. (Meta: ${err})` }, 400);
         }
         continue;
       }
