@@ -12,6 +12,7 @@ import { WhatsappSettingsTab } from "@/components/settings/whatsapp/WhatsappTab"
 import { ModulesTab } from "@/components/settings/modules/ModulesTab";
 import { BillingTab } from "@/components/settings/billing/BillingTab";
 import { ActivityTab } from "@/components/settings/activity/ActivityTab";
+import { SalesAgentsTab } from "@/components/settings/salesAgents/SalesAgentsTab";
 import { AgentsTab } from "@/components/settings/agents/AgentsTab";
 import { MyAIProfileTab } from "@/components/settings/me/MyAIProfileTab";
 import { GoalsTab } from "@/components/settings/goals/GoalsTab";
@@ -36,6 +37,7 @@ const ALL_TABS = [
   { id: "import", label: "Importar" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "modules", label: "Módulos" },
+  { id: "ventas", label: "Agentes de ventas" },
   { id: "agents", label: "Agentes IA" },
   { id: "copilot", label: "Copiloto" },
   { id: "me", label: "Mi Perfil IA" },
@@ -123,6 +125,7 @@ export default function Settings() {
         {visible("import") && <TabsContent value="import"><ImportTab /></TabsContent>}
         {visible("whatsapp") && <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>}
         {visible("modules") && <TabsContent value="modules"><ModulesTab /></TabsContent>}
+        {visible("ventas") && <TabsContent value="ventas"><SalesAgentsTab tenantId={tenantId} /></TabsContent>}
         {visible("agents") && <TabsContent value="agents"><AgentsTab tenantId={tenantId} /></TabsContent>}
         {visible("copilot") && <TabsContent value="copilot"><CopilotCapabilitiesTab /></TabsContent>}
         {visible("me") && <TabsContent value="me"><MyAIProfileTab /></TabsContent>}
