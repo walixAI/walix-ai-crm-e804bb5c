@@ -223,6 +223,16 @@ Deno.serve(async (req) => {
     console.log("discover-waba diag", JSON.stringify({ type: dbgData.type, scopes, granular: dbgData.granular_scopes, biz_status: bizRes.status, biz_raw: bizRes.ok ? undefined : bizRes.raw, biz_count: businesses.length, assigned_status: assigned.status, manual: manualWaba || undefined, wabas: tree.map((b) => b.wabas.map((w) => ({ id: w.id, phones: w.phones.length }))) }));
     const totalWabas = tree.reduce((acc, b) => acc + b.wabas.length, 0);
     const totalPhones = tree.reduce((acc, b) => acc + b.wabas.reduce((a, w) => a + w.phones.length, 0), 0);
+    if (manualFailure && totalPhones === 0) {
+      const ph = manualFailure.phone;
+      if (ph?.display_phone_number) {
+        return json({
+          error: "phone_id_instead_of_waba",
+          details: `Ese ID es del número ${ph.display_phone_number}, no de la cuenta. Abre WhatsApp Manager y copia el número que aparece en la barra de direcciones después de "waba_id=" (o en Configuración de la cuenta → Información de la cuenta → "Identificador de la cuenta de WhatsApp Business").`,
+        }, 400);
+      }
+      return json({ error: "waba_not_accessible", details: `Meta no reconoce ${manualFailure.id} como cuenta de WhatsApp para este token. Probablemente es el ID del portafolio de negocio. Abre WhatsApp Manager y copia el número que aparece después de "waba_id=" en la barra de direcciones. (Meta: ${manualFailure.err})` }, 400);
+    }
 
     return json({
       ok: true,
