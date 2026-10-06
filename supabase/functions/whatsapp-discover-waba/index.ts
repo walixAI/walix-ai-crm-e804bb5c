@@ -177,8 +177,18 @@ Deno.serve(async (req) => {
       const info = await gget(`/${id}?fields=id,name,currency,timezone_id`, token);
       if (!info.ok) {
         if (id === manualWaba) {
+          // Maybe the user pasted the phone-number ID instead of the WABA ID.
+          const asPhone = await gget(`/${id}?fields=id,display_phone_number,verified_name`, token);
           const err = (info.raw as { error?: { message?: string } })?.error?.message ?? "sin acceso";
-          return json({ error: "waba_not_accessible", details: `El token no tiene acceso a la cuenta ${id}: ${err}` }, 400);
+          console.log("discover-waba manual id failed", JSON.stringify({ id, waba_err: info.raw, phone_status: asPhone.status, phone_raw: asPhone.raw }));
+          if (asPhone.ok && (asPhone.raw as { display_phone_number?: string })?.display_phone_number) {
+            const ph = asPhone.raw as PhoneInfo;
+            return json({
+              error: "phone_id_instead_of_waba",
+              details: `Ese ID es del número ${ph.display_phone_number}, no de la cuenta. Pega el "Identificador de la cuenta de WhatsApp Business": está en Configuración del negocio → Cuentas → Cuentas de WhatsApp, debajo del nombre de la cuenta.`,
+            }, 400);
+          }
+          return json({ error: "waba_not_accessible", details: `Meta no deja que el token vea la cuenta ${id}: ${err}` }, 400);
         }
         continue;
       }
