@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
       scopes?: string[];
       type?: string;
       error?: { message?: string };
+      granular_scopes?: Array<{ scope: string; target_ids?: string[] }>;
     };
     if (!dbgData.is_valid) {
       return json({ error: "invalid_token", details: dbgData.error?.message ?? "Token inválido o expirado" }, 400);
@@ -115,7 +116,6 @@ Deno.serve(async (req) => {
 
     // 2) List businesses
     const bizRes = await gget("/me/businesses?fields=id,name&limit=100", token);
-    if (!bizRes.ok) return json({ error: "businesses_failed", meta: bizRes.raw }, 502);
     const businesses = ((bizRes.raw as { data?: Array<{ id: string; name: string }> })?.data) ?? [];
 
     const tree: BusinessNode[] = [];
@@ -159,6 +159,28 @@ Deno.serve(async (req) => {
       tree.push(node);
     }
 
+    // Fallback: System User tokens often can't list /me/businesses (needs business_management).
+    // Meta lists the WABAs the token can reach in granular_scopes.target_ids.
+    const seen = new Set(tree.flatMap((b) => b.wabas.map((w) => w.id)));
+    const granularIds = new Set<string>();
+    for (const g of dbgData.granular_scopes ?? []) {
+      if (g.scope.startsWith("whatsapp_business")) for (const id of g.target_ids ?? []) granularIds.add(id);
+    }
+    const extra: WabaInfo[] = [];
+    for (const id of granularIds) {
+      if (seen.has(id)) continue;
+      const info = await gget(`/${id}?fields=id,name,currency,timezone_id`, token);
+      if (!info.ok) continue;
+      const w = info.raw as { id: string; name?: string; currency?: string; timezone_id?: string };
+      const phonesRes = await gget(
+        `/${id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status&limit=100`,
+        token,
+      );
+      const phones = ((phonesRes.raw as { data?: PhoneInfo[] })?.data) ?? [];
+      extra.push({ id: w.id ?? id, name: w.name, currency: w.currency, timezone_id: w.timezone_id, shared: true, phones });
+    }
+    if (extra.length) tree.push({ id: "token", name: "Cuentas del token", wabas: extra });
+
     const totalWabas = tree.reduce((acc, b) => acc + b.wabas.length, 0);
     const totalPhones = tree.reduce((acc, b) => acc + b.wabas.reduce((a, w) => a + w.phones.length, 0), 0);
 
@@ -168,6 +190,7 @@ Deno.serve(async (req) => {
       summary: { businesses: tree.length, wabas: totalWabas, phones: totalPhones },
       token_type: dbgData.type,
       scopes,
+      granular_wabas: [...granularIds],
     }, 200);
   } catch (e) {
     console.error("discover-waba error", e);
