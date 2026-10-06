@@ -72,7 +72,7 @@ Cada agente tiene:
 
 ## Detalles técnicos
 - Tablas (todas con `tenant_id`, RLS `get_user_tenant(auth.uid())` y GRANTs):
-  - `sales_agents` (varios por `pipeline_id` permitidos pero con reparto de orígenes sin traslape; `source_kinds` nulo = atiende todos; identidad, autonomía por defecto, topes, canales activos). El núcleo elige el agente responsable del lead por origen antes de responder.
+  - `sales_agents` (varios por `pipeline_id` permitidos; `assignment_conditions` jsonb con las mismas dimensiones que las reglas de objetivo, `priority`, `is_default` — solo uno por defecto por Pipeline; identidad, autonomía por defecto, topes, canales activos). El núcleo elige al responsable del lead: coincidencia más específica → prioridad → agente por defecto → asesor manual. La UI valida que cada segmento quede cubierto y alerta huecos.
   - `sales_agent_knowledge` (scope tenant o agente; tipo texto/faq/pdf/url/producto; contenido; embedding `google/gemini-embedding-2`).
   - `sales_agent_goal_rules` (prioridad, condiciones jsonb: source_kind, programa, fechas, stage_ids, owner_ids/roles, tags, score; objetivo, mensaje clave, autonomía, reglas de handoff, permitir cerrar).
   - `sales_agent_sessions` (por contacto+agente: estado activo/escalado/asesor, regla aplicada, plan y avance, datos perfilados, score, último canal).
