@@ -99,6 +99,13 @@
       "when": 1791255575331,
       "tag": "0013_create_sales_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791301732115,
+      "tag": "0014_tighten_insert_and_plan_limits_policies",
+      "breakpoints": true
     }
   ]
 }
