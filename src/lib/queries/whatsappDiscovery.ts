@@ -60,6 +60,15 @@ function unwrap<T>(data: unknown): T {
   return data as T;
 }
 
+// Non-2xx responses hide the server's JSON inside error.context; read it so the real reason is shown.
+async function readFnError(error: unknown): Promise<unknown> {
+  const ctx = (error as { context?: Response })?.context;
+  try {
+    if (ctx && typeof ctx.json === "function") return await ctx.clone().json();
+  } catch { /* ignore */ }
+  return { error: "request_failed", details: (error as Error)?.message ?? "Error desconocido" };
+}
+
 export function useDiscoverWaba() {
   return useMutation({
     mutationFn: async (input: string | { token: string; waba_id?: string }) => {
@@ -67,7 +76,7 @@ export function useDiscoverWaba() {
       const { data, error } = await supabase.functions.invoke("whatsapp-discover-waba", {
         body,
       });
-      if (error) throw new Error(error.message);
+      if (error) { unwrap(await readFnError(error)); throw new Error(error.message); }
       return unwrap<DiscoveryResult>(data);
     },
   });
@@ -85,7 +94,7 @@ export function useConnectDiscovered(tenantId: string) {
       const { data, error } = await supabase.functions.invoke("whatsapp-connect-discovered", {
         body: input,
       });
-      if (error) throw new Error(error.message);
+      if (error) { unwrap(await readFnError(error)); throw new Error(error.message); }
       return unwrap<ConnectResult>(data);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
