@@ -33,12 +33,15 @@ Cada agente tiene:
    - **Autónomo**: persigue el objetivo por sí mismo hasta lograrlo o escalar.
 
 ## ¿Cuántos agentes por Pipeline?
-- El modelo base es **un agente por Pipeline** (titular). Si la empresa lo necesita, se pueden crear **agentes adicionales que se reparten los orígenes del lead** (ej. uno solo para leads de Facebook/Meta y otro para todo lo demás).
-- Regla de reparto: cada agente define qué orígenes atiende (todos, solo Meta, solo web, etc.). Si dos agentes cubren el mismo origen, gana el de alcance más específico; nunca hay dos agentes escribiendo al mismo lead.
-- Los agentes del mismo Pipeline **comparten la misma base de conocimiento** (y pueden compartir identidad); lo que cambia entre ellos es objetivo, autonomía y topes de gasto.
-- El consumo (IA y WhatsApp) se registra por agente, así la empresa ve cuánto cuesta atender la captación de Meta frente al resto.
-- Casos de uso: apagar solo el agente de Meta sin afectar el resto, objetivos o topes distintos por canal de captación, o métricas separadas por fuente.
-- Si la única diferencia fuera el objetivo por origen, también lo resuelve una regla de objetivo (`source_kind`) del agente único; dos agentes se justifican cuando se quiere gestión, topes o apagado independientes.
+- El modelo base es **un agente por Pipeline** (titular). Si la empresa lo necesita, se pueden crear **agentes adicionales que se reparten los leads por cualquier dimensión**, no solo el origen: fuente (ej. uno solo para Facebook/Meta), programa o producto de interés, ciudad, etapa, tipo de asesor asignado, etiquetas, calificación o temporada.
+- Los agentes del mismo Pipeline **comparten la misma base de conocimiento** (y pueden compartir identidad); lo que cambia entre ellos es objetivo, autonomía, condiciones de reparto y topes de gasto.
+- **Regla de resolución (determinista, un solo responsable por lead):**
+  - Gana el agente con el reparto más específico (más condiciones coincidentes); si empatan, gana el de mayor prioridad; nunca hay dos agentes escribiendo al mismo lead.
+  - Un agente puede ser el **"para todo lo demás"**: si ningún agente especializado coincide, lo atiende el agente por defecto del Pipeline.
+  - Si no hay agente por defecto o el agente está apagado, el lead **pasa a atención manual del asesor asignado** (con aviso y tarea), de modo que todo lead queda atendido siempre: por un agente o por un asesor.
+- **Cobertura visible**: en la configuración del Pipeline, un panel "¿Quién atiende a quién?" muestra qué parte de los leads cubre cada agente y **alerta si hay leads que nadie cubre** (para que la empresa decida: crear agente, designar por defecto o dejarlo en manual).
+- El consumo (IA y WhatsApp) se registra por agente, así la empresa ve cuánto cuesta atender cada segmento de captación.
+- Casos de uso: apagar solo el agente de Meta sin afectar el resto, objetivos o topes distintos por segmento, o métricas separadas por fuente.
 
 ## Modo autónomo: cómo busca la inscripción
 - Planea los pasos hacia el objetivo (perfilar → resolver dudas → enviar requisitos/precio → agendar → cerrar) y va marcando el avance en el contacto.
@@ -69,7 +72,7 @@ Cada agente tiene:
 
 ## Detalles técnicos
 - Tablas (todas con `tenant_id`, RLS `get_user_tenant(auth.uid())` y GRANTs):
-  - `sales_agents` (varios por `pipeline_id` permitidos pero con reparto de orígenes sin traslape; `source_kinds` nulo = atiende todos; identidad, autonomía por defecto, topes, canales activos). El núcleo elige el agente responsable del lead por origen antes de responder.
+  - `sales_agents` (varios por `pipeline_id` permitidos; `assignment_conditions` jsonb con las mismas dimensiones que las reglas de objetivo, `priority`, `is_default` — solo uno por defecto por Pipeline; identidad, autonomía por defecto, topes, canales activos). El núcleo elige al responsable del lead: coincidencia más específica → prioridad → agente por defecto → asesor manual. La UI valida que cada segmento quede cubierto y alerta huecos.
   - `sales_agent_knowledge` (scope tenant o agente; tipo texto/faq/pdf/url/producto; contenido; embedding `google/gemini-embedding-2`).
   - `sales_agent_goal_rules` (prioridad, condiciones jsonb: source_kind, programa, fechas, stage_ids, owner_ids/roles, tags, score; objetivo, mensaje clave, autonomía, reglas de handoff, permitir cerrar).
   - `sales_agent_sessions` (por contacto+agente: estado activo/escalado/asesor, regla aplicada, plan y avance, datos perfilados, score, último canal).
