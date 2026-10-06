@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
             if (!contactId) {
               const { data: created } = await sb
                 .from("contacts")
-                .insert({ tenant_id: channel.tenant_id, phone: canonical, name: profileName || canonical, source: "WhatsApp" })
+                .insert({ tenant_id: channel.tenant_id, phone: canonical, name: profileName || canonical, source: referral ? "WhatsApp (anuncio)" : "WhatsApp" })
                 .select("id")
                 .single();
               contactId = created?.id;
