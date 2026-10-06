@@ -3979,6 +3979,325 @@ export type Database = {
           },
         ]
       }
+      sales_agent_goal_rules: {
+        Row: {
+          active: boolean
+          agent_id: string
+          allow_close: boolean
+          autonomy: string
+          conditions: Json
+          created_at: string
+          goal: string
+          handoff_rules: Json
+          id: string
+          key_message: string
+          name: string
+          priority: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agent_id: string
+          allow_close?: boolean
+          autonomy?: string
+          conditions?: Json
+          created_at?: string
+          goal?: string
+          handoff_rules?: Json
+          id?: string
+          key_message?: string
+          name?: string
+          priority?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agent_id?: string
+          allow_close?: boolean
+          autonomy?: string
+          conditions?: Json
+          created_at?: string
+          goal?: string
+          handoff_rules?: Json
+          id?: string
+          key_message?: string
+          name?: string
+          priority?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_agent_goal_rules_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_goal_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_agent_knowledge: {
+        Row: {
+          agent_id: string | null
+          content: string
+          created_at: string
+          id: string
+          kind: string
+          product_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          product_id?: string | null
+          tenant_id: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          product_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_agent_knowledge_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_knowledge_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_knowledge_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_agent_sessions: {
+        Row: {
+          agent_id: string
+          applied_goal: string
+          applied_rule_id: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          last_agent_message_at: string | null
+          last_channel: string
+          paused_until: string | null
+          pipeline_id: string
+          plan: Json
+          profile_data: Json
+          replies_date: string | null
+          replies_today: number
+          score: number
+          state: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          applied_goal?: string
+          applied_rule_id?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_agent_message_at?: string | null
+          last_channel?: string
+          paused_until?: string | null
+          pipeline_id: string
+          plan?: Json
+          profile_data?: Json
+          replies_date?: string | null
+          replies_today?: number
+          score?: number
+          state?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          applied_goal?: string
+          applied_rule_id?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_agent_message_at?: string | null
+          last_channel?: string
+          paused_until?: string | null
+          pipeline_id?: string
+          plan?: Json
+          profile_data?: Json
+          replies_date?: string | null
+          replies_today?: number
+          score?: number
+          state?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_agent_sessions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_sessions_applied_rule_id_fkey"
+            columns: ["applied_rule_id"]
+            isOneToOne: false
+            referencedRelation: "sales_agent_goal_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_sessions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_sessions_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agent_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_agents: {
+        Row: {
+          assignment_conditions: Json
+          autonomy: string
+          autonomy_config: Json
+          caps: Json
+          channels: Json
+          created_at: string
+          default_allow_close: boolean
+          default_goal: string
+          default_handoff: Json
+          default_key_message: string
+          enabled: boolean
+          id: string
+          identity: string
+          is_default: boolean
+          language: string
+          name: string
+          never_do: string
+          pipeline_id: string
+          priority: number
+          public_key: string
+          tenant_id: string
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_conditions?: Json
+          autonomy?: string
+          autonomy_config?: Json
+          caps?: Json
+          channels?: Json
+          created_at?: string
+          default_allow_close?: boolean
+          default_goal?: string
+          default_handoff?: Json
+          default_key_message?: string
+          enabled?: boolean
+          id?: string
+          identity?: string
+          is_default?: boolean
+          language?: string
+          name?: string
+          never_do?: string
+          pipeline_id: string
+          priority?: number
+          public_key?: string
+          tenant_id: string
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_conditions?: Json
+          autonomy?: string
+          autonomy_config?: Json
+          caps?: Json
+          channels?: Json
+          created_at?: string
+          default_allow_close?: boolean
+          default_goal?: string
+          default_handoff?: Json
+          default_key_message?: string
+          enabled?: boolean
+          id?: string
+          identity?: string
+          is_default?: boolean
+          language?: string
+          name?: string
+          never_do?: string
+          pipeline_id?: string
+          priority?: number
+          public_key?: string
+          tenant_id?: string
+          tone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_agents_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -4836,6 +5155,126 @@ export type Database = {
           },
           {
             foreignKeyName: "wa_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      web_chat_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          tenant_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          tenant_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "web_chat_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_chat_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      web_chat_sessions: {
+        Row: {
+          agent_id: string
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          last_message_at: string
+          pipeline_id: string | null
+          tenant_id: string
+          visitor_email: string
+          visitor_name: string
+          visitor_phone: string
+        }
+        Insert: {
+          agent_id: string
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          last_message_at?: string
+          pipeline_id?: string | null
+          tenant_id: string
+          visitor_email?: string
+          visitor_name?: string
+          visitor_phone?: string
+        }
+        Update: {
+          agent_id?: string
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          last_message_at?: string
+          pipeline_id?: string | null
+          tenant_id?: string
+          visitor_email?: string
+          visitor_name?: string
+          visitor_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_chat_sessions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_chat_sessions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_chat_sessions_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_chat_sessions_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_chat_sessions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

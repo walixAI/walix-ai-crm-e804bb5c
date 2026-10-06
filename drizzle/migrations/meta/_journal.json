@@ -92,6 +92,13 @@
       "when": 1790884655576,
       "tag": "0012_disable_auto_ai_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791255575331,
+      "tag": "0013_create_sales_agents",
+      "breakpoints": true
     }
   ]
 }
