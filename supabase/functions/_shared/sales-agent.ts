@@ -81,3 +81,132 @@ export function buildSystemPrompt(agent: any, goal: ReturnType<typeof resolveGoa
     kb ? `\n## Base de conocimiento\n${kb}` : "",
   ].filter(Boolean).join("\n");
 }
+
+// ---------- Respuesta en WhatsApp (se llama desde el webhook tras guardar el mensaje entrante) ----------
+const META_API = "https://graph.facebook.com/v20.0";
+
+interface InboundCtx {
+  tenantId: string; contactId: string; conversationId: string;
+  channel: { id: string; access_token: string | null; phone_number_id: string | null };
+  to: string;
+}
+
+export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
+  // 1. Pipeline del lead: oportunidad abierta más reciente.
+  const { data: deal } = await sb.from("deals").select("id, pipeline_id, owner_id")
+    .eq("contact_id", ctx.contactId).eq("tenant_id", ctx.tenantId)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!deal?.pipeline_id) return { skipped: "sin_oportunidad" };
+
+  const { data: agents } = await sb.from("sales_agents").select("*")
+    .eq("tenant_id", ctx.tenantId).eq("pipeline_id", deal.pipeline_id);
+  const facts = await loadLeadFacts(sb, ctx.contactId, deal.pipeline_id);
+  const agent = resolveAgent(agents ?? [], facts);
+  if (!agent) return { skipped: "sin_agente" }; // atención manual del asesor
+  if (!(agent.channels?.whatsapp ?? true)) return { skipped: "canal_apagado" };
+
+  // 2. Sesión del lead con este agente.
+  const today = new Date().toISOString().slice(0, 10);
+  let { data: s } = await sb.from("sales_agent_sessions").select("*")
+    .eq("contact_id", ctx.contactId).eq("agent_id", agent.id).maybeSingle();
+  if (!s) {
+    const ins = await sb.from("sales_agent_sessions").insert({
+      tenant_id: ctx.tenantId, contact_id: ctx.contactId, agent_id: agent.id, pipeline_id: deal.pipeline_id,
+      state: "agent", last_channel: "whatsapp",
+    }).select("*").single();
+    s = ins.data;
+  }
+  if (!s || s.state !== "agent") return { skipped: "asesor_atiende" };
+  if (s.paused_until && new Date(s.paused_until) > new Date()) return { skipped: "pausado" };
+  const repliesToday = s.replies_date === today ? s.replies_today : 0;
+  const cap = Number(agent.caps?.replies_per_lead_day ?? 20);
+  if (repliesToday >= cap) return { skipped: "tope_diario" };
+
+  const { data: rules } = await sb.from("sales_agent_goal_rules").select("*").eq("agent_id", agent.id);
+  const goal = resolveGoal(agent, rules ?? [], facts);
+  const { data: kb } = await sb.from("sales_agent_knowledge").select("kind,title,content,url")
+    .eq("tenant_id", ctx.tenantId).or(`agent_id.is.null,agent_id.eq.${agent.id}`);
+
+  // 3. Historial.
+  const { data: hist } = await sb.from("messages").select("direction, body, is_internal_note")
+    .eq("conversation_id", ctx.conversationId).order("sent_at", { ascending: false }).limit(20);
+  const history = (hist ?? []).reverse().filter((m: any) => !m.is_internal_note && m.body)
+    .map((m: any) => ({ role: m.direction === "inbound" ? "user" : "assistant", content: m.body }));
+
+  const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp") +
+    `\n\nResponde SOLO en JSON: {"reply":"texto para el lead","handoff":true|false,"handoff_reason":"","simple":true|false}.` +
+    ` handoff=true si pide humano, hay queja, quiere pagar/inscribirse ya, o no sabes responder. simple=true si es una duda básica respondible con la base de conocimiento.`;
+
+  const { resolveTenantModel } = await import("./tenant-model.ts");
+  const { recordAiUsage } = await import("./ai-usage.ts");
+  const tm = await resolveTenantModel(sb, ctx.tenantId);
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: tm.model, messages: [{ role: "system", content: system }, ...history],
+      response_format: { type: "json_object" } }),
+  });
+  if (!res.ok) { console.error("sales-agent ai", res.status, await res.text()); return { skipped: "ia_error" }; }
+  const out = await res.json();
+  await recordAiUsage({ tenantId: ctx.tenantId, actorLabel: agent.name, surface: "sales_agent", model: tm.model,
+    inputTokens: out.usage?.prompt_tokens, outputTokens: out.usage?.completion_tokens, creditFactor: tm.creditFactor });
+
+  let parsed: any = {};
+  const raw = out.choices?.[0]?.message?.content ?? "";
+  try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch { parsed = { reply: raw }; }
+  const reply = String(parsed.reply ?? "").trim().slice(0, 1500);
+
+  const autonomy = goal.autonomy || agent.autonomy;
+  const shouldSend = reply && !parsed.handoff &&
+    (autonomy === "autonomo" || (autonomy === "mixto" && parsed.simple !== false));
+
+  const note = async (text: string) => sb.from("messages").insert({
+    tenant_id: ctx.tenantId, conversation_id: ctx.conversationId, channel_id: ctx.channel.id,
+    direction: "outbound", body: text, type: "text", is_internal_note: true,
+    metadata: { sales_agent_id: agent.id, kind: "agent_note" },
+  });
+
+  if (parsed.handoff) {
+    await sb.from("sales_agent_sessions").update({ state: "escalated", last_channel: "whatsapp" }).eq("id", s.id);
+    await note(`🤝 ${agent.name} canalizó al asesor: ${parsed.handoff_reason || "requiere atención humana"}${reply ? `\nSugerencia: ${reply}` : ""}`);
+    await sb.from("tasks").insert({ tenant_id: ctx.tenantId, contact_id: ctx.contactId, deal_id: deal.id,
+      assignee_id: facts.owner_id ?? deal.owner_id ?? null, title: `Atender lead canalizado por ${agent.name}`,
+      due_at: new Date().toISOString(), task_kind: "followup" });
+    return { handoff: true };
+  }
+
+  if (!shouldSend) {
+    if (reply) await note(`💡 Sugerencia de ${agent.name}: ${reply}`);
+    return { suggested: true };
+  }
+
+  // 4. Envío dentro de la ventana de 24 h (el lead acaba de escribir → servicio).
+  const { data: charge } = await sb.rpc("wa_charge_conversation", {
+    _tenant_id: ctx.tenantId, _contact_id: ctx.contactId, _conversation_id: ctx.conversationId,
+    _channel_id: ctx.channel.id, _category: "service", _direction: "outbound",
+  });
+  if (charge?.reason === "insufficient_credits") { await note(`💡 Sin créditos WhatsApp. Sugerencia de ${agent.name}: ${reply}`); return { suggested: true }; }
+
+  let wamid: string | null = null; let providerError: string | null = null;
+  const isSim = String(ctx.channel.phone_number_id ?? "").startsWith("SIM");
+  if (isSim) wamid = `sim.${crypto.randomUUID()}`;
+  else if (ctx.channel.access_token && ctx.channel.phone_number_id) {
+    const r = await fetch(`${META_API}/${ctx.channel.phone_number_id}/messages`, {
+      method: "POST", headers: { Authorization: `Bearer ${ctx.channel.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", to: ctx.to, type: "text", text: { body: reply } }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) wamid = j?.messages?.[0]?.id ?? null; else providerError = j?.error?.message ?? `Meta ${r.status}`;
+  }
+  await sb.from("messages").insert({
+    tenant_id: ctx.tenantId, conversation_id: ctx.conversationId, channel_id: ctx.channel.id,
+    direction: "outbound", body: reply, type: "text",
+    metadata: { wamid, provider_error: providerError, bot: true, sales_agent_id: agent.id, sales_agent_name: agent.name },
+  });
+  await sb.from("conversations").update({ preview: `${agent.name}: ${reply}`.slice(0, 200), last_message_at: new Date().toISOString() }).eq("id", ctx.conversationId);
+  await sb.from("sales_agent_sessions").update({
+    replies_today: repliesToday + 1, replies_date: today, last_agent_message_at: new Date().toISOString(),
+    applied_goal: goal.goal ?? "", applied_rule_id: goal.rule_id, last_channel: "whatsapp",
+  }).eq("id", s.id);
+  return { sent: !providerError };
+}
