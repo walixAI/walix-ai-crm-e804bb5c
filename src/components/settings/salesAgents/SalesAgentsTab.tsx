@@ -112,7 +112,19 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
     if (error || data?.error) return toast.error(data?.error ?? "No se pudo responder");
     setChat([...next, { role: "assistant", content: data.reply }]);
   };
-  const embed = `<script src="https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/web-chat?key=${a.public_key}" async></script>`;
+  const embed = `<script src="https://s1.walix.app/walix-chat.js?key=${a.public_key}" async></script>`;
+
+  const removeAgent = useMutation({
+    mutationFn: async () => {
+      await db.from("sales_agent_goal_rules").delete().eq("agent_id", a.id);
+      await db.from("sales_agent_knowledge").delete().eq("agent_id", a.id);
+      await db.from("sales_agent_sessions").delete().eq("agent_id", a.id);
+      const { error } = await db.from("sales_agents").delete().eq("id", a.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Agente eliminado"); qc.invalidateQueries({ queryKey: ["sales-agents"] }); onClose(); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
