@@ -172,6 +172,8 @@ Deno.serve(async (req) => {
     const assigned = await gget("/me/assigned_whatsapp_business_accounts?fields=id&limit=100", token);
     for (const w of ((assigned.raw as { data?: Array<{ id: string }> })?.data) ?? []) granularIds.add(w.id);
     const extra: WabaInfo[] = [];
+    let manualFailure: { id: string; err: string; phone: PhoneInfo | null } | null = null;
+
     for (const id of granularIds) {
       if (seen.has(id)) continue;
       const info = await gget(`/${id}?fields=id,name,currency,timezone_id`, token);
@@ -198,22 +200,16 @@ Deno.serve(async (req) => {
             }
             continue;
           }
-          console.log("discover-waba manual direct", JSON.stringify({ id, phones_status: directPhones.status, phones_raw: directPhones.raw }));
+          console.log("discover-waba manual direct", JSON.stringify({ id, phones_status: directPhones.status, phones_raw: directPhones.raw, granular: dbgData.granular_scopes, assigned_status: assigned.status, assigned_raw: assigned.raw, biz_status: bizRes.status, biz_raw: bizRes.raw }));
           // Maybe the user pasted the phone-number ID instead of the WABA ID.
           const asPhone = await gget(`/${id}?fields=id,display_phone_number,verified_name`, token);
           const err = (info.raw as { error?: { message?: string } })?.error?.message ?? "sin acceso";
           console.log("discover-waba manual id failed", JSON.stringify({ id, waba_err: info.raw, phone_status: asPhone.status, phone_raw: asPhone.raw }));
-          if (asPhone.ok && (asPhone.raw as { display_phone_number?: string })?.display_phone_number) {
-            const ph = asPhone.raw as PhoneInfo;
-            return json({
-              error: "phone_id_instead_of_waba",
-              details: `Ese ID es del número ${ph.display_phone_number}, no de la cuenta. Pega el "Identificador de la cuenta de WhatsApp Business": está en Configuración del negocio → Cuentas → Cuentas de WhatsApp, debajo del nombre de la cuenta.`,
-            }, 400);
-          }
-          return json({ error: "waba_not_accessible", details: `El token no tiene acceso a la cuenta ${id}. En Configuración del negocio → Usuarios del sistema → tu usuario → Asignar activos → Cuentas de WhatsApp, dale Control total a esa cuenta y genera un token nuevo. (Meta: ${err})` }, 400);
+          manualFailure = { id, err, phone: asPhone.ok ? (asPhone.raw as PhoneInfo) : null };
         }
         continue;
       }
+
       const w = info.raw as { id: string; name?: string; currency?: string; timezone_id?: string };
       const phonesRes = await gget(
         `/${id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status&limit=100`,
@@ -227,6 +223,16 @@ Deno.serve(async (req) => {
     console.log("discover-waba diag", JSON.stringify({ type: dbgData.type, scopes, granular: dbgData.granular_scopes, biz_status: bizRes.status, biz_raw: bizRes.ok ? undefined : bizRes.raw, biz_count: businesses.length, assigned_status: assigned.status, manual: manualWaba || undefined, wabas: tree.map((b) => b.wabas.map((w) => ({ id: w.id, phones: w.phones.length }))) }));
     const totalWabas = tree.reduce((acc, b) => acc + b.wabas.length, 0);
     const totalPhones = tree.reduce((acc, b) => acc + b.wabas.reduce((a, w) => a + w.phones.length, 0), 0);
+    if (manualFailure && totalPhones === 0) {
+      const ph = manualFailure.phone;
+      if (ph?.display_phone_number) {
+        return json({
+          error: "phone_id_instead_of_waba",
+          details: `Ese ID es del número ${ph.display_phone_number}, no de la cuenta. Abre WhatsApp Manager y copia el número que aparece en la barra de direcciones después de "waba_id=" (o en Configuración de la cuenta → Información de la cuenta → "Identificador de la cuenta de WhatsApp Business").`,
+        }, 400);
+      }
+      return json({ error: "waba_not_accessible", details: `Meta no reconoce ${manualFailure.id} como cuenta de WhatsApp para este token. Probablemente es el ID del portafolio de negocio. Abre WhatsApp Manager y copia el número que aparece después de "waba_id=" en la barra de direcciones. (Meta: ${manualFailure.err})` }, 400);
+    }
 
     return json({
       ok: true,
