@@ -32,6 +32,14 @@ Cada agente tiene:
    - **Mixto**: responde solo fuera de horario o si el asesor tarda X minutos.
    - **Autónomo**: persigue el objetivo por sí mismo hasta lograrlo o escalar.
 
+## ¿Cuántos agentes por Pipeline?
+- El modelo base es **un agente por Pipeline** (titular). Si la empresa lo necesita, se pueden crear **agentes adicionales que se reparten los orígenes del lead** (ej. uno solo para leads de Facebook/Meta y otro para todo lo demás).
+- Regla de reparto: cada agente define qué orígenes atiende (todos, solo Meta, solo web, etc.). Si dos agentes cubren el mismo origen, gana el de alcance más específico; nunca hay dos agentes escribiendo al mismo lead.
+- Los agentes del mismo Pipeline **comparten la misma base de conocimiento** (y pueden compartir identidad); lo que cambia entre ellos es objetivo, autonomía y topes de gasto.
+- El consumo (IA y WhatsApp) se registra por agente, así la empresa ve cuánto cuesta atender la captación de Meta frente al resto.
+- Casos de uso: apagar solo el agente de Meta sin afectar el resto, objetivos o topes distintos por canal de captación, o métricas separadas por fuente.
+- Si la única diferencia fuera el objetivo por origen, también lo resuelve una regla de objetivo (`source_kind`) del agente único; dos agentes se justifican cuando se quiere gestión, topes o apagado independientes.
+
 ## Modo autónomo: cómo busca la inscripción
 - Planea los pasos hacia el objetivo (perfilar → resolver dudas → enviar requisitos/precio → agendar → cerrar) y va marcando el avance en el contacto.
 - Contesta en WhatsApp y chat web, hace seguimiento cuando el lead se enfría (con plantillas aprobadas y respetando los límites de gasto que ya existen), agenda citas, mueve la Oportunidad de etapa y la marca como ganada solo si la regla lo permite; si no, la deja lista y avisa al asesor.
