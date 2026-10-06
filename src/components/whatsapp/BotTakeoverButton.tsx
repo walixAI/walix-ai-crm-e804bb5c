@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Hand } from "lucide-react";
+import { Bot, Hand, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -40,6 +40,47 @@ export function BotTakeoverButton({ contactId, conversationId }: { contactId: st
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const sKey = ["agent-session", contactId];
+  const { data: session } = useQuery({
+    queryKey: sKey,
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("sales_agent_sessions")
+        .select("id, state, sales_agents(name, enabled)").eq("contact_id", contactId)
+        .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      return data;
+    },
+  });
+  const setState = useMutation({
+    mutationFn: async (state: "agent" | "advisor") => {
+      const { error } = await (supabase as any).from("sales_agent_sessions").update({ state }).eq("id", session.id);
+      if (error) throw error;
+      if (state === "advisor") await take.mutateAsync();
+    },
+    onSuccess: (_d, state) => {
+      toast.success(state === "agent" ? "El agente vuelve a atender a este lead." : "Tomaste el control. El agente ya no responderá.");
+      qc.invalidateQueries({ queryKey: sKey });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (session?.sales_agents?.enabled) {
+    const name = session.sales_agents.name;
+    if (session.state === "agent") {
+      return (
+        <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => setState.mutate("advisor")} disabled={setState.isPending}
+          title={`${name} está atendiendo. Tócalo para atender tú.`}>
+          <Bot className="h-3 w-3" /><span className="hidden md:inline">{name} ·</span><Hand className="h-3 w-3" />Tomar control
+        </Button>
+      );
+    }
+    return (
+      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={() => setState.mutate("agent")} disabled={setState.isPending}
+        title={session.state === "escalated" ? `${name} te canalizó este lead.` : "Atiendes tú este lead."}>
+        <Undo2 className="h-3 w-3" />Devolver al agente
+      </Button>
+    );
+  }
 
   if (!active) return null;
   return (
