@@ -59,7 +59,7 @@ export function ByoWabaWizard({ open, onClose, tenantId, kind }: Props) {
       const r = await discover.mutateAsync(token);
       setBusinesses(r.businesses);
       if (r.summary.phones === 0) {
-        toast.warning("No se encontraron números", { description: "Verifica que compartiste la WABA con Walix y que el token tiene los permisos correctos." });
+        toast.warning("No se encontraron números", { description: r.summary.wabas > 0 ? `El token sí ve ${r.summary.wabas} cuenta(s) de WhatsApp, pero ninguna tiene números registrados en la API.` : "El token no tiene acceso a ninguna cuenta de WhatsApp. Al generar el token, selecciona la cuenta de WhatsApp como activo.", duration: 12000 });
         return;
       }
       if (r.summary.phones === 1) {
