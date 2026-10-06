@@ -1,3 +1,4 @@
+import { handleInboundWithAgent } from "../_shared/sales-agent.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164, phoneMatchVariants } from "../_shared/phone.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
@@ -367,6 +368,17 @@ Deno.serve(async (req) => {
                 event_data: { from, length: body.length, wamid: msg.id, conversation_id: convId },
               },
             ]);
+
+            // Agente de ventas del Pipeline: responde, sugiere o canaliza al asesor.
+            try {
+              await handleInboundWithAgent(sb, {
+                tenantId: channel.tenant_id, contactId, conversationId: convId,
+                channel: { id: channel.id, access_token: channel.access_token, phone_number_id: channel.phone_number_id },
+                to: from,
+              });
+            } catch (e) {
+              console.error("sales agent failed", e);
+            }
 
             // Campañas: detener las secuencias activas cuando el contacto responde.
             try {
