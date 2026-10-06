@@ -143,6 +143,9 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
                 <SelectContent>{Object.entries(AUTONOMY).map(([k2, l]) => <SelectItem key={k2} value={k2}>{l}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="space-y-1"><Label>Máximo de respuestas por lead al día (WhatsApp)</Label>
+              <Input type="number" min={1} className="w-28" value={a.caps?.replies_per_lead_day ?? 20}
+                onChange={(e) => set("caps", { ...(a.caps ?? {}), replies_per_lead_day: Number(e.target.value) })} /></div>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Guardar</Button>
           </TabsContent>
 
