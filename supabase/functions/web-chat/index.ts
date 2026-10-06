@@ -64,7 +64,11 @@ Deno.serve(async (req) => {
     const b = parsed.data;
 
     const { data: agent } = await sb.from("sales_agents").select("*").eq("public_key", b.key).maybeSingle();
-    if (!agent || !agent.enabled || agent.channels?.web === false) return json({ error: "Chat no disponible" }, 404);
+    if (!agent || !agent.enabled || agent.channels?.web === false) {
+      if (b.action === "meta") return json({ enabled: false });
+      return json({ error: "Chat no disponible" }, 404);
+    }
+    if (b.action === "meta") return json({ enabled: true, name: agent.name });
 
     // ---- start: reanudar o crear sesión (y contacto/oportunidad si dejó teléfono o correo)
     if (b.action === "start") {
