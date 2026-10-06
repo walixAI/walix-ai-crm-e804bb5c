@@ -43,6 +43,7 @@ export function ByoWabaWizard({ open, onClose, tenantId, kind }: Props) {
   const [step, setStep] = useState<Step>(1);
   const [acked, setAcked] = useState(false);
   const [token, setToken] = useState("");
+  const [wabaId, setWabaId] = useState("");
   const [businesses, setBusinesses] = useState<DiscoveredBusiness[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<{ waba_id: string; phone: DiscoveredPhone } | null>(null);
   const discover = useDiscoverWaba();
@@ -56,10 +57,10 @@ export function ByoWabaWizard({ open, onClose, tenantId, kind }: Props) {
 
   async function handleDiscover() {
     try {
-      const r = await discover.mutateAsync(token);
+      const r = await discover.mutateAsync({ token, waba_id: wabaId.trim() || undefined });
       setBusinesses(r.businesses);
       if (r.summary.phones === 0) {
-        toast.warning("No se encontraron números", { description: r.summary.wabas > 0 ? `El token sí ve ${r.summary.wabas} cuenta(s) de WhatsApp, pero ninguna tiene números registrados en la API.` : "El token no tiene acceso a ninguna cuenta de WhatsApp. Al generar el token, selecciona la cuenta de WhatsApp como activo.", duration: 12000 });
+        toast.warning("No se encontraron números", { description: r.summary.wabas > 0 ? `El token sí ve ${r.summary.wabas} cuenta(s) de WhatsApp, pero ninguna tiene números registrados en la API.` : wabaId.trim() ? "El token no encontró números en esa cuenta de WhatsApp. Revisa el ID de la cuenta." : "Meta no listó tus cuentas. Pega el ID de tu cuenta de WhatsApp (WABA) en el campo de abajo y vuelve a intentar.", duration: 12000 });
         return;
       }
       if (r.summary.phones === 1) {
@@ -178,6 +179,19 @@ export function ByoWabaWizard({ open, onClose, tenantId, kind }: Props) {
               >
                 ¿Cómo genero un System User Token? <ExternalLink className="h-3 w-3" />
               </a>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">ID de la cuenta de WhatsApp (WABA) — opcional</Label>
+              <Input
+                value={wabaId}
+                onChange={(e) => setWabaId(e.target.value)}
+                placeholder="Ej. 123456789012345"
+                className="font-mono"
+                inputMode="numeric"
+              />
+              <p className="text-xs text-muted-foreground">
+                Úsalo si no aparecen tus números. Lo encuentras en WhatsApp Manager → Configuración de la cuenta → Información de la cuenta (o en Configuración del negocio → Cuentas de WhatsApp, junto al nombre).
+              </p>
             </div>
             <div className="flex items-start gap-2 text-xs text-muted-foreground p-3 rounded-lg bg-muted/40">
               <ShieldCheck className="h-4 w-4 shrink-0 text-success" />
