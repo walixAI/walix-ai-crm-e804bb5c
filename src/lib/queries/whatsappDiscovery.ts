@@ -62,9 +62,10 @@ function unwrap<T>(data: unknown): T {
 
 export function useDiscoverWaba() {
   return useMutation({
-    mutationFn: async (token: string) => {
+    mutationFn: async (input: string | { token: string; waba_id?: string }) => {
+      const body = typeof input === "string" ? { token: input } : input;
       const { data, error } = await supabase.functions.invoke("whatsapp-discover-waba", {
-        body: { token },
+        body,
       });
       if (error) throw new Error(error.message);
       return unwrap<DiscoveryResult>(data);

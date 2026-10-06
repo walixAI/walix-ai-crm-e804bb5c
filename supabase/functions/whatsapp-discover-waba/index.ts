@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const token = typeof body?.token === "string" ? body.token.trim() : "";
+    const manualWaba = typeof body?.waba_id === "string" ? body.waba_id.replace(/\D/g, "") : "";
     if (!token) return json({ error: "bad_request", details: "token requerido" }, 400);
 
     const { data: userData, error: userErr } = await supaUser.auth.getUser();
@@ -166,11 +167,21 @@ Deno.serve(async (req) => {
     for (const g of dbgData.granular_scopes ?? []) {
       if (g.scope.startsWith("whatsapp_business")) for (const id of g.target_ids ?? []) granularIds.add(id);
     }
+    if (manualWaba) granularIds.add(manualWaba);
+    // System users with "all assets" access have no target_ids; try their assigned WABAs.
+    const assigned = await gget("/me/assigned_whatsapp_business_accounts?fields=id&limit=100", token);
+    for (const w of ((assigned.raw as { data?: Array<{ id: string }> })?.data) ?? []) granularIds.add(w.id);
     const extra: WabaInfo[] = [];
     for (const id of granularIds) {
       if (seen.has(id)) continue;
       const info = await gget(`/${id}?fields=id,name,currency,timezone_id`, token);
-      if (!info.ok) continue;
+      if (!info.ok) {
+        if (id === manualWaba) {
+          const err = (info.raw as { error?: { message?: string } })?.error?.message ?? "sin acceso";
+          return json({ error: "waba_not_accessible", details: `El token no tiene acceso a la cuenta ${id}: ${err}` }, 400);
+        }
+        continue;
+      }
       const w = info.raw as { id: string; name?: string; currency?: string; timezone_id?: string };
       const phonesRes = await gget(
         `/${id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,name_status&limit=100`,
@@ -181,7 +192,7 @@ Deno.serve(async (req) => {
     }
     if (extra.length) tree.push({ id: "token", name: "Cuentas del token", wabas: extra });
 
-    console.log("discover-waba diag", JSON.stringify({ type: dbgData.type, scopes, granular: dbgData.granular_scopes, biz_status: bizRes.status, biz_raw: bizRes.ok ? undefined : bizRes.raw, wabas: tree.map((b) => b.wabas.map((w) => ({ id: w.id, phones: w.phones.length }))) }));
+    console.log("discover-waba diag", JSON.stringify({ type: dbgData.type, scopes, granular: dbgData.granular_scopes, biz_status: bizRes.status, biz_raw: bizRes.ok ? undefined : bizRes.raw, biz_count: businesses.length, assigned_status: assigned.status, manual: manualWaba || undefined, wabas: tree.map((b) => b.wabas.map((w) => ({ id: w.id, phones: w.phones.length }))) }));
     const totalWabas = tree.reduce((acc, b) => acc + b.wabas.length, 0);
     const totalPhones = tree.reduce((acc, b) => acc + b.wabas.reduce((a, w) => a + w.phones.length, 0), 0);
 
