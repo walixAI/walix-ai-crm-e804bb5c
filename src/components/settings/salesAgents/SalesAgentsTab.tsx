@@ -112,6 +112,7 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
     if (error || data?.error) return toast.error(data?.error ?? "No se pudo responder");
     setChat([...next, { role: "assistant", content: data.reply }]);
   };
+  const embed = `<script src="https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/web-chat?key=${a.public_key}" async></script>`;
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -124,6 +125,7 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
             <TabsTrigger value="goals">Objetivos</TabsTrigger>
             <TabsTrigger value="kb">Conocimiento</TabsTrigger>
             <TabsTrigger value="test">Probar</TabsTrigger>
+            <TabsTrigger value="web">Chat web</TabsTrigger>
           </TabsList>
 
           <TabsContent value="identity" className="space-y-4 pt-3">
@@ -226,6 +228,13 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
               <Input value={msg} onChange={(e) => setMsg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Hola, quiero información..." />
               <Button onClick={send} disabled={busy} aria-label="Enviar"><Send className="h-4 w-4" /></Button>
             </div>
+          </TabsContent>
+
+          <TabsContent value="web" className="space-y-3 pt-3">
+            <p className="text-sm">Pega este código antes de <code>&lt;/body&gt;</code> en tu sitio web. Aparecerá un botón de chat atendido por {a.name}.</p>
+            <p className="text-xs text-muted-foreground">El agente debe estar encendido. Si el visitante deja teléfono o correo, se crea el contacto y su Oportunidad en este Pipeline; lo hablado por WhatsApp también lo recuerda.</p>
+            <pre className="rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all">{embed}</pre>
+            <Button variant="outline" onClick={() => { navigator.clipboard.writeText(embed); toast.success("Código copiado"); }}>Copiar código</Button>
           </TabsContent>
         </Tabs>
       </SheetContent>
