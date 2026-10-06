@@ -76,7 +76,7 @@ export function useDiscoverWaba() {
       const { data, error } = await supabase.functions.invoke("whatsapp-discover-waba", {
         body,
       });
-      if (error) unwrap(await readFnError(error));
+      if (error) { unwrap(await readFnError(error)); throw new Error(error.message); }
       return unwrap<DiscoveryResult>(data);
     },
   });
@@ -94,7 +94,7 @@ export function useConnectDiscovered(tenantId: string) {
       const { data, error } = await supabase.functions.invoke("whatsapp-connect-discovered", {
         body: input,
       });
-      if (error) unwrap(await readFnError(error));
+      if (error) { unwrap(await readFnError(error)); throw new Error(error.message); }
       return unwrap<ConnectResult>(data);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-channels", tenantId] }),
