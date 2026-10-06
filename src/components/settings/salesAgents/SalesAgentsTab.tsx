@@ -129,7 +129,15 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader><SheetTitle>{a.name}</SheetTitle></SheetHeader>
+        <SheetHeader>
+          <div className="flex items-center justify-between gap-2 pr-6">
+            <SheetTitle>{a.name}</SheetTitle>
+            <Button size="sm" variant="destructive" disabled={removeAgent.isPending}
+              onClick={() => { if (confirm(`¿Eliminar "${a.name}"? Se borran sus reglas y su conocimiento propio. Las conversaciones y leads ya creados se conservan.`)) removeAgent.mutate(); }}>
+              {removeAgent.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" />Eliminar</>}
+            </Button>
+          </div>
+        </SheetHeader>
         <Tabs defaultValue="identity" className="mt-4">
           <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="identity">Identidad</TabsTrigger>
