@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
               details: `Ese ID es del número ${ph.display_phone_number}, no de la cuenta. Pega el "Identificador de la cuenta de WhatsApp Business": está en Configuración del negocio → Cuentas → Cuentas de WhatsApp, debajo del nombre de la cuenta.`,
             }, 400);
           }
-          return json({ error: "waba_not_accessible", details: `Meta no deja que el token vea la cuenta ${id}: ${err}` }, 400);
+          return json({ error: "waba_not_accessible", details: `El token no tiene acceso a la cuenta ${id}. En Configuración del negocio → Usuarios del sistema → tu usuario → Asignar activos → Cuentas de WhatsApp, dale Control total a esa cuenta y genera un token nuevo. (Meta: ${err})` }, 400);
         }
         continue;
       }
