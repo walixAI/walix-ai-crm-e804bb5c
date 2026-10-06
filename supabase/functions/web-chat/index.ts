@@ -13,7 +13,7 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const Body = z.object({
-  action: z.enum(["start", "message"]),
+  action: z.enum(["start", "message", "meta"]),
   key: z.string().min(8).max(200),
   session_id: z.string().uuid().optional(),
   text: z.string().trim().min(1).max(2000).optional(),
