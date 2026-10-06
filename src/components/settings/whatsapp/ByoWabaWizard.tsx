@@ -133,9 +133,9 @@ export function ByoWabaWizard({ open, onClose, tenantId, kind }: Props) {
             <p className="font-medium">Paso 1 — Comparte tu WABA con Walix</p>
             <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
               <li>Abre <b>Business Settings</b> de tu Business Manager.</li>
-              <li>Ve a <b>Accounts → WhatsApp Accounts</b>, selecciona tu WABA.</li>
-              <li>En "Assigned Assets" o "Partners", añade la app <code className="text-foreground">{META_APP_ID}</code> (Walix) con permisos completos sobre la WABA.</li>
-              <li>En <b>System Users</b>, crea (o reutiliza) un System User y asígnale la WABA con <b>permisos completos</b>. Genera un <b>token permanente</b> con los permisos: <code className="text-foreground">whatsapp_business_messaging</code>, <code className="text-foreground">whatsapp_business_management</code>.</li>
+              <li>Ve a <b>Cuentas → Apps</b>, toca <b>Agregar → Conectar un identificador de app</b> y escribe <code className="text-foreground">{META_APP_ID}</code> (app de Walix). <b>No</b> la agregues en "Socios": ahí Meta pide un identificador de negocio, no de app, y marca "Identificador del negocio no válido".</li>
+              <li>En <b>Usuarios → Usuarios del sistema</b>, crea (o reutiliza) un usuario del sistema administrador. Con <b>Asignar activos</b>, dale tu cuenta de WhatsApp con <b>control total</b> y también la app de Walix.</li>
+              <li>En ese usuario toca <b>Generar token</b>, elige la app de Walix, caducidad <b>Nunca</b> y los permisos <code className="text-foreground">whatsapp_business_messaging</code> y <code className="text-foreground">whatsapp_business_management</code>.</li>
             </ol>
             <a
               href={SHARE_URL}
