@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
 
     const { data: kb } = await sb.from("sales_agent_knowledge").select("kind,title,content,url")
       .eq("tenant_id", agent.tenant_id).or(`agent_id.is.null,agent_id.eq.${agent.id}`);
-    const system = buildSystemPrompt(agent, goal, kb ?? [], b.channel === "copilot" ? "sugerencia para el asesor" : b.channel);
+    const system = buildSystemPrompt(agent, goal, kb ?? [], b.channel === "copilot" ? "sugerencia para el asesor" : b.channel,
+      { query: b.messages.slice(-4).map((m) => m.content).join(" ") });
 
     const tm = await resolveTenantModel(sb, agent.tenant_id);
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

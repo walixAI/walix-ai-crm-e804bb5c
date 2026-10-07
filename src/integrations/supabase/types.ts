@@ -4113,12 +4113,18 @@ export type Database = {
           applied_rule_id: string | null
           contact_id: string
           created_at: string
+          first_reply_at: string | null
+          handoff_at: string | null
+          handoff_reason: string | null
           id: string
           last_agent_message_at: string | null
           last_channel: string
+          lead_replied: boolean
+          missing_fields: Json
           paused_until: string | null
           pipeline_id: string
           plan: Json
+          profile_complete: boolean
           profile_data: Json
           replies_date: string | null
           replies_today: number
@@ -4133,12 +4139,18 @@ export type Database = {
           applied_rule_id?: string | null
           contact_id: string
           created_at?: string
+          first_reply_at?: string | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
           id?: string
           last_agent_message_at?: string | null
           last_channel?: string
+          lead_replied?: boolean
+          missing_fields?: Json
           paused_until?: string | null
           pipeline_id: string
           plan?: Json
+          profile_complete?: boolean
           profile_data?: Json
           replies_date?: string | null
           replies_today?: number
@@ -4153,12 +4165,18 @@ export type Database = {
           applied_rule_id?: string | null
           contact_id?: string
           created_at?: string
+          first_reply_at?: string | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
           id?: string
           last_agent_message_at?: string | null
           last_channel?: string
+          lead_replied?: boolean
+          missing_fields?: Json
           paused_until?: string | null
           pipeline_id?: string
           plan?: Json
+          profile_complete?: boolean
           profile_data?: Json
           replies_date?: string | null
           replies_today?: number
@@ -4208,6 +4226,7 @@ export type Database = {
       sales_agents: {
         Row: {
           assignment_conditions: Json
+          assignment_rule: string
           autonomy: string
           autonomy_config: Json
           caps: Json
@@ -4218,21 +4237,34 @@ export type Database = {
           default_handoff: Json
           default_key_message: string
           enabled: boolean
+          examples: string
+          format_rules: Json
+          handoff_message: string
+          handoff_stage_id: string | null
+          handoff_triggers: Json
           id: string
           identity: string
           is_default: boolean
           language: string
           name: string
           never_do: string
+          objections: string
+          out_of_scope: string
           pipeline_id: string
           priority: number
+          privacy_url: string
+          profiled_stage_id: string | null
+          profiling_fields: Json
+          profiling_notes: string
           public_key: string
+          sla_minutes: number
           tenant_id: string
           tone: string
           updated_at: string
         }
         Insert: {
           assignment_conditions?: Json
+          assignment_rule?: string
           autonomy?: string
           autonomy_config?: Json
           caps?: Json
@@ -4243,21 +4275,34 @@ export type Database = {
           default_handoff?: Json
           default_key_message?: string
           enabled?: boolean
+          examples?: string
+          format_rules?: Json
+          handoff_message?: string
+          handoff_stage_id?: string | null
+          handoff_triggers?: Json
           id?: string
           identity?: string
           is_default?: boolean
           language?: string
           name?: string
           never_do?: string
+          objections?: string
+          out_of_scope?: string
           pipeline_id: string
           priority?: number
+          privacy_url?: string
+          profiled_stage_id?: string | null
+          profiling_fields?: Json
+          profiling_notes?: string
           public_key?: string
+          sla_minutes?: number
           tenant_id: string
           tone?: string
           updated_at?: string
         }
         Update: {
           assignment_conditions?: Json
+          assignment_rule?: string
           autonomy?: string
           autonomy_config?: Json
           caps?: Json
@@ -4268,25 +4313,51 @@ export type Database = {
           default_handoff?: Json
           default_key_message?: string
           enabled?: boolean
+          examples?: string
+          format_rules?: Json
+          handoff_message?: string
+          handoff_stage_id?: string | null
+          handoff_triggers?: Json
           id?: string
           identity?: string
           is_default?: boolean
           language?: string
           name?: string
           never_do?: string
+          objections?: string
+          out_of_scope?: string
           pipeline_id?: string
           priority?: number
+          privacy_url?: string
+          profiled_stage_id?: string | null
+          profiling_fields?: Json
+          profiling_notes?: string
           public_key?: string
+          sla_minutes?: number
           tenant_id?: string
           tone?: string
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "sales_agents_handoff_stage_id_fkey"
+            columns: ["handoff_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sales_agents_pipeline_id_fkey"
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_agents_profiled_stage_id_fkey"
+            columns: ["profiled_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
             referencedColumns: ["id"]
           },
           {

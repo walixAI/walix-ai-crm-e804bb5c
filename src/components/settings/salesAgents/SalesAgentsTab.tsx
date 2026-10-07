@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/sonner";
+import { FormatSection, HandoffSection, MetricsSection, ObjectionsSection, ProfilingSection } from "./AgentSections";
 
 type Cond = { field: string; value: string[] };
 const FIELDS: Record<string, string> = {
@@ -132,18 +133,25 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
         <SheetHeader>
           <div className="flex items-center justify-between gap-2 pr-6">
             <SheetTitle>{a.name}</SheetTitle>
+            <div className="flex gap-2">
+            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Guardar cambios</Button>
             <Button size="sm" variant="destructive" disabled={removeAgent.isPending}
               onClick={() => { if (confirm(`¿Eliminar "${a.name}"? Se borran sus reglas y su conocimiento propio. Las conversaciones y leads ya creados se conservan.`)) removeAgent.mutate(); }}>
               {removeAgent.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" />Eliminar</>}
             </Button>
+            </div>
           </div>
         </SheetHeader>
         <Tabs defaultValue="identity" className="mt-4">
           <TabsList className="flex flex-wrap h-auto">
-            <TabsTrigger value="identity">Identidad</TabsTrigger>
-            <TabsTrigger value="assign">Reparto</TabsTrigger>
+            <TabsTrigger value="identity">Persona y tono</TabsTrigger>
             <TabsTrigger value="goals">Objetivos</TabsTrigger>
+            <TabsTrigger value="profiling">Perfilamiento</TabsTrigger>
             <TabsTrigger value="kb">Conocimiento</TabsTrigger>
+            <TabsTrigger value="objections">Objeciones y ejemplos</TabsTrigger>
+            <TabsTrigger value="handoff">Handoff</TabsTrigger>
+            <TabsTrigger value="assign">Reparto</TabsTrigger>
+            <TabsTrigger value="metrics">Métricas</TabsTrigger>
             <TabsTrigger value="test">Probar</TabsTrigger>
             <TabsTrigger value="web">Chat web</TabsTrigger>
           </TabsList>
@@ -156,8 +164,9 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
             <div className="space-y-1"><Label>Nombre</Label><Input value={a.name} onChange={(e) => set("name", e.target.value)} /></div>
             <div className="space-y-1"><Label>Quién es y a quién representa</Label><Textarea rows={3} value={a.identity} onChange={(e) => set("identity", e.target.value)} placeholder="Soy Sofía, asesora de admisiones de..." /></div>
             <div className="space-y-1"><Label>Tono</Label><Input value={a.tone} onChange={(e) => set("tone", e.target.value)} /></div>
-            <div className="space-y-1"><Label>Nunca debe</Label><Textarea rows={2} value={a.never_do} onChange={(e) => set("never_do", e.target.value)} placeholder="Prometer descuentos, dar precios no publicados..." /></div>
+            <div className="space-y-1"><Label>Reglas: qué no debe decir y temas prohibidos</Label><Textarea rows={5} value={a.never_do} onChange={(e) => set("never_do", e.target.value)} placeholder="Prometer descuentos, dar precios no publicados..." /></div>
             <div className="space-y-1"><Label>Objetivo por defecto</Label><Textarea rows={2} value={a.default_goal} onChange={(e) => set("default_goal", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Lo que NO es su objetivo</Label><Textarea rows={3} value={a.out_of_scope ?? ""} onChange={(e) => set("out_of_scope", e.target.value)} placeholder="Inscribir o cobrar, confirmar porcentajes de beca..." /></div>
             <div className="space-y-1"><Label>Mensaje clave</Label><Input value={a.default_key_message} onChange={(e) => set("default_key_message", e.target.value)} /></div>
             <div className="space-y-1"><Label>Autonomía</Label>
               <Select value={a.autonomy} onValueChange={(v) => set("autonomy", v)}>
@@ -168,9 +177,13 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
             <div className="space-y-1"><Label>Máximo de respuestas por lead al día (WhatsApp)</Label>
               <Input type="number" min={1} className="w-28" value={a.caps?.replies_per_lead_day ?? 20}
                 onChange={(e) => set("caps", { ...(a.caps ?? {}), replies_per_lead_day: Number(e.target.value) })} /></div>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Guardar</Button>
+            <FormatSection a={a} set={set} />
           </TabsContent>
 
+          <TabsContent value="profiling" className="pt-3"><ProfilingSection a={a} set={set} /></TabsContent>
+          <TabsContent value="objections" className="pt-3"><ObjectionsSection a={a} set={set} /></TabsContent>
+          <TabsContent value="handoff" className="pt-3"><HandoffSection a={a} set={set} /></TabsContent>
+          <TabsContent value="metrics" className="pt-3"><MetricsSection a={a} /></TabsContent>
           <TabsContent value="assign" className="space-y-4 pt-3">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div><p className="font-medium text-sm">Agente por defecto ("para todo lo demás")</p><p className="text-xs text-muted-foreground">Atiende a los leads que ningún otro agente cubre. Solo uno por Pipeline.</p></div>
