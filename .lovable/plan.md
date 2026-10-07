@@ -42,7 +42,14 @@ Lo que Walix ya tiene y el otro bot no (no hace falta copiar): control de gasto 
 
 ## 3. Propuesta de trabajo
 
-**Paso A — Configurar SCALA con lo que ya existe** (una vez resueltas las contradicciones): cargar objetivo, identidad Arlett, tono, reglas, objeciones y conocimiento en el agente principal; borrar o reconvertir el agente duplicado.
+**Paso A — Preparar la pantalla del agente para recibir el documento de Utel** (sin cargar todavía los datos de SCALA): secciones separadas igual que el documento (Objetivos, Persona y tono, Perfilamiento, Conocimiento, Reglas, Objeciones, Handoff, Conversación tipo), para que después se llene una por una.
+
+**Quitar lo que no encaja con los documentos:**
+- Perfilamiento fijo "necesidad, presupuesto, tiempo, decisor" (se reemplaza por el configurable).
+- Longitud fija "3-4 oraciones" (se reemplaza por reglas de formato del agente).
+- Handoff genérico "si no sabes, canaliza" como única regla (pasa a disparadores configurables).
+- Lectura de solo los primeros 40 documentos de conocimiento (se reemplaza por búsqueda inteligente).
+- El agente nunca debe fingir ser humano: se agrega como regla fija.
 
 **Paso B — Agregar a Walix (en este orden de prioridad):**
 1. Sección "Perfilamiento" por agente: datos a obtener en orden, guardados en la ficha, con etapa destino al completar.
