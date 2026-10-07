@@ -370,15 +370,48 @@ Deno.serve(async (req) => {
             ]);
 
             // Agente de ventas del Pipeline: responde, sugiere o canaliza al asesor.
+            let agentResult: any = null;
+            let agentError: string | null = null;
             try {
-              await handleInboundWithAgent(sb, {
+              agentResult = await handleInboundWithAgent(sb, {
                 tenantId: channel.tenant_id, contactId, conversationId: convId,
                 channel: { id: channel.id, access_token: channel.access_token, phone_number_id: channel.phone_number_id },
                 to: from,
               });
             } catch (e) {
               console.error("sales agent failed", e);
+              agentError = String((e as any)?.message ?? e).slice(0, 300);
             }
+
+            // Alerta: si el agente debía responder y no pudo, avisar de inmediato.
+            const ALERT: Record<string, string> = {
+              sin_oportunidad: "el contacto no tiene una oportunidad en un Pipeline",
+              ia_error: "el motor de IA no respondió",
+              tope_diario: "se alcanzó el tope diario de respuestas del agente",
+            };
+            const skipReason = agentError ? "error" : agentResult?.skipped;
+            if (agentError || (skipReason && ALERT[skipReason])) {
+              try {
+                const { data: c } = await sb.from("contacts").select("name, owner_id").eq("id", contactId).maybeSingle();
+                const recipients = new Set<string>();
+                if (c?.owner_id) recipients.add(c.owner_id);
+                const { data: admins } = await sb.from("user_roles").select("user_id")
+                  .eq("tenant_id", channel.tenant_id).in("role", ["tenant_admin", "tenant_owner"]);
+                (admins ?? []).forEach((a: any) => recipients.add(a.user_id));
+                const why = agentError ? `ocurrió un error (${agentError})` : ALERT[skipReason];
+                if (recipients.size) {
+                  await sb.from("notifications").insert([...recipients].map((uid) => ({
+                    tenant_id: channel.tenant_id, user_id: uid, category: "operational", severity: "danger",
+                    type: "agent_no_reply", icon: "AlertTriangle",
+                    title: "Un mensaje quedó sin respuesta del agente",
+                    body: `${c?.name ?? from} escribió y el agente no contestó porque ${why}. Atiéndelo desde Bandeja.`,
+                    link: `/inbox?conversation=${convId}`,
+                    data: { reason: skipReason, conversation_id: convId, contact_id: contactId },
+                  })));
+                }
+              } catch (e) { console.error("agent alert failed", e); }
+            }
+
 
             // Campañas: detener las secuencias activas cuando el contacto responde.
             try {
