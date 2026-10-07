@@ -312,11 +312,11 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     dealId: deal.id, ownerId: facts.owner_id ?? deal.owner_id ?? null, channelLabel: "WhatsApp", note });
   if (turn.handoff && !turn.scheduled) {
     // Handoff inmediato: avisa al lead con el mensaje configurado (si la autonomía permite enviar).
-    if (autonomy !== "sugerencia" && agent.handoff_message) parsed.reply = agent.handoff_message;
+    if (autonomy !== "solo_sugiere" && agent.handoff_message) parsed.reply = agent.handoff_message;
     else return { handoff: true };
   }
   const finalReply = String(parsed.reply ?? reply).trim().slice(0, 1500);
-  const shouldSendFinal = finalReply && ((turn.handoff && autonomy !== "sugerencia") || autonomy === "autonomo" || (autonomy === "mixto" && parsed.simple !== false));
+  const shouldSendFinal = finalReply && ((turn.handoff && autonomy !== "solo_sugiere") || autonomy === "autonomo" || (autonomy === "mixto" && parsed.simple !== false));
 
   if (!shouldSendFinal) {
     if (finalReply) await note(`💡 Sugerencia de ${agent.name}: ${finalReply}`);
