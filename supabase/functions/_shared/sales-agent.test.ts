@@ -28,7 +28,7 @@ describe("Reglas de conversación del agente", () => {
   });
   it("no inicia el perfilamiento solicitando el nombre completo", () => {
     expect(prompt).toContain("nunca pidiendo nombre completo, edad o ciudad");
-    expect(prompt).toContain("La identidad y el cargo son contexto interno");
+    expect(prompt).toContain("Pres\u00e9ntate en el primer mensaje con nombre y cargo de forma natural");
     expect(prompt).toContain("Si ya mencionó una carrera o una duda, responde a eso");
   });
 });
