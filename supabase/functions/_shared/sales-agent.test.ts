@@ -31,4 +31,15 @@ describe("Reglas de conversación del agente", () => {
     expect(prompt).toContain("Pres\u00e9ntate en el primer mensaje con nombre y cargo de forma natural");
     expect(prompt).toContain("Si ya mencionó una carrera o una duda, responde a eso");
   });
+  it("respeta Híbrida y consulta asistencia antes de canalizar", () => {
+    expect(prompt).toContain("si puede o quiere asistir un par de horas a la semana a una sede de Utel");
+    expect(prompt).toContain("Si no puede o no quiere, ofrece Online sin insistir");
+    expect(prompt).toContain("registra por confirmar, sin asumir aceptación ni rechazo");
+  });
+  it("acuerda canal y horario sin inventar becas ni citas", () => {
+    expect(prompt).toContain("prefiere llamada breve o información por WhatsApp");
+    expect(prompt).toContain("No impongas llamada a quien eligió WhatsApp");
+    expect(prompt).toContain("Un horario solicitado no es una cita confirmada");
+    expect(prompt).toContain("No prometas mensajes automáticos a las dos horas");
+  });
 });
