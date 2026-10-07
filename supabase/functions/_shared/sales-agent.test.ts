@@ -51,14 +51,14 @@ describe("Reglas de conversación del agente", () => {
 
   it("mantiene el objetivo y la prioridad configurados", () => {
     expect(prompt).toContain("OBJETIVO ACTUAL: Orientar y agendar una llamada");
-    expect(prompt).toContain("Mensaje clave: Híbrida primero");
+    expect(prompt).toContain("Mensaje clave que debes transmitir cuando sea pertinente: Híbrida primero");
   });
   it("define ritmo, límites y validación antes de costos", () => {
     expect(prompt).toContain("dos o tres oraciones cortas como máximo");
     expect(prompt).toContain("Una sola pregunta clara a la vez");
     expect(prompt).toContain("certificado de bachillerato terminado");
     expect(prompt).toContain("Prohibidas las cortesías mecánicas");
-    expect(prompt).toContain("prevalecen esas reglas");
+    expect(prompt).toContain("CONFIGURACIÓN DEL AGENTE (OBLIGATORIA)");
   });
   it("no permite hacerse pasar por humano", () => {
     expect(prompt).toContain("responde con honestidad");
