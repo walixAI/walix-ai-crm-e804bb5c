@@ -254,13 +254,20 @@ interface InboundCtx {
   to: string;
 }
 
+// El pipeline de una oportunidad SIEMPRE se deriva de su etapa (pipeline_stages.pipeline_id);
+// deals no tiene columna pipeline_id. No cambiar esta resolución sin actualizar la prueba de regresión.
+export function resolveDealPipeline(dealRow: any): any {
+  if (!dealRow) return null;
+  return { ...dealRow, pipeline_id: dealRow.pipeline_stages?.pipeline_id ?? null };
+}
+
 export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   // 1. Pipeline del lead: oportunidad abierta más reciente.
   const { data: dealRow, error: dealErr } = await sb.from("deals").select("id, owner_id, stage_id, pipeline_stages(pipeline_id)")
     .eq("contact_id", ctx.contactId).eq("tenant_id", ctx.tenantId)
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (dealErr) console.error("sales-agent deal lookup", dealErr);
-  const deal = dealRow ? { ...dealRow, pipeline_id: (dealRow as any).pipeline_stages?.pipeline_id ?? null } : null;
+  const deal = resolveDealPipeline(dealRow);
   if (!deal?.pipeline_id) { console.log("sales-agent skipped: sin_oportunidad", ctx.contactId); return { skipped: "sin_oportunidad" }; }
 
   const { data: agents } = await sb.from("sales_agents").select("*")
