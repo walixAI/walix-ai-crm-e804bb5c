@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         visitor_name: name, visitor_phone: phone, visitor_email: email,
       }).select("id").single();
       if (error) return json({ error: "No se pudo iniciar el chat" }, 500);
-      const greeting = `¡Hola ${name.split(" ")[0]}! Soy ${agent.name}. ¿En qué te puedo ayudar?`;
+      const greeting = `Hola ${name.split(" ")[0]}, soy ${agent.name}. ¿En qué te ayudo?`;
       await sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "agent", body: greeting });
       return json({ session_id: s.id, greeting });
     }
