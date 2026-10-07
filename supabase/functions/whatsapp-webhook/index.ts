@@ -405,7 +405,7 @@ Deno.serve(async (req) => {
                     type: "agent_no_reply", icon: "AlertTriangle",
                     title: "Un mensaje quedó sin respuesta del agente",
                     body: `${c?.name ?? from} escribió y el agente no contestó porque ${why}. Atiéndelo desde Bandeja.`,
-                    link: `/inbox?conversation=${convId}`,
+                    link: `/whatsapp?conversationId=${convId}`,
                     data: { reason: skipReason, conversation_id: convId, contact_id: contactId },
                   })));
                 }
