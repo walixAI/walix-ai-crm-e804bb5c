@@ -201,7 +201,16 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
           </TabsContent>
 
           <TabsContent value="goals" className="space-y-4 pt-3">
-            <p className="text-sm text-muted-foreground">Reglas que sustituyen el objetivo por defecto. Se aplica la de mayor prioridad que coincida.</p>
+            <Card className="p-3 space-y-1 border-primary/40 bg-primary/5">
+              <p className="font-medium text-sm">Objetivo por defecto <span className="text-xs font-normal text-muted-foreground">· aplica a todo lead cuando ninguna regla coincide</span></p>
+              <p className="text-sm whitespace-pre-wrap">{a.default_goal || "Sin definir"}</p>
+              {a.default_key_message && <p className="text-xs text-muted-foreground">Mensaje clave: {a.default_key_message}</p>}
+              <p className="text-xs text-muted-foreground">Se edita en la pestaña "Persona y tono".</p>
+            </Card>
+            <p className="text-sm text-muted-foreground">Las reglas sustituyen el objetivo por defecto para segmentos específicos. Se aplica la de mayor prioridad que coincida.</p>
+            {(rules.data ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-3">Aún no hay reglas: todos los leads se atienden con el objetivo por defecto. Crea una abajo solo si quieres atender distinto a un segmento (por origen, ciudad, temporada, etc.).</p>
+            )}
             {(rules.data ?? []).map((r: any) => (
               <Card key={r.id} className="p-3 space-y-1">
                 <div className="flex items-center justify-between">
