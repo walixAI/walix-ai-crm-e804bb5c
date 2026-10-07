@@ -61,8 +61,8 @@ export function resolveGoal(agent: any, rules: any[], f: LeadFacts) {
 
 export async function loadLeadFacts(sb: any, contactId: string, pipelineId: string): Promise<LeadFacts> {
   const { data: c } = await sb.from("contacts").select("source, tags, owner_id, address").eq("id", contactId).maybeSingle();
-  const { data: d } = await sb.from("deals").select("stage_id").eq("contact_id", contactId)
-    .eq("pipeline_id", pipelineId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const { data: d } = await sb.from("deals").select("stage_id, pipeline_stages!inner(pipeline_id)").eq("contact_id", contactId)
+    .eq("pipeline_stages.pipeline_id", pipelineId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   return { source: c?.source, tags: c?.tags ?? [], owner_id: c?.owner_id, address: c?.address,
     stage_id: d?.stage_id ?? null, month: new Date().getMonth() + 1 };
 }
@@ -256,10 +256,12 @@ interface InboundCtx {
 
 export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   // 1. Pipeline del lead: oportunidad abierta más reciente.
-  const { data: deal } = await sb.from("deals").select("id, pipeline_id, owner_id")
+  const { data: dealRow, error: dealErr } = await sb.from("deals").select("id, owner_id, stage_id, pipeline_stages(pipeline_id)")
     .eq("contact_id", ctx.contactId).eq("tenant_id", ctx.tenantId)
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (!deal?.pipeline_id) return { skipped: "sin_oportunidad" };
+  if (dealErr) console.error("sales-agent deal lookup", dealErr);
+  const deal = dealRow ? { ...dealRow, pipeline_id: (dealRow as any).pipeline_stages?.pipeline_id ?? null } : null;
+  if (!deal?.pipeline_id) { console.log("sales-agent skipped: sin_oportunidad", ctx.contactId); return { skipped: "sin_oportunidad" }; }
 
   const { data: agents } = await sb.from("sales_agents").select("*")
     .eq("tenant_id", ctx.tenantId).eq("pipeline_id", deal.pipeline_id);
