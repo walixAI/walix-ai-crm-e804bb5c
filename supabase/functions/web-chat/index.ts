@@ -181,7 +181,8 @@ Deno.serve(async (req) => {
       const { data: c } = await sb.from("contacts").select("owner_id").eq("id", s.contact_id).maybeSingle();
       const turn = await applyAgentTurn(sb, { agent, session: agentSession, parsed: parsedOut, tenantId: agent.tenant_id,
         contactId: s.contact_id, dealId: s.deal_id ?? null, ownerId: c?.owner_id ?? null, channelLabel: "chat web",
-        note: async (t: string) => sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "note", body: t }) });
+        note: async (t: string) => sb.from("activities").insert({ tenant_id: agent.tenant_id, contact_id: s.contact_id, deal_id: s.deal_id ?? null,
+          type: "note", description: t, metadata: { sales_agent_id: agent.id, kind: "agent_handoff", channel: "web" } }) });
       if (turn.handoff && !turn.scheduled && agent.handoff_message) {
         await sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "agent", body: agent.handoff_message });
         return json({ reply: `${reply}\n\n${agent.handoff_message}` });
