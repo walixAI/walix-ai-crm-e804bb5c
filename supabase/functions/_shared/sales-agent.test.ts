@@ -23,7 +23,7 @@ describe("Resolución del embudo de la oportunidad (regresión)", () => {
             return { data: null, error: null };
           },
           then: (resolve: any) => resolve({
-            data: table === "sales_agents" ? [{ id: "a1", tenant_id: "t1", pipeline_id: "p1", channels: { whatsapp: true } }] : [],
+            data: table === "sales_agents" ? [{ id: "a1", tenant_id: "t1", pipeline_id: "p1", enabled: true, is_default: true, priority: 0, assignment_conditions: [], channels: { whatsapp: true } }] : [],
             error: null,
           }),
         };
