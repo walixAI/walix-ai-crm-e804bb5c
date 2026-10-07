@@ -109,7 +109,24 @@ const TRIGGER_TEXT: Record<string, string> = {
 };
 export const HANDOFF_TRIGGERS = TRIGGER_TEXT;
 
-export interface PromptOpts { query?: string; profile?: Record<string, any>; known?: Record<string, any> }
+export interface PromptOpts { query?: string; profile?: Record<string, any>; known?: Record<string, any>; adContext?: string }
+
+/** Convierte el objeto `referral` de Meta (Click-to-WhatsApp) en texto legible para el agente. */
+export function describeAdReferral(ref: any, firstMessage?: string): string {
+  if (!ref || typeof ref !== "object") return "";
+  const clean = (v: any) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
+  const lines = [
+    ref.headline && `Título del anuncio: ${clean(ref.headline)}`,
+    ref.body && `Texto del anuncio: ${clean(ref.body)}`,
+    firstMessage && `Primer mensaje que envió (puede venir prellenado por el anuncio): ${clean(firstMessage)}`,
+    ref.source_type && `Tipo de origen: ${ref.source_type === "ad" ? "anuncio" : ref.source_type === "post" ? "publicación" : clean(ref.source_type)}`,
+    ref.media_type && `Formato: ${clean(ref.media_type)}`,
+    ref.source_url && `Enlace: ${clean(ref.source_url)}`,
+  ].filter(Boolean);
+  if (!lines.length) return "";
+  return "\n## Llegó desde un anuncio de Meta (dato confirmado)\n" + lines.join("\n") +
+    "\nDeduce de aquí la carrera/programa y la modalidad de interés. Si el anuncio nombra una licenciatura o modalidad, trátala como interés confirmado: no preguntes '¿qué carrera te interesa?'; menciónala en tu primer mensaje y confírmala con naturalidad (ej. 'Veo que te interesó la Licenciatura en X…'). Regístrala en el campo de perfil correspondiente. Si el anuncio es genérico, pregunta como siempre. No inventes promociones ni precios del anuncio que no estén en la base de conocimiento.";
+}
 
 export function buildSystemPrompt(agent: any, goal: ReturnType<typeof resolveGoal>, knowledge: any[], channel: string, opts: PromptOpts = {}) {
   const kbSel = selectKnowledge(knowledge, opts.query ?? "");
@@ -144,6 +161,7 @@ export function buildSystemPrompt(agent: any, goal: ReturnType<typeof resolveGoa
     missing.length ? `Siguiente dato pendiente: ${missing[0].label} [${missing[0].key}]. Avanza hacia él con naturalidad cuando el lead haya resuelto su duda actual.` : (fields.length ? "Perfilamiento completo: acuerda el siguiente paso y canaliza al asesor." : ""),
     agent.profiling_notes ? `Indicaciones de perfilamiento: ${agent.profiling_notes}` : "",
     knownTxt ? `Datos ya conocidos del lead: ${knownTxt}` : "",
+    opts.adContext || "",
     triggers.length ? `\n## Transfiere al asesor de inmediato (handoff=true) si el lead: ${triggers.join("; ")}.` : "",
     agent.objections ? `\n## Objeciones y respuestas aprobadas (úsalas tal cual en contenido)\n${agent.objections}` : "",
     agent.examples ? `\n## Conversaciones modelo (imita su flujo y ritmo)\n${agent.examples.slice(0, 6000)}` : "",
@@ -315,7 +333,18 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     .map((m: any) => ({ role: m.direction === "inbound" ? "user" : "assistant", content: m.body }));
 
   const { data: ct } = await sb.from("contacts").select("name, email, address").eq("id", ctx.contactId).maybeSingle();
-  const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp", {
+  // Anuncio de Meta (CTWA): el referral más reciente del contacto, con respaldo en la atribución guardada.
+  let adContext = "";
+  const { data: refMsg } = await sb.from("messages").select("body, metadata")
+    .eq("conversation_id", ctx.conversationId).eq("direction", "inbound").not("metadata->referral", "is", null)
+    .order("sent_at", { ascending: false }).limit(1).maybeSingle();
+  if (refMsg?.metadata?.referral) adContext = describeAdReferral(refMsg.metadata.referral, refMsg.body);
+  else {
+    const { data: at } = await sb.from("contact_attribution").select("utm_campaign, utm_content, landing_url, source_kind")
+      .eq("contact_id", ctx.contactId).eq("source_kind", "whatsapp_ad").order("touched_at", { ascending: false }).limit(1).maybeSingle();
+    if (at) adContext = describeAdReferral({ headline: at.utm_campaign, body: at.utm_content, source_url: at.landing_url, source_type: "ad" });
+  }
+  const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp", { adContext,
     query: history.slice(-4).map((m: any) => m.content).join(" "), profile: s.profile_data ?? {},
     known: { nombre_whatsapp: ct?.name, correo: ct?.email, direccion: ct?.address },
   }) + jsonInstructions(agent);
