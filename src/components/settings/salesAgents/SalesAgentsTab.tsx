@@ -133,10 +133,13 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
         <SheetHeader>
           <div className="flex items-center justify-between gap-2 pr-6">
             <SheetTitle>{a.name}</SheetTitle>
+            <div className="flex gap-2">
+            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Guardar cambios</Button>
             <Button size="sm" variant="destructive" disabled={removeAgent.isPending}
               onClick={() => { if (confirm(`¿Eliminar "${a.name}"? Se borran sus reglas y su conocimiento propio. Las conversaciones y leads ya creados se conservan.`)) removeAgent.mutate(); }}>
               {removeAgent.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" />Eliminar</>}
             </Button>
+            </div>
           </div>
         </SheetHeader>
         <Tabs defaultValue="identity" className="mt-4">
@@ -174,7 +177,6 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
             <div className="space-y-1"><Label>Máximo de respuestas por lead al día (WhatsApp)</Label>
               <Input type="number" min={1} className="w-28" value={a.caps?.replies_per_lead_day ?? 20}
                 onChange={(e) => set("caps", { ...(a.caps ?? {}), replies_per_lead_day: Number(e.target.value) })} /></div>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Guardar</Button>
             <FormatSection a={a} set={set} />
           </TabsContent>
 
