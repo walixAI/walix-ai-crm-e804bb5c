@@ -26,4 +26,9 @@ describe("Reglas de conversación del agente", () => {
     expect(prompt).not.toContain("Eres una persona real");
     expect(prompt).not.toContain("Nunca menciones que eres asistente virtual");
   });
+  it("no inicia el perfilamiento solicitando el nombre completo", () => {
+    expect(prompt).toContain("nunca pidiendo nombre completo, edad o ciudad");
+    expect(prompt).toContain("La identidad y el cargo son contexto interno");
+    expect(prompt).toContain("Si ya mencionó una carrera o una duda, responde a eso");
+  });
 });
