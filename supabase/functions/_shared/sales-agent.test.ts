@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, resolveGoal } from "../../supabase/functions/_shared/sales-agent";
+import { buildSystemPrompt, resolveGoal } from "./sales-agent";
 
 describe("Reglas de conversación del agente", () => {
   const agent = {
