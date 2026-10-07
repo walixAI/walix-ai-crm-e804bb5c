@@ -316,7 +316,7 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     else return { handoff: true };
   }
   const finalReply = String(parsed.reply ?? reply).trim().slice(0, 1500);
-  const shouldSendFinal = finalReply && (turn.handoff || autonomy === "autonomo" || (autonomy === "mixto" && parsed.simple !== false));
+  const shouldSendFinal = finalReply && ((turn.handoff && autonomy !== "sugerencia") || autonomy === "autonomo" || (autonomy === "mixto" && parsed.simple !== false));
 
   if (!shouldSendFinal) {
     if (finalReply) await note(`💡 Sugerencia de ${agent.name}: ${finalReply}`);

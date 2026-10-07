@@ -6,7 +6,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 import { resolveTenantModel } from "../_shared/tenant-model.ts";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
-import { buildSystemPrompt, loadLeadFacts, resolveGoal } from "../_shared/sales-agent.ts";
+import { applyAgentTurn, buildSystemPrompt, jsonInstructions, loadLeadFacts, resolveGoal } from "../_shared/sales-agent.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 
 const json = (b: unknown, status = 200) =>
@@ -146,9 +146,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    const system = buildSystemPrompt(agent, goal, kb ?? [], "chat del sitio web") + waMemory +
-      `\nVisitante: ${s.visitor_name ?? "—"}.` +
-      `\n\nResponde SOLO en JSON: {"reply":"texto","handoff":true|false,"handoff_reason":""}. handoff=true si pide humano, hay queja, quiere pagar/inscribirse ya o no sabes responder.`;
+    const system = buildSystemPrompt(agent, goal, kb ?? [], "chat del sitio web", {
+      query: [...(past ?? []).slice(-3).map((m: any) => m.body), b.text].join(" "),
+      profile: agentSession?.profile_data ?? {}, known: { nombre: s.visitor_name },
+    }) + waMemory + jsonInstructions(agent);
     const history = [...(past ?? []), { role: "visitor", body: b.text }].slice(-20)
       .map((m: any) => ({ role: m.role === "visitor" ? "user" : "assistant", content: m.body }));
 
@@ -172,17 +173,19 @@ Deno.serve(async (req) => {
     const reply = String(parsedOut.reply ?? "").trim().slice(0, 1500) || "¿Me puedes dar un poco más de detalle?";
     await sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "agent", body: reply });
 
-    if (parsedOut.handoff && s.contact_id) {
-      if (agentSession) await sb.from("sales_agent_sessions").update({ state: "escalated", last_channel: "web" }).eq("id", agentSession.id);
-      else await sb.from("sales_agent_sessions").insert({ tenant_id: agent.tenant_id, contact_id: s.contact_id, agent_id: agent.id,
-        pipeline_id: agent.pipeline_id, state: "escalated", last_channel: "web" });
+    if (s.contact_id) {
+      if (!agentSession) {
+        agentSession = (await sb.from("sales_agent_sessions").insert({ tenant_id: agent.tenant_id, contact_id: s.contact_id, agent_id: agent.id,
+          pipeline_id: agent.pipeline_id, state: "agent", last_channel: "web", last_agent_message_at: new Date().toISOString() }).select("*").single()).data;
+      }
       const { data: c } = await sb.from("contacts").select("owner_id").eq("id", s.contact_id).maybeSingle();
-      await sb.from("tasks").insert({ tenant_id: agent.tenant_id, contact_id: s.contact_id, deal_id: s.deal_id,
-        assignee_id: c?.owner_id ?? null, title: `Atender lead del chat web (${agent.name}): ${parsedOut.handoff_reason || "requiere atención"}`,
-        due_at: new Date().toISOString(), task_kind: "followup" });
-    } else if (s.contact_id && !agentSession) {
-      await sb.from("sales_agent_sessions").insert({ tenant_id: agent.tenant_id, contact_id: s.contact_id, agent_id: agent.id,
-        pipeline_id: agent.pipeline_id, state: "agent", last_channel: "web", last_agent_message_at: new Date().toISOString() });
+      const turn = await applyAgentTurn(sb, { agent, session: agentSession, parsed: parsedOut, tenantId: agent.tenant_id,
+        contactId: s.contact_id, dealId: s.deal_id ?? null, ownerId: c?.owner_id ?? null, channelLabel: "chat web",
+        note: async (t: string) => sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "note", body: t }) });
+      if (turn.handoff && !turn.scheduled && agent.handoff_message) {
+        await sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "agent", body: agent.handoff_message });
+        return json({ reply: `${reply}\n\n${agent.handoff_message}` });
+      }
     }
     return json({ reply });
   } catch (e) {
