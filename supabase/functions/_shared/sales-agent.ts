@@ -275,13 +275,11 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   const history = (hist ?? []).reverse().filter((m: any) => !m.is_internal_note && m.body)
     .map((m: any) => ({ role: m.direction === "inbound" ? "user" : "assistant", content: m.body }));
 
-  const lastInbound = [...history].reverse().find((m: any) => m.role === "user")?.content ?? "";
   const { data: ct } = await sb.from("contacts").select("name, email, address").eq("id", ctx.contactId).maybeSingle();
   const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp", {
     query: history.slice(-4).map((m: any) => m.content).join(" "), profile: s.profile_data ?? {},
     known: { nombre_whatsapp: ct?.name, correo: ct?.email, direccion: ct?.address },
   }) + jsonInstructions(agent);
-  void lastInbound;
 
   const { resolveTenantModel } = await import("./tenant-model.ts");
   const { recordAiUsage } = await import("./ai-usage.ts");
@@ -350,7 +348,7 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   });
   await sb.from("conversations").update({ preview: `${agent.name}: ${finalReply}`.slice(0, 200), last_message_at: new Date().toISOString() }).eq("id", ctx.conversationId);
   await sb.from("sales_agent_sessions").update({
-    ...(turn.handoff ? {} : {}),
+
     replies_today: repliesToday + 1, replies_date: today, last_agent_message_at: new Date().toISOString(),
     applied_goal: goal.goal ?? "", applied_rule_id: goal.rule_id, last_channel: "whatsapp",
   }).eq("id", s.id);
