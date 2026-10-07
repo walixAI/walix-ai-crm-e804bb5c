@@ -349,7 +349,8 @@ Deno.serve(async (req) => {
               direction: "inbound",
               body,
               type: "text",
-              metadata: { wamid: msg.id },
+              // Guardamos el objeto referral completo de Meta (anuncio CTWA) para que el agente lo lea.
+              metadata: referral ? { wamid: msg.id, referral } : { wamid: msg.id },
             });
             // Memoria de IA: doble evento (vista de hilo + contexto del contacto).
             await sb.from("ai_memory_events").insert([
