@@ -333,7 +333,18 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     .map((m: any) => ({ role: m.direction === "inbound" ? "user" : "assistant", content: m.body }));
 
   const { data: ct } = await sb.from("contacts").select("name, email, address").eq("id", ctx.contactId).maybeSingle();
-  const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp", {
+  // Anuncio de Meta (CTWA): el referral más reciente del contacto, con respaldo en la atribución guardada.
+  let adContext = "";
+  const { data: refMsg } = await sb.from("messages").select("body, metadata")
+    .eq("conversation_id", ctx.conversationId).eq("direction", "inbound").not("metadata->referral", "is", null)
+    .order("sent_at", { ascending: false }).limit(1).maybeSingle();
+  if (refMsg?.metadata?.referral) adContext = describeAdReferral(refMsg.metadata.referral, refMsg.body);
+  else {
+    const { data: at } = await sb.from("contact_attribution").select("utm_campaign, utm_content, landing_url, source_kind")
+      .eq("contact_id", ctx.contactId).eq("source_kind", "whatsapp_ad").order("touched_at", { ascending: false }).limit(1).maybeSingle();
+    if (at) adContext = describeAdReferral({ headline: at.utm_campaign, body: at.utm_content, source_url: at.landing_url, source_type: "ad" });
+  }
+  const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp", { adContext,
     query: history.slice(-4).map((m: any) => m.content).join(" "), profile: s.profile_data ?? {},
     known: { nombre_whatsapp: ct?.name, correo: ct?.email, direccion: ct?.address },
   }) + jsonInstructions(agent);

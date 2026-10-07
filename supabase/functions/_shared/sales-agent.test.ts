@@ -82,3 +82,12 @@ describe("Reglas de conversación del agente", () => {
     expect(prompt).toContain("No prometas mensajes automáticos a las dos horas");
   });
 });
+import { describeAdReferral as _dar } from "./sales-agent.ts";
+describe("anuncio CTWA", () => {
+  it("convierte el referral de Meta en contexto para el agente", () => {
+    const t = _dar({ source_type: "ad", headline: "Licenciatura en Administración · Híbrida", body: "Estudia y trabaja", media_type: "image" }, "Hola, quiero info de Administración");
+    expect(t).toContain("Licenciatura en Administración");
+    expect(t).toContain("Primer mensaje");
+    expect(_dar(null)).toBe("");
+  });
+});
