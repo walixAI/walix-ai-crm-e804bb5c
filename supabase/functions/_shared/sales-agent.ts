@@ -243,7 +243,7 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   const { data: agents } = await sb.from("sales_agents").select("*")
     .eq("tenant_id", ctx.tenantId).eq("pipeline_id", deal.pipeline_id);
   const facts = await loadLeadFacts(sb, ctx.contactId, deal.pipeline_id);
-  const agent = resolveAgent(agents ?? [], facts);
+  const agent: any = resolveAgent((agents ?? []) as any[], facts);
   if (!agent) return { skipped: "sin_agente" }; // atención manual del asesor
   if (!(agent.channels?.whatsapp ?? true)) return { skipped: "canal_apagado" };
 
