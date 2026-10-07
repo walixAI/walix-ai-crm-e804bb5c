@@ -174,7 +174,6 @@ export function buildSystemPrompt(agent: any, goal: ReturnType<typeof resolveGoa
       "- Varía: no repitas la misma apertura ni el mismo cierre en mensajes seguidos. No termines cada mensaje con pregunta; a veces solo comenta o confirma.",
       "- Si el lead manda algo casual (un chiste, sticker, 'jaja'), responde como persona y retoma suave.",
     ].join("\n"),
-    ].join("\n"),
     "\nRECUERDA: cumple estrictamente la CONFIGURACIÓN DEL AGENTE (objetivo, prohibiciones, orden de perfilamiento, formato y conocimiento) en cada respuesta.",
   ].filter(Boolean).join("\n");
 
