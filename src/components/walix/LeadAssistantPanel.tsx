@@ -25,9 +25,11 @@ interface Props {
   onUseMessage?: (text: string) => void;
   compact?: boolean;
   hideProbability?: boolean;
+  dealId?: string;
+  overviewOnly?: boolean;
 }
 
-export function LeadAssistantPanel({ contactId, signal, onUseMessage, compact, hideProbability }: Props) {
+export function LeadAssistantPanel({ contactId, signal, onUseMessage, compact, hideProbability, dealId, overviewOnly }: Props) {
   const { data, isLoading, isFetching, error, regenerate } = useLeadAssistant(contactId, signal);
   const [busy, setBusy] = useState(false);
   const b = data?.brief;
@@ -65,17 +67,34 @@ export function LeadAssistantPanel({ contactId, signal, onUseMessage, compact, h
           {(error as Error).message}
         </div>
       )}
-      {b && <BriefView b={b} onUseMessage={onUseMessage} compact={compact} hideProbability={hideProbability} />}
+      {b && <BriefView b={b} onUseMessage={onUseMessage} compact={compact} hideProbability={hideProbability} dealId={dealId} overviewOnly={overviewOnly} />}
     </div>
   );
 }
 
-function BriefView({ b, onUseMessage, compact, hideProbability }: { b: LeadBrief; onUseMessage?: (t: string) => void; compact?: boolean; hideProbability?: boolean }) {
+function BriefView({ b, onUseMessage, compact, hideProbability, dealId, overviewOnly }: { b: LeadBrief; onUseMessage?: (t: string) => void; compact?: boolean; hideProbability?: boolean; dealId?: string; overviewOnly?: boolean }) {
   const Icon = ACTION_ICON[b.next_step.action] ?? Target;
+  const selected = dealId ? b.deal_probabilities?.find((d) => d.id === dealId) : b.deal_probabilities?.[0];
+  const probability = selected ? { pct: selected.pct, reason: selected.reason, label: selected.pct >= 70 ? "Alta" : selected.pct >= 40 ? "Media" : "Baja" } : b.close_probability;
   const copy = (t: string) => { navigator.clipboard.writeText(t); toast.success("Mensaje copiado"); };
 
   return (
     <>
+      <Section title="Resumen del prospecto" defaultOpen>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{b.summary || "Sin resumen disponible todavía."}</p>
+        {b.profile && b.profile.length > 0 && <dl className="mt-3 space-y-1.5">
+          {b.profile.map((f) => <div key={f.key} className="text-xs break-words"><dt className="text-muted-foreground">{f.label}</dt><dd className="font-medium">{f.value}</dd></div>)}
+        </dl>}
+        {b.profile_completeness != null && <p className="text-xs text-muted-foreground mt-2">Perfil completado: {b.profile_completeness}%</p>}
+        <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground"><span>Intención: {b.intent}</span><span>Ánimo: {({ positive: "positivo", neutral: "neutral", negative: "negativo", unknown: "sin datos" } as const)[b.sentiment]}</span></div>
+        {b.motivators.length > 0 && <List label="Le importa" items={b.motivators} />}
+        {b.objections.length > 0 && <List label="Objeciones y dudas" items={b.objections} />}
+      </Section>
+      {!hideProbability && <div className="rounded-lg border border-border p-3">
+        <p className="text-xs font-semibold text-muted-foreground">Probabilidad de cierre · {selected?.name ?? "Prospecto"}</p>
+        <p className="text-2xl font-bold mt-1">{probability.pct}% <span className="text-xs font-medium text-muted-foreground">{probability.label} · estimación</span></p>
+        <p className="text-xs text-muted-foreground mt-1">{probability.reason}</p>
+      </div>}
       {/* Siguiente paso */}
       <div className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent p-4">
         <div className="flex items-center gap-2 mb-2">
@@ -100,7 +119,7 @@ function BriefView({ b, onUseMessage, compact, hideProbability }: { b: LeadBrief
       )}
 
       {/* Mensajes */}
-      <Section title="Mensajes sugeridos" defaultOpen>
+      {!overviewOnly && <Section title="Mensajes sugeridos" defaultOpen={!compact}>
         <div className="space-y-2">
           {b.messages.map((m, i) => (
             <div key={i} className="rounded-lg border border-border bg-background p-3">
@@ -117,23 +136,10 @@ function BriefView({ b, onUseMessage, compact, hideProbability }: { b: LeadBrief
             </div>
           ))}
         </div>
-      </Section>
-
-      {/* Resumen */}
-      <Section title="Resumen del lead" defaultOpen={!compact}>
-        <p className="text-sm leading-relaxed">{b.summary}</p>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className={cn("text-[10px] font-semibold rounded-full border px-2 py-0.5", tone(b.intent))}>Intención {b.intent}</span>
-          <span className="text-[10px] font-semibold rounded-full border border-border px-2 py-0.5 text-muted-foreground">
-            Ánimo: {({ positive: "positivo", neutral: "neutral", negative: "negativo", unknown: "sin datos" } as const)[b.sentiment]}
-          </span>
-        </div>
-        {b.motivators.length > 0 && <List label="Le importa" items={b.motivators} />}
-        {b.objections.length > 0 && <List label="Objeciones" items={b.objections} />}
-      </Section>
+      </Section>}
 
       {/* Guion */}
-      <Section title="Guion de llamada">
+      {!overviewOnly && <Section title="Guion de llamada">
         <div className="space-y-2 text-sm">
           <p><span className="font-semibold">Apertura: </span>{b.call_script.opening}</p>
           {b.call_script.points.length > 0 && <List label="Puntos a tratar" items={b.call_script.points} />}
@@ -145,17 +151,8 @@ function BriefView({ b, onUseMessage, compact, hideProbability }: { b: LeadBrief
           ))}
           <p><span className="font-semibold">Cierre: </span>{b.call_script.close}</p>
         </div>
-      </Section>
+      </Section>}
 
-      {/* Probabilidad */}
-      {!hideProbability && <div className="rounded-xl border border-border bg-card p-4">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Probabilidad de cierre (IA)</div>
-        <div className="flex items-center gap-2">
-          <span className="text-3xl font-bold">{b.close_probability.pct}%</span>
-          <span className={cn("text-[10px] font-semibold rounded-full border px-2 py-0.5", tone(b.close_probability.label))}>{b.close_probability.label}</span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{b.close_probability.reason}</p>
-      </div>}
     </>
   );
 }
@@ -164,9 +161,9 @@ function Section({ title, children, defaultOpen }: { title: string; children: Re
   const [open, setOpen] = useState(!!defaultOpen);
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <button className="w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" onClick={() => setOpen(!open)}>
+      <Button variant="ghost" className="w-full flex items-center justify-between px-4 py-2.5 h-auto text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" onClick={() => setOpen(!open)} aria-expanded={open}>
         {title} <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-      </button>
+      </Button>
       {open && <div className="px-4 pb-4">{children}</div>}
     </div>
   );

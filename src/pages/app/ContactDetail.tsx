@@ -105,6 +105,7 @@ export default function ContactDetail() {
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
+              <div className="mb-4"><LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} overviewOnly /></div>
               <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} />
             </TabsContent>
 

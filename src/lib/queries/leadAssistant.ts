@@ -1,7 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export interface LeadBrief {
+  profile?: { key: string; label: string; value: string }[];
+  profile_completeness?: number;
+  deal_probabilities?: { id: string; name: string; pct: number; reason: string }[];
   summary: string;
   sentiment: "positive" | "neutral" | "negative" | "unknown";
   intent: "alta" | "media" | "baja";
@@ -23,17 +27,32 @@ async function fetchBrief(contactId: string, force = false) {
 /** Se actualiza sola: el backend regenera solo si hay mensajes/actividades nuevas. `signal` cambia con cada novedad. */
 export function useLeadAssistant(contactId: string | null | undefined, signal?: string | number | null) {
   const qc = useQueryClient();
-  const key = ["lead-assistant", contactId, signal ?? null];
+  const key = ["lead-assistant", contactId];
+  useEffect(() => {
+    if (contactId) void qc.invalidateQueries({ queryKey: ["lead-assistant", contactId] });
+  }, [contactId, signal, qc]);
   const q = useQuery({
     queryKey: key,
     enabled: !!contactId,
     staleTime: 60_000,
+    refetchInterval: 60_000,
     retry: false,
-    queryFn: () => fetchBrief(contactId!),
+    queryFn: async () => {
+      if (!contactId) throw new Error("Contacto no disponible");
+      const result = await fetchBrief(contactId);
+      for (const prefix of ["pipeline-deals", "pipeline-deal", "contact-deals", "contact-pipeline-deals", "contact"]) {
+        void qc.invalidateQueries({ queryKey: [prefix] });
+      }
+      return result;
+    },
   });
   const regenerate = async () => {
-    const r = await fetchBrief(contactId!, true);
+    if (!contactId) return;
+    const r = await fetchBrief(contactId, true);
     qc.setQueryData(key, r);
+    for (const prefix of ["pipeline-deals", "pipeline-deal", "contact-deals", "contact-pipeline-deals", "contact"]) {
+      void qc.invalidateQueries({ queryKey: [prefix] });
+    }
   };
   return { ...q, regenerate };
 }
