@@ -240,6 +240,8 @@ export async function applyAgentTurn(sb: any, p: {
   };
 
   // Publish confirmed profile facts and the current summary immediately, for every channel.
+  // Secondary advisor synchronization must never suppress the prospect's reply or handoff.
+  try {
   const { data: contact } = await sb.from("contacts").select("custom_fields").eq("id", p.contactId).eq("tenant_id", p.tenantId).maybeSingle();
   if (contact) {
     const patch: any = { custom_fields: { ...(contact.custom_fields ?? {}), ...profile } };
@@ -248,7 +250,7 @@ export async function applyAgentTurn(sb: any, p: {
       if (value) patch[target] = value;
     }
     const { error } = await sb.from("contacts").update(patch).eq("id", p.contactId).eq("tenant_id", p.tenantId);
-    if (error) throw error;
+    if (error) console.error("agent contact sync failed");
   }
   const contextSummary = String(parsed?.summary ?? "").trim() || summary();
   if (contextSummary) {
@@ -258,13 +260,16 @@ export async function applyAgentTurn(sb: any, p: {
       key_facts: Object.entries(profile).map(([key, value]) => ({ key, value })),
       last_interaction: new Date().toISOString(), updated_at: new Date().toISOString(),
     })), { onConflict: "tenant_id,entity_type,entity_id" });
-    if (error) throw error;
+    if (error) console.error("agent context sync failed");
   }
   const probability = parsed?.close_probability?.pct;
   if (p.dealId && typeof probability === "number" && Number.isFinite(probability)) {
     const { error } = await sb.from("deals").update({ probability: Math.max(0, Math.min(100, Math.round(probability))) })
       .eq("id", p.dealId).eq("tenant_id", p.tenantId).eq("is_won", false).eq("is_lost", false);
-    if (error) throw error;
+    if (error) console.error("agent probability sync failed");
+  }
+  } catch {
+    console.error("agent advisor synchronization failed; continuing response");
   }
 
   const doHandoff = async (reason: string) => {

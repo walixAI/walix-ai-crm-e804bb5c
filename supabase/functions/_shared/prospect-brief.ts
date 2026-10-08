@@ -18,7 +18,7 @@ export function enrichProspectBrief(brief: any, deals: any[], sessions: any[], a
   }));
   const primary = probabilities.find((d) => d.id === deals.find((x) => !x.is_won && !x.is_lost)?.id) ?? probabilities[0];
   return { ...brief, profile: [...values.values()], profile_completeness: sessions[0]?.score ?? null,
-    deal_probabilities: probabilities,
+    deal_probabilities: primary ? [primary, ...probabilities.filter((d) => d.id !== primary.id)] : probabilities,
     close_probability: primary ? { pct: primary.pct, label: primary.pct >= 70 ? "Alta" : primary.pct >= 40 ? "Media" : "Baja", reason: primary.reason } : brief.close_probability,
   };
 }

@@ -212,52 +212,6 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
         </div>
       </div>
 
-      {/* AI suggestion destacada */}
-      <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent p-4 shadow-card">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="h-7 w-7 rounded-lg bg-gradient-brand grid place-items-center">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-xs font-semibold text-primary uppercase tracking-wide">Próximo paso sugerido</span>
-          {source === "ai" && (
-            <span className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-              IA
-            </span>
-          )}
-        </div>
-        <p className="text-sm leading-relaxed">
-          {top?.text ?? `Sin sugerencias activas para ${contact.name} por ahora.`}
-        </p>
-        {(() => {
-          const isCallCta = top?.action === "task";
-          return (
-        <div className="flex flex-wrap gap-2 mt-3">
-          <Button onClick={handlePrimary} size="sm" className="bg-success hover:bg-success/90 text-success-foreground h-8">
-            {isCallCta
-              ? <Phone className="h-3.5 w-3.5" />
-              : <Send className="h-3.5 w-3.5" />}
-            {top?.cta ?? "Enviar por WhatsApp"}
-          </Button>
-          {!isCallCta && (
-            <Button variant="outline" size="sm" className="h-8" onClick={handleScheduleCall}>
-              <Phone className="h-3.5 w-3.5" /> Agendar llamada
-            </Button>
-          )}
-          {suggestions.length > 1 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8"
-              onClick={() => setIndex((i) => (i + 1) % suggestions.length)}
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Otra sugerencia
-            </Button>
-          )}
-        </div>
-          );
-        })()}
-      </div>
-
       <QuickTaskDialog
         open={taskOpen}
         contactId={contact.id}

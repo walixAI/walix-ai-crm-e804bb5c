@@ -6,6 +6,7 @@ import type { ContactRow } from "@/lib/queries/contacts";
 import { useContactSuggestions, useCreateContactActivity } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 
 interface Props { contact: ContactRow; onWhatsApp: () => void }
 
@@ -17,8 +18,6 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
   const [taskTitle, setTaskTitle] = useState<string>("");
   const top = suggestions[0];
   const rest = suggestions.slice(1, 3);
-
-  if (!top) return null;
 
   async function handleCta() {
     if (top.action === "whatsapp") return onWhatsApp();
@@ -55,30 +54,7 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
             </button>
           </div>
           <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-            <div className="rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-3 text-sm leading-relaxed">
-              {top.text}
-            </div>
-            <Button
-              onClick={handleCta}
-              disabled={createActivity.isPending}
-              className="w-full bg-success hover:bg-success/90 text-success-foreground"
-              size="sm"
-            >
-              <Send className="h-3.5 w-3.5" /> {top.cta}
-            </Button>
-            {rest.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Otras ideas</h4>
-                <div className="space-y-2">
-                  {rest.map((s) => (
-                    <div key={s.id} className="text-xs p-2 rounded-lg bg-muted/40 flex items-center justify-between gap-2">
-                      <span className="line-clamp-2">{s.text}</span>
-                      <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <LeadAssistantPanel contactId={contact.id} compact overviewOnly />
           </div>
         </div>
       ) : (
