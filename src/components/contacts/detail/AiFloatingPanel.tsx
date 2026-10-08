@@ -55,29 +55,6 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
           </div>
           <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
             <LeadAssistantPanel contactId={contact.id} compact overviewOnly />
-            {false && top && <div>
-            <Button
-              onClick={handleCta}
-              disabled={createActivity.isPending}
-              className="w-full bg-success hover:bg-success/90 text-success-foreground"
-              size="sm"
-            >
-              <Send className="h-3.5 w-3.5" /> {top.cta}
-            </Button>
-            {rest.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Otras ideas</h4>
-                <div className="space-y-2">
-                  {rest.map((s) => (
-                    <div key={s.id} className="text-xs p-2 rounded-lg bg-muted/40 flex items-center justify-between gap-2">
-                      <span className="line-clamp-2">{s.text}</span>
-                      <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            </div>}
           </div>
         </div>
       ) : (
