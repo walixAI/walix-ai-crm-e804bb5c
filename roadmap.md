@@ -7,5 +7,5 @@
 
 # Conversación consultiva de Mariana
 
-- [ ] Adaptar tono, objetivo y ejemplos al enfoque B2B ágil solicitado, conservando conocimiento y horarios aprobados.
-- [ ] Verificar la configuración guardada y su incorporación a las instrucciones del agente.
+- [x] Adaptar tono, objetivo y ejemplos al enfoque B2B ágil solicitado, conservando conocimiento y horarios aprobados.
+- [x] Verificar la configuración guardada y su incorporación a las instrucciones del agente.
