@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, ChevronLeft } from "lucide-react";
@@ -44,6 +44,7 @@ export default function Whatsapp() {
   const [draft, setDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
   const [aiDraftActive, setAiDraftActive] = useState(false);
+  const openingContactRef = useRef<string | null>(null);
 
   // Open by deep link: ?conversationId=... or ?contactId=...
   // If contactId has no conversation yet, create one (Nuevo) on the fly.
@@ -64,34 +65,48 @@ export default function Whatsapp() {
       return;
     }
     if (contactParam) {
+      // Esperar a que cargue la lista: si no, se crean conversaciones duplicadas.
+      if (convLoading) return;
       const existing = conversations.find((c) => c.contactId === contactParam);
+      const clearParams = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete("contactId");
+        next.delete("draft");
+        setSearchParams(next, { replace: true });
+      };
       if (existing) {
         setActiveId(existing.id);
-        const next = new URLSearchParams(searchParams);
-        next.delete("contactId");
-        next.delete("draft");
-        setSearchParams(next, { replace: true });
+        clearParams();
         return;
       }
-      // No conversation yet — create one for this contact.
+      if (openingContactRef.current === contactParam) return;
+      openingContactRef.current = contactParam;
       (async () => {
-        const { data: prof } = await supabase
-          .from("profiles").select("tenant_id").eq("id", user?.id ?? "").maybeSingle();
-        const tid = prof?.tenant_id;
-        if (!tid) return;
-        const { data: created, error } = await supabase
-          .from("conversations")
-          .insert({ tenant_id: tid, contact_id: contactParam, status: "Nuevo" })
-          .select("id").single();
-        if (error || !created) {
-          toast({ title: "No se pudo abrir la conversación", description: error?.message ?? "", variant: "destructive" as any });
-          return;
+        try {
+          // Reutilizar cualquier conversación existente antes de crear una nueva.
+          const { data: found } = await supabase
+            .from("conversations").select("id")
+            .eq("contact_id", contactParam)
+            .order("last_message_at", { ascending: false, nullsFirst: false })
+            .limit(1).maybeSingle();
+          if (found?.id) { setActiveId(found.id); clearParams(); return; }
+          const { data: prof } = await supabase
+            .from("profiles").select("active_tenant_id, tenant_id").eq("id", user?.id ?? "").maybeSingle();
+          const tid = (prof as any)?.active_tenant_id ?? prof?.tenant_id;
+          if (!tid) return;
+          const { data: created, error } = await supabase
+            .from("conversations")
+            .insert({ tenant_id: tid, contact_id: contactParam, status: "Nuevo" })
+            .select("id").single();
+          if (error || !created) {
+            toast({ title: "No se pudo abrir la conversación", description: error?.message ?? "", variant: "destructive" as any });
+            return;
+          }
+          setActiveId(created.id);
+          clearParams();
+        } finally {
+          openingContactRef.current = null;
         }
-        setActiveId(created.id);
-        const next = new URLSearchParams(searchParams);
-        next.delete("contactId");
-        next.delete("draft");
-        setSearchParams(next, { replace: true });
       })();
       return;
     }
