@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, resolveGoal, resolveDealPipeline, handleInboundWithAgent } from "./sales-agent";
+import { buildSystemPrompt, resolveGoal, resolveDealPipeline, handleInboundWithAgent, applyAgentTurn } from "./sales-agent";
 
 describe("Resolución del embudo de la oportunidad (regresión)", () => {
   it("deriva el pipeline desde la etapa de la oportunidad", () => {
@@ -89,5 +89,32 @@ describe("anuncio CTWA", () => {
     expect(t).toContain("Licenciatura en Administración");
     expect(t).toContain("Primer mensaje");
     expect(_dar(null)).toBe("");
+  });
+});
+
+describe("Persistencia del perfil de la conversación", () => {
+  it("comparte perfil y resumen sin usar completitud como probabilidad", async () => {
+    const writes: { table: string; data: any; filters: any[] }[] = [];
+    const sb: any = { from: (table: string) => {
+      let write: any;
+      const chain: any = {
+        select: () => chain,
+        eq: (...args: any[]) => { write?.filters.push(args); return chain; },
+        update: (data: any) => { write = { table, data, filters: [] }; writes.push(write); return chain; },
+        upsert: (data: any) => { write = { table, data, filters: [] }; writes.push(write); return chain; },
+        maybeSingle: async () => ({ data: { custom_fields: { existente: "conservar" } } }),
+        then: (resolve: any) => resolve({ error: null }),
+      };
+      return chain;
+    } };
+    await applyAgentTurn(sb, { tenantId: "t", contactId: "c", dealId: "d", ownerId: null, channelLabel: "WhatsApp", note: async () => {},
+      agent: { profiling_fields: [{ key: "cargo", label: "Cargo" }, { key: "institucion", label: "Institución" }] },
+      session: { id: "s", profile_data: {} }, parsed: { profile: { cargo: "Director" }, summary: "Busca entender el servicio.", close_probability: { pct: 35 } },
+    });
+    expect(writes.find((w) => w.table === "sales_agent_sessions")?.data.score).toBe(50);
+    expect(writes.find((w) => w.table === "contacts")?.data.custom_fields).toEqual({ existente: "conservar", cargo: "Director" });
+    expect(writes.find((w) => w.table === "deals")?.data.probability).toBe(35);
+    expect(writes.find((w) => w.table === "deals")?.filters).toContainEqual(["tenant_id", "t"]);
+    expect(writes.find((w) => w.table === "ai_entity_context")?.data.map((r: any) => r.entity_type)).toEqual(["contact", "deal"]);
   });
 });
