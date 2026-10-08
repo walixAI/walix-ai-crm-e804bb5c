@@ -117,11 +117,11 @@ export function DealsSidePanel({ contactId }: Props) {
         defaultContactId={contactId}
       />
       <DealDrawer
-        deal={selected}
+        deal={allDeals.find((d) => d.id === selected?.id) ?? selected}
         stages={selected ? maps.stagesFor(selected) : []}
         open={!!selected}
         onClose={() => setSelected(null)}
-        defaultTab="history"
+        defaultTab="summary"
       />
     </div>
   );

@@ -212,8 +212,8 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
         </div>
       </div>
 
-      {/* AI suggestion destacada */}
-      <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent p-4 shadow-card">
+      {/* El siguiente paso unificado se presenta arriba, en la ficha del prospecto. */}
+      {false && <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent p-4 shadow-card">
         <div className="flex items-center gap-2 mb-2">
           <div className="h-7 w-7 rounded-lg bg-gradient-brand grid place-items-center">
             <Sparkles className="h-4 w-4 text-primary-foreground" />
@@ -256,7 +256,7 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
         </div>
           );
         })()}
-      </div>
+      </div>}
 
       <QuickTaskDialog
         open={taskOpen}

@@ -6,6 +6,7 @@ import type { ContactRow } from "@/lib/queries/contacts";
 import { useContactSuggestions, useCreateContactActivity } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
+import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 
 interface Props { contact: ContactRow; onWhatsApp: () => void }
 
@@ -17,8 +18,6 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
   const [taskTitle, setTaskTitle] = useState<string>("");
   const top = suggestions[0];
   const rest = suggestions.slice(1, 3);
-
-  if (!top) return null;
 
   async function handleCta() {
     if (top.action === "whatsapp") return onWhatsApp();
@@ -55,9 +54,8 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
             </button>
           </div>
           <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-            <div className="rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-3 text-sm leading-relaxed">
-              {top.text}
-            </div>
+            <LeadAssistantPanel contactId={contact.id} compact overviewOnly />
+            {false && top && <div>
             <Button
               onClick={handleCta}
               disabled={createActivity.isPending}
@@ -79,6 +77,7 @@ export function AiFloatingPanel({ contact, onWhatsApp }: Props) {
                 </div>
               </div>
             )}
+            </div>}
           </div>
         </div>
       ) : (
