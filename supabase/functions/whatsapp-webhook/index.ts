@@ -400,7 +400,13 @@ Deno.serve(async (req) => {
                   .eq("tenant_id", channel.tenant_id).in("role", ["tenant_admin", "tenant_owner"]);
                 (admins ?? []).forEach((a: any) => recipients.add(a.user_id));
                 const why = agentError ? `ocurrió un error (${agentError})` : ALERT[skipReason];
-                if (recipients.size) {
+                // Anti-inundación: máximo una alerta por conversación cada 24 h.
+                const { data: recentAlert } = await sb.from("notifications").select("id")
+                  .eq("tenant_id", channel.tenant_id).eq("type", "agent_no_reply")
+                  .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+                  .contains("data", { conversation_id: convId })
+                  .limit(1).maybeSingle();
+                if (recipients.size && !recentAlert) {
                   await sb.from("notifications").insert([...recipients].map((uid) => ({
                     tenant_id: channel.tenant_id, user_id: uid, category: "operational", severity: "danger",
                     type: "agent_no_reply", icon: "AlertTriangle",

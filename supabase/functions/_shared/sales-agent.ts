@@ -289,6 +289,13 @@ export function resolveDealPipeline(dealRow: any): any {
 }
 
 export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
+  // 0. Sin agentes en el tenant no hay nada que hacer: atención manual del asesor.
+  //    Debe ir ANTES de buscar la oportunidad, o todo contacto sin oportunidad
+  //    devolvería "sin_oportunidad" y dispararía alertas falsas en tenants sin agente.
+  const { data: tenantAgents } = await sb.from("sales_agents").select("*")
+    .eq("tenant_id", ctx.tenantId);
+  if (!tenantAgents || tenantAgents.length === 0) return { skipped: "sin_agente" };
+
   // 1. Pipeline del lead: oportunidad abierta más reciente.
   const { data: dealRow, error: dealErr } = await sb.from("deals").select("id, owner_id, stage_id, pipeline_stages(pipeline_id)")
     .eq("contact_id", ctx.contactId).eq("tenant_id", ctx.tenantId)
@@ -297,8 +304,7 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   const deal = resolveDealPipeline(dealRow);
   if (!deal?.pipeline_id) { console.log("sales-agent skipped: sin_oportunidad", ctx.contactId); return { skipped: "sin_oportunidad" }; }
 
-  const { data: agents } = await sb.from("sales_agents").select("*")
-    .eq("tenant_id", ctx.tenantId).eq("pipeline_id", deal.pipeline_id);
+  const agents = (tenantAgents as any[]).filter((a) => a.pipeline_id === deal.pipeline_id);
   const facts = await loadLeadFacts(sb, ctx.contactId, deal.pipeline_id);
   const agent: any = resolveAgent((agents ?? []) as any[], facts);
   if (!agent) return { skipped: "sin_agente" }; // atención manual del asesor
