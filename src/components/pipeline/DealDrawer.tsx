@@ -170,6 +170,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <TabsContent value="summary" className="space-y-4 m-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ring-0">
+              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} overviewOnly />}
               <EditableField
                 label="Monto MXN"
                 display={formatMXN(deal.amount)}
@@ -253,7 +254,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
-              <Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
+              {!deal.contactId && <Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn(
@@ -263,7 +264,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                     style={{ width: `${deal.isLost ? 100 : effectiveProbability(deal)}%` }}
                   />
                 </div>
-              </Field>
+              </Field>}
 
               <Field label="Fuente">
                 <ReadValue>{deal.source}</ReadValue>
@@ -446,10 +447,10 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
             </TabsContent>
 
             <TabsContent value="ai" className="space-y-4 m-0">
-              <AiContextPanel entityType="deal" entityId={deal.id} />
-              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} signal={deal.stageName} hideProbability />}
+              {!deal.contactId && <AiContextPanel entityType="deal" entityId={deal.id} />}
+              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} />}
 
-              <div className="rounded-xl border border-border bg-card p-4">
+              {!deal.contactId && <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
                     Probabilidad de cierre
