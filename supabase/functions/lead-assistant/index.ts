@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     msgs = (data ?? []).reverse();
   }
 
-  const basisAt = maxIso(msgs.at(-1)?.sent_at, acts[0]?.occurred_at, deals[0]?.updated_at, contact.last_activity_at, contact.created_at, contact.updated_at, sessions[0]?.updated_at, currentAgent?.updated_at);
+  let basisAt = maxIso(msgs.at(-1)?.sent_at, acts[0]?.occurred_at, deals[0]?.updated_at, contact.last_activity_at, contact.created_at, contact.updated_at, sessions[0]?.updated_at, currentAgent?.updated_at);
 
   const svc = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: cached } = await svc.from("lead_assistant_briefs").select("brief, basis_at, generated_at").eq("contact_id", contactId).maybeSingle();
@@ -223,9 +223,11 @@ ${transcript}`;
   const now = new Date().toISOString();
   const primaryDeal = deals.find((d: any) => !d.is_won && !d.is_lost);
   if (primaryDeal) {
-    const { error } = await svc.from("deals").update({ probability: brief.close_probability.pct }).eq("id", primaryDeal.id).eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false);
+    const { data: saved, error } = await svc.from("deals").update({ probability: brief.close_probability.pct }).eq("id", primaryDeal.id).eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false).eq("updated_at", primaryDeal.updated_at).select("probability,updated_at").maybeSingle();
     if (error) return json({ error: "No se pudo guardar la probabilidad" }, 500);
-    primaryDeal.probability = brief.close_probability.pct;
+    if (!saved) return json({ error: "La oportunidad cambió durante el análisis; actualice de nuevo." }, 409);
+    primaryDeal.probability = saved.probability;
+    basisAt = maxIso(basisAt, saved.updated_at);
   }
   brief = enrichProspectBrief(brief, deals, sessions, agents);
   const { error: saveError } = await svc.from("lead_assistant_briefs").upsert(
@@ -233,6 +235,12 @@ ${transcript}`;
     { onConflict: "contact_id" },
   );
   if (saveError) return json({ error: "No se pudo guardar el resumen" }, 500);
+  const entities = [{ entity_type: "contact", entity_id: contactId }, ...deals.map((d: any) => ({ entity_type: "deal", entity_id: d.id }))];
+  const { error: contextError } = await svc.from("ai_entity_context").upsert(entities.map((entity) => ({
+    ...entity, tenant_id: tenantId, context_summary: brief.summary,
+    key_facts: brief.profile, sentiment: brief.sentiment, updated_at: now,
+  })), { onConflict: "tenant_id,entity_type,entity_id" });
+  if (contextError) console.error("lead brief context sync", contextError);
   await recordAiUsage({
     tenantId, userId: u.user.id, surface: "lead_assistant", model: model.model, creditFactor: model.creditFactor,
     inputTokens: out?.usage?.prompt_tokens, outputTokens: out?.usage?.completion_tokens, totalTokens: out?.usage?.total_tokens,
