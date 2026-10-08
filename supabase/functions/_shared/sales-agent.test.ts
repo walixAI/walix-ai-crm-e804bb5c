@@ -93,6 +93,15 @@ describe("anuncio CTWA", () => {
 });
 
 describe("Persistencia del perfil de la conversación", () => {
+  it("no bloquea la respuesta si falla la sincronización secundaria", async () => {
+    const chain: any = { select: () => chain, eq: () => chain,
+      maybeSingle: async () => { throw new Error("secondary sync unavailable"); } };
+    const result = await applyAgentTurn({ from: () => chain }, {
+      tenantId: "t", contactId: "c", dealId: "d", ownerId: null, channelLabel: "WhatsApp", note: async () => {},
+      agent: { profiling_fields: [] }, session: {}, parsed: { reply: "Le explico el ecosistema." },
+    });
+    expect(result.handoff).toBe(false);
+  });
   it("comparte perfil y resumen sin usar completitud como probabilidad", async () => {
     const writes: { table: string; data: any; filters: any[] }[] = [];
     const sb: any = { from: (table: string) => {
