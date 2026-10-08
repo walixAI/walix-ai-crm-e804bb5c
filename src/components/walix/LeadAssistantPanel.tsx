@@ -138,19 +138,6 @@ function BriefView({ b, onUseMessage, compact, hideProbability, dealId, overview
         </div>
       </Section>}
 
-      {/* Resumen */}
-      {false && <Section title="Resumen del lead" defaultOpen={!compact}>
-        <p className="text-sm leading-relaxed">{b.summary}</p>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className={cn("text-[10px] font-semibold rounded-full border px-2 py-0.5", tone(b.intent))}>Intención {b.intent}</span>
-          <span className="text-[10px] font-semibold rounded-full border border-border px-2 py-0.5 text-muted-foreground">
-            Ánimo: {({ positive: "positivo", neutral: "neutral", negative: "negativo", unknown: "sin datos" } as const)[b.sentiment]}
-          </span>
-        </div>
-        {b.motivators.length > 0 && <List label="Le importa" items={b.motivators} />}
-        {b.objections.length > 0 && <List label="Objeciones" items={b.objections} />}
-      </Section>}
-
       {/* Guion */}
       {!overviewOnly && <Section title="Guion de llamada">
         <div className="space-y-2 text-sm">
@@ -166,15 +153,6 @@ function BriefView({ b, onUseMessage, compact, hideProbability, dealId, overview
         </div>
       </Section>}
 
-      {/* Probabilidad */}
-      {false && !hideProbability && <div className="rounded-xl border border-border bg-card p-4">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Probabilidad de cierre (IA)</div>
-        <div className="flex items-center gap-2">
-          <span className="text-3xl font-bold">{b.close_probability.pct}%</span>
-          <span className={cn("text-[10px] font-semibold rounded-full border px-2 py-0.5", tone(b.close_probability.label))}>{b.close_probability.label}</span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{b.close_probability.reason}</p>
-      </div>}
     </>
   );
 }

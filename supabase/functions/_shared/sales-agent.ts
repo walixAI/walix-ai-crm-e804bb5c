@@ -201,8 +201,9 @@ export function buildSystemPrompt(agent: any, goal: ReturnType<typeof resolveGoa
 export function jsonInstructions(agent: any) {
   const keys = profilingFields(agent).map((f) => `"${f.key}"`).join(",");
   return `\n\nResponde SOLO en JSON con esta forma: {"reply":"texto para el lead","handoff":true|false,"handoff_reason":"","simple":true|false,` +
-    `"profile":{${keys ? `solo claves de: ${keys}` : ""}},"motivator":"","blocker":"","doubts":""}. ` +
+    `"profile":{${keys ? `solo claves de: ${keys}` : ""}},"motivator":"","blocker":"","doubts":"","summary":"","close_probability":{"pct":0,"reason":""}}. ` +
     "En profile incluye únicamente los datos que el lead ya dio (no inventes). motivator/blocker: el motivador y freno principal si los detectas. " +
+    "summary: resumen acumulado para el asesor en 2–3 frases, con necesidad, dudas y siguiente paso, nunca tu saludo. close_probability: estimación de cierre comercial de 0 a 100 basada en señales reales y su motivo; NO equivale al porcentaje de campos del perfil llenados. No inventes compromisos ni citas. " +
     "simple=true si es una duda básica respondible con la base de conocimiento.";
 }
 
@@ -228,7 +229,7 @@ export async function applyAgentTurn(sb: any, p: {
 
   const upd: any = { profile_data: profile, missing_fields: missing, profile_complete: complete, score, lead_replied: true };
   if (!session?.first_reply_at) upd.first_reply_at = new Date().toISOString();
-  if (session?.id) await sb.from("sales_agent_sessions").update(upd).eq("id", session.id);
+  if (session?.id) await sb.from("sales_agent_sessions").update({ ...upd, updated_at: new Date().toISOString() }).eq("id", session.id).eq("tenant_id", p.tenantId);
 
   const summary = () => {
     const lines = profilingFields(agent).map((f) => `${f.label}: ${profile[f.key] ?? "—"}`);
@@ -237,6 +238,34 @@ export async function applyAgentTurn(sb: any, p: {
     if (profile._freno) lines.push(`Freno principal: ${profile._freno}`);
     return lines.join("\n");
   };
+
+  // Publish confirmed profile facts and the current summary immediately, for every channel.
+  const { data: contact } = await sb.from("contacts").select("custom_fields").eq("id", p.contactId).eq("tenant_id", p.tenantId).maybeSingle();
+  if (contact) {
+    const patch: any = { custom_fields: { ...(contact.custom_fields ?? {}), ...profile } };
+    for (const [target, keys] of Object.entries({ company: ["institucion", "empresa"], position: ["cargo", "puesto"], email: ["correo", "email"] })) {
+      const value = keys.map((key) => profile[key]).find((v) => typeof v === "string" && v.trim());
+      if (value) patch[target] = value;
+    }
+    const { error } = await sb.from("contacts").update(patch).eq("id", p.contactId).eq("tenant_id", p.tenantId);
+    if (error) throw error;
+  }
+  const contextSummary = String(parsed?.summary ?? "").trim() || summary();
+  if (contextSummary) {
+    const contexts = [{ entity_type: "contact", entity_id: p.contactId }, ...(p.dealId ? [{ entity_type: "deal", entity_id: p.dealId }] : [])];
+    const { error } = await sb.from("ai_entity_context").upsert(contexts.map((entity) => ({
+      ...entity, tenant_id: p.tenantId, context_summary: contextSummary,
+      key_facts: Object.entries(profile).map(([key, value]) => ({ key, value })),
+      last_interaction: new Date().toISOString(), updated_at: new Date().toISOString(),
+    })), { onConflict: "tenant_id,entity_type,entity_id" });
+    if (error) throw error;
+  }
+  const probability = parsed?.close_probability?.pct;
+  if (p.dealId && typeof probability === "number" && Number.isFinite(probability)) {
+    const { error } = await sb.from("deals").update({ probability: Math.max(0, Math.min(100, Math.round(probability))) })
+      .eq("id", p.dealId).eq("tenant_id", p.tenantId).eq("is_won", false).eq("is_lost", false);
+    if (error) throw error;
+  }
 
   const doHandoff = async (reason: string) => {
     if (p.dealId && agent.handoff_stage_id) await sb.from("deals").update({ stage_id: agent.handoff_stage_id }).eq("id", p.dealId);

@@ -494,7 +494,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                 ) : (
                   <p className="text-sm text-muted-foreground leading-relaxed">{explanation}</p>
                 )}
-              </div>
+              </div>}
 
               <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
                 <div className="flex items-center justify-between gap-2">

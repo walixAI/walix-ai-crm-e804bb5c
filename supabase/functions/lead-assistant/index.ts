@@ -3,6 +3,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolveTenantModel } from "../_shared/tenant-model.ts";
 import { recordAiUsage } from "../_shared/ai-usage.ts";
+import { enrichProspectBrief } from "../_shared/prospect-brief.ts";
+import { buildSystemPrompt, resolveGoal } from "../_shared/sales-agent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,7 +100,7 @@ Deno.serve(async (req) => {
 
   // Contexto (RLS limita a la empresa del usuario)
   const { data: contact } = await sb.from("contacts")
-    .select("id, tenant_id, name, last_name, company, position, status, source, tags, email, phone, custom_fields, last_activity_at, created_at")
+    .select("id, tenant_id, name, last_name, company, position, status, source, tags, email, phone, custom_fields, last_activity_at, created_at, updated_at")
     .eq("id", contactId).maybeSingle();
   if (!contact) return json({ error: "Contacto no encontrado" }, 404);
   const tenantId = contact.tenant_id as string;
@@ -119,6 +121,14 @@ Deno.serve(async (req) => {
   const acts = actsRes.data ?? [];
   const tasks = tasksRes.data ?? [];
   const convIds = (convRes.data ?? []).map((c: any) => c.id);
+  const [sessionsRes, agentsRes, knowledgeRes] = await Promise.all([
+    sb.from("sales_agent_sessions").select("agent_id,profile_data,score,updated_at,missing_fields,handoff_reason,state").eq("tenant_id", tenantId).eq("contact_id", contactId).order("updated_at", { ascending: false }),
+    sb.from("sales_agents").select("*").eq("tenant_id", tenantId),
+    sb.from("sales_agent_knowledge").select("agent_id,kind,title,content,url").eq("tenant_id", tenantId),
+  ]);
+  const sessions = sessionsRes.data ?? [];
+  const agents = agentsRes.data ?? [];
+  const currentAgent = agents.find((a: any) => a.id === sessions[0]?.agent_id);
   let msgs: any[] = [];
   if (convIds.length) {
     const { data } = await sb.from("messages").select("direction, body, sent_at, is_internal_note")
@@ -126,12 +136,12 @@ Deno.serve(async (req) => {
     msgs = (data ?? []).reverse();
   }
 
-  const basisAt = maxIso(msgs.at(-1)?.sent_at, acts[0]?.occurred_at, deals[0]?.updated_at, contact.last_activity_at, contact.created_at);
+  const basisAt = maxIso(msgs.at(-1)?.sent_at, acts[0]?.occurred_at, deals[0]?.updated_at, contact.last_activity_at, contact.created_at, contact.updated_at, sessions[0]?.updated_at, currentAgent?.updated_at);
 
   const svc = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: cached } = await svc.from("lead_assistant_briefs").select("brief, basis_at, generated_at").eq("contact_id", contactId).maybeSingle();
   if (cached && !force && cached.basis_at && basisAt && new Date(cached.basis_at) >= new Date(basisAt)) {
-    return json({ brief: cached.brief, generated_at: cached.generated_at, cached: true });
+    return json({ brief: enrichProspectBrief(cached.brief, deals, sessions, agents), generated_at: cached.generated_at, cached: true });
   }
 
   const fullName = [contact.name, contact.last_name].filter(Boolean).join(" ");
@@ -142,7 +152,12 @@ Deno.serve(async (req) => {
   const lastInbound = [...msgs].reverse().find((m) => m.direction === "inbound");
   const lastOutbound = [...msgs].reverse().find((m) => m.direction === "outbound");
 
+  const agentContext = currentAgent ? buildSystemPrompt(currentAgent, resolveGoal(currentAgent, [], {}),
+    (knowledgeRes.data ?? []).filter((k: any) => !k.agent_id || k.agent_id === currentAgent.id), "Asesor", { profile: sessions[0]?.profile_data ?? {}, query: transcript }) : "";
   const context = `
+CONFIGURACIÓN Y CONOCIMIENTO APROBADOS DEL NEGOCIO (no imites errores de respuestas antiguas):
+${agentContext}
+PERFIL CONFIRMADO: ${JSON.stringify(sessions.map((s: any) => s.profile_data))}
 Empresa del asesor: ${tenantRes.data?.name ?? ""} (${tenantRes.data?.industry ?? "sin giro"})
 Fecha actual: ${new Date().toISOString().slice(0, 16)} UTC (México UTC-6)
 
@@ -184,7 +199,7 @@ ${transcript}`;
           content: "Eres el coach de ventas de un asesor comercial en México. Analizas TODO el historial del lead y le dices exactamente qué hacer. " +
             "Español de México, trato de usted o tú según cómo escribe el lead. Sé específico: cita lo que el lead dijo, menciona su nombre y el producto/programa. " +
             "Nunca inventes precios, becas, fechas ni datos que no estén en el contexto; si faltan, sugiere preguntarlos. " +
-            "Los mensajes deben sonar humanos, breves, con una pregunta al final. Si hay más de 24 h sin mensaje del lead, avisa que por WhatsApp solo se puede enviar plantilla aprobada. " +
+            "Respeta la configuración y conocimiento aprobados del negocio. No inventes clientes, casos de éxito ni resultados y no conviertas lo que el prospecto contó en un caso de éxito de la empresa. Los mensajes deben sonar humanos y breves; una pregunta como máximo, no obligatoria. Atiende dudas antes de proponer una reunión; no insistas si la rechazó. Si hay más de 24 h sin mensaje del lead, avisa que por WhatsApp solo se puede enviar plantilla aprobada. " +
             "Si hay poco contexto, dilo en el resumen y enfoca el siguiente paso en calificar al lead.",
         },
         { role: "user", content: context },
@@ -206,10 +221,18 @@ ${transcript}`;
   brief.close_probability.pct = Math.max(0, Math.min(100, Math.round(Number(brief.close_probability?.pct) || 0)));
 
   const now = new Date().toISOString();
-  await svc.from("lead_assistant_briefs").upsert(
+  const primaryDeal = deals.find((d: any) => !d.is_won && !d.is_lost);
+  if (primaryDeal) {
+    const { error } = await svc.from("deals").update({ probability: brief.close_probability.pct }).eq("id", primaryDeal.id).eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false);
+    if (error) return json({ error: "No se pudo guardar la probabilidad" }, 500);
+    primaryDeal.probability = brief.close_probability.pct;
+  }
+  brief = enrichProspectBrief(brief, deals, sessions, agents);
+  const { error: saveError } = await svc.from("lead_assistant_briefs").upsert(
     { tenant_id: tenantId, contact_id: contactId, brief, basis_at: basisAt, model: model.model, generated_at: now },
     { onConflict: "contact_id" },
   );
+  if (saveError) return json({ error: "No se pudo guardar el resumen" }, 500);
   await recordAiUsage({
     tenantId, userId: u.user.id, surface: "lead_assistant", model: model.model, creditFactor: model.creditFactor,
     inputTokens: out?.usage?.prompt_tokens, outputTokens: out?.usage?.completion_tokens, totalTokens: out?.usage?.total_tokens,
