@@ -53,12 +53,18 @@ Deno.serve(async (req) => {
         imap_host: a.imap_host, imap_port: Number(a.imap_port || 993), imap_secure: a.imap_secure ?? true,
         username: a.username || null, updated_at: new Date().toISOString(),
       };
-      if (a.password) row.secret_ciphertext = await encryptSecret(String(a.password));
+      if (a.password) row.secret_ciphertext = await encryptSecret(String(a.password).replace(/\s+/g, ""));
       else if (!existing) return j({ error: "Falta la contraseña" }, 400);
       const test = { ...existing, ...row, secret_ciphertext: row.secret_ciphertext ?? existing?.secret_ciphertext };
+      const friendlyAuthError = (raw: string): string => {
+        if (/534|535|Application-specific password|InvalidSecondFactor|Username and Password not accepted/i.test(raw)) {
+          return "Google rechazó la contraseña: debe ser una «contraseña de aplicación» de 16 caracteres (Cuenta de Google → Seguridad → Contraseñas de aplicaciones), no tu contraseña normal. Pégala y vuelve a probar.";
+        }
+        return raw;
+      };
       let status = "connected", last_error: string | null = null;
-      try { await smtpVerify(test); } catch (e) { status = "error"; last_error = `SMTP: ${(e as Error).message}`; }
-      if (status === "connected") { try { await imapVerify(test); } catch (e) { status = "error"; last_error = `IMAP: ${(e as Error).message}`; } }
+      try { await smtpVerify(test); } catch (e) { status = "error"; last_error = `SMTP: ${friendlyAuthError((e as Error).message)}`; }
+      if (status === "connected") { try { await imapVerify(test); } catch (e) { status = "error"; last_error = `IMAP: ${friendlyAuthError((e as Error).message)}`; } }
       row.status = status; row.last_error = last_error;
       const q = existing
         ? sb.from("email_accounts").update(row).eq("id", existing.id).select("id").single()
