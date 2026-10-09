@@ -2265,6 +2265,332 @@ export type Database = {
           },
         ]
       }
+      email_accounts: {
+        Row: {
+          allowed_user_ids: string[]
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          email: string
+          id: string
+          imap_host: string | null
+          imap_port: number | null
+          imap_secure: boolean | null
+          kind: string
+          last_error: string | null
+          last_sync_at: string | null
+          owner_user_id: string | null
+          provider: string
+          secret_ciphertext: string | null
+          signature: string | null
+          smtp_host: string | null
+          smtp_port: number | null
+          smtp_secure: boolean | null
+          status: string
+          sync_cursor: string | null
+          tenant_id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          allowed_user_ids?: string[]
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          email: string
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          imap_secure?: boolean | null
+          kind?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          owner_user_id?: string | null
+          provider: string
+          secret_ciphertext?: string | null
+          signature?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          smtp_secure?: boolean | null
+          status?: string
+          sync_cursor?: string | null
+          tenant_id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          allowed_user_ids?: string[]
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          email?: string
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          imap_secure?: boolean | null
+          kind?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          owner_user_id?: string | null
+          provider?: string
+          secret_ciphertext?: string | null
+          signature?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          smtp_secure?: boolean | null
+          status?: string
+          sync_cursor?: string | null
+          tenant_id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      email_campaign_recipients: {
+        Row: {
+          campaign_id: string
+          clicked_at: string | null
+          contact_id: string | null
+          created_at: string
+          email: string
+          error: string | null
+          id: string
+          opened_at: string | null
+          provider_message_id: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          campaign_id: string
+          clicked_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email: string
+          error?: string | null
+          id?: string
+          opened_at?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          campaign_id?: string
+          clicked_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email?: string
+          error?: string | null
+          id?: string
+          opened_at?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns: {
+        Row: {
+          body: string
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          provider_id: string | null
+          scheduled_at: string | null
+          stats: Json
+          status: string
+          subject: string
+          template_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          provider_id?: string | null
+          scheduled_at?: string | null
+          stats?: Json
+          status?: string
+          subject?: string
+          template_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          provider_id?: string | null
+          scheduled_at?: string | null
+          stats?: Json
+          status?: string
+          subject?: string
+          template_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "email_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_messages: {
+        Row: {
+          account_id: string | null
+          body_html: string | null
+          body_text: string | null
+          cc_emails: string[]
+          created_at: string
+          direction: string
+          error: string | null
+          from_email: string | null
+          id: string
+          in_reply_to: string | null
+          message_id: string | null
+          provider_message_id: string | null
+          sent_at: string
+          sent_by: string | null
+          status: string
+          subject: string | null
+          tenant_id: string
+          thread_id: string
+          to_emails: string[]
+        }
+        Insert: {
+          account_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          direction: string
+          error?: string | null
+          from_email?: string | null
+          id?: string
+          in_reply_to?: string | null
+          message_id?: string | null
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          subject?: string | null
+          tenant_id: string
+          thread_id: string
+          to_emails?: string[]
+        }
+        Update: {
+          account_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          direction?: string
+          error?: string | null
+          from_email?: string | null
+          id?: string
+          in_reply_to?: string | null
+          message_id?: string | null
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          subject?: string | null
+          tenant_id?: string
+          thread_id?: string
+          to_emails?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_providers: {
+        Row: {
+          config: Json
+          created_at: string
+          from_email: string
+          from_name: string | null
+          id: string
+          last_error: string | null
+          name: string
+          provider: string
+          secret_ciphertext: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          from_email: string
+          from_name?: string | null
+          id?: string
+          last_error?: string | null
+          name: string
+          provider: string
+          secret_ciphertext?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          from_email?: string
+          from_name?: string | null
+          id?: string
+          last_error?: string | null
+          name?: string
+          provider?: string
+          secret_ciphertext?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -2327,6 +2653,144 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      email_settings: {
+        Row: {
+          default_bulk_provider_id: string | null
+          send_mode: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          default_bulk_provider_id?: string | null
+          send_mode?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          default_bulk_provider_id?: string | null
+          send_mode?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_suppressions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          reason: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          reason?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          reason?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          subject: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          subject?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          subject?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_threads: {
+        Row: {
+          account_id: string | null
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          last_message_at: string
+          last_snippet: string | null
+          owner_id: string | null
+          status: string
+          subject: string | null
+          tenant_id: string
+          unread: boolean
+        }
+        Insert: {
+          account_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          last_message_at?: string
+          last_snippet?: string | null
+          owner_id?: string | null
+          status?: string
+          subject?: string | null
+          tenant_id: string
+          unread?: boolean
+        }
+        Update: {
+          account_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          last_message_at?: string
+          last_snippet?: string | null
+          owner_id?: string | null
+          status?: string
+          subject?: string | null
+          tenant_id?: string
+          unread?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_threads_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_threads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_unsubscribe_tokens: {
         Row: {
@@ -5783,6 +6247,10 @@ export type Database = {
         Returns: Json
       }
       downgrade_expired_trials: { Args: never; Returns: number }
+      email_is_supervisor: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }

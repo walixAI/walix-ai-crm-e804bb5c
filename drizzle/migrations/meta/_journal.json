@@ -141,6 +141,13 @@
       "when": 1791506209590,
       "tag": "0019_seed_sxp_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791567871686,
+      "tag": "0020_email_module",
+      "breakpoints": true
     }
   ]
 }
