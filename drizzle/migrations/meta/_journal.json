@@ -127,6 +127,13 @@
       "when": 1791503374805,
       "tag": "0017_dedupe_conversations_unique_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791506107878,
+      "tag": "0018_campaign_enroll_stage_and_silence",
+      "breakpoints": true
     }
   ]
 }
