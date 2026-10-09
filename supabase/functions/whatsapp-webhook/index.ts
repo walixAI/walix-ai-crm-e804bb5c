@@ -2,6 +2,7 @@ import { handleInboundWithAgent } from "../_shared/sales-agent.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164, phoneMatchVariants } from "../_shared/phone.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
+import { enrollContact } from "../_shared/wa-enroll.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -273,6 +274,20 @@ Deno.serve(async (req) => {
               await sb.from("contacts").update({ phone: canonical }).eq("id", contactId);
             }
             if (!contactId) continue;
+
+            // Actividad: alimenta los avisos de silencio y los filtros de campañas.
+            await sb.from("contacts")
+              .update({ last_activity_at: new Date().toISOString() })
+              .eq("id", contactId);
+
+            // Campañas: el lead que llegó por WhatsApp entra a su secuencia de seguimiento.
+            if (isNewContact) {
+              try {
+                const { data: tn } = await sb.from("tenants")
+                  .select("feature_wa_campaigns").eq("id", channel.tenant_id).maybeSingle();
+                if (tn?.feature_wa_campaigns) await enrollContact(sb, channel.tenant_id, contactId);
+              } catch (e) { console.error("wa campaign enroll", e); }
+            }
 
             // Atribución: primer mensaje o mensaje que llega desde un anuncio (Click to WhatsApp)
             if (isNewContact || referral) {
