@@ -1,3 +1,4 @@
+import { ContactEmailTab } from "@/components/email/ContactEmailTab";
 import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 import { useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
@@ -98,6 +99,7 @@ export default function ContactDetail() {
               <TabsTrigger value="conversations">
                 Conversaciones {convs.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{convs.length}</span>}
               </TabsTrigger>
+              <TabsTrigger value="email">Email</TabsTrigger>
               <TabsTrigger value="activities">Actividades</TabsTrigger>
               <TabsTrigger value="deals">
                 Oportunidades {contactDeals.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{contactDeals.length}</span>}
@@ -133,6 +135,10 @@ export default function ContactDetail() {
                   <div className="p-8 text-center text-sm text-muted-foreground">Sin conversaciones todavía.</div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="email" className="mt-4">
+              <ContactEmailTab contactId={contact.id} contactEmail={(contact as any).email} />
             </TabsContent>
 
             <TabsContent value="activities" className="mt-4">

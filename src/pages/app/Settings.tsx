@@ -20,6 +20,7 @@ import { ExpenseCategoriesTab } from "@/components/settings/expenses/ExpenseCate
 import { CopilotCapabilitiesTab } from "@/components/settings/copilot/CopilotCapabilitiesTab";
 import { WidgetsTab } from "@/components/settings/widgets/WidgetsTab";
 import { OutcomesTab } from "@/components/settings/outcomes/OutcomesTab";
+import { EmailSettingsTab } from "@/components/settings/email/EmailSettingsTab";
 import { ImportTab } from "@/components/settings/import/ImportTab";
 import { LoadingSpinner } from "@/components/walix/LoadingSpinner";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -36,6 +37,7 @@ const ALL_TABS = [
   { id: "widgets", label: "Tarjetas" },
   { id: "import", label: "Importar" },
   { id: "whatsapp", label: "WhatsApp" },
+  { id: "email", label: "Email" },
   { id: "modules", label: "Módulos" },
   { id: "ventas", label: "Agentes de ventas" },
   { id: "agents", label: "Agentes IA" },
@@ -124,6 +126,7 @@ export default function Settings() {
         {visible("widgets") && <TabsContent value="widgets"><WidgetsTab /></TabsContent>}
         {visible("import") && <TabsContent value="import"><ImportTab /></TabsContent>}
         {visible("whatsapp") && <TabsContent value="whatsapp"><WhatsappSettingsTab tenantId={tenantId} /></TabsContent>}
+        {visible("email") && <TabsContent value="email"><EmailSettingsTab /></TabsContent>}
         {visible("modules") && <TabsContent value="modules"><ModulesTab /></TabsContent>}
         {visible("ventas") && <TabsContent value="ventas"><SalesAgentsTab tenantId={tenantId} /></TabsContent>}
         {visible("agents") && <TabsContent value="agents"><AgentsTab tenantId={tenantId} /></TabsContent>}

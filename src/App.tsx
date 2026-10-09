@@ -41,6 +41,8 @@ const Profile = lazy(() => import("@/pages/app/Profile"));
 const MiDia = lazy(() => import("@/pages/app/MiDia"));
 const Expenses = lazy(() => import("@/pages/app/Expenses"));
 const Campaigns = lazy(() => import("@/pages/app/Campaigns"));
+const EmailPage = lazy(() => import("@/pages/app/Email"));
+const EmailUnsubscribe = lazy(() => import("@/pages/EmailUnsubscribe"));
 const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 const Team = lazy(() => import("@/pages/app/Team"));
 const WhatsappSim = lazy(() => import("@/pages/app/WhatsappSim"));
@@ -105,6 +107,7 @@ const AppRoutes = () => {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/baja-email" element={<EmailUnsubscribe />} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -123,6 +126,7 @@ const AppRoutes = () => {
         <Route path="/reports" element={<Reports />} />
         <Route path="/automations" element={<Automations />} />
         <Route path="/campanas" element={<Campaigns />} />
+        <Route path="/email" element={<EmailPage />} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "platform_owner", "platform_staff", "super_admin"]}>
             <Settings />
