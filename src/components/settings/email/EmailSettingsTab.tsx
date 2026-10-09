@@ -147,6 +147,7 @@ export function EmailSettingsTab() {
             <Input placeholder="correo@empresa.com" value={acc.email} onChange={(e) => setAcc({ ...acc, email: e.target.value })} />
             <Input placeholder="Nombre que verá el lead (ej. Mariana – SXP)" value={acc.display_name ?? ""} onChange={(e) => setAcc({ ...acc, display_name: e.target.value })} />
             <Input type="password" placeholder={acc.id ? "Contraseña (déjala vacía para no cambiarla)" : "Contraseña o contraseña de aplicación"} value={acc.password} onChange={(e) => setAcc({ ...acc, password: e.target.value })} />
+            {acc.preset === "gmail" && <p className="text-xs text-amber-600 dark:text-amber-400">Con Gmail no uses tu contraseña normal: genera una «contraseña de aplicación» de 16 letras en myaccount.google.com/apppasswords y pégala aquí (los espacios se quitan solos).</p>}
             <div className="grid grid-cols-[1fr_90px] gap-2">
               <Input placeholder="Servidor de salida (SMTP)" value={acc.smtp_host} onChange={(e) => setAcc({ ...acc, smtp_host: e.target.value })} />
               <Input placeholder="Puerto" value={acc.smtp_port} onChange={(e) => setAcc({ ...acc, smtp_port: e.target.value })} />
