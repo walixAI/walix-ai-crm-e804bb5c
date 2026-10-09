@@ -90,14 +90,24 @@ export async function matchContacts(
     const since = new Date(Date.now() - c.created_within_days * 86400_000).toISOString();
     query = query.gte("created_at", since);
   }
-  if (c.no_reply_days) {
-    const before = new Date(Date.now() - c.no_reply_days * 86400_000).toISOString();
-    query = query.or(`last_activity_at.is.null,last_activity_at.lt.${before}`);
-  }
-
   const { data, error, count } = await query.limit(limit);
   if (error) throw new Error(error.message);
   let rows = (data ?? []) as any[];
+
+  // Silencio: se mide desde el último mensaje entrante real. El campo
+  // last_activity_at llega vacío en los contactos creados desde WhatsApp, y
+  // usarlo a secas contaría como «sin respuesta» a quien acaba de escribir.
+  if (c.no_reply_days && rows.length) {
+    const before = Date.now() - c.no_reply_days * 86400_000;
+    const { data: lastIn } = await sb.rpc("contact_last_inbound", {
+      _tenant_id: tenantId, _contact_ids: rows.map((r) => r.id),
+    });
+    const lastMap = new Map((lastIn ?? []).map((r: any) => [r.contact_id, r.last_inbound]));
+    rows = rows.filter((r) => {
+      const last = lastMap.get(r.id) ?? r.last_activity_at ?? r.created_at;
+      return !last || new Date(last).getTime() < before;
+    });
+  }
 
   // Producto vive en custom_fields → se filtra en memoria.
   if (c.products?.length) {
@@ -121,7 +131,10 @@ export async function matchContacts(
     rows = rows.filter((r) => allowed.has(r.id));
   }
 
-  return { ids: rows.map((r) => r.id), total: c.products?.length || c.stage_ids?.length ? rows.length : (count ?? rows.length) };
+  return {
+    ids: rows.map((r) => r.id),
+    total: c.products?.length || c.stage_ids?.length || c.no_reply_days ? rows.length : (count ?? rows.length),
+  };
 }
 
 export interface WaChannel {

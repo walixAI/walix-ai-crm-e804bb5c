@@ -4987,6 +4987,7 @@ export type Database = {
           created_at: string
           current_step: number
           deal_id: string | null
+          enrolled_stage_id: string | null
           exit_reason: string | null
           id: string
           next_send_at: string | null
@@ -5000,6 +5001,7 @@ export type Database = {
           created_at?: string
           current_step?: number
           deal_id?: string | null
+          enrolled_stage_id?: string | null
           exit_reason?: string | null
           id?: string
           next_send_at?: string | null
@@ -5013,6 +5015,7 @@ export type Database = {
           created_at?: string
           current_step?: number
           deal_id?: string | null
+          enrolled_stage_id?: string | null
           exit_reason?: string | null
           id?: string
           next_send_at?: string | null
@@ -5760,6 +5763,13 @@ export type Database = {
       }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
       close_recurrence_from_deal: { Args: { _deal_id: string }; Returns: Json }
+      contact_last_inbound: {
+        Args: { _contact_ids: string[]; _tenant_id: string }
+        Returns: {
+          contact_id: string
+          last_inbound: string
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean

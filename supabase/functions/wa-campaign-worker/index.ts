@@ -4,6 +4,7 @@ import {
   defaultClientsChannel, ensureConversation, isSimChannel, isWithinSchedule, renderText,
   sendTemplate, sendText, serviceWindowOpen,
 } from "../_shared/wa-campaigns.ts";
+import { scanAndEnroll } from "../_shared/wa-enroll.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,10 +17,24 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+  // Primero se inscribe a quien ya cumple las condiciones pero no estaba dentro:
+  // los que llegan por WhatsApp y los que cumplen un filtro por tiempo.
+  try {
+    const { data: campTenants } = await sb
+      .from("wa_campaigns")
+      .select("tenant_id")
+      .eq("is_active", true)
+      .not("tenant_id", "is", null);
+    const tenantIds = Array.from(new Set((campTenants ?? []).map((t: any) => t.tenant_id)));
+    for (const t of tenantIds) await scanAndEnroll(sb, t);
+  } catch (e) {
+    console.error("campaign scan failed", e);
+  }
+
   const nowIso = new Date().toISOString();
   const { data: due, error } = await sb
     .from("wa_enrollments")
-    .select("id, tenant_id, campaign_id, contact_id, current_step, next_send_at")
+    .select("id, tenant_id, campaign_id, contact_id, current_step, next_send_at, deal_id, enrolled_stage_id")
     .eq("status", "active")
     .lte("next_send_at", nowIso)
     .order("next_send_at", { ascending: true })
@@ -32,7 +47,7 @@ Deno.serve(async (req) => {
   for (const e of due ?? []) {
     try {
       const { data: campaign } = await sb
-        .from("wa_campaigns").select("id, name, is_active, schedule").eq("id", e.campaign_id).maybeSingle();
+        .from("wa_campaigns").select("id, name, is_active, schedule, stop_on_closed, stop_on_stage_change").eq("id", e.campaign_id).maybeSingle();
       if (!campaign?.is_active) {
         await sb.from("wa_enrollments").update({ status: "stopped", exit_reason: "campaña inactiva", next_send_at: null }).eq("id", e.id);
         skipped++; continue;
@@ -40,6 +55,22 @@ Deno.serve(async (req) => {
       if (!isWithinSchedule(campaign.schedule)) {
         await sb.from("wa_enrollments").update({ next_send_at: new Date(Date.now() + 30 * 60_000).toISOString() }).eq("id", e.id);
         skipped++; continue;
+      }
+
+      // Cortes automáticos: si la oportunidad se cerró o avanzó de etapa, la
+      // secuencia se detiene para no seguir escribiéndole a alguien que ya no aplica.
+      if (e.deal_id) {
+        const { data: deal } = await sb
+          .from("deals").select("id, stage_id, is_won, is_lost").eq("id", e.deal_id).maybeSingle();
+        if (deal && ((campaign.stop_on_closed && (deal.is_won || deal.is_lost)) ||
+          (campaign.stop_on_stage_change && e.enrolled_stage_id && deal.stage_id !== e.enrolled_stage_id))) {
+          await sb.from("wa_enrollments").update({
+            status: "stopped",
+            exit_reason: deal.is_won || deal.is_lost ? "la oportunidad se cerró" : "la oportunidad cambió de etapa",
+            next_send_at: null,
+          }).eq("id", e.id);
+          skipped++; continue;
+        }
       }
 
       const { data: steps } = await sb
