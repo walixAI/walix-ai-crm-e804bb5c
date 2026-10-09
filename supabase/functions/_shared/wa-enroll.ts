@@ -21,6 +21,16 @@ async function insertEnrollment(
   contactId: string,
 ): Promise<boolean> {
   const deal = await latestDeal(sb, tenantId, contactId);
+  // El primer paso también espera: si la secuencia dice «esperar 24 h», el
+  // primer mensaje no sale al instante de enrolar.
+  const { data: first } = await sb
+    .from("wa_campaign_steps")
+    .select("wait_hours")
+    .eq("campaign_id", campaignId)
+    .order("step_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const wait = Math.max(0, Number(first?.wait_hours ?? 0));
   const { error } = await sb.from("wa_enrollments").insert({
     tenant_id: tenantId,
     campaign_id: campaignId,
@@ -29,7 +39,7 @@ async function insertEnrollment(
     enrolled_stage_id: deal?.stage_id ?? null,
     status: "active",
     current_step: 0,
-    next_send_at: new Date().toISOString(),
+    next_send_at: new Date(Date.now() + wait * 3600_000).toISOString(),
   });
   if (error) {
     console.error("enroll insert failed", error.message);
