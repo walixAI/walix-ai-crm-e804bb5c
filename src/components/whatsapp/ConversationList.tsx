@@ -187,7 +187,13 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{c.preview}</p>
                     {c.requiresAdvisor && <HumanAttentionBadge />}
                     <div className="flex items-center gap-2 mt-1.5">
-                      <StatusBadge status={c.status} />
+                      {c.stageName ? (
+                        <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-primary/10 text-primary border-primary/30 truncate max-w-[140px]" title="Etapa de la oportunidad">
+                          {c.stageName}
+                        </span>
+                      ) : (
+                        <StatusBadge status={c.status} />
+                      )}
                       {c.awaitingReply && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-warning/10 text-warning border-warning/30">
                           Por responder
