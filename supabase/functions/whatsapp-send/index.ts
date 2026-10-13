@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toWaId } from "../_shared/phone.ts";
+import { signedDocumentUrl, waMediaPayload, docMessageBody, isImage, type TenantDoc } from "../_shared/tenant-documents.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,8 +31,10 @@ Deno.serve(async (req) => {
       internal?: boolean;
       category?: "service" | "utility" | "marketing" | "authentication";
       template?: { name: string; language?: string; params?: string[] };
+      documentId?: string;
     };
-    if (!body.conversationId || !body.body?.trim()) {
+    body.body = String(body.body ?? "");
+    if (!body.conversationId || (!body.body.trim() && !body.documentId) || (body.documentId && body.internal)) {
       return new Response(JSON.stringify({ error: "Faltan parámetros" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -106,6 +109,17 @@ Deno.serve(async (req) => {
 
     if (!channel || channel.status !== "connected" || !channel.phone_number_id) return jsonRes({ error: "El canal de esta conversación no está conectado" }, 409);
     const isSim = channel.phone_number_id.startsWith("SIM");
+
+    // Documento del tenant: lo valida la RLS del asesor (categoría habilitada) y se envía por enlace firmado.
+    let doc: TenantDoc | null = null; let docLink: string | null = null;
+    if (body.documentId) {
+      const { data: d } = await sb.from("documents").select("id, name, description, storage_path, mime_type")
+        .eq("id", body.documentId).eq("tenant_id", conv.tenant_id).maybeSingle();
+      if (!d) return jsonRes({ error: "No tienes acceso a ese documento" }, 403);
+      doc = d as TenantDoc;
+      docLink = await signedDocumentUrl(channelClient, doc.storage_path, 24 * 3600);
+      if (!docLink) return jsonRes({ error: "No se pudo preparar el documento" }, 500);
+    }
     if (!isSim && !channel.access_token) return jsonRes({ error: "El canal no tiene credenciales de envío disponibles" }, 409);
 
     // Control de gasto: fuera de la ventana de 24 h solo plantillas, con límites por lead/asesor/empresa.
@@ -175,7 +189,9 @@ Deno.serve(async (req) => {
               ...(tpl.params.length ? { components: [{ type: "body", parameters: tpl.params.map((t: string) => ({ type: "text", text: t })) }] } : {}),
             },
           }
-        : { messaging_product: "whatsapp", to: toNumber, type: "text", text: { body: body.body } };
+        : doc && docLink
+          ? waMediaPayload(toNumber, doc, docLink, body.body.trim() || undefined)
+          : { messaging_product: "whatsapp", to: toNumber, type: "text", text: { body: body.body } };
       const res = await fetch(`${META_API}/${channel.phone_number_id}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${channel.access_token}`, "Content-Type": "application/json" },
