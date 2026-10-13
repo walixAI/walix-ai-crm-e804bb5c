@@ -49,11 +49,8 @@ export function RequestPackDialog({
     }
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke("send-transactional-email", {
-        body: {
-          templateName: "credit-pack-request",
-          templateData: { ...parsed.data, paquete: packLabel, tipo, tenant_id: tenantId ?? "" },
-        },
+      const { error } = await supabase.functions.invoke("request-credit-pack", {
+        body: { ...parsed.data, paquete: packLabel, tipo, tenant_id: tenantId ?? "" },
       });
       if (error) throw error;
       toast.success("Solicitud enviada", { description: "El equipo de Walix te contactará muy pronto." });

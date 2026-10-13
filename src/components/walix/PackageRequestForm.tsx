@@ -49,11 +49,8 @@ export function PackageRequestForm({ defaultPaquete }: { defaultPaquete?: string
     }
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke("send-transactional-email", {
-        body: {
-          templateName: "package-request",
-          templateData: parsed.data,
-        },
+      const { error } = await supabase.functions.invoke("request-package", {
+        body: parsed.data,
       });
       if (error) throw error;
       setSent(true);

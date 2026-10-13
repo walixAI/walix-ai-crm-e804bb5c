@@ -1,3 +1,4 @@
+import { sendAndLog } from "../_shared/transactional-email-templates/logged-send.ts";
 // Edge function: motor de automatizaciones programadas.
 // Se invoca vía cron cada hora y ejecuta triggers de tipo scheduled y recurrencias.
 import { createClient } from "npm:@supabase/supabase-js@2";
