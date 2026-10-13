@@ -91,6 +91,7 @@ export const ROLE_CAPABILITIES: Record<Role, PermissionToken[]> = {
   sales_manager: [
     "contacts.read.team",
     "contacts.update.team",
+    "contacts.reassign.team",
     "deals.read.team",
     "deals.update.team",
     "deals.reassign.team",
@@ -106,6 +107,7 @@ export const ROLE_CAPABILITIES: Record<Role, PermissionToken[]> = {
   sales_rep: [
     "contacts.read.own",
     "contacts.update.own",
+    "contacts.reassign.own",
     "contacts.create",
     "deals.read.own",
     "deals.update.own",

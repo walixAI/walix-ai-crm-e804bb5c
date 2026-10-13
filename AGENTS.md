@@ -2,7 +2,7 @@
 
 - Team role changes use the authenticated change_tenant_member_role RPC, restricted to the active tenant owner/platform and audited with auth.uid(); why: atomic tenant-scoped changes must not expose direct role writes or accept caller-supplied actor identities.
 
-- Opportunity labels are synchronized in database triggers from stage_id and related product/program; contact views and follow-ups share latestActiveOpportunity (newest created open opportunity), and query invalidation includes contact views and stage history, because all screens must agree after advisor or agent changes.
+- DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
 - The authenticated shell uses overflow-x-clip, not overflow-x-hidden, so the document owns vertical scrolling; nested desktop scrollbars are subtle and interactive, and Kanban totals wrap instead of creating a second horizontal scroller.
@@ -20,3 +20,6 @@
 - Human-attention views share pending_human_attention, authorized server-side by tenant and owner/supervisor role; pending ends only with a real human response or completed contact task, never a bot reply or opening the alert, so all work views agree.
 - Pending human attention is displayed once in the shared sticky TopBar below Copilot, not in page-local panels; why: pending leads remain reachable across all authenticated sections without duplicating content.
 - Sales reps (sales_rep without admin/manager role in that tenant) only see/update their own leads, enforced by restrictive RLS via is_rep_only/rep_owns_contact; frontend roles are filtered to the active tenant; why: users can hold different roles in different tenants.
+
+- Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
+- WhatsApp readiness uses credential-free RPCs; send resolves exact tenant/channel credentials server-side after caller-RLS conversation authorization; why: reps must send without accessing secrets.

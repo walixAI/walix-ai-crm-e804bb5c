@@ -46,7 +46,7 @@ export function QuickActions({ deal, stages, onRequestLost, onNewTask }: Props) 
           icon={<MessageSquare className="h-3.5 w-3.5" />}
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/inbox${deal.contactId ? `?contact=${deal.contactId}` : ""}`);
+            navigate(`/whatsapp${deal.contactId ? `?contactId=${deal.contactId}` : ""}`);
           }}
           className="text-success"
         />
