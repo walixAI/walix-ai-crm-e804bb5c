@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
 import { aiMemory } from "@/services/aiMemory";
+import { useHumanAttention } from "@/lib/queries/humanAttention";
 import { toast } from "sonner";
 import { fetchNextServiceDates, formatServiceMonths } from "@/lib/queries/recurrence";
 
@@ -25,6 +26,7 @@ export interface PipelineStage {
 }
 
 export interface PipelineDeal {
+  requiresAdvisor?: boolean;
   id: string;
   name: string;
   amount: number;
@@ -382,7 +384,8 @@ export function useDaysInCurrentStage(dealId: string | undefined, fallbackIso: s
 
 export function useDeals() {
   const { data: users } = useTenantUsers();
-  return useQuery({
+  const attention = useHumanAttention();
+  const query = useQuery({
     queryKey: ["pipeline-deals", users?.length ?? 0],
     queryFn: async (): Promise<PipelineDeal[]> => {
       // El backend devuelve máx. 1000 filas por consulta: paginamos para traerlas todas.
@@ -402,6 +405,8 @@ export function useDeals() {
       return all.map((r) => mapDeal(r, users));
     },
   });
+  const pendingIds = new Set((attention.data ?? []).map(item => item.deal_id));
+  return { ...query, data: query.data?.map(d => ({ ...d, requiresAdvisor: pendingIds.has(d.id) })) };
 }
 
 export function useDeal(id: string | undefined) {

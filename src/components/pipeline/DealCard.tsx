@@ -1,3 +1,4 @@
+import { HumanAttentionBadge } from "@/components/walix/HumanAttention";
 import { effectiveProbability } from "@/lib/pipeline/probability";
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
@@ -100,6 +101,7 @@ function DealCardImpl({
       className={cn(
         "relative cursor-pointer rounded-xl bg-card border border-border p-3 shadow-sm transition-all overflow-hidden group",
         !isOverlay && "hover:shadow-md hover:border-primary/30",
+        deal.requiresAdvisor && "human-attention border-warning/40",
         selected && "border-primary ring-2 ring-primary/30",
         isOverlay && "shadow-glow rotate-1",
       )}
@@ -148,6 +150,7 @@ function DealCardImpl({
         </div>
       </div>
 
+      {deal.requiresAdvisor && <div className="mb-2"><HumanAttentionBadge /></div>}
       <div className="text-success font-bold text-base mb-2">{formatMXN(deal.amount)} MXN</div>
 
       {isClosed && (

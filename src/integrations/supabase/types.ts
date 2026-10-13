@@ -6318,6 +6318,22 @@ export type Database = {
       mark_silent_deals: { Args: never; Returns: number }
       open_deal_for_contact: { Args: { _contact_id: string }; Returns: string }
       org_tenant_count: { Args: { _org_id: string }; Returns: number }
+      pending_human_attention: {
+        Args: never
+        Returns: {
+          agent_name: string
+          channel: string
+          contact_id: string
+          contact_name: string
+          conversation_id: string
+          deal_id: string
+          handoff_at: string
+          owner_id: string
+          owner_name: string
+          reason: string
+          session_id: string
+        }[]
+      }
       pipeline_stage_impact: {
         Args: { _stage_id: string }
         Returns: {

@@ -152,3 +152,12 @@
     color: transparent;
   }
 }
+
+@keyframes human-attention-pulse {
+  0%, 100% { background-color: hsl(var(--warning) / 0.05); }
+  50% { background-color: hsl(var(--warning) / 0.18); }
+}
+.human-attention { animation: human-attention-pulse 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .human-attention { animation: none; background-color: hsl(var(--warning) / 0.1); }
+}

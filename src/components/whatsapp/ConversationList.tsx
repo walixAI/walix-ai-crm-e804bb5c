@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { attentionPriority } from "@/lib/queries/humanAttention";
+import { HumanAttentionBadge } from "@/components/walix/HumanAttention";
+import { useAuthStore } from "@/store/auth";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, Search, Loader2, User, Clock, CreditCard } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -36,7 +39,16 @@ interface Props {
 
 export function ConversationList({ conversations, activeId, onSelect, myUserId, loading }: Props) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("all");
+  const roles = useAuthStore(s => s.roles);
+  const advisor = roles.includes("sales_rep") && !roles.some(r => ["tenant_owner", "tenant_admin", "sales_manager", "platform_owner", "platform_staff", "super_admin"].includes(r));
+  const [tab, setTab] = useState<Tab>(() => advisor ? "pending" : "all");
+  const initializedRole = useRef(roles.length > 0);
+  useEffect(() => {
+    if (!initializedRole.current && roles.length > 0) {
+      initializedRole.current = true;
+      if (advisor) setTab("pending");
+    }
+  }, [roles, advisor]);
   const [q, setQ] = useState("");
   const term = q.trim();
   const { data: matchingConvIds, isFetching: searching } = useMessageSearch(term);
@@ -58,7 +70,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
           (matchingConvIds?.has(c.id) ?? false),
       );
     }
-    return list;
+    return [...list].sort(attentionPriority);
   }, [conversations, tab, term, myUserId, matchingConvIds]);
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unread ?? 0), 0);
@@ -140,7 +152,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
             const active = c.id === activeId;
             const win = getServiceWindow(c.lastInboundAt);
             return (
-              <li key={c.id} className="relative group">
+              <li key={c.id} className={cn("relative group", c.requiresAdvisor && "human-attention")} >
                 <button
                   onClick={() => onSelect(c.id)}
                   className={cn(
@@ -173,6 +185,7 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
                       <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo(c.lastAt)}</span>
                     </div>
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{c.preview}</p>
+                    {c.requiresAdvisor && <HumanAttentionBadge />}
                     <div className="flex items-center gap-2 mt-1.5">
                       <StatusBadge status={c.status} />
                       {c.awaitingReply && (

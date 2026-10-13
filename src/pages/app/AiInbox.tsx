@@ -1,3 +1,4 @@
+import { HumanAttentionPanel } from "@/components/walix/HumanAttention";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -85,6 +86,7 @@ export default function AiInbox() {
 
   return (
     <div className="flex-1 flex flex-col">
+      <div className="px-6 py-4"><HumanAttentionPanel /></div>
       {/* Header */}
       <header className="px-6 py-5 border-b border-border bg-card/30">
         <div className="flex items-start justify-between gap-4 flex-wrap">

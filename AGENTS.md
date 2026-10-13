@@ -8,3 +8,5 @@
 - Built-in stage milestones: DB triggers on messages, email_messages and activities advance open deals forward-only to stages matched by name (Intento de contacto, Contactado, Calificado, Agendado/Entrevista/Reunión, Propuesta/Inscripción) from replies and outcome text, independent of pipeline_stage_rules; payment→won uses pipeline_stage_rules; why: reliable funnel movement without per-tenant configuration.
 - WhatsApp messages and emails are mirrored into activities by DB triggers (WhatsApp grouped per conversation in 30-minute blocks; agent handoff notes as notes); why: the lead's activity timeline must show bot and advisor follow-ups without each sender logging them.
 - After a handoff the sales agent keeps answering until a human advisor sends a message in that conversation; why: leads must not be left in silence while waiting for the advisor.
+
+- Human-attention views share pending_human_attention, authorized server-side by tenant and owner/supervisor role; pending ends only with a real human response or completed contact task, never a bot reply or opening the alert, so all work views agree.

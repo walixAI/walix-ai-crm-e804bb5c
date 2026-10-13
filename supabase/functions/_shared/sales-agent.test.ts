@@ -93,6 +93,30 @@ describe("anuncio CTWA", () => {
 });
 
 describe("Persistencia del perfil de la conversación", () => {
+  it("crea una tarea válida, asigna conversación y notifica a gerentes", async () => {
+    const writes: { table: string; data: any }[] = [];
+    const sb: any = { from: (table: string) => {
+      const chain: any = {
+        select: () => chain, eq: () => chain,
+        in: (_key: string, values: string[]) => { if (table === "user_roles") expect(values).toContain("sales_manager"); return chain; },
+        update: (data: any) => { writes.push({ table, data }); return chain; },
+        insert: (data: any) => { writes.push({ table, data }); return chain; },
+        maybeSingle: async () => ({ data: { name: "Juan", custom_fields: {} }, error: null }),
+        then: (resolve: any) => resolve({ data: table === "user_roles" ? [{ user_id: "manager" }] : [], error: null }),
+      };
+      return chain;
+    } };
+    const params = { agent: { id: "a", name: "Arlett", profiling_fields: [] }, session: { id: "s", state: "agent" },
+      parsed: { handoff: true }, tenantId: "t", contactId: "c", dealId: null, ownerId: "advisor", conversationId: "conv",
+      channelLabel: "WhatsApp", note: async () => {} };
+    await applyAgentTurn(sb, params);
+    expect(writes.find(w => w.table === "tasks")?.data.task_kind).toBe("seguimiento");
+    expect(writes.find(w => w.table === "conversations")?.data.assignee_id).toBe("advisor");
+    expect(writes.find(w => w.table === "notifications")?.data.map((n: any) => n.user_id)).toEqual(["advisor", "manager"]);
+    writes.length = 0;
+    await applyAgentTurn(sb, { ...params, session: { id: "s", state: "escalated" } });
+    expect(writes.some(w => w.table === "tasks" || w.table === "notifications")).toBe(false);
+  });
   it("no bloquea la respuesta si falla la sincronización secundaria", async () => {
     const chain: any = { select: () => chain, eq: () => chain,
       maybeSingle: async () => { throw new Error("secondary sync unavailable"); } };

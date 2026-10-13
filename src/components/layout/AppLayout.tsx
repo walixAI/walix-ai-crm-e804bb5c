@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { HumanAttentionModal } from "@/components/walix/HumanAttention";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
@@ -81,6 +82,7 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
+      <HumanAttentionModal />
       {copilotWebAllowed && <CopilotDrawer />}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <OnboardingTour open={tour.open} onClose={tour.close} />
