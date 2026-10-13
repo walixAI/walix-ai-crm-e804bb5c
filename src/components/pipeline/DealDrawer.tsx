@@ -174,6 +174,17 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
             <TabsContent value="summary" className="space-y-4 m-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ring-0">
               {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} />}
               <EditableField
+                label="Nombre del lead"
+                display={deal.name}
+                value={deal.name}
+                onSave={async (v) => {
+                  const next = v.trim();
+                  if (!next || next === deal.name) return;
+                  await savePatch({ name: next });
+                }}
+                render={(v, set) => <Input autoFocus value={v} onChange={(e) => set(e.target.value)} />}
+              />
+              <EditableField
                 label="Monto MXN"
                 display={formatMXN(deal.amount)}
                 value={String(deal.amount)}

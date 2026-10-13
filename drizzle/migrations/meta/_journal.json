@@ -197,6 +197,20 @@
       "when": 1791924081566,
       "tag": "0027_sync_opportunity_labels_and_stage_history",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791925127698,
+      "tag": "0028_allow_manual_opportunity_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791925153205,
+      "tag": "0029_refresh_names_flag",
+      "breakpoints": true
     }
   ]
 }
