@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import { summarizeWaActivity } from "@/lib/activities/waSummary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -445,7 +446,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
               </div>
             </TabsContent>
 
-            <TabsContent value="summary" forceMount className="space-y-4 m-0 mt-4 data-[state=inactive]:hidden">
+            <TabsContent value="summary" className="space-y-4 m-0 mt-4">
               {!deal.contactId && <AiContextPanel entityType="deal" entityId={deal.id} />}
 
               {!deal.contactId && <div className="rounded-xl border border-border bg-card p-4">
@@ -538,7 +539,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ProductCategoryField({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const { data: categories = [] } = useProductCategories();
   return (
-    <Field label="Categoría / producto">
+    <Field label="Programa / producto">
       <Select value={value ?? "none"} onValueChange={(v) => onChange(v === "none" ? null : v)}>
         <SelectTrigger className="h-9"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
         <SelectContent>
