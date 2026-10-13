@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Edit, MoreHorizontal, Plus, Phone, X } from "lucide-react";
+import { MessageCircle, Edit, MoreHorizontal, Plus, Phone, X, Check } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { lifecycleLabel, statusBadgeClass } from "@/lib/contacts/badges";
 import { useContactTags, getTagMetaFromList } from "@/lib/queries/contactTags";
 import { useUpdateContact, useDeleteContact, useContactStats, type ContactRow } from "@/lib/queries/contacts";
 import { cn } from "@/lib/utils";
 import { LifecycleProposalBanner } from "@/components/contacts/LifecycleProposalBanner";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
-import { ReassignPopover } from "@/components/contacts/ReassignPopover";
+import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { ChangeStatusPopover } from "@/components/contacts/ChangeStatusPopover";
 import { TagsPopover } from "@/components/contacts/TagsPopover";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
@@ -28,6 +28,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
   const remove = useDeleteContact();
   const stats = useContactStats(contact.id, contact.lastActivity, contact.createdAt);
   const navigate = useNavigate();
+  const { data: tenantUsers = [] } = useTenantUsers();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -100,11 +101,21 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <ReassignPopover
-                currentOwnerId={contact.ownerId}
-                onSelect={reassign}
-                trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Reasignar vendedor</DropdownMenuItem>}
-              />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Reasignar vendedor</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                  <DropdownMenuItem onSelect={() => reassign(null)}>
+                    <span className="flex-1">Sin asignar</span>
+                    {!contact.ownerId && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </DropdownMenuItem>
+                  {tenantUsers.map((u) => (
+                    <DropdownMenuItem key={u.id} onSelect={() => reassign(u.id)}>
+                      <span className="flex-1 truncate">{u.name}</span>
+                      {contact.ownerId === u.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <ChangeStatusPopover
                 current={contact.status}
                 onSelect={changeStatus}

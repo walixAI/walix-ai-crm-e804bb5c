@@ -22,6 +22,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error("[Walix ErrorBoundary]", error, info);
+    // Versión nueva publicada: recargar una vez para obtener los archivos vigentes.
+    if (/dynamically imported module|Importing a module script failed|error loading dynamically/i.test(error?.message ?? "")) {
+      const key = "walix-chunk-reload";
+      const last = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - last > 30_000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
 
   reset = () => this.setState({ hasError: false, error: undefined });

@@ -183,6 +183,13 @@
       "when": 1791920671717,
       "tag": "0025_sales_rep_own_leads_only",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791921250390,
+      "tag": "0026_ai_profile_on_tenant_change",
+      "breakpoints": true
     }
   ]
 }

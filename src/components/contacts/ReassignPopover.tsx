@@ -1,4 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { Check, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,5 +56,26 @@ export function ReassignPopover({ trigger, currentOwnerId, onSelect, align = "en
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+/** Variante para usar dentro de un menú desplegable (un popover ahí se cierra solo). */
+export function ReassignSubMenu({ label = "Reasignar vendedor", currentOwnerId, onSelect }: { label?: string; currentOwnerId?: string | null; onSelect: (ownerId: string | null) => void }) {
+  const { data: users = [] } = useTenantUsers();
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+        <DropdownMenuItem onSelect={() => onSelect(null)}>
+          <span className="flex-1">Sin asignar</span>
+          {!currentOwnerId && <Check className="h-3.5 w-3.5 text-primary" />}
+        </DropdownMenuItem>
+        {users.map((u) => (
+          <DropdownMenuItem key={u.id} onSelect={() => onSelect(u.id)}>
+            <span className="flex-1 truncate">{u.name}</span>
+            {currentOwnerId === u.id && <Check className="h-3.5 w-3.5 text-primary" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }
