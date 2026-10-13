@@ -201,6 +201,19 @@ export default function Whatsapp() {
     }
   };
 
+  const handleSendDocument = async (documentId: string, caption: string) => {
+    if (!activeConv || !tenantId) return false;
+    if (waBlockedReason) { toast({ title: "WhatsApp no conectado", description: waBlockedReason, variant: "destructive" as any }); return false; }
+    try {
+      await sendMutation.mutateAsync({ conversationId: activeConv.id, tenantId, body: caption, documentId });
+      toast({ title: "Documento enviado" });
+      return true;
+    } catch (e: any) {
+      toast({ title: "No se envió el documento", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
+      return false;
+    }
+  };
+
   const handleSendTemplate = async (t: { name: string; language: string; params: string[]; preview: string }) => {
     if (!activeConv || !tenantId) return;
     try {
@@ -372,6 +385,7 @@ export default function Whatsapp() {
                   }}
                   templates={templates}
                   onSend={handleSend}
+                  onSendDocument={handleSendDocument}
                   sending={sendMutation.isPending}
                   onOpenTemplates={() => setTemplatesOpen(true)}
                   onPickTemplate={pickTemplate}

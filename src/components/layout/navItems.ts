@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, KanbanSquare, MessageCircle, BarChart3,
-  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot, Sun, Receipt, Trophy, Megaphone, Mail,
+  Zap, Settings, Shield, Store, Sparkles, Building2, Globe2, CheckSquare, Bot, Sun, Receipt, Trophy, Megaphone, Mail, FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -51,6 +51,7 @@ export function useNavItems(): { items: NavItemDef[]; adminItems: NavItemDef[] }
     ...(isAdmin ? [{ to: "/equipo", label: "Equipo", icon: Trophy }] : []),
     { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
     { to: "/email", label: "Email", icon: Mail },
+    { to: "/documentos", label: "Documentos", icon: FolderOpen },
     { to: "/reports", label: "Reportes", icon: BarChart3 },
     { to: "/automations", label: "Automatizaciones", icon: Zap },
     ...(featureCampaigns ? [{ to: "/campanas", label: "Campañas WA", icon: Megaphone }] : []),

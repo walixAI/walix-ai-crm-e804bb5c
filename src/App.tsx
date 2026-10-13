@@ -127,6 +127,7 @@ const AppRoutes = () => {
         <Route path="/automations" element={<Automations />} />
         <Route path="/campanas" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Campaigns /></ProtectedRoute>} />
         <Route path="/email" element={<EmailPage />} />
+        <Route path="/documentos" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Documents /></ProtectedRoute>} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "sales_rep", "platform_owner", "platform_staff", "super_admin"]}>
             <Settings />
