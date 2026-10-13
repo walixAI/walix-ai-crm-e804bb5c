@@ -355,7 +355,16 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     }).select("*").single();
     s = ins.data;
   }
-  if (!s || s.state !== "agent") return { skipped: "asesor_atiende" };
+  if (!s) return { skipped: "asesor_atiende" };
+  // Tras el handoff el agente sigue resolviendo dudas hasta que un asesor humano escriba.
+  let afterHandoff = false;
+  if (s.state === "escalated") {
+    const { data: human } = await sb.from("messages").select("id").eq("conversation_id", ctx.conversationId)
+      .eq("direction", "outbound").eq("is_internal_note", false).gte("sent_at", s.handoff_at ?? s.updated_at)
+      .or("metadata->>bot.is.null,metadata->>bot.neq.true").limit(1);
+    if (human?.length) return { skipped: "asesor_atiende" };
+    afterHandoff = true;
+  } else if (s.state !== "agent") return { skipped: "asesor_atiende" };
   if (s.paused_until && new Date(s.paused_until) > new Date()) return { skipped: "pausado" };
   const repliesToday = s.replies_date === today ? s.replies_today : 0;
   const cap = Number(agent.caps?.replies_per_lead_day ?? 20);
@@ -387,7 +396,9 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   const system = buildSystemPrompt(agent, goal, kb ?? [], "WhatsApp", { adContext,
     query: history.slice(-4).map((m: any) => m.content).join(" "), profile: s.profile_data ?? {},
     known: { nombre_whatsapp: ct?.name, correo: ct?.email, direccion: ct?.address },
-  }) + jsonInstructions(agent);
+  }) + (afterHandoff
+    ? "\n\n## YA TRANSFERISTE A UN ASESOR\nEl asesor humano ya fue avisado y contactará al lead. Mientras tanto responde sus dudas con la base de conocimiento, breve y sin volver a perfilar ni repetir que lo transfieres. handoff debe ser false."
+    : "") + jsonInstructions(agent);
 
   const { resolveTenantModel } = await import("./tenant-model.ts");
   const { recordAiUsage } = await import("./ai-usage.ts");
@@ -406,6 +417,7 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   let parsed: any = {};
   const raw = out.choices?.[0]?.message?.content ?? "";
   try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch { parsed = { reply: raw }; }
+  if (afterHandoff) parsed.handoff = false;
   const reply = String(parsed.reply ?? "").trim().slice(0, 1500);
 
   const autonomy = goal.autonomy || agent.autonomy;
