@@ -2,11 +2,12 @@
 
 # Correcciones de gestión del asesor
 
-- [ ] Permitir escribir y enviar WhatsApp después de tomar control o recibir transferencia del bot.
-- [ ] Corregir enlace de WhatsApp desde Kanban.
-- [ ] Permitir reasignación segura del propio lead/contacto a un asesor de la misma empresa.
-- [ ] Evitar que nuevas oportunidades hereden el programa anterior.
-- [ ] Centralizar edición de nombre y monto en el modal de Oportunidad y verificar los flujos.
+- [x] Corregir acceso al canal del asesor sin exponer credenciales; envío desplegado y borrador conservado cuando falla.
+- [x] Corregir enlace de WhatsApp desde Kanban; prueba de navegación aprobada.
+- [x] Permitir reasignación segura del propio contacto con oportunidades abiertas, conversaciones y tareas pendientes.
+- [x] Evitar que nuevas oportunidades hereden el programa anterior; selección explícita prevalece al crear.
+- [x] Centralizar edición de nombre y monto en el modal gris de Oportunidad; 13 pruebas aprobadas y compilación sin errores.
+- [ ] Verificar envío, reasignación y creación completos en pantalla como asesor — no pudo obtenerse la sesión de Erick; requiere iniciar sesión en la vista previa.
 
 # Roles del equipo
 
