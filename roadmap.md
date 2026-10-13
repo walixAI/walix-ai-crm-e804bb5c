@@ -1,5 +1,12 @@
 # Información unificada del prospecto
 
+# Ajustes de contactos y oportunidades
+
+- [ ] Unificar etapa vigente, nombre por producto e historial con responsables.
+- [ ] Colocar perfilamiento debajo de tareas, última actividad primero y etapa bajo el nombre.
+- [ ] Facilitar edición del nombre y simplificar Actividades.
+- [ ] Preseleccionar la última oportunidad activa en seguimientos y verificar el flujo.
+
 # Desplazamiento en computadora
 
 - [x] Eliminar desplazamiento anidado accidental y la barra duplicada del Pipeline; comprobar estilos compilados y desplazamiento por teclado.
