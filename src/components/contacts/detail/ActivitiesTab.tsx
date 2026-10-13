@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Phone, Users, Mail, FileText, ListChecks, ClipboardCheck } from "lucide-react";
+import { Plus, FileText, ListChecks, ClipboardCheck } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useContactActivity, type ActivityRow } from "@/lib/queries/contacts";
@@ -12,9 +12,6 @@ interface Props { contactId: string }
 const FILTERS: { id: string; label: string; icon: any; types?: string[]; cta?: LogKind }[] = [
   { id: "all",      label: "Todas",     icon: ListChecks },
   { id: "notes",    label: "Notas",     icon: FileText, types: ["note"], cta: "note" },
-  { id: "calls",    label: "Llamadas",  icon: Phone,    types: ["call"], cta: "call" },
-  { id: "meetings", label: "Reuniones", icon: Users,    types: ["meeting"], cta: "meeting" },
-  { id: "emails",   label: "Emails",    icon: Mail,     types: ["email"], cta: "email" },
 ];
 
 export function ActivitiesTab({ contactId }: Props) {
@@ -40,7 +37,7 @@ export function ActivitiesTab({ contactId }: Props) {
         createdAt: h.changedAt,
         updatedAt: null,
         metadata: { result: auto ? "Avance automático" : "Cambio de etapa" },
-        agent: auto ? "Automatización" : "Sistema",
+        agent: h.changedByName,
         agentInitials: auto ? "IA" : "•",
         agentId: null,
       };
@@ -52,9 +49,9 @@ export function ActivitiesTab({ contactId }: Props) {
 
   function openLog(kind: LogKind) { setLogKind(kind); setLogOpen(true); }
 
-  const current = FILTERS.find((f) => f.id === tab)!;
+  const current = FILTERS.find((f) => f.id === tab) ?? FILTERS[0];
   const filtered = current.types
-    ? merged.filter((a) => current.types!.includes(a.type))
+    ? merged.filter((a) => current.types?.includes(a.type))
     : merged;
 
   return (
@@ -73,7 +70,7 @@ export function ActivitiesTab({ contactId }: Props) {
               <ClipboardCheck className="h-4 w-4" /> Registrar seguimiento
             </Button>
             {current.cta && tab !== "all" && (
-              <Button size="sm" onClick={() => openLog(current.cta!)}>
+              <Button size="sm" onClick={() => { if (current.cta) openLog(current.cta); }}>
                 <Plus className="h-4 w-4" /> Nueva {current.label.slice(0, -1).toLowerCase()}
               </Button>
             )}
@@ -84,7 +81,7 @@ export function ActivitiesTab({ contactId }: Props) {
           <TabsContent key={f.id} value={f.id} className="mt-4">
             <div className="rounded-xl border border-border bg-card p-5 shadow-card">
               {filtered.length === 0 ? (
-                <EmptyState label={f.label} onCreate={f.cta ? () => openLog(f.cta!) : undefined} />
+                <EmptyState label={f.label} onCreate={f.cta ? () => { if (f.cta) openLog(f.cta); } : undefined} />
               ) : (
                 <div className="relative">
                   <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />

@@ -16,6 +16,8 @@ import { TagsPopover } from "@/components/contacts/TagsPopover";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { toast } from "sonner";
+import { useContactPipelineDeals } from "@/lib/queries/pipeline";
+import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
 
 interface Props {
   contact: ContactRow;
@@ -23,6 +25,8 @@ interface Props {
 }
 
 export function ContactHeader({ contact, onWhatsApp }: Props) {
+  const { data: deals = [] } = useContactPipelineDeals(contact.id);
+  const activeDeal = latestActiveOpportunity(deals);
   const { data: tagList } = useContactTags();
   const update = useUpdateContact();
   const remove = useDeleteContact();
@@ -75,6 +79,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
               }
             />
           </div>
+          <p className="text-xs text-primary mt-1 break-words">{activeDeal ? `${activeDeal.stageName} · ${activeDeal.name}` : "Sin oportunidad activa"}</p>
           <p className="text-sm text-muted-foreground mt-0.5 truncate">
             {contact.position ?? "—"}{contact.company ? ` · ${contact.company}` : ""}
           </p>
@@ -95,7 +100,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
             <MessageCircle className="h-4 w-4" /> WhatsApp
           </Button>
           <Button variant="outline" size="icon" onClick={callPhone} title="Llamar"><Phone className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" className="hidden md:inline-flex" onClick={() => setEditOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Edit className="h-4 w-4" /> Editar
           </Button>
           <DropdownMenu>

@@ -111,7 +111,6 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
   const selectedContact = contacts.find(c => c.id === contactId);
 
   async function onSubmit() {
-    if (!name.trim()) { toast.error("Escribe el nombre de la oportunidad"); return; }
     if (!amount) { toast.error("Captura el monto"); return; }
     if (!stageId) { toast.error("Selecciona pipeline y etapa inicial"); return; }
     if (!productCategoryId) { toast.error("Selecciona la categoría / producto"); return; }
@@ -119,7 +118,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     if (withTask && !taskDue) { toast.error("Indica la fecha de la tarea"); return; }
     try {
       const created: any = await create.mutateAsync({
-        name: name.trim(),
+        name: productCategories.find(c => c.id === productCategoryId)?.name ?? name.trim(),
         amount: Number(amount),
         probability,
         stageId,
@@ -163,8 +162,8 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
 
         <div className="space-y-3 overflow-y-auto px-6 pb-2">
           <div className="space-y-1.5">
-            <Label>Nombre del deal*</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej. Plan anual Premium" />
+            <Label>Nombre de la oportunidad</Label>
+            <Input readOnly value={productCategories.find(c => c.id === productCategoryId)?.name ?? ""} placeholder="Selecciona el programa / producto" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

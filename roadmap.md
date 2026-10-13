@@ -1,5 +1,13 @@
 # Información unificada del prospecto
 
+# Ajustes de contactos y oportunidades
+
+- [x] Unificar etapa vigente, nombre por producto e historial con responsables; datos de Juan Manuel verificados. Los responsables históricos ausentes se muestran como no registrados.
+- [x] Colocar perfilamiento debajo de tareas, última actividad primero y etapa bajo el nombre.
+- [x] Facilitar edición del nombre y simplificar Actividades.
+- [x] Preseleccionar la última oportunidad activa en seguimientos; ocho pruebas aprobadas.
+- [ ] Verificar edición y seguimiento en pantalla con sesión de asesor — la cuenta de Erick no pudo abrirse automáticamente; requiere iniciar sesión en la vista previa.
+
 # Desplazamiento en computadora
 
 - [x] Eliminar desplazamiento anidado accidental y la barra duplicada del Pipeline; comprobar estilos compilados y desplazamiento por teclado.

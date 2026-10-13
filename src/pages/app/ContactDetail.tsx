@@ -29,6 +29,7 @@ import { useContactActivity } from "@/lib/queries/contacts";
 import { useMyProfile } from "@/lib/queries/profile";
 import ContactDetailSimple from "./ContactDetailSimple";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { LatestActivity } from "@/components/contacts/detail/LatestActivity";
 
 export default function ContactDetail() {
   const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
@@ -95,7 +96,6 @@ export default function ContactDetail() {
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
               <TabsTrigger value="summary">Resumen</TabsTrigger>
-              <TabsTrigger value="profiling">Perfilamiento</TabsTrigger>
               <TabsTrigger value="tasks">Tareas</TabsTrigger>
               <TabsTrigger value="conversations">
                 Conversaciones {convs.length > 0 && <span className="ml-1 text-[10px] bg-muted px-1.5 rounded">{convs.length}</span>}
@@ -108,16 +108,14 @@ export default function ContactDetail() {
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
+              <LatestActivity activity={activity} />
               <div className="mb-4"><LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} /></div>
               <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} />
             </TabsContent>
 
-            <TabsContent value="profiling" className="mt-4 max-w-2xl">
-              <ProfilingCard contactId={contact.id} />
-            </TabsContent>
-
             <TabsContent value="tasks" className="mt-4">
               <TasksTab contactId={contact.id} />
+              <div className="mt-4"><ProfilingCard contactId={contact.id} /></div>
             </TabsContent>
 
             <TabsContent value="conversations" className="mt-4">

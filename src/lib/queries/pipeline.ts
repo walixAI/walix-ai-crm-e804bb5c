@@ -203,6 +203,7 @@ export function useDeletePipeline() {
 
 export interface StageHistoryRow {
   id: string;
+  changedByName: string;
   fromStageId: string | null;
   toStageId: string | null;
   fromStageName: string | null;
@@ -212,8 +213,9 @@ export interface StageHistoryRow {
 }
 
 export function useStageHistory(dealId: string | undefined) {
+  const { data: users } = useTenantUsers();
   return useQuery({
-    queryKey: ["deal-stage-history", dealId],
+    queryKey: ["deal-stage-history", dealId, users],
     enabled: !!dealId,
     queryFn: async (): Promise<StageHistoryRow[]> => {
       const { data, error } = await supabase
@@ -224,6 +226,7 @@ export function useStageHistory(dealId: string | undefined) {
       if (error) throw error;
       return (data ?? []).map((r: any) => ({
         id: r.id,
+        changedByName: r.metadata?.changed_by_name ?? (r.changed_by ? resolveOwner(users, r.changed_by).name : r.metadata?.automatic ? "Automatización" : "Responsable no registrado"),
         fromStageId: r.from_stage_id,
         toStageId: r.to_stage_id,
         fromStageName: r.from_stage_name,
@@ -241,6 +244,7 @@ export function useContactPipelineDeals(contactId: string | undefined) {
   return useQuery({
     queryKey: ["contact-pipeline-deals", contactId, users?.length ?? 0],
     enabled: !!contactId,
+    refetchInterval: 15000,
     queryFn: async (): Promise<PipelineDeal[]> => {
       const { data, error } = await supabase
         .from("deals")
@@ -259,10 +263,11 @@ export interface ContactStageChange extends StageHistoryRow {
 
 /** Historial de cambios de etapa de todos los deals de un contacto. */
 export function useContactStageHistory(contactId: string | undefined) {
+  const { data: users } = useTenantUsers();
   const { data: deals = [] } = useContactPipelineDeals(contactId);
   const dealIds = deals.map((d) => d.id).sort();
   return useQuery({
-    queryKey: ["contact-stage-history", contactId, dealIds.join(",")],
+    queryKey: ["contact-stage-history", contactId, dealIds.join(","), users],
     enabled: !!contactId && dealIds.length > 0,
     queryFn: async (): Promise<ContactStageChange[]> => {
       const { data, error } = await supabase
@@ -273,6 +278,7 @@ export function useContactStageHistory(contactId: string | undefined) {
       if (error) throw error;
       return (data ?? []).map((r: any) => ({
         id: r.id,
+        changedByName: r.metadata?.changed_by_name ?? (r.changed_by ? resolveOwner(users, r.changed_by).name : r.metadata?.automatic ? "Automatización" : "Responsable no registrado"),
         dealId: r.deal_id,
         fromStageId: r.from_stage_id,
         toStageId: r.to_stage_id,
@@ -414,6 +420,7 @@ export function useDeal(id: string | undefined) {
   return useQuery({
     queryKey: ["pipeline-deal", id, users?.length ?? 0],
     enabled: !!id,
+    refetchInterval: 15000,
     queryFn: async (): Promise<PipelineDeal | null> => {
       const { data, error } = await supabase
         .from("deals")
@@ -471,7 +478,9 @@ export function useUpdateDealStage() {
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(["pipeline-deals"], ctx.prev);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["pipeline-deals"] }),
+    onSettled: () => {
+      for (const key of ["pipeline-deals", "pipeline-deal", "contact-pipeline-deals", "contact-deals", "deal-stage-history", "contact-stage-history"]) qc.invalidateQueries({ queryKey: [key] });
+    },
   });
 }
 
@@ -499,6 +508,7 @@ export function useUpdateDeal() {
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
       qc.invalidateQueries({ queryKey: ["pipeline-deal", v.dealId] });
+      for (const key of ["contact-pipeline-deals", "contact-deals", "deal-stage-history", "contact-stage-history"]) qc.invalidateQueries({ queryKey: [key] });
     },
   });
 }
@@ -606,6 +616,8 @@ export function useCreateDeal() {
     },
     onSuccess: (data, input) => {
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+      qc.invalidateQueries({ queryKey: ["contact-pipeline-deals"] });
+      qc.invalidateQueries({ queryKey: ["contact-deals"] });
       if (data?.id) {
         void aiMemory.logEvent("deal", data.id, "deal_created", {
           name: input.name,

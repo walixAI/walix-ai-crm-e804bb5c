@@ -1,5 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, MessageCircle, Phone, HelpCircle, Settings2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, MessageCircle, Phone, HelpCircle, Settings2, Pencil } from "lucide-react";
+import { useContactPipelineDeals } from "@/lib/queries/pipeline";
+import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
+import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSetSimpleMode } from "@/lib/queries/miDia";
@@ -12,6 +16,9 @@ interface Props {
 }
 
 export function SimpleContactHeader({ contact, onWhatsApp, onHelp }: Props) {
+  const [editOpen, setEditOpen] = useState(false);
+  const { data: deals = [] } = useContactPipelineDeals(contact.id);
+  const activeDeal = latestActiveOpportunity(deals);
   const setMode = useSetSimpleMode();
   const callPhone = () => window.open(`tel:${contact.phone.replace(/[^0-9+]/g, "")}`);
 
@@ -31,11 +38,13 @@ export function SimpleContactHeader({ contact, onWhatsApp, onHelp }: Props) {
             <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate leading-tight">
               {contact.name} {contact.lastName}
             </h1>
+            <p className="text-xs text-primary break-words">{activeDeal ? `${activeDeal.stageName} · ${activeDeal.name}` : "Sin oportunidad activa"}</p>
             <p className="text-sm text-muted-foreground truncate">
               {contact.company ? `${contact.company} · ` : ""}{contact.phone || "Sin teléfono"}
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => setEditOpen(true)} title="Editar contacto" aria-label="Editar contacto"><Pencil className="h-5 w-5" /></Button>
             <Button variant="ghost" size="icon" onClick={onHelp} title="¿Cómo uso esta pantalla?">
               <HelpCircle className="h-5 w-5" />
             </Button>
@@ -57,6 +66,7 @@ export function SimpleContactHeader({ contact, onWhatsApp, onHelp }: Props) {
           </Button>
         </div>
       </div>
+      <ContactFormDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} />
     </header>
   );
 }

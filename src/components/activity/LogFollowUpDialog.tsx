@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
 import { toast } from "sonner";
 import { ArrowRight, CircleSlash, PauseCircle, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -90,16 +91,15 @@ export function LogFollowUpDialog({
   open, onOpenChange, contactId, dealId = null, stageId = null, pipelineId = null, allowDealPicker = false,
 }: Props) {
   const { data: pipelines = [] } = usePipelines();
-  const resolvedPipelineId = pipelineId ?? pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? null;
-  const { data: stages = [] } = useStages(resolvedPipelineId);
-  const { data: outcomes = [] } = useActivityOutcomes(resolvedPipelineId);
   const { data: contactDeals = [] } = useContactPipelineDeals(allowDealPicker ? contactId ?? undefined : undefined);
+  const { data: allStages = [] } = useStages();
   const log = useLogFollowUp();
   const { data: blockers = [] } = useDealBlockers();
   const { data: lossReasons = [] } = useDealLossReasons();
 
   const [kind, setKind] = useState("llamada_saliente");
   const [selectedDealId, setSelectedDealId] = useState<string | null>(dealId);
+  const selectionChanged = useRef(false);
   const [outcomeId, setOutcomeId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [occurred, setOccurred] = useState(() => toLocalInput(new Date()));
@@ -125,17 +125,14 @@ export function LogFollowUpDialog({
     [contactDeals],
   );
 
-  // Si solo hay una oportunidad activa, se vincula sola y no se pregunta.
-  useEffect(() => {
-    if (!open || !allowDealPicker || dealId) return;
-    if (openDeals.length === 1 && !selectedDealId) setSelectedDealId(openDeals[0].id);
-  }, [open, allowDealPicker, dealId, openDeals]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const effectiveDeal = useMemo(
     () => contactDeals.find((d: any) => d.id === selectedDealId) ?? null,
     [contactDeals, selectedDealId],
   );
   const effectiveStageId = effectiveDeal?.stageId ?? stageId ?? null;
+  const resolvedPipelineId = allStages.find(s => s.id === effectiveStageId)?.pipelineId ?? pipelineId ?? pipelines.find(p => p.isDefault)?.id ?? pipelines[0]?.id ?? null;
+  const stages = allStages.filter(s => s.pipelineId === resolvedPipelineId);
+  const { data: outcomes = [] } = useActivityOutcomes(resolvedPipelineId);
 
   const { data: diagnostic } = useDealDiagnostic(selectedDealId);
   const activeBlockers = useMemo(() => blockers.filter((b) => b.isActive), [blockers]);
@@ -153,6 +150,7 @@ export function LogFollowUpDialog({
     if (!open) return;
     setKind("llamada_saliente");
     setSelectedDealId(dealId);
+    selectionChanged.current = false;
     setDescription("");
     setOccurred(toLocalInput(new Date()));
     setHasNext(true);
@@ -168,7 +166,12 @@ export function LogFollowUpDialog({
     setClearBlocker(false);
     setBlockerExpected(dateInput(7));
     setShowDealPicker(false);
-  }, [open, dealId]);
+  }, [open, dealId, contactId]);
+
+  useEffect(() => {
+    if (!open || !allowDealPicker || dealId || selectionChanged.current) return;
+    setSelectedDealId(latestActiveOpportunity(openDeals)?.id ?? null);
+  }, [open, allowDealPicker, dealId, openDeals, contactId]);
 
   // Al elegir un bloqueo, precargar su fecha esperada de resolución.
   useEffect(() => {
@@ -185,7 +188,7 @@ export function LogFollowUpDialog({
       setTargetStage("none");
       setShowStage(false);
     } else {
-      setTargetStage(target!);
+      setTargetStage(target ?? "none");
       setShowStage(true);
     }
     if (outcome.requiresNextAction) setHasNext(true);
@@ -222,7 +225,7 @@ export function LogFollowUpDialog({
   const isAdvancing = !!outcome && !outcome.isWon && !outcome.isLost && targetStage !== "none";
 
   async function save() {
-    if (!description.trim()) return toast.error("Escribe qué pasó en el contacto");
+    if (!description.trim() && !outcome) return toast.error("Selecciona un resultado o escribe un comentario");
     if (available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
     if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
     if (outcome?.isWon && new Date(fromLocalInput(occurred)).getTime() > Date.now()) {
@@ -237,7 +240,7 @@ export function LogFollowUpDialog({
         stageId: effectiveStageId,
         kind,
         outcome: outcome ?? null,
-        description: description.trim(),
+        description: description.trim() || outcome?.label || "Seguimiento registrado",
         occurredAt: fromLocalInput(occurred),
         nextActionAt: hasNext ? dayToIso(nextDay, nextTime) : null,
         nextActionTitle: hasNext ? `Seguimiento: ${outcome?.label ?? "próximo contacto"}` : "",
@@ -273,7 +276,7 @@ export function LogFollowUpDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          {allowDealPicker && !showDealPicker && openDeals.length <= 1 && (
+          {allowDealPicker && !showDealPicker && (
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Oportunidad</div>
@@ -292,12 +295,13 @@ export function LogFollowUpDialog({
             </div>
           )}
 
-          {allowDealPicker && (showDealPicker || openDeals.length > 1) && (
+          {allowDealPicker && showDealPicker && (
             <div className="space-y-1.5">
               <Label className="text-base">Oportunidad</Label>
               <Select
                 value={selectedDealId ?? "none"}
                 onValueChange={(v) => {
+                  selectionChanged.current = true;
                   if (v === "__new") { setNewDealOpen(true); return; }
                   setSelectedDealId(v === "none" ? null : v);
                 }}
@@ -354,7 +358,7 @@ export function LogFollowUpDialog({
               className="text-base"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Escribe con tus palabras qué te dijo el cliente…"
+              placeholder="Comentarios (opcional)…"
             />
           </div>
 
@@ -632,7 +636,7 @@ export function LogFollowUpDialog({
           onOpenChange={setNewDealOpen}
           stages={stages}
           defaultContactId={contactId}
-          onCreated={(id) => setSelectedDealId(id)}
+          onCreated={(id) => { selectionChanged.current = true; setSelectedDealId(id); }}
         />
       </DialogContent>
     </Dialog>
