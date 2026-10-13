@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Bot, History, KanbanSquare, Trash2 } from "lucide-react";
+import { Bot, History, KanbanSquare, Pencil, Trash2 } from "lucide-react";
+import { EditDealQuickDialog } from "@/components/pipeline/EditDealQuickDialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ export function DealsTab({ contactId, contactName }: Props) {
   const maps = useContactStageMaps();
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<PipelineDeal | null>(null);
+  const [editing, setEditing] = useState<PipelineDeal | null>(null);
   const [toDelete, setToDelete] = useState<PipelineDeal | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { isTenantAdmin, isPlatform } = usePermissions();
@@ -156,11 +158,19 @@ export function DealsTab({ contactId, contactName }: Props) {
                       )}
                     </>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7 px-2"
+                    onClick={(e) => { e.stopPropagation(); setEditing(d); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editar
+                  </Button>
                   {canDelete && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="ml-auto h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={(e) => { e.stopPropagation(); setToDelete(d); }}
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Eliminar
