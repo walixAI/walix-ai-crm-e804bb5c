@@ -6,7 +6,7 @@ import { toastError } from "@/lib/toast";
 
 async function loadUserContextOnce(userId: string) {
   const [rolesRes, profileRes, membershipsRes] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", userId),
+    supabase.from("user_roles").select("role, tenant_id").eq("user_id", userId),
     supabase.from("profiles").select("active_tenant_id, tenant_id").eq("id", userId).maybeSingle(),
     supabase
       .from("organization_members")
@@ -14,9 +14,13 @@ async function loadUserContextOnce(userId: string) {
       .eq("user_id", userId),
   ]);
 
-  const roles = (rolesRes.data ?? []).map((r) => r.role as Role);
   const activeTenantId =
     profileRes.data?.active_tenant_id ?? profileRes.data?.tenant_id ?? null;
+  // Los roles de empresa solo aplican en la empresa activa: un admin de otra
+  // empresa no debe conservar esos permisos al trabajar como vendedor aquí.
+  const roles = Array.from(new Set((rolesRes.data ?? [])
+    .filter((r: any) => !r.tenant_id || r.tenant_id === activeTenantId)
+    .map((r: any) => r.role as Role)));
   const organizations: OrgMembership[] = (membershipsRes.data ?? []).map((m: any) => ({
     organization_id: m.organization_id,
     organization_name: m.organizations?.name ?? "Mi organización",
