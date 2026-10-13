@@ -1,6 +1,7 @@
 # AGENTS
 
 - Opportunity labels are synchronized in database triggers from stage_id and related product/program; contact views and follow-ups share latestActiveOpportunity (newest created open opportunity), and query invalidation includes contact views and stage history, because all screens must agree after advisor or agent changes.
+- Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
 - The authenticated shell uses overflow-x-clip, not overflow-x-hidden, so the document owns vertical scrolling; nested desktop scrollbars are subtle and interactive, and Kanban totals wrap instead of creating a second horizontal scroller.
 
