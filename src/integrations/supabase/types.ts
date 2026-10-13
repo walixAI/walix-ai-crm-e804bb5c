@@ -6234,10 +6234,6 @@ export type Database = {
           last_inbound: string
         }[]
       }
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
       delete_pipeline_stage: {
         Args: {
           _outcome_action?: string
@@ -6250,11 +6246,6 @@ export type Database = {
       email_is_supervisor: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
       }
       ensure_recurrence_subscription: {
         Args: { _deal_id: string }
@@ -6317,15 +6308,6 @@ export type Database = {
       }
       is_platform: { Args: { _user_id: string }; Returns: boolean }
       mark_silent_deals: { Args: never; Returns: number }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
       org_tenant_count: { Args: { _org_id: string }; Returns: number }
       pipeline_stage_impact: {
         Args: { _stage_id: string }
@@ -6334,14 +6316,6 @@ export type Database = {
           outcomes_count: number
           outcomes_targeting_count: number
           rules_count: number
-        }[]
-      }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
         }[]
       }
       recent_acted_suggestion: {
