@@ -6315,6 +6315,10 @@ export type Database = {
         Returns: boolean
       }
       is_platform: { Args: { _user_id: string }; Returns: boolean }
+      is_rep_only: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       mark_silent_deals: { Args: never; Returns: number }
       open_deal_for_contact: { Args: { _contact_id: string }; Returns: string }
       org_tenant_count: { Args: { _org_id: string }; Returns: number }
@@ -6350,6 +6354,14 @@ export type Database = {
       recurrence_fill_horizon: {
         Args: { _subscription_id: string }
         Returns: number
+      }
+      rep_owns_contact: {
+        Args: { _contact_id: string; _user_id: string }
+        Returns: boolean
+      }
+      rep_owns_conversation: {
+        Args: { _conversation_id: string; _user_id: string }
+        Returns: boolean
       }
       run_import_batch: {
         Args: { _batch_id: string; _historical?: boolean }
