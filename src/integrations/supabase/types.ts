@@ -6214,6 +6214,10 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { _token: string }; Returns: Json }
+      advance_deal_to_contacted: {
+        Args: { _deal_id: string; _reason: string }
+        Returns: boolean
+      }
       ai_cleanup_old_data: { Args: never; Returns: undefined }
       ai_recompute_next_run: { Args: { p_agent_id: string }; Returns: string }
       ai_run_due_agents: { Args: never; Returns: number }
@@ -6308,6 +6312,7 @@ export type Database = {
       }
       is_platform: { Args: { _user_id: string }; Returns: boolean }
       mark_silent_deals: { Args: never; Returns: number }
+      open_deal_for_contact: { Args: { _contact_id: string }; Returns: string }
       org_tenant_count: { Args: { _org_id: string }; Returns: number }
       pipeline_stage_impact: {
         Args: { _stage_id: string }
