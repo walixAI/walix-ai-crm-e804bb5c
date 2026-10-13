@@ -241,9 +241,27 @@ export function Composer({
             trigger={<Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Adjuntar documento" disabled={!!blockedReason || sending}><Paperclip className="h-4 w-4" /></Button>}
           />
         ) : null}
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Emoji">
-          <Smile className="h-4 w-4" />
-        </Button>
+        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Emoji">
+              <Smile className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-72 p-2">
+            <div className="grid grid-cols-8 gap-0.5">
+              {EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => insertEmoji(e)}
+                  className="h-8 w-8 rounded-md text-lg hover:bg-muted grid place-items-center transition"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Plantillas" onClick={onOpenTemplates}>
           <Slash className="h-4 w-4" />
         </Button>
