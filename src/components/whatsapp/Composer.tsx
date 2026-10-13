@@ -9,6 +9,13 @@ import type { MessageTemplate } from "@/lib/queries/whatsapp";
 import type { Guidance } from "@/lib/whatsapp/guidance";
 import { DocumentPicker } from "@/components/documents/DocumentPicker";
 
+/** Emojis frecuentes en conversaciones de ventas, agrupados para el selector. */
+const EMOJIS = [
+  "😀","😄","😁","🙂","😉","😊","😍","🤩","😎","🤔","🙌","👏","👍","🙏","💪","🤝",
+  "👋","✌️","🫶","❤️","🔥","✨","🎉","🎓","📚","💼","📅","⏰","✅","⭐","💡","📞",
+  "💬","📩","🚀","🏆","💯","😢","😅","🤗","👀","📍","🧑‍🎓","🏫","💳","📄","✍️","☕",
+];
+
 interface Props {
   draft: string;
   onDraftChange: (v: string) => void;
