@@ -156,6 +156,54 @@ Deno.serve(async (req) => {
               : "change without messages/statuses",
         });
 
+        // Estados de entrega/lectura de mensajes enviados (sent → delivered → read, o failed)
+        for (const st of value?.statuses ?? []) {
+          const wamid = String(st?.id ?? "");
+          const stStatus = String(st?.status ?? "");
+          const stAt = st?.timestamp ? new Date(Number(st.timestamp) * 1000).toISOString() : null;
+          if (!wamid || !["sent", "delivered", "read", "failed", "deleted"].includes(stStatus)) continue;
+
+          if (stStatus === "failed") {
+            const errMsg = st?.errors?.[0]?.title ?? st?.errors?.[0]?.message ?? "fallo de entrega";
+            const { data: row } = await sb.from("messages")
+              .select("id, metadata")
+              .eq("metadata->>wamid", wamid)
+              .eq("tenant_id", refChannel.tenant_id)
+              .maybeSingle();
+            if (row) {
+              const { error: failErr } = await sb.from("messages").update({
+                wa_status: "failed",
+                metadata: { ...((row.metadata as Record<string, unknown>) ?? {}), provider_error: errMsg },
+              }).eq("id", row.id);
+              if (failErr) console.error("wa status failed update error", failErr);
+            }
+          } else {
+            const msgPatch: Record<string, unknown> = { wa_status: stStatus };
+            if (stAt) {
+              if (stStatus === "delivered") msgPatch.delivered_at = stAt;
+              if (stStatus === "read") msgPatch.read_at = stAt;
+            }
+            const { error: msgErr } = await sb.from("messages")
+              .update(msgPatch)
+              .eq("metadata->>wamid", wamid)
+              .eq("tenant_id", refChannel.tenant_id);
+            if (msgErr) console.error("wa status update error", msgErr);
+          }
+
+          // Envíos de campañas: el estado solo avanza, nunca retrocede
+          const order = ["scheduled", "pending_template", "sent", "delivered", "read"];
+          const { data: sends } = await sb.from("wa_step_sends").select("id, status").eq("wamid", wamid);
+          for (const s of sends ?? []) {
+            const cur = order.indexOf(s.status);
+            const next = order.indexOf(stStatus);
+            const shouldFail = stStatus === "failed" && cur < order.indexOf("delivered");
+            if (next > cur || shouldFail) {
+              const { error: sendErr } = await sb.from("wa_step_sends").update({ status: stStatus }).eq("id", s.id);
+              if (sendErr) console.error("wa_step_sends status update error", sendErr);
+            }
+          }
+        }
+
         for (const msg of value?.messages ?? []) {
           const from = String(msg.from ?? "");
           const body = msg.text?.body ?? msg.button?.text ?? msg.interactive?.button_reply?.title ?? "";
