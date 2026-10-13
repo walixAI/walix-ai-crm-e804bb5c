@@ -6483,6 +6483,7 @@ export type Database = {
         }
         Returns: Json
       }
+      whatsapp_clients_channel_ready: { Args: never; Returns: boolean }
       whatsapp_conversation_channel_ready: {
         Args: { p_conversation_id: string }
         Returns: boolean
