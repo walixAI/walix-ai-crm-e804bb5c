@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { DocIcon } from "@/components/documents/DocumentPicker";
 import {
   useDocCategories, useDocuments, useSaveCategory, useDeleteCategory, useUploadDocuments, useUpdateDocument, useDeleteDocument,
-  openDocument, formatBytes, DOC_ACCEPT, type TenantDocument,
+  openDocument, formatBytes, DOC_ACCEPT, shortDocumentTitle, type TenantDocument,
 } from "@/lib/queries/documents";
 
 export default function Documents() {
@@ -43,7 +43,7 @@ export default function Documents() {
         <p className="text-sm text-muted-foreground">Organiza folletos, temarios y listas de precios por categoría y decide quién puede enviarlos.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[260px_1fr]">
+      <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="rounded-xl border border-border bg-card p-3 space-y-2 h-fit">
           <form className="flex gap-1" onSubmit={(e) => { e.preventDefault(); if (!newCat.trim()) return; run(saveCat.mutateAsync({ name: newCat }), "Categoría creada").then(() => setNewCat("")); }}>
             <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Nueva categoría" className="h-8 text-sm" />
@@ -67,7 +67,7 @@ export default function Documents() {
         </aside>
 
         {active ? (
-          <section className="rounded-xl border border-border bg-card p-4 space-y-4">
+          <section className="min-w-0 rounded-xl border border-border bg-card p-4 space-y-4">
             <div className="flex flex-wrap items-center gap-2 justify-between">
               <h2 className="text-lg font-semibold">{active.name}</h2>
               <div className="flex gap-1">
@@ -109,7 +109,7 @@ export default function Documents() {
                   <li key={d.id} className="py-2.5 flex items-center gap-3">
                     <DocIcon mime={d.mime_type} className="h-5 w-5 text-primary shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{d.name}</div>
+                      <div className="text-sm font-medium truncate" title={d.name}>{shortDocumentTitle(d.name)}</div>
                       <div className="text-xs text-muted-foreground truncate">{formatBytes(d.size_bytes)}{d.description ? ` · ${d.description}` : ""}</div>
                     </div>
                     <Button variant="ghost" size="icon" title="Ver" onClick={() => run(openDocument(d))}><ExternalLink className="h-4 w-4" /></Button>
@@ -148,7 +148,7 @@ function EditDocDialog({ doc, cats, onClose, onSave }: {
 }) {
   const [name, setName] = useState(""); const [desc, setDesc] = useState(""); const [cat, setCat] = useState("");
   const [lastId, setLastId] = useState<string | null>(null);
-  if (doc && doc.id !== lastId) { setLastId(doc.id); setName(doc.name); setDesc(doc.description ?? ""); setCat(doc.category_id); }
+  if (doc && doc.id !== lastId) { setLastId(doc.id); setName(shortDocumentTitle(doc.name)); setDesc(doc.description ?? ""); setCat(doc.category_id); }
   return (
     <Dialog open={!!doc} onOpenChange={(o) => { if (!o) { setLastId(null); onClose(); } }}>
       <DialogContent className="sm:max-w-md">

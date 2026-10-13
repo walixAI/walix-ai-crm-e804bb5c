@@ -67,8 +67,8 @@ export function EmailComposer({ contactId, threadId, defaultSubject, onSent }: P
       {files.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {files.map((f, i) => (
-            <span key={i} className="text-xs bg-muted rounded px-2 py-1 inline-flex items-center gap-1">
-              {f.name}<button onClick={() => setFiles(files.filter((_, j) => j !== i))}><X className="h-3 w-3" /></button>
+            <span key={i} className="min-w-0 max-w-full text-xs bg-muted rounded px-2 py-1 inline-flex items-center gap-1">
+              <span className="min-w-0 truncate" title={f.name}>{f.name}</span><Button type="button" variant="ghost" size="icon" className="h-4 w-4 shrink-0" aria-label={`Quitar ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
             </span>
           ))}
         </div>

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { MessageItem } from "@/lib/queries/whatsapp";
 import { MessageListSkeleton } from "@/components/walix/Skeletons";
 import { useTenantUsers, resolveOwner, type TenantUser } from "@/lib/queries/tenantUsers";
+import { shortDocumentTitle } from "../../../supabase/functions/_shared/document-name";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -22,10 +23,14 @@ function dateLabel(iso: string) {
 function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | undefined }) {
   const out = m.direction === "outbound";
   const sender = out && m.sentByUserId ? resolveOwner(users, m.sentByUserId) : null;
+  const filename = m.metadata?.document_name ?? m.metadata?.filename ?? "Documento";
+  const body = m.type === "document" || m.type === "image"
+    ? m.body.replace(/^(📎 Documento enviado: )([^\n]+)/, (_, prefix, title) => prefix + shortDocumentTitle(title))
+    : m.body;
   if (m.isInternalNote) {
     return (
       <div className="flex justify-center">
-        <div className="max-w-[75%] bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 text-xs text-foreground">
+        <div className="min-w-0 max-w-[75%] [overflow-wrap:anywhere] bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 text-xs text-foreground">
           <div className="flex items-center gap-1.5 text-warning font-medium mb-0.5">
             <StickyNote className="h-3 w-3" />
             Nota interna{sender ? ` · ${sender.name}` : ""}
@@ -40,7 +45,7 @@ function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | und
     <div className={cn("flex", out ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[75%] rounded-2xl px-3 py-2 shadow-sm",
+          "min-w-0 max-w-[75%] [overflow-wrap:anywhere] rounded-2xl px-3 py-2 shadow-sm",
           out ? "bg-primary/10 text-foreground rounded-br-sm" : "bg-card border border-border rounded-bl-sm",
         )}
       >
@@ -62,8 +67,8 @@ function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | und
         )}
         {m.type === "document" && (
           <div className="mb-1 flex items-center gap-2 bg-muted/60 rounded-lg p-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <span className="text-xs">{m.metadata?.filename ?? "Documento"}</span>
+            <FileText className="h-5 w-5 shrink-0 text-primary" />
+            <span className="min-w-0 flex-1 truncate text-xs" title={filename}>{shortDocumentTitle(filename)}</span>
           </div>
         )}
         {m.type === "audio" && (
@@ -78,7 +83,7 @@ function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | und
             <span className="text-xs">Ubicación</span>
           </div>
         )}
-        <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+        <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{body}</p>
         <div className={cn("text-[10px] mt-0.5 flex items-center gap-1", out ? "justify-end text-muted-foreground" : "text-muted-foreground")}>
           <span>{formatTime(m.sentAt)}</span>
           {out && (m.readAt ? <CheckCheck className="h-3 w-3 text-info" /> : <Check className="h-3 w-3" />)}
@@ -112,7 +117,7 @@ export function MessageList({ messages, loading }: { messages: MessageItem[]; lo
   }
 
   return (
-    <ScrollArea className="flex-1 bg-gradient-soft">
+    <ScrollArea className="min-w-0 w-full flex-1 bg-gradient-soft [&_[data-radix-scroll-area-viewport]>div]:!block">
       <div className="p-4 space-y-4">
         {groups.map((g, i) => (
           <div key={i} className="space-y-2">

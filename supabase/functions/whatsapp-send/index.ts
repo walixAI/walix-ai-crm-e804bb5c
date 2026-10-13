@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { toWaId } from "../_shared/phone.ts";
 import { signedDocumentUrl, waMediaPayload, docMessageBody, isImage, type TenantDoc } from "../_shared/tenant-documents.ts";
+import { shortDocumentTitle } from "../_shared/document-name.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,7 +117,7 @@ Deno.serve(async (req) => {
       const { data: d } = await sb.from("documents").select("id, name, description, storage_path, mime_type")
         .eq("id", body.documentId).eq("tenant_id", conv.tenant_id).maybeSingle();
       if (!d) return jsonRes({ error: "No tienes acceso a ese documento" }, 403);
-      doc = d as TenantDoc;
+      doc = { ...d, name: shortDocumentTitle(d.name) } as TenantDoc;
       docLink = await signedDocumentUrl(channelClient, doc.storage_path, 24 * 3600);
       if (!docLink) return jsonRes({ error: "No se pudo preparar el documento" }, 500);
     }

@@ -1,4 +1,5 @@
 // Documentos del tenant compartidos por asesores (whatsapp-send) y Agente de Ventas.
+import { documentFilename, shortDocumentTitle } from "./document-name.ts";
 export const DOCS_BUCKET = "tenant-documents";
 
 export type TenantDoc = { id: string; name: string; description: string | null; storage_path: string; mime_type: string };
@@ -8,7 +9,7 @@ export async function loadAgentDocuments(sb: any, tenantId: string): Promise<Ten
   const { data } = await sb.from("documents")
     .select("id, name, description, storage_path, mime_type, document_categories!inner(agent_can_send)")
     .eq("tenant_id", tenantId).eq("document_categories.agent_can_send", true).limit(40);
-  return (data ?? []) as TenantDoc[];
+  return (data ?? []).map((doc: TenantDoc) => ({ ...doc, name: shortDocumentTitle(doc.name) })) as TenantDoc[];
 }
 
 export function documentsPrompt(docs: TenantDoc[]): string {
@@ -27,13 +28,12 @@ export function isImage(mime: string) { return mime === "image/jpeg" || mime ===
 
 /** Payload de Meta para enviar un documento o imagen por enlace. */
 export function waMediaPayload(to: string, doc: TenantDoc, link: string, caption?: string) {
-  const ext = doc.storage_path.split(".").pop();
-  const filename = /\.[a-z0-9]{2,5}$/i.test(doc.name) ? doc.name : `${doc.name}${ext ? "." + ext : ""}`;
+  const filename = documentFilename(doc.name, doc.storage_path);
   return isImage(doc.mime_type)
     ? { messaging_product: "whatsapp", to, type: "image", image: { link, ...(caption ? { caption } : {}) } }
     : { messaging_product: "whatsapp", to, type: "document", document: { link, filename, ...(caption ? { caption } : {}) } };
 }
 
 export function docMessageBody(doc: TenantDoc, caption?: string) {
-  return `📎 Documento enviado: ${doc.name}${caption ? `\n${caption}` : ""}`;
+  return `📎 Documento enviado: ${shortDocumentTitle(doc.name)}${caption ? `\n${caption}` : ""}`;
 }
