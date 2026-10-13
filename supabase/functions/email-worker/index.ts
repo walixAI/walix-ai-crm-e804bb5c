@@ -6,6 +6,10 @@ import { imapFetchNew, bulkSend, renderVars, textToHtml, hmacToken, json } from 
 const APP_URL = "https://s1.walix.app";
 const BATCH = 200;
 
+// Errores de socket (TLS sin close_notify) no deben tumbar toda la corrida.
+globalThis.addEventListener("error", (e) => { console.warn("worker event error", (e as ErrorEvent).message); e.preventDefault(); });
+globalThis.addEventListener("unhandledrejection", (e) => { console.warn("worker unhandled rejection", String((e as PromiseRejectionEvent).reason)); e.preventDefault(); });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

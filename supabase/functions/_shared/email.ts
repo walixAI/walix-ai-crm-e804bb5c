@@ -79,10 +79,13 @@ export async function smtpVerify(acc: MailAccount): Promise<void> {
 }
 
 function imapClient(acc: MailAccount, pass: string) {
-  return new ImapFlow({
+  const c = new ImapFlow({
     host: acc.imap_host!, port: acc.imap_port ?? 993, secure: acc.imap_secure ?? true,
     auth: { user: acc.username || acc.email, pass }, logger: false,
   });
+  // Servidores que cierran sin close_notify emiten 'error' asíncrono; sin listener tumba el proceso.
+  c.on("error", (e: unknown) => console.warn("imap socket error", acc.email, (e as Error)?.message));
+  return c;
 }
 
 export async function imapVerify(acc: MailAccount): Promise<void> {

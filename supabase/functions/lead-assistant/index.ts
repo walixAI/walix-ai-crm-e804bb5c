@@ -223,11 +223,12 @@ ${transcript}`;
   const now = new Date().toISOString();
   const primaryDeal = deals.find((d: any) => !d.is_won && !d.is_lost);
   if (primaryDeal) {
-    const { data: saved, error } = await svc.from("deals").update({ probability: brief.close_probability.pct }).eq("id", primaryDeal.id).eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false).eq("updated_at", primaryDeal.updated_at).select("probability,updated_at").maybeSingle();
+    const { data: saved, error } = await svc.from("deals").update({ probability: brief.close_probability.pct }).eq("id", primaryDeal.id).eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false).select("probability,updated_at").maybeSingle();
     if (error) return json({ error: "No se pudo guardar la probabilidad" }, 500);
-    if (!saved) return json({ error: "La oportunidad cambió durante el análisis; actualice de nuevo." }, 409);
-    primaryDeal.probability = saved.probability;
-    basisAt = maxIso(basisAt, saved.updated_at);
+    if (saved) {
+      primaryDeal.probability = saved.probability;
+      basisAt = maxIso(basisAt, saved.updated_at);
+    }
   }
   brief = enrichProspectBrief(brief, deals, sessions, agents);
   const { error: saveError } = await svc.from("lead_assistant_briefs").upsert(
