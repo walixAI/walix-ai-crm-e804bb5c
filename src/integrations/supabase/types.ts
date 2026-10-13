@@ -3422,6 +3422,7 @@ export type Database = {
           channel_id: string | null
           conversation_id: string
           created_at: string
+          delivered_at: string | null
           direction: Database["public"]["Enums"]["message_direction"]
           id: string
           is_internal_note: boolean
@@ -3431,12 +3432,14 @@ export type Database = {
           sent_at: string
           tenant_id: string
           type: Database["public"]["Enums"]["message_type"]
+          wa_status: string | null
         }
         Insert: {
           body: string
           channel_id?: string | null
           conversation_id: string
           created_at?: string
+          delivered_at?: string | null
           direction: Database["public"]["Enums"]["message_direction"]
           id?: string
           is_internal_note?: boolean
@@ -3446,12 +3449,14 @@ export type Database = {
           sent_at?: string
           tenant_id: string
           type?: Database["public"]["Enums"]["message_type"]
+          wa_status?: string | null
         }
         Update: {
           body?: string
           channel_id?: string | null
           conversation_id?: string
           created_at?: string
+          delivered_at?: string | null
           direction?: Database["public"]["Enums"]["message_direction"]
           id?: string
           is_internal_note?: boolean
@@ -3461,6 +3466,7 @@ export type Database = {
           sent_at?: string
           tenant_id?: string
           type?: Database["public"]["Enums"]["message_type"]
+          wa_status?: string | null
         }
         Relationships: [
           {
