@@ -53,13 +53,27 @@ export function BotTakeoverButton({ contactId, conversationId }: { contactId: st
   });
   const setState = useMutation({
     mutationFn: async (state: "agent" | "advisor") => {
-      const { error } = await (supabase as any).from("sales_agent_sessions").update({ state }).eq("id", session.id);
+      // Al devolver se limpia el motivo del handoff: así el agente sabe que la solicitud previa ya se atendió.
+      const patch = state === "agent" ? { state, handoff_reason: null } : { state };
+      const { error } = await (supabase as any).from("sales_agent_sessions").update(patch).eq("id", session.id);
       if (error) throw error;
-      if (state === "advisor") await take.mutateAsync();
+      if (state === "advisor") { await take.mutateAsync(); return true; }
+      const name = session?.sales_agents?.name ?? "tu asistente";
+      const { data: ct } = await supabase.from("contacts").select("name").eq("id", contactId).maybeSingle();
+      const first = (ct?.name ?? "").trim().split(/\s+/)[0];
+      const text = `${first ? `Hola ${first}, ` : "Hola, "}soy ${name} de nuevo 👋 Retomo tu atención por aquí. ¿En qué más te puedo ayudar?`;
+      const { error: sendErr } = await supabase.functions.invoke("whatsapp-send", {
+        body: { conversationId, body: text, agentReturn: true },
+      });
+      return !sendErr;
     },
-    onSuccess: (_d, state) => {
-      toast.success(state === "agent" ? "El agente vuelve a atender a este lead." : "Tomaste el control. El agente ya no responderá.");
+    onSuccess: (sent, state) => {
+      if (state === "agent") {
+        if (sent) toast.success("El agente vuelve a atender a este lead y se le avisó al contacto.");
+        else toast.warning("El agente vuelve a atender, pero no se pudo enviar el aviso al contacto (posible ventana de 24 h cerrada).");
+      } else toast.success("Tomaste el control. El agente ya no responderá.");
       qc.invalidateQueries({ queryKey: sKey });
+      qc.invalidateQueries({ queryKey: ["wa-messages"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
