@@ -217,16 +217,18 @@ Deno.serve(async (req) => {
       conversation_id: conv.id,
       channel_id: channel?.id ?? null,
       direction: "outbound",
-      body: body.body,
-      type: "text",
+      body: doc && !isTemplateSend ? docMessageBody(doc, body.body.trim() || undefined) : body.body,
+      type: doc && !isTemplateSend ? (isImage(doc.mime_type) ? "image" : "document") : "text",
       metadata: {
         wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected" || isSim,
         sent_by_user_id: userData.user.id, billing,
         ...(isTemplateSend && tpl ? { kind: "template", template_name: tpl.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
+        ...(doc && !isTemplateSend ? { document_id: doc.id, document_name: doc.name, mime_type: doc.mime_type } : {}),
       },
     });
     if (insErr) throw insErr;
-    await sb.from("conversations").update({ preview: previewWithSender(body.body), last_message_at: new Date().toISOString(), ...(channel ? { channel_id: channel.id } : {}) }).eq("id", conv.id);
+    const previewText = doc && !isTemplateSend ? `📎 ${doc.name}` : body.body;
+    await sb.from("conversations").update({ preview: previewWithSender(previewText), last_message_at: new Date().toISOString(), ...(channel ? { channel_id: channel.id } : {}) }).eq("id", conv.id);
 
     // Memoria de IA: doble evento para mensaje saliente (no para notas internas).
     if (!body.internal && conv.contact_id) {
