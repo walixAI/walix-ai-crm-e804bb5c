@@ -13,6 +13,9 @@ import { SimpleContactHeader } from "@/components/contacts/simple/SimpleContactH
 import { PendingList } from "@/components/contacts/simple/PendingList";
 import { QuickTourDialog, useContactSimpleTour } from "@/components/contacts/simple/QuickTourPopover";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
+import { LatestActivity } from "@/components/contacts/detail/LatestActivity";
+import { ProfilingCard } from "@/components/walix/ProfilingCard";
+import { summarizeWaActivity } from "@/lib/activities/waSummary";
 
 export default function ContactDetailSimple() {
   const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
@@ -63,7 +66,9 @@ export default function ContactDetailSimple() {
       <SimpleContactHeader contact={contact} onWhatsApp={openWA} onHelp={tour.show} />
 
       <main className="max-w-4xl mx-auto px-6 py-6 space-y-4">
+        <LatestActivity activity={activity} />
         <PendingList contactId={contact.id} focusTaskId={focusTaskId} />
+        <ProfilingCard contactId={contact.id} />
         <LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} compact />
         <ContactAttributionCard contactId={contact.id} />
 
@@ -93,7 +98,7 @@ export default function ContactDetailSimple() {
                     <li key={a.id} className="text-sm border border-border rounded-lg p-3 bg-muted/30 flex gap-3">
                       <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor}`} />
                       <div className="min-w-0 flex-1">
-                        <div className="whitespace-pre-wrap break-words">{a.description}</div>
+                        <div className="whitespace-pre-wrap break-words">{summarizeWaActivity(a.description, a.metadata) ?? a.description}</div>
                         <div className="text-xs text-muted-foreground mt-1">
                           {isNote && a.agent ? `${a.agent} · ` : ""}{relativeTime(a.timestamp)}
                         </div>
