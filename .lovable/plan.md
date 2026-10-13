@@ -2,35 +2,38 @@
 
 ## Qué verá cada usuario
 
-**Propietario / Admin del tenant**
+**Administradores de Documentos (propietario, admin, gerente de ventas: cualquier usuario que no sea vendedor)**
 - Nueva sección **Documentos** en el menú lateral.
 - Crear, renombrar y eliminar **Categorías** (carpetas).
-- En cada categoría, un interruptor: **«Los asesores pueden adjuntar estos documentos en WhatsApp y Email»** (apagado por defecto).
-- Subir archivos PDF, JPG, PNG y Excel (.xlsx, .xls, .csv), de hasta 20 MB cada uno. Se pueden ver, descargar, renombrar, mover de categoría y eliminar.
+- En cada categoría, dos interruptores (apagados por defecto):
+  - **«Los asesores pueden adjuntar estos documentos en WhatsApp y Email»**
+  - **«El Agente de Ventas (bot) puede enviar estos documentos»**
+- Subir archivos PDF, JPG, PNG y Excel (.xlsx, .xls, .csv), de hasta 20 MB cada uno. Se pueden ver, descargar, renombrar, mover de categoría y eliminar. A cada archivo se le puede poner una descripción breve («cuándo usarlo»), que el bot usa para elegir qué enviar.
 
-**Vendedor / Asesor**
-- En el menú no aparece la administración de Documentos.
-- En WhatsApp y en el redactor de Email aparece un botón **«Adjuntar documento»**. Abre una lista con solo las categorías habilitadas y sus archivos, con búsqueda.
-- Al elegir un archivo:
-  - en WhatsApp se envía como documento o imagen al contacto;
-  - en Email se agrega como adjunto.
-- El envío queda en la Actividad del lead: «Documento enviado: nombre (asesor)».
+**Vendedor**
+- La sección Documentos no aparece en su menú.
+- En WhatsApp y en el redactor de Email aparece un botón **«Adjuntar documento»**. Muestra solo las categorías habilitadas para asesores, con búsqueda.
+- Al elegir un archivo, en WhatsApp se envía como documento o imagen; en Email se agrega como adjunto.
+
+**Agente de Ventas (bot)**
+- Puede enviar por WhatsApp (y por chat web, como enlace) los documentos de las categorías habilitadas para el bot. Por ejemplo, cuando el lead pide el temario, el folleto o el plan de estudios.
+- Solo envía un documento cuando la conversación lo justifica, como máximo uno por mensaje, y nunca inventa documentos que no existen.
+
+**Para todos**
+- Cada envío queda en la Actividad del lead: «Documento enviado: nombre (asesor o Agente IA)».
+- En WhatsApp aplica la ventana de 24 h, igual que hoy.
 
 ## Reglas
 - Cada tenant solo ve sus propias categorías y documentos.
-- Solo el propietario o un admin pueden subir archivos, editar y decidir qué categorías usan los asesores.
-- El asesor no puede subir, borrar ni ver categorías no habilitadas, ni siquiera conociendo el enlace.
-- En WhatsApp aplica la ventana de 24 h: si está cerrada, primero hay que enviar una plantilla, igual que hoy.
+- Los vendedores no pueden subir, editar, borrar ni ver categorías no habilitadas, ni siquiera conociendo el enlace.
 
 ## Detalles técnicos
-- Tablas `document_categories` (tenant_id, name, advisor_can_attach, position) y `documents` (tenant_id, category_id, name, storage_path, mime_type, size_bytes, uploaded_by). Ambas con GRANTs y RLS: escritura solo para tenant_owner/tenant_admin vía `has_tenant_role`. La lectura es para admin/propietario, o para cualquier miembro si la categoría tiene `advisor_can_attach`.
-- Bucket privado `tenant-documents`, con rutas `{tenant_id}/{category_id}/{uuid}-{archivo}`. Políticas en storage.objects que reflejan las de la tabla. Validación de tipo MIME y de tamaño.
-- Envío por WhatsApp: `whatsapp-send` acepta `document_id`. Valida en el servidor el permiso del asesor sobre la conversación y la categoría, genera un enlace firmado de corta duración y lo envía como media (document/image). En el canal simulado se guarda como mensaje con adjunto.
-- Email: `email-api` acepta `document_ids`, valida el permiso y adjunta el archivo leído del bucket en el servidor.
-- Frontend: página `/documentos` (solo admin/propietario), componente compartido `DocumentPicker` usado en Composer de WhatsApp y en EmailComposer, y una entrada en navItems y permisos.
-- Registrar la decisión de arquitectura en AGENTS.md.
-
-## Puntos a confirmar (si no dices nada, uso lo indicado)
-1. ¿El Agente de Ventas (bot) también podrá enviar estos documentos? Propuesta: no por ahora.
-2. ¿Límite de 20 MB por archivo? (WhatsApp acepta hasta 100 MB en documentos y 5 MB en imágenes.)
-3. ¿El gerente de ventas cuenta como «admin» para administrar Documentos? Propuesta: no; solo propietario y admin.
+- Tablas `document_categories` (tenant_id, name, advisor_can_attach, agent_can_send, position) y `documents` (tenant_id, category_id, name, description, storage_path, mime_type, size_bytes, uploaded_by), con GRANTs y RLS.
+  - Escritura: miembros del tenant que no sean solo vendedores (`NOT is_rep_only`).
+  - Lectura: esos mismos usuarios, o cualquier miembro si la categoría tiene `advisor_can_attach`.
+- Bucket privado `tenant-documents` (límite de 20 MB), con rutas `{tenant_id}/{category_id}/{uuid}-{archivo}`. Políticas en storage.objects equivalentes a las de las tablas y validación de tipo MIME.
+- `whatsapp-send` acepta `document_id`: valida la conversación y la categoría en el servidor, genera un enlace firmado de corta duración y lo envía como media. En el canal simulado se guarda como mensaje con adjunto.
+- `email-api` acepta `document_ids` y adjunta los archivos leídos del bucket en el servidor.
+- Agente: `_shared/sales-agent.ts` recibe la lista de documentos con `agent_can_send` (nombre y descripción) y una acción `send_document`, ejecutada por whatsapp-webhook y web-chat con un enlace firmado.
+- Frontend: página `/documentos`, componente compartido `DocumentPicker` en el Composer de WhatsApp y en EmailComposer, y entradas en navItems y permisos.
+- Registrar la decisión en AGENTS.md y la tarea en roadmap.md.
