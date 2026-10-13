@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import { summarizeWaActivity } from "@/lib/activities/waSummary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,17 +161,16 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
           </div>
         </SheetHeader>
 
-        <Tabs key={`${deal.id}-${defaultTab}`} defaultValue={defaultTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mx-5 mt-3 grid grid-cols-4">
+        <Tabs key={`${deal.id}-${defaultTab}`} defaultValue={defaultTab === "ai" ? "summary" : defaultTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="mx-5 mt-3 grid grid-cols-3">
             <TabsTrigger value="summary">Resumen</TabsTrigger>
             <TabsTrigger value="activity">Actividad</TabsTrigger>
             <TabsTrigger value="history">Historial</TabsTrigger>
-            <TabsTrigger value="ai">IA</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <TabsContent value="summary" className="space-y-4 m-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ring-0">
-              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} overviewOnly />}
+              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} />}
               <EditableField
                 label="Monto MXN"
                 display={formatMXN(deal.amount)}
@@ -352,7 +352,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                       <Sparkles className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 pt-1.5">
-                      <div className="text-sm">{a.description}</div>
+                      <div className="text-sm whitespace-pre-wrap">{summarizeWaActivity(a.description, a.metadata) ?? a.description}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {a.metadata?.activity_kind_label && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
@@ -446,9 +446,8 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="space-y-4 m-0">
+            <TabsContent value="summary" className="space-y-4 m-0 mt-4">
               {!deal.contactId && <AiContextPanel entityType="deal" entityId={deal.id} />}
-              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} />}
 
               {!deal.contactId && <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -540,7 +539,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ProductCategoryField({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const { data: categories = [] } = useProductCategories();
   return (
-    <Field label="Categoría / producto">
+    <Field label="Programa / producto">
       <Select value={value ?? "none"} onValueChange={(v) => onChange(v === "none" ? null : v)}>
         <SelectTrigger className="h-9"><SelectValue placeholder="Sin categoría" /></SelectTrigger>
         <SelectContent>

@@ -155,10 +155,11 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionToken | null> = {
   "/settings": "settings.read",
   "/tasks": null,
   "/mi-dia": null,
-  "/gastos": null,
+  "/gastos": "reports.read.team",
+  "/campanas": "reports.read.team",
   "/equipo": "reports.read.team",
   "/admin": "admin.tenant.read",
   "/org": "org.read",
   "/platform": "platform.read",
-  "/marketplace": null,
+  "/marketplace": "reports.read.team",
 };

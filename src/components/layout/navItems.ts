@@ -62,7 +62,7 @@ export function useNavItems(): { items: NavItemDef[]; adminItems: NavItemDef[] }
     ...(canAccess("/settings") ? [{ to: "/settings", label: "Configuración", icon: Settings }] : []),
     ...(isPlatform ? [{ to: "/platform", label: "Plataforma", icon: Globe2 }] : []),
     ...(isPlatform ? [{ to: "/admin", label: "SuperAdmin", icon: Shield }] : []),
-    { to: "/marketplace", label: "Marketplace", icon: Store },
+    ...(canAccess("/marketplace") ? [{ to: "/marketplace", label: "Marketplace", icon: Store }] : []),
   ];
 
   return { items, adminItems };

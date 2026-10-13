@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries/contacts";
 import { LogActivityDialog, type LogKind } from "./dialogs/LogActivityDialog";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
+import { summarizeWaActivity } from "@/lib/activities/waSummary";
 
 const ICONS: Record<string, any> = {
   call: Phone, meeting: Users, email: Mail, note: FileText,
@@ -47,7 +48,7 @@ export function ActivityItem({ contactId, activity }: Props) {
         <div className="flex-1 pt-0.5 min-w-0">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
-              <div className="text-sm whitespace-pre-wrap break-words">{activity.description}</div>
+              <div className="text-sm whitespace-pre-wrap break-words">{summarizeWaActivity(activity.description, meta) ?? activity.description}</div>
               {/* metadata badges */}
               {(meta.result || meta.duration || meta.subject || meta.location) && (
                 <div className="flex flex-wrap gap-1 mt-1">
