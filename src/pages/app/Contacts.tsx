@@ -28,7 +28,7 @@ import { ImportCsvDialog } from "@/components/contacts/ImportCsvDialog";
 import { FirstContactAIBanner } from "@/components/contacts/FirstContactAIBanner";
 import { BulkActionsInline } from "@/components/contacts/BulkActionsInline";
 import { ContactsKanban } from "@/components/contacts/ContactsKanban";
-import { ReassignPopover } from "@/components/contacts/ReassignPopover";
+import { ReassignPopover, ReassignSubMenu } from "@/components/contacts/ReassignPopover";
 import { ChangeStatusPopover } from "@/components/contacts/ChangeStatusPopover";
 import { TagsPopover } from "@/components/contacts/TagsPopover";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
@@ -413,11 +413,7 @@ export default function Contacts() {
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild><Link to={`/contacts/${c.id}`}>Ver detalle</Link></DropdownMenuItem>
-                              <ReassignPopover
-                                currentOwnerId={c.ownerId}
-                                onSelect={(uid) => rowReassign(c.id, uid)}
-                                trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Reasignar</DropdownMenuItem>}
-                              />
+                              <ReassignSubMenu label="Reasignar" currentOwnerId={c.ownerId} onSelect={(uid) => rowReassign(c.id, uid)} />
                               <ChangeStatusPopover
                                 current={c.status}
                                 onSelect={(s) => rowStatus(c.id, s)}
