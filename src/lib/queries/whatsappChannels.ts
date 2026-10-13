@@ -72,14 +72,9 @@ export function useClientsChannelReady(tenantId: string | null | undefined) {
     enabled: !!tenantId,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("whatsapp_channels")
-        .select("id,status,phone_number_id,is_platform")
-        .eq("tenant_id", tenantId!)
-        .eq("kind", "clients");
+      const { data, error } = await supabase.rpc("whatsapp_clients_channel_ready");
       if (error) throw error;
-      const rows = (data ?? []) as Array<{ status: string; phone_number_id: string | null; is_platform: boolean }>;
-      return rows.some((c) => !c.is_platform && c.status === "connected" && !!c.phone_number_id);
+      return data === true;
     },
   });
 }
@@ -258,5 +253,16 @@ export function useDeleteUserAccess(tenantId: string) {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wa-user-access", tenantId] }),
+  });
+}
+export function useConversationChannelReady(conversationId: string | null) {
+  return useQuery({
+    queryKey: ["wa-conversation-channel-ready", conversationId], enabled: !!conversationId, staleTime: 15_000,
+    queryFn: async () => {
+      if (!conversationId) return false;
+      const { data, error } = await supabase.rpc("whatsapp_conversation_channel_ready", { p_conversation_id: conversationId });
+      if (error) throw error;
+      return data === true;
+    },
   });
 }

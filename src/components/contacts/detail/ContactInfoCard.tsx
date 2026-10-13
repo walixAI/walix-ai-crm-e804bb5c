@@ -24,7 +24,7 @@ export function ContactInfoCard({ contact }: Props) {
   const save = (patch: any) =>
     update.mutate(
       { id: contact.id, patch },
-      { onSuccess: () => { toast.success("Actualizado"); } },
+      { onSuccess: () => { toast.success("Actualizado"); }, onError: (e) => toast.error(e.message) },
     );
 
   const openWA = () => { if (blockWhatsappAction(contact.phone)) return; navigate(`/whatsapp?contactId=${contact.id}`); };

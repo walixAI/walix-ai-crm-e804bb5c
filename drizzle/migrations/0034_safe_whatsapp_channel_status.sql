@@ -1,0 +1,3 @@
+CREATE OR REPLACE FUNCTION public.whatsapp_clients_channel_ready() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT auth.uid() IS NOT NULL AND EXISTS(SELECT 1 FROM public.whatsapp_channels WHERE tenant_id=public.get_user_tenant(auth.uid()) AND kind='clients' AND NOT is_platform AND status='connected' AND phone_number_id IS NOT NULL) $$;
+REVOKE ALL ON FUNCTION public.whatsapp_clients_channel_ready() FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.whatsapp_clients_channel_ready() TO authenticated;

@@ -9,13 +9,10 @@ export function useTenantId() {
     enabled: !!user?.id,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("tenant_id")
-        .eq("id", user!.id)
-        .maybeSingle();
+      if (!user) return null;
+      const { data, error } = await supabase.rpc("get_user_tenant", { _user_id: user.id });
       if (error) throw error;
-      return data?.tenant_id ?? null;
+      return data ?? null;
     },
   });
 }

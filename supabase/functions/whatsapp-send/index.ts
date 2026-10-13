@@ -71,23 +71,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, internal: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Resolve channel: el de la conversación, si no el predeterminado de clientes.
+    // Conversation visibility is validated under caller RLS before resolving credentials server-side.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const serviceUrl = Deno.env.get("SUPABASE_URL");
+    if (!serviceKey || !serviceUrl) throw new Error("No se pudo resolver el canal de WhatsApp");
+    const channelClient = createClient(serviceUrl, serviceKey);
     let channel: { id: string; access_token: string | null; phone_number_id: string | null; status: string } | null = null;
     if ((conv as any).channel_id) {
-      const { data } = await sb
+      const { data } = await channelClient
         .from("whatsapp_channels")
         .select("id, access_token, phone_number_id, status")
         .eq("id", (conv as any).channel_id)
+        .eq("tenant_id", conv.tenant_id)
         .maybeSingle();
       channel = data as any;
     }
-    if (!channel || channel.status !== "connected") {
-      const { data } = await sb
+    if (!(conv as any).channel_id) {
+      const { data } = await channelClient
         .from("whatsapp_channels")
         .select("id, access_token, phone_number_id, status, is_default")
         .eq("tenant_id", conv.tenant_id)
         .eq("kind", "clients")
-        .neq("status", "disabled")
+        .eq("status", "connected")
+        .eq("is_platform", false)
         .order("is_default", { ascending: false })
         .order("position", { ascending: true })
         .limit(1)
@@ -97,6 +103,10 @@ Deno.serve(async (req) => {
 
     const jsonRes = (obj: unknown, status = 200) =>
       new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    if (!channel || channel.status !== "connected" || !channel.phone_number_id) return jsonRes({ error: "El canal de esta conversación no está conectado" }, 409);
+    const isSim = channel.phone_number_id.startsWith("SIM");
+    if (!isSim && !channel.access_token) return jsonRes({ error: "El canal no tiene credenciales de envío disponibles" }, 409);
 
     // Control de gasto: fuera de la ventana de 24 h solo plantillas, con límites por lead/asesor/empresa.
     const tpl = body.template && typeof body.template.name === "string" && body.template.name.trim()
@@ -147,7 +157,6 @@ Deno.serve(async (req) => {
 
     let wamid: string | null = null;
     let providerError: string | null = null;
-    const isSim = String(channel?.phone_number_id ?? "").startsWith("SIM");
 
     if (channel?.status === "connected" && isSim) {
       wamid = `sim.${crypto.randomUUID()}`;
@@ -158,12 +167,12 @@ Deno.serve(async (req) => {
         return jsonRes({ error: "Contacto sin teléfono" }, 400);
       }
       const toNumber = toWaId(phone);
-      const payload = isTemplateSend
+      const payload = isTemplateSend && tpl
         ? {
             messaging_product: "whatsapp", to: toNumber, type: "template",
             template: {
-              name: tpl!.name, language: { code: tpl!.language },
-              ...(tpl!.params.length ? { components: [{ type: "body", parameters: tpl!.params.map((t: string) => ({ type: "text", text: t })) }] } : {}),
+              name: tpl.name, language: { code: tpl.language },
+              ...(tpl.params.length ? { components: [{ type: "body", parameters: tpl.params.map((t: string) => ({ type: "text", text: t })) }] } : {}),
             },
           }
         : { messaging_product: "whatsapp", to: toNumber, type: "text", text: { body: body.body } };
@@ -197,7 +206,7 @@ Deno.serve(async (req) => {
       metadata: {
         wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected" || isSim,
         sent_by_user_id: userData.user.id, billing,
-        ...(isTemplateSend ? { kind: "template", template_name: tpl!.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
+        ...(isTemplateSend && tpl ? { kind: "template", template_name: tpl.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
       },
     });
     if (insErr) throw insErr;

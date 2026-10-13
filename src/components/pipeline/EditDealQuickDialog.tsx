@@ -20,7 +20,9 @@ export function EditDealQuickDialog({ deal, onClose }: { deal: PipelineDeal | nu
   const save = async () => {
     if (!deal) return;
     const nextName = name.trim();
-    const nextAmount = Number(amount) || 0;
+    const nextAmount = Number(amount);
+    if (!nextName) { toast.error("Escribe el nombre de la oportunidad"); return; }
+    if (!amount.trim() || !Number.isFinite(nextAmount) || nextAmount < 0) { toast.error("Captura un monto válido"); return; }
     const patch: Record<string, any> = {};
     if (nextName && nextName !== deal.name) patch.name = nextName;
     if (nextAmount !== deal.amount) patch.amount = nextAmount;
@@ -42,8 +44,8 @@ export function EditDealQuickDialog({ deal, onClose }: { deal: PipelineDeal | nu
 
   return (
     <Dialog open={!!deal} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Editar oportunidad</DialogTitle></DialogHeader>
+      <DialogContent className="sm:max-w-sm bg-muted">
+        <DialogHeader><DialogTitle>Oportunidad</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="deal-name">Nombre</Label>

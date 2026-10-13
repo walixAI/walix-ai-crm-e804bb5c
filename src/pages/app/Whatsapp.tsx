@@ -28,7 +28,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/walix/EmptyState";
 import { EmptyIllustration } from "@/components/walix/empty/EmptyIllustration";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
-import { useClientsChannelReady } from "@/lib/queries/whatsappChannels";
+import { useConversationChannelReady } from "@/lib/queries/whatsappChannels";
+import { useTenantId } from "@/lib/queries/tenant";
 import { WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 
 export default function Whatsapp() {
@@ -137,7 +138,7 @@ export default function Whatsapp() {
   const markRead = useMarkConversationRead();
   const markUnread = useMarkConversationUnread();
 
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const { data: tenantId } = useTenantId();
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [linkDealOpen, setLinkDealOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -145,18 +146,8 @@ export default function Whatsapp() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const aiMutation = useWhatsappAi();
   const { data: sellers = [] } = useTenantUsers();
-  const { data: clientsChannelReady } = useClientsChannelReady(tenantId);
-  const waBlockedReason = clientsChannelReady === false ? WHATSAPP_DISABLED_REASON : null;
-
-  // load tenant id once
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
-      setTenantId(data?.tenant_id ?? null);
-    })();
-  }, [user?.id]); // eslint-disable-line
+  const { data: conversationChannelReady } = useConversationChannelReady(activeId);
+  const waBlockedReason = conversationChannelReady === false ? WHATSAPP_DISABLED_REASON : null;
 
   // pull deals of the active contact (for {monto} variable)
   const { data: contactDeals = [] } = useContactDeals(activeConv?.contactId);
@@ -186,14 +177,14 @@ export default function Whatsapp() {
   }, [activeConv?.id]); // eslint-disable-line
 
   const handleSend = async (body: string, opts?: { internal?: boolean }) => {
-    if (!activeConv || !user) return;
+    if (!activeConv || !user) return false;
     if (!opts?.internal && waBlockedReason) {
       toast({ title: "WhatsApp no conectado", description: waBlockedReason, variant: "destructive" as any });
-      return;
+      return false;
     }
     if (!tenantId) {
       toast({ title: "Sin tenant", description: "No se pudo identificar tu organización.", variant: "destructive" });
-      return;
+      return false;
     }
     try {
       await sendMutation.mutateAsync({
@@ -203,8 +194,10 @@ export default function Whatsapp() {
         isInternalNote: opts?.internal,
       });
       setAiDraftActive(false);
+      return true;
     } catch (e: any) {
       toast({ title: "Error al enviar", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
+      return false;
     }
   };
 

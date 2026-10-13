@@ -502,8 +502,9 @@ export function useUpdateDeal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: { dealId: string; patch: Record<string, any> }) => {
-      const { error } = await supabase.from("deals").update(args.patch as any).eq("id", args.dealId);
+      const { data, error } = await supabase.from("deals").update(args.patch as any).eq("id", args.dealId).select("id").single();
       if (error) throw error;
+      if (!data) throw new Error("No tienes permiso para editar esta oportunidad");
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });

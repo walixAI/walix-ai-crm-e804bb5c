@@ -38,7 +38,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
 
   const callPhone = () => window.open(`tel:${contact.phone.replace(/[^0-9+]/g, "")}`);
   const reassign = (uid: string | null) =>
-    update.mutate({ id: contact.id, patch: { owner_id: uid } }, { onSuccess: () => toast.success("Reasignado") });
+    update.mutate({ id: contact.id, patch: { owner_id: uid } }, { onSuccess: () => toast.success("Reasignado"), onError: (e) => toast.error(e.message) });
   const changeStatus = (s: any) =>
     update.mutate({ id: contact.id, patch: { status: s } }, { onSuccess: () => toast.success(`Status: ${s}`) });
   const toggleTag = (t: string, checked: boolean) => {

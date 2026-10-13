@@ -6365,6 +6365,10 @@ export type Database = {
         Args: { p_fields: Json; p_tenant: string }
         Returns: Json
       }
+      reassign_contact_atomic: {
+        Args: { p_contact_id: string; p_new_owner_id: string }
+        Returns: undefined
+      }
       recent_acted_suggestion: {
         Args: { _entity_id: string; _entity_type: string; _tenant_id: string }
         Returns: string
@@ -6478,6 +6482,11 @@ export type Database = {
           _user_id?: string
         }
         Returns: Json
+      }
+      whatsapp_clients_channel_ready: { Args: never; Returns: boolean }
+      whatsapp_conversation_channel_ready: {
+        Args: { p_conversation_id: string }
+        Returns: boolean
       }
     }
     Enums: {

@@ -5,6 +5,8 @@ import { useTenantUsers, resolveOwner, colorForUser, type TenantUser } from "@/l
 import { buildContactSuggestions, type ContactSuggestion, type LastInbound } from "@/lib/contacts/suggestions";
 import { useTenantId } from "@/lib/queries/tenant";
 
+import { reassignContact } from "@/services/contactAssignment";
+
 const colors = [
   "hsl(239 84% 60%)",
   "hsl(189 94% 43%)",
@@ -160,6 +162,11 @@ export function useUpdateContact() {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: ContactInput }) => {
       const payload: any = { ...patch };
+      if (Object.prototype.hasOwnProperty.call(payload, "owner_id")) {
+        await reassignContact(id, payload.owner_id);
+        delete payload.owner_id;
+      }
+      if (!Object.keys(payload).length) return;
       if (patch.status) {
         payload.status_set_manually_at = new Date().toISOString();
         payload.status_locked_until = new Date(Date.now() + 60 * 86_400_000).toISOString();
@@ -176,6 +183,7 @@ export function useUpdateContact() {
       qc.invalidateQueries({ queryKey: ["pipeline-contacts-lite"] });
       qc.invalidateQueries({ queryKey: ["contact-pipeline-deals", id] });
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
+      for (const key of ["wa-conversations", "human-attention", "tasks", "contact-tasks", "pipeline-deal", "contact-deals"]) qc.invalidateQueries({ queryKey: [key] });
     },
   });
 }
@@ -232,7 +240,13 @@ export function useBulkUpdateContacts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: ContactInput }) => {
-      const { error } = await supabase.from("contacts").update(patch).in("id", ids);
+      const remaining = { ...patch };
+      if (Object.prototype.hasOwnProperty.call(remaining, "owner_id")) {
+        for (const id of ids) await reassignContact(id, remaining.owner_id ?? null);
+        delete remaining.owner_id;
+      }
+      if (!Object.keys(remaining).length) return;
+      const { error } = await supabase.from("contacts").update(remaining).in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
