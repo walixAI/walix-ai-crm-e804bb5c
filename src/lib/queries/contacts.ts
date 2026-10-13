@@ -173,6 +173,9 @@ export function useUpdateContact() {
     onSuccess: (_d, { id }) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: ["contact", id] });
+      qc.invalidateQueries({ queryKey: ["pipeline-contacts-lite"] });
+      qc.invalidateQueries({ queryKey: ["contact-pipeline-deals", id] });
+      qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
     },
   });
 }

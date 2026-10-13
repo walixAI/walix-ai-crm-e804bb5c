@@ -439,7 +439,7 @@ export function DealDrawer({ deal, stages, open, onClose, contactName, contactLa
                       )}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
-                      {format(new Date(h.changedAt), "PPP HH:mm", { locale: es })} · {relativeTime(h.changedAt)}
+                      {format(new Date(h.changedAt), "PPP HH:mm", { locale: es })} · {h.changedByName}
                     </div>
                   </div>
                 ))}

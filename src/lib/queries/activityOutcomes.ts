@@ -270,7 +270,11 @@ export function useLogFollowUp() {
       qc.invalidateQueries({ queryKey: ["contact-activity", v.contactId] });
       qc.invalidateQueries({ queryKey: ["contact", v.contactId] });
       qc.invalidateQueries({ queryKey: ["deal-activity", v.dealId] });
-      qc.invalidateQueries({ queryKey: ["stage-history", v.dealId] });
+      qc.invalidateQueries({ queryKey: ["deal-stage-history", v.dealId] });
+      qc.invalidateQueries({ queryKey: ["contact-stage-history", v.contactId] });
+      qc.invalidateQueries({ queryKey: ["contact-pipeline-deals", v.contactId] });
+      qc.invalidateQueries({ queryKey: ["contact-deals", v.contactId] });
+      qc.invalidateQueries({ queryKey: ["pipeline-deal", v.dealId] });
       qc.invalidateQueries({ queryKey: ["pipeline-deals"] });
       qc.invalidateQueries({ queryKey: ["contact-tasks", v.contactId] });
       qc.invalidateQueries({ queryKey: ["tasks"] });

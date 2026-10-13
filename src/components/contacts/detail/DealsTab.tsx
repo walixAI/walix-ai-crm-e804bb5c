@@ -175,7 +175,7 @@ export function DealsTab({ contactId, contactName }: Props) {
       )}
 
       <DealDrawer
-        deal={selected}
+        deal={deals.find(d => d.id === selected?.id) ?? selected}
         stages={selected ? maps.stagesFor(selected) : []}
         open={!!selected}
         onClose={() => setSelected(null)}

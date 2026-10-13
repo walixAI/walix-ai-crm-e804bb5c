@@ -10,6 +10,8 @@ import { QuickTaskDialog } from "@/components/pipeline/QuickTaskDialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ProfilingCard } from "@/components/walix/ProfilingCard";
+import { summarizeWaActivity } from "@/lib/activities/waSummary";
 
 /** DD/MM/AA HH:MM:SS */
 function fmtAbs(iso?: string | null) {
@@ -175,6 +177,7 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
       </div>
 
       {/* Últimos eventos */}
+      <ProfilingCard contactId={contact.id} />
       <div className="rounded-xl border border-border bg-card p-5 shadow-card">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Últimos eventos</h3>
         <div className="relative">
@@ -192,7 +195,7 @@ export function SummaryTab({ contact, onWhatsApp, activity, onViewAllTasks }: Pr
                 </div>
                 <div className="flex-1 pt-1.5">
                   <div className={cn("text-sm", isTask && completed && "line-through text-muted-foreground")}>
-                    {isTask ? "Tarea: " : ""}{a.description}
+                    {isTask ? "Tarea: " : ""}{summarizeWaActivity(a.description, a.metadata) ?? a.description}
                     {isTask && completed && <span className="ml-2 text-[10px] uppercase text-success">completada</span>}
                     {overdue && <span className="ml-2 text-[10px] uppercase text-destructive">vencida</span>}
                   </div>
