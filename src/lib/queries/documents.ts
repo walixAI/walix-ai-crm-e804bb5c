@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
+import { shortDocumentTitle, documentFilename } from "../../../supabase/functions/_shared/document-name";
+export { shortDocumentTitle } from "../../../supabase/functions/_shared/document-name";
 
 export const DOCS_BUCKET = "tenant-documents";
 export const MAX_DOC_BYTES = 20 * 1024 * 1024;
@@ -40,8 +42,9 @@ export function useDocCategories() {
     queryKey: ["doc-categories", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
+      if (!tenantId) return [];
       const { data, error } = await supabase.from("document_categories").select("id,name,advisor_can_attach,agent_can_send,position")
-        .eq("tenant_id", tenantId!).order("position").order("name");
+        .eq("tenant_id", tenantId).order("position").order("name");
       if (error) throw error;
       return (data ?? []) as DocCategory[];
     },
@@ -54,8 +57,9 @@ export function useDocuments() {
     queryKey: ["documents", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
+      if (!tenantId) return [];
       const { data, error } = await supabase.from("documents").select("id,category_id,name,description,storage_path,mime_type,size_bytes,created_at")
-        .eq("tenant_id", tenantId!).order("name");
+        .eq("tenant_id", tenantId).order("name");
       if (error) throw error;
       return (data ?? []) as TenantDocument[];
     },
@@ -77,7 +81,8 @@ export function useSaveCategory() {
         const { error } = await supabase.from("document_categories").update(patch).eq("id", id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("document_categories").insert({ tenant_id: tenantId!, name: c.name!.trim() });
+        if (!tenantId || !c.name?.trim()) throw new Error("Falta la empresa o el nombre de categoría");
+        const { error } = await supabase.from("document_categories").insert({ tenant_id: tenantId, name: c.name.trim() });
         if (error) throw error;
       }
     },
@@ -102,16 +107,18 @@ export function useUploadDocuments() {
   const { data: tenantId } = useTenantId();
   return useMutation({
     mutationFn: async ({ categoryId, files }: { categoryId: string; files: File[] }) => {
+      if (!tenantId) throw new Error("No se encontró tu empresa");
       for (const f of files) {
         const mime = resolveDocMime(f);
         if (!mime) throw new Error(`${f.name}: solo PDF, JPG, PNG o Excel`);
         if (f.size > MAX_DOC_BYTES) throw new Error(`${f.name}: supera 20 MB`);
-        const safe = f.name.replace(/[^\w.\-]+/g, "_").slice(-80);
+        const name = shortDocumentTitle(f.name);
+        const safe = documentFilename(name, f.name).replace(/[^\w.\-]+/g, "_");
         const path = `${tenantId}/${categoryId}/${crypto.randomUUID()}-${safe}`;
         const up = await supabase.storage.from(DOCS_BUCKET).upload(path, f, { contentType: mime, upsert: false });
         if (up.error) throw up.error;
         const { error } = await supabase.from("documents").insert({
-          tenant_id: tenantId!, category_id: categoryId, name: f.name.replace(/\.[^.]+$/, ""), storage_path: path, mime_type: mime, size_bytes: f.size,
+          tenant_id: tenantId, category_id: categoryId, name, storage_path: path, mime_type: mime, size_bytes: f.size,
         });
         if (error) { await supabase.storage.from(DOCS_BUCKET).remove([path]); throw error; }
       }
@@ -124,6 +131,7 @@ export function useUpdateDocument() {
   const inv = useInvalidate();
   return useMutation({
     mutationFn: async ({ id, ...patch }: { id: string; name?: string; description?: string | null; category_id?: string }) => {
+      if (patch.name !== undefined) patch.name = shortDocumentTitle(patch.name);
       const { error } = await supabase.from("documents").update(patch).eq("id", id);
       if (error) throw error;
     },
@@ -152,7 +160,6 @@ export async function openDocument(d: Pick<TenantDocument, "storage_path">) {
 export async function downloadDocumentFile(d: Pick<TenantDocument, "storage_path" | "name" | "mime_type">): Promise<File> {
   const { data, error } = await supabase.storage.from(DOCS_BUCKET).download(d.storage_path);
   if (error || !data) throw error ?? new Error("No se pudo descargar");
-  const ext = d.storage_path.split(".").pop();
-  const name = /\.[a-z0-9]{2,5}$/i.test(d.name) ? d.name : `${d.name}${ext ? "." + ext : ""}`;
+  const name = documentFilename(d.name, d.storage_path);
   return new File([data], name, { type: d.mime_type });
 }
