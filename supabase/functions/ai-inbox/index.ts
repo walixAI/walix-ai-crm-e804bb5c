@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
           title: `🔥 ${d.name}`,
           description: `Actividad reciente · prob ${d.probability}% · ${fmtMXN(Number(d.amount ?? 0))}${contact?.name ? ` · ${contact.name}` : ""}`,
           amount: Number(d.amount ?? 0),
-          action: { label: "Ir a Contacto", type: "open_deal", id: d.id },
+          action: d.contact_id ? { label: "Ir a Contacto", type: "open_contact", id: d.contact_id } : { label: "Ver oportunidad", type: "open_deal", id: d.id },
           createdAt: d.updated_at ?? d.created_at,
         });
       }
