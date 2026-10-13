@@ -292,6 +292,17 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                   </div>
                 ))}
               </div>
+              <div className="border border-dashed border-border bg-muted/30 rounded-lg p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="font-semibold text-sm flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Generar propuesta PDF
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Disponible en plan Pro</div>
+                  </div>
+                  <WBadge variant="brand">Pro</WBadge>
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="activity" className="m-0">
@@ -405,23 +416,6 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
               </div>
             </TabsContent>
 
-            <TabsContent value="summary" className="space-y-4 m-0 mt-4">
-              <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="font-semibold text-sm flex items-center gap-1.5">
-                      <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                      Generar propuesta PDF
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">Disponible en plan Pro</div>
-                  </div>
-                  <WBadge variant="brand">Pro</WBadge>
-                </div>
-                <Button disabled className="w-full mt-3" variant="outline" size="sm">
-                  Bloqueado en Starter
-                </Button>
-              </div>
-            </TabsContent>
           </div>
         </Tabs>
       </SheetContent>
