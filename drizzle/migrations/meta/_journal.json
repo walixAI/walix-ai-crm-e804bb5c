@@ -218,6 +218,13 @@
       "when": 1791926433651,
       "tag": "0030_profile_opportunity_autofill",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791926547595,
+      "tag": "0031_preserve_manual_profile_overrides",
+      "breakpoints": true
     }
   ]
 }
