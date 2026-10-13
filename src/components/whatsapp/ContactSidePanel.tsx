@@ -18,6 +18,7 @@ import type { Guidance } from "@/lib/whatsapp/guidance";
 import type { ServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
+import { ProfilingCard } from "@/components/walix/ProfilingCard";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -72,6 +73,7 @@ export function ContactSidePanel({
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-5">
           {conv.contactId && <LeadAssistantPanel contactId={conv.contactId} signal={refreshSignal} onUseMessage={onUseMessage} compact />}
+          {conv.contactId && <div className="mt-3"><ProfilingCard key={`${conv.contactId}-${refreshSignal ?? ""}`} contactId={conv.contactId} /></div>}
           {/* Guía: qué hacer ahora */}
           {guidance && (
             <section
