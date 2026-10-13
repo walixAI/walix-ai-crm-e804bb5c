@@ -211,6 +211,20 @@
       "when": 1791925153205,
       "tag": "0029_refresh_names_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791926433651,
+      "tag": "0030_profile_opportunity_autofill",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791926547595,
+      "tag": "0031_preserve_manual_profile_overrides",
+      "breakpoints": true
     }
   ]
 }

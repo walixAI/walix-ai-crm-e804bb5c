@@ -2116,6 +2116,8 @@ export type Database = {
           payment_status: string | null
           probability: number
           product_category_id: string | null
+          profile_auto_amount: number | null
+          profile_auto_name: string | null
           scheduled_at: string | null
           service_frequency_months: number | null
           service_type: string | null
@@ -2156,6 +2158,8 @@ export type Database = {
           payment_status?: string | null
           probability?: number
           product_category_id?: string | null
+          profile_auto_amount?: number | null
+          profile_auto_name?: string | null
           scheduled_at?: string | null
           service_frequency_months?: number | null
           service_type?: string | null
@@ -2196,6 +2200,8 @@ export type Database = {
           payment_status?: string | null
           probability?: number
           product_category_id?: string | null
+          profile_auto_amount?: number | null
+          profile_auto_name?: string | null
           scheduled_at?: string | null
           service_frequency_months?: number | null
           service_type?: string | null
@@ -6346,6 +6352,10 @@ export type Database = {
           outcomes_targeting_count: number
           rules_count: number
         }[]
+      }
+      profile_opportunity_values: {
+        Args: { p_fields: Json; p_tenant: string }
+        Returns: Json
       }
       recent_acted_suggestion: {
         Args: { _entity_id: string; _entity_type: string; _tenant_id: string }

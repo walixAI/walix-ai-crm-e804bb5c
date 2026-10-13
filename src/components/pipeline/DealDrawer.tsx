@@ -1,9 +1,8 @@
-import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 import { probabilityLabel, effectiveProbability } from "@/lib/pipeline/probability";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowRight, Bot, ChevronRight, Lock, Pencil, Plus, RefreshCw, Save, Sparkles, Trash2, Zap,
+  ArrowRight, Bot, ChevronRight, Lock, Pencil, Plus, Save, Sparkles, Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -22,13 +21,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { WBadge } from "@/components/walix/Badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  formatMXN, useDeal, useDealActivity, useDealAiSuggestions, useUpdateDeal, useStageHistory,
+  formatMXN, useDeal, useDealActivity, useUpdateDeal, useStageHistory,
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
-import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type ProbabilityScore } from "@/lib/queries/pipelineAi";
 import { relativeTime } from "@/lib/format/relativeTime";
 import { cn } from "@/lib/utils";
-import { AiContextPanel } from "@/components/walix/AiContextPanel";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { DealDiagnosticPanel } from "./DealDiagnosticPanel";
 import { RecurringServiceBlock } from "./RecurringServiceBlock";
@@ -55,22 +52,10 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
   const { data: persistedDeal } = useDeal(open ? initialDeal?.id : undefined);
   const deal = persistedDeal ?? initialDeal;
   const update = useUpdateDeal();
-  const suggestNextStep = useSuggestNextStep();
-  const scoreProbability = useScoreProbability();
-  const [aiSuggestion, setAiSuggestion] = useState<NextStepSuggestion | null>(null);
-  const [aiScore, setAiScore] = useState<ProbabilityScore | null>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
 
-  useEffect(() => {
-    if (deal) {
-      setAiSuggestion(null);
-      setAiScore(null);
-    }
-  }, [deal]);
-
   const { data: activity = [] } = useDealActivity(deal?.id);
-  const { data: aiSuggestions = [] } = useDealAiSuggestions(deal?.id, deal?.contactId);
   const { data: stageHistory = [] } = useStageHistory(deal?.id);
   const { data: notes = [] } = useDealNotes(deal?.id);
   const { data: fieldHistory = [] } = useDealFieldHistory(deal?.id);
@@ -93,44 +78,6 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
     } catch (e: any) {
       toast.error(e?.message ?? "Error al guardar");
       throw e;
-    }
-  }
-
-  // Heuristic explanation for AI tab
-  const explanation =
-    deal.probability >= 70
-      ? "Alta probabilidad: monto elevado, cliente activo y avance constante en el pipeline."
-      : deal.probability >= 40
-        ? "Probabilidad media: hay interés pero faltan señales claras de cierre."
-        : "Probabilidad baja: poca actividad reciente. Reactiva al contacto.";
-
-  async function runSuggestNextStep() {
-    if (!deal) return;
-    try {
-      const r = await suggestNextStep.mutateAsync({ deal, lastActivityAt: contactLastActivityAt });
-      setAiSuggestion(r);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Error al sugerir siguiente paso");
-    }
-  }
-
-  async function runScoreProbability() {
-    if (!deal) return;
-    try {
-      const r = await scoreProbability.mutateAsync({ deal, lastActivityAt: contactLastActivityAt });
-      setAiScore(r);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Error al calcular probabilidad");
-    }
-  }
-
-  async function applyAiProbability() {
-    if (!deal || !aiScore) return;
-    try {
-      await update.mutateAsync({ dealId: deal.id, patch: { probability: aiScore.probability } });
-      toast.success(`Probabilidad actualizada a ${aiScore.probability}%`);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Error al guardar");
     }
   }
 
@@ -172,9 +119,8 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <TabsContent value="summary" className="space-y-4 m-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ring-0">
-              {deal.contactId && <LeadAssistantPanel contactId={deal.contactId} dealId={deal.id} signal={deal.stageName} />}
               <EditableField
-                label="Nombre del lead"
+                label="Nombre del programa / oportunidad"
                 display={deal.name}
                 value={deal.name}
                 onSave={async (v) => {
@@ -267,7 +213,7 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
               />
 
-              {!deal.contactId && <Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
+              {<Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn(
@@ -345,6 +291,17 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="border border-dashed border-border bg-muted/30 rounded-lg p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="font-semibold text-sm flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Generar propuesta PDF
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Disponible en plan Pro</div>
+                  </div>
+                  <WBadge variant="brand">Pro</WBadge>
+                </div>
               </div>
             </TabsContent>
 
@@ -459,71 +416,6 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
               </div>
             </TabsContent>
 
-            <TabsContent value="summary" className="space-y-4 m-0 mt-4">
-              {!deal.contactId && <AiContextPanel entityType="deal" entityId={deal.id} />}
-
-              {!deal.contactId && <div className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-                    Probabilidad de cierre
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={runScoreProbability} disabled={scoreProbability.isPending}>
-                    <Zap className={cn("h-3 w-3", scoreProbability.isPending && "animate-pulse")} /> Auto-calcular
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-3xl font-bold">{effectiveProbability(deal)}%</span>
-                  {deal.isWon || deal.isLost ? (
-                    <WBadge variant={deal.isWon ? "success" : "danger"}>{deal.isWon ? "Ganada" : "Perdida"}</WBadge>
-                  ) : (
-                    <WBadge variant={deal.probability >= 70 ? "success" : deal.probability >= 40 ? "warning" : "danger"}>
-                      {deal.probability >= 70 ? "Alta" : deal.probability >= 40 ? "Media" : "Baja"}
-                    </WBadge>
-                  )}
-                </div>
-                {aiScore ? (
-                  <div className="space-y-2 mt-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">IA sugiere:</span>
-                      <span className={cn(
-                        "text-lg font-bold",
-                        aiScore.probability >= 70 ? "text-success"
-                          : aiScore.probability >= 40 ? "text-warning" : "text-danger",
-                      )}>{aiScore.probability}%</span>
-                      {aiScore.probability !== deal.probability && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs ml-auto" onClick={applyAiProbability} disabled={update.isPending}>
-                          Aplicar
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{aiScore.reasoning}</p>
-                    {aiScore.signals.length > 0 && (
-                      <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
-                        {aiScore.signals.map((s, i) => <li key={i}>{s}</li>)}
-                      </ul>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground leading-relaxed">{explanation}</p>
-                )}
-              </div>}
-
-              <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="font-semibold text-sm flex items-center gap-1.5">
-                      <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                      Generar propuesta PDF
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">Disponible en plan Pro</div>
-                  </div>
-                  <WBadge variant="brand">Pro</WBadge>
-                </div>
-                <Button disabled className="w-full mt-3" variant="outline" size="sm">
-                  Bloqueado en Starter
-                </Button>
-              </div>
-            </TabsContent>
           </div>
         </Tabs>
       </SheetContent>

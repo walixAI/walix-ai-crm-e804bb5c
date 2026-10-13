@@ -69,6 +69,9 @@ export function ProfilingCard({ contactId }: { contactId: string }) {
       toast.success("Ficha actualizada");
       setEditing(false);
       qc.invalidateQueries({ queryKey: key });
+      for (const queryKey of ["pipeline-deals", "pipeline-deal", "contact-pipeline-deals", "contact-deals"]) {
+        qc.invalidateQueries({ queryKey: [queryKey] });
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo guardar la ficha");
     } finally {
