@@ -184,6 +184,8 @@ export function useConversations() {
         };
       });
     },
+    // Respaldo de sondeo: si el canal en tiempo real se cae, la lista se refresca sola.
+    refetchInterval: 15_000,
   });
   const pending = new Map((attention.data ?? []).map(item => [item.conversation_id, item]));
   return { ...query, data: query.data?.map(c => ({ ...c, requiresAdvisor: pending.has(c.id), awaitingReply: c.awaitingReply || pending.has(c.id) })) };
@@ -230,6 +232,9 @@ export function useMessages(conversationId: string | null) {
         sentByUserId: m.metadata?.sent_by_user_id ?? null,
       }));
     },
+    // Respaldo de sondeo: la conversación abierta se actualiza sola cada 4 s
+    // aunque el canal en tiempo real no entregue el evento.
+    refetchInterval: 4_000,
   });
 }
 
