@@ -42,6 +42,7 @@ const MiDia = lazy(() => import("@/pages/app/MiDia"));
 const Expenses = lazy(() => import("@/pages/app/Expenses"));
 const Campaigns = lazy(() => import("@/pages/app/Campaigns"));
 const EmailPage = lazy(() => import("@/pages/app/Email"));
+const Documents = lazy(() => import("@/pages/app/Documents"));
 const EmailUnsubscribe = lazy(() => import("@/pages/EmailUnsubscribe"));
 const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 const Team = lazy(() => import("@/pages/app/Team"));
@@ -127,6 +128,7 @@ const AppRoutes = () => {
         <Route path="/automations" element={<Automations />} />
         <Route path="/campanas" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Campaigns /></ProtectedRoute>} />
         <Route path="/email" element={<EmailPage />} />
+        <Route path="/documentos" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Documents /></ProtectedRoute>} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "sales_rep", "platform_owner", "platform_staff", "super_admin"]}>
             <Settings />

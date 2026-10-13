@@ -23,3 +23,4 @@
 
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
 - WhatsApp readiness uses credential-free RPCs; send resolves exact tenant/channel credentials server-side after caller-RLS conversation authorization; why: reps must send without accessing secrets.
+- Tenant documents: private bucket per tenant/category, category flags gate advisors/agent, non-reps manage, WhatsApp sends via signed links (_shared/tenant-documents.ts); why: one RLS-enforced library.

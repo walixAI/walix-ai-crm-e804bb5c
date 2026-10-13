@@ -2271,6 +2271,92 @@ export type Database = {
           },
         ]
       }
+      document_categories: {
+        Row: {
+          advisor_can_attach: boolean
+          agent_can_send: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          advisor_can_attach?: boolean
+          agent_can_send?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          advisor_can_attach?: boolean
+          agent_can_send?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          mime_type: string
+          name: string
+          size_bytes: number
+          storage_path: string
+          tenant_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          mime_type: string
+          name: string
+          size_bytes?: number
+          storage_path: string
+          tenant_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          mime_type?: string
+          name?: string
+          size_bytes?: number
+          storage_path?: string
+          tenant_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_accounts: {
         Row: {
           allowed_user_ids: string[]
@@ -6240,6 +6326,14 @@ export type Database = {
         Returns: boolean
       }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
+      can_manage_documents: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_document_category: {
+        Args: { _category_id: string; _user_id: string }
+        Returns: boolean
+      }
       change_tenant_member_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]

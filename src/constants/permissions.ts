@@ -164,4 +164,5 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionToken | null> = {
   "/org": "org.read",
   "/platform": "platform.read",
   "/marketplace": "reports.read.team",
+  "/documentos": "reports.read.team",
 };

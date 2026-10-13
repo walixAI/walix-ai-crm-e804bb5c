@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MessageTemplate } from "@/lib/queries/whatsapp";
 import type { Guidance } from "@/lib/whatsapp/guidance";
+import { DocumentPicker } from "@/components/documents/DocumentPicker";
 
 interface Props {
   draft: string;
@@ -37,13 +38,15 @@ interface Props {
   blockedReason?: string | null;
   /** Fuera de la ventana de 24 h: reemplaza la caja de texto por el envío de plantillas pagadas. */
   paidSlot?: React.ReactNode;
+  /** Envía un documento de la biblioteca del tenant (el borrador va como pie). */
+  onSendDocument?: (documentId: string, caption: string) => Promise<boolean>;
 }
 
 export function Composer({
   draft, onDraftChange, templates, onSend, sending,
   onAiSuggest, onAiSummarize, onAiPrompt, aiLoading,
   onOpenTemplates, onPickTemplate, aiDraftActive, onClearAiDraft,
-  guidance, windowNotice, blockedReason, paidSlot,
+  guidance, windowNotice, blockedReason, paidSlot, onSendDocument,
 }: Props) {
   const [internal, setInternal] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -208,9 +211,12 @@ export function Composer({
 
       {/* Composer */}
       <div className={cn("p-3 flex items-end gap-2", internal && "bg-warning/5", aiDraftActive && !internal && "bg-primary/5")}>
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Adjuntar">
-          <Paperclip className="h-4 w-4" />
-        </Button>
+        {onSendDocument && !internal ? (
+          <DocumentPicker
+            onPick={async (d) => { const ok = await onSendDocument(d.id, draft.trim()); if (ok) onDraftChange(""); }}
+            trigger={<Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Adjuntar documento" disabled={!!blockedReason || sending}><Paperclip className="h-4 w-4" /></Button>}
+          />
+        ) : null}
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Emoji">
           <Smile className="h-4 w-4" />
         </Button>
