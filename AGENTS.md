@@ -12,3 +12,4 @@
 
 - Human-attention views share pending_human_attention, authorized server-side by tenant and owner/supervisor role; pending ends only with a real human response or completed contact task, never a bot reply or opening the alert, so all work views agree.
 - Pending human attention is displayed once in the shared sticky TopBar below Copilot, not in page-local panels; why: pending leads remain reachable across all authenticated sections without duplicating content.
+- Sales reps (sales_rep without admin/manager role in that tenant) only see/update their own leads, enforced by restrictive RLS via is_rep_only/rep_owns_contact; frontend roles are filtered to the active tenant; why: users can hold different roles in different tenants.
