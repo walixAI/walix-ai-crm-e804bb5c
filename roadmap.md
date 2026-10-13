@@ -2,6 +2,7 @@
 
 # Atención humana pendiente
 
+- [ ] Avisar del límite diario del bot al asesor, supervisor y administradores del tenant; verificar y desplegar.
 - [x] Diagnosticar y reparar tareas y avisos de transferencia.
 - [x] Mostrar modal y atención pendiente en WhatsApp, Mi día e Inbox, según asesor/supervisor.
 - [x] Destacar y priorizar pendientes en Kanban, Lista y Desempeño.
