@@ -1,5 +1,10 @@
 # Información unificada del prospecto
 
+# Nombres de documentos
+
+- [ ] Acortar automáticamente títulos al subir, editar y adjuntar documentos.
+- [ ] Contener nombres largos en biblioteca y conversaciones; verificar con pruebas.
+
 # Correcciones de gestión del asesor
 
 - [x] Corregir acceso al canal del asesor sin exponer credenciales; envío desplegado y borrador conservado cuando falla.
