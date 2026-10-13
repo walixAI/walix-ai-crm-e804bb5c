@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useHumanAttention } from "@/lib/queries/humanAttention";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantUsers, resolveOwner } from "@/lib/queries/tenantUsers";
@@ -19,6 +20,7 @@ export type MessageType = "text" | "image" | "document" | "audio" | "location";
 export type MessageDirection = "inbound" | "outbound";
 
 export interface ConversationItem {
+  requiresAdvisor?: boolean;
   id: string;
   contactId: string;
   contactName: string;
@@ -72,6 +74,7 @@ function initialsOf(name: string) {
 
 // ───────────────────────── queries ─────────────────────────
 export function useConversations() {
+  const attention = useHumanAttention();
   const qc = useQueryClient();
   const { data: users } = useTenantUsers();
 
@@ -89,7 +92,7 @@ export function useConversations() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["wa-conversations", users?.length ?? 0],
     queryFn: async (): Promise<ConversationItem[]> => {
       const { data, error } = await supabase
@@ -160,6 +163,8 @@ export function useConversations() {
       });
     },
   });
+  const pending = new Map((attention.data ?? []).map(item => [item.conversation_id, item]));
+  return { ...query, data: query.data?.map(c => ({ ...c, requiresAdvisor: pending.has(c.id), awaitingReply: c.awaitingReply || pending.has(c.id) })) };
 }
 
 export function useMessages(conversationId: string | null) {

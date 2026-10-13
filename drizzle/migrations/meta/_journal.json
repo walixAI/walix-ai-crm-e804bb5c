@@ -169,6 +169,13 @@
       "when": 1791917185086,
       "tag": "0023_wa_messages_to_activities",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791918497653,
+      "tag": "0024_human_attention_queue",
+      "breakpoints": true
     }
   ]
 }

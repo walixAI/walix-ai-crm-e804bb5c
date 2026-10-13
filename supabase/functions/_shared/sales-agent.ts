@@ -274,6 +274,7 @@ export async function applyAgentTurn(sb: any, p: {
   }
 
   const doHandoff = async (reason: string) => {
+    if (session?.state === "escalated") return;
     if (p.dealId && agent.handoff_stage_id) await sb.from("deals").update({ stage_id: agent.handoff_stage_id }).eq("id", p.dealId);
     let assignee = p.ownerId;
     if (agent.assignment_rule === "least_loaded" || !assignee) {
@@ -290,10 +291,15 @@ export async function applyAgentTurn(sb: any, p: {
         }
       }
     }
+    if (p.conversationId && assignee) {
+      const { error } = await sb.from("conversations").update({ assignee_id: assignee }).eq("id", p.conversationId).eq("tenant_id", p.tenantId);
+      if (error) console.error("handoff conversation assignment failed", error);
+    }
     const sla = Number(agent.sla_minutes ?? 60);
-    await sb.from("tasks").insert({ tenant_id: p.tenantId, contact_id: p.contactId, deal_id: p.dealId, assignee_id: assignee ?? null,
+    const { error: taskError } = await sb.from("tasks").insert({ tenant_id: p.tenantId, contact_id: p.contactId, deal_id: p.dealId, assignee_id: assignee ?? null,
       title: `Llamar lead de ${agent.name} (${p.channelLabel}): ${reason}`.slice(0, 200),
-      due_at: new Date(Date.now() + sla * 60000).toISOString(), task_kind: "followup" });
+      due_at: new Date(Date.now() + sla * 60000).toISOString(), task_kind: "seguimiento" });
+    if (taskError) console.error("handoff task failed", taskError);
     await p.note(`🤝 ${agent.name} transfirió al asesor (${p.channelLabel}). Llamar en máx. ${sla} min.\nMotivo de handoff: ${reason}\n${summary()}`);
     if (session?.id) await sb.from("sales_agent_sessions").update({ state: "escalated", handoff_reason: reason, handoff_at: new Date().toISOString() }).eq("id", session.id);
     // Aviso inmediato al asesor asignado y a los supervisores (admin/owner del tenant).
@@ -301,10 +307,10 @@ export async function applyAgentTurn(sb: any, p: {
       const { data: lead } = await sb.from("contacts").select("name").eq("id", p.contactId).maybeSingle();
       const recipients = new Set<string>();
       if (assignee) recipients.add(assignee); else if (p.ownerId) recipients.add(p.ownerId);
-      const { data: admins } = await sb.from("user_roles").select("user_id").eq("tenant_id", p.tenantId).in("role", ["tenant_admin", "tenant_owner"]);
+      const { data: admins } = await sb.from("user_roles").select("user_id").eq("tenant_id", p.tenantId).in("role", ["tenant_admin", "tenant_owner", "sales_manager"]);
       (admins ?? []).forEach((a: any) => recipients.add(a.user_id));
       if (recipients.size) {
-        await sb.from("notifications").insert([...recipients].map((uid: string) => ({
+        const { error: notificationError } = await sb.from("notifications").insert([...recipients].map((uid: string) => ({
           tenant_id: p.tenantId, user_id: uid, category: "operational", severity: "warning",
           type: "agent_handoff", icon: "PhoneCall",
           title: `${lead?.name ?? "Un lead"} fue transferido por ${agent.name} (${p.channelLabel})`,
@@ -312,6 +318,7 @@ export async function applyAgentTurn(sb: any, p: {
           ...(p.conversationId ? { link: `/whatsapp?conversationId=${p.conversationId}` } : {}),
           data: { conversation_id: p.conversationId ?? null, contact_id: p.contactId, deal_id: p.dealId, agent_id: agent.id },
         })));
+        if (notificationError) console.error("handoff notification failed", notificationError);
       }
     } catch (e) { console.error("handoff notification failed", e); }
   };

@@ -1,3 +1,5 @@
+import { HumanAttentionBadge } from "@/components/walix/HumanAttention";
+import { attentionPriority } from "@/lib/queries/humanAttention";
 import { useMemo, useState } from "react";
 import { ArrowUpDown, CheckCircle2, ChevronDown, ChevronRight, Download, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -247,6 +249,8 @@ export function DealsPerformanceView({
   const sorted = useMemo(() => {
     const arr = [...chipped];
     arr.sort((a, b) => {
+      const priority = attentionPriority(a.deal, b.deal);
+      if (priority) return priority;
       const dir = sort.dir === "asc" ? 1 : -1;
       switch (sort.key) {
         case "name": return a.deal.name.localeCompare(b.deal.name) * dir;
@@ -519,9 +523,10 @@ export function DealsPerformanceView({
           </TableHeader>
           <TableBody>
             {sorted.map(({ deal: d, health }) => (
-              <TableRow key={d.id} className="cursor-pointer" onClick={() => onOpenDeal(d)}>
+              <TableRow key={d.id} className={cn("cursor-pointer", d.requiresAdvisor && "human-attention")} onClick={() => onOpenDeal(d)}>
                 <TableCell>
                   <div className="font-medium">{d.name}</div>
+                  {d.requiresAdvisor && <HumanAttentionBadge />}
                   <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <span className="truncate">{contactName(d.contactId) ?? "Sin contacto"}</span>
                     {d.serviceFrequencyMonths && (

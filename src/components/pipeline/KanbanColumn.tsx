@@ -1,3 +1,4 @@
+import { attentionPriority } from "@/lib/queries/humanAttention";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ export function KanbanColumn({
           isOver && "bg-primary/5 ring-1 ring-primary/30 ring-inset",
         )}
       >
-        {deals.map(d => (
+        {[...deals].sort(attentionPriority).map(d => (
           <DealCard
             key={d.id}
             deal={d}

@@ -1,3 +1,5 @@
+import { HumanAttentionBadge } from "@/components/walix/HumanAttention";
+import { attentionPriority } from "@/lib/queries/humanAttention";
 import { useMemo, useState } from "react";
 import { LeadSourceBadge } from "@/components/walix/LeadSourceBadge";
 import { ArrowUpDown, Download, CheckCircle2, XCircle } from "lucide-react";
@@ -29,6 +31,8 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal, toolbar }:
   const sorted = useMemo(() => {
     const arr = [...deals];
     arr.sort((a, b) => {
+      const priority = attentionPriority(a, b);
+      if (priority) return priority;
       const dir = sort.dir === "asc" ? 1 : -1;
       switch (sort.key) {
         case "name": return a.name.localeCompare(b.name) * dir;
@@ -101,8 +105,8 @@ export function DealsListView({ deals, lens, contactName, onOpenDeal, toolbar }:
           </TableHeader>
           <TableBody>
             {sorted.map(d => (
-              <TableRow key={d.id} className={cn("cursor-pointer", (d.isWon || d.isLost) && "opacity-80")} onClick={() => onOpenDeal(d)}>
-                <TableCell className="font-medium">{d.name}</TableCell>
+              <TableRow key={d.id} className={cn("cursor-pointer", d.requiresAdvisor && "human-attention", (d.isWon || d.isLost) && "opacity-80")} onClick={() => onOpenDeal(d)}>
+                <TableCell className="font-medium">{d.name}{d.requiresAdvisor && <div><HumanAttentionBadge /></div>}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{contactName(d.contactId) ?? "—"}</TableCell>
                 <TableCell className="text-right font-semibold text-success">{formatMXN(d.amount)}</TableCell>
                 <TableCell className="text-sm">{d.stageName}</TableCell>
