@@ -184,6 +184,7 @@ export function DealsTab({ contactId, contactName }: Props) {
         </div>
       )}
 
+      <EditDealQuickDialog deal={editing} onClose={() => setEditing(null)} />
       <DealDrawer
         deal={deals.find(d => d.id === selected?.id) ?? selected}
         stages={selected ? maps.stagesFor(selected) : []}
