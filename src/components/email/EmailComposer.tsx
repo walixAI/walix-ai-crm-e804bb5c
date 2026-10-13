@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useEmailAccounts, useEmailTemplates, useSendEmail, fileToBase64 } from "@/lib/queries/email";
 import { useAuth } from "@/hooks/useAuth";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { DocumentPicker } from "@/components/documents/DocumentPicker";
+import { downloadDocumentFile } from "@/lib/queries/documents";
+import { FolderOpen } from "lucide-react";
 
 interface Props {
   contactId?: string;
@@ -79,6 +82,16 @@ export function EmailComposer({ contactId, threadId, defaultSubject, onSent }: P
             setFiles([...files, ...list]);
           }} />
         </label>
+        <DocumentPicker
+          onPick={async (d) => {
+            try {
+              const f = await downloadDocumentFile(d);
+              if ([...files, f].reduce((s, x) => s + x.size, 0) > 8 * 1024 * 1024) { toastError("Adjuntos muy pesados", "Máximo 8 MB en total."); return; }
+              setFiles((prev) => [...prev, f]);
+            } catch (e) { toastError("No se pudo adjuntar", (e as Error).message); }
+          }}
+          trigger={<Button type="button" variant="ghost" size="sm" className="text-muted-foreground"><FolderOpen className="h-4 w-4" /> Documentos</Button>}
+        />
         <Button onClick={submit} disabled={send.isPending || !text.trim() || (!threadId && !subject.trim())}>
           <Send className="h-4 w-4" /> {send.isPending ? "Enviando…" : "Enviar"}
         </Button>

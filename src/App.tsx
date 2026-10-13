@@ -42,6 +42,7 @@ const MiDia = lazy(() => import("@/pages/app/MiDia"));
 const Expenses = lazy(() => import("@/pages/app/Expenses"));
 const Campaigns = lazy(() => import("@/pages/app/Campaigns"));
 const EmailPage = lazy(() => import("@/pages/app/Email"));
+const Documents = lazy(() => import("@/pages/app/Documents"));
 const EmailUnsubscribe = lazy(() => import("@/pages/EmailUnsubscribe"));
 const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 const Team = lazy(() => import("@/pages/app/Team"));
