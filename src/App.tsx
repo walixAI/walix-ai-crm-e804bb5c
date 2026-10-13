@@ -118,14 +118,14 @@ const AppRoutes = () => {
         <Route path="/contacts/:id" element={<ContactDetail />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/tasks" element={<Tasks />} />
-        <Route path="/gastos" element={<Expenses />} />
+        <Route path="/gastos" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Expenses /></ProtectedRoute>} />
         <Route path="/equipo" element={<Team />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/whatsapp" element={<Whatsapp />} />
         <Route path="/ai-inbox" element={<AiInbox />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/automations" element={<Automations />} />
-        <Route path="/campanas" element={<Campaigns />} />
+        <Route path="/campanas" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Campaigns /></ProtectedRoute>} />
         <Route path="/email" element={<EmailPage />} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "sales_rep", "platform_owner", "platform_staff", "super_admin"]}>
@@ -152,7 +152,7 @@ const AppRoutes = () => {
             <AIMetrics />
           </ProtectedRoute>
         } />
-        <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/marketplace" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Marketplace /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
