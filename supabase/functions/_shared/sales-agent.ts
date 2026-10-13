@@ -391,6 +391,8 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     if (human?.length) return { skipped: "asesor_atiende" };
     afterHandoff = true;
   } else if (s.state !== "agent") return { skipped: "asesor_atiende" };
+  // Devuelto por el asesor: hubo handoff antes y "Devolver al agente" limpió el motivo.
+  const returnedByAdvisor = s.state === "agent" && !!s.handoff_at && !s.handoff_reason;
   if (s.paused_until && new Date(s.paused_until) > new Date()) return { skipped: "pausado" };
   const repliesToday = s.replies_date === today ? s.replies_today : 0;
   const cap = Number(agent.caps?.replies_per_lead_day ?? 20);
@@ -427,6 +429,8 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     known: { nombre_whatsapp: ct?.name, correo: ct?.email, direccion: ct?.address },
   }) + (afterHandoff
     ? "\n\n## YA TRANSFERISTE A UN ASESOR\nEl asesor humano ya fue avisado y contactará al lead. Mientras tanto responde sus dudas con la base de conocimiento, breve y sin volver a perfilar ni repetir que lo transfieres. handoff debe ser false."
+    : "") + (returnedByAdvisor
+    ? "\n\n## EL ASESOR TE DEVOLVIÓ ESTA CONVERSACIÓN\nLas solicitudes anteriores de hablar con un asesor YA fueron atendidas por el asesor humano. Continúa tú la atención con normalidad. NO vuelvas a transferir ni digas que pasas la solicitud a un asesor, salvo que el lead lo pida de forma explícita en su ÚLTIMO mensaje."
     : "") + documentsPrompt(agentDocs) + jsonInstructions(agent) +
     (agentDocs.length ? ' Agrega "document_id":"" (vacío si no envías documento).' : "");
 
