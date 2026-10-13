@@ -1,5 +1,11 @@
 # Información unificada del prospecto
 
+# Roles del equipo
+
+- [x] Permitir al propietario cambiar roles desde Configuración > Equipo con validación del tenant y registro del cambio.
+- [x] Tres pruebas de solicitud aprobadas y rechazo sin sesión comprobado; pantalla compilada sin errores.
+- [ ] Verificar cambio y lectura en pantalla con propietario autenticado — no pudo obtenerse sesión de Erick; requiere iniciar sesión en la vista previa. Authenticated path: UNVERIFIED.
+
 # Detalle de oportunidad y perfilamiento
 
 - [x] Quitar resumen del prospecto, siguiente paso, alertas, mensajes, guion y bloques bajo Notas; conservar propuesta PDF Pro.

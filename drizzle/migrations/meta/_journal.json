@@ -225,6 +225,13 @@
       "when": 1791926547595,
       "tag": "0031_preserve_manual_profile_overrides",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791926666660,
+      "tag": "0032_tenant_owner_change_member_role",
+      "breakpoints": true
     }
   ]
 }
