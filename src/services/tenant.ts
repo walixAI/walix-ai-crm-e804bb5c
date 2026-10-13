@@ -78,10 +78,12 @@ export async function fetchMembers(tenantId: string): Promise<Member[]> {
   const ids = (profiles ?? []).map((p) => p.id);
   if (ids.length === 0) return [];
 
-  const { data: rolesRows } = await supabase
+  const { data: rolesRows, error: rolesError } = await supabase
     .from("user_roles")
     .select("user_id, role")
+    .eq("tenant_id", tenantId)
     .in("user_id", ids);
+  if (rolesError) throw rolesError;
 
   const rolesByUser = new Map<string, Role[]>();
   (rolesRows ?? []).forEach((r) => {
@@ -101,6 +103,16 @@ export async function setMemberActive(userId: string, active: boolean) {
     .from("profiles")
     .update({ is_active: active })
     .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function changeMemberRole(tenantId: string, userId: string, role: Role) {
+  if (!["tenant_owner", "tenant_admin", "sales_manager", "sales_rep"].includes(role)) {
+    throw new Error("Rol no permitido");
+  }
+  const { error } = await supabase.rpc("change_tenant_member_role", {
+    p_tenant_id: tenantId, p_user_id: userId, p_role: role,
+  });
   if (error) throw error;
 }
 

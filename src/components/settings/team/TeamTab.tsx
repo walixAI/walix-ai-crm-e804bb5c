@@ -5,7 +5,10 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WBadge } from "@/components/walix/Badge";
 import { Plus, Loader2, Mail, X } from "lucide-react";
-import { useMembers, useInvitations, useToggleMemberActive, useRevokeInvitation } from "@/lib/queries/team";
+import { useMembers, useInvitations, useToggleMemberActive, useRevokeInvitation, useChangeMemberRole } from "@/lib/queries/team";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuthStore, type Role } from "@/store/auth";
+import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTenant } from "@/services/tenant";
 import { usePlanLimit } from "@/lib/queries/planLimits";
@@ -23,6 +26,11 @@ export function TeamTab({ tenantId }: { tenantId: string }) {
   const limit = usePlanLimit(tenant?.plan);
   const toggle = useToggleMemberActive(tenantId);
   const revoke = useRevokeInvitation(tenantId);
+  const changeRole = useChangeMemberRole(tenantId);
+  const user = useAuthStore((s) => s.user);
+  const roles = useAuthStore((s) => s.roles);
+  const canChangeRole = roles.some((r) => ["tenant_owner", "platform_owner", "platform_staff", "super_admin"].includes(r));
+  const editableRoles: Role[] = ["tenant_owner", "tenant_admin", "sales_manager", "sales_rep"];
 
   const activeCount = members.filter((m) => m.is_active).length;
   const max = limit?.max_users ?? 0;
@@ -66,7 +74,7 @@ export function TeamTab({ tenantId }: { tenantId: string }) {
             {members.map((m) => {
               const role = primaryRole(m.roles);
               return (
-                <div key={m.id} className="flex items-center gap-4 px-5 py-4">
+                <div key={m.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
                   <Avatar className="h-10 w-10">
                     {m.avatar_url && <AvatarImage src={m.avatar_url} />}
                     <AvatarFallback>{(m.full_name ?? m.email ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -75,10 +83,24 @@ export function TeamTab({ tenantId }: { tenantId: string }) {
                     <div className="font-medium truncate">{m.full_name ?? "—"}</div>
                     <div className="text-xs text-muted-foreground truncate">{m.email ?? ""}</div>
                   </div>
-                  <div className="hidden md:block min-w-[140px]">
-                    <WBadge variant={role === "tenant_admin" ? "brand" : role === "sales_manager" ? "info" : "neutral"}>
-                      {role ? ROLE_LABEL[role] : "Sin rol"}
-                    </WBadge>
+                  <div className="w-[180px] shrink-0">
+                    {canChangeRole && m.id !== user?.id ? (
+                      <Select value={role ?? ""} disabled={changeRole.isPending} onValueChange={async (value) => {
+                        try {
+                          await changeRole.mutateAsync({ userId: m.id, role: value as Role });
+                          toast.success("Rol actualizado");
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "No se pudo cambiar el rol");
+                        }
+                      }}>
+                        <SelectTrigger aria-label={`Rol de ${m.full_name ?? m.email ?? "usuario"}`} className="h-9"><SelectValue placeholder="Sin rol" /></SelectTrigger>
+                        <SelectContent>{editableRoles.map((value) => <SelectItem key={value} value={value}>{ROLE_LABEL[value]}</SelectItem>)}</SelectContent>
+                      </Select>
+                    ) : (
+                      <WBadge variant={role === "tenant_admin" ? "brand" : role === "sales_manager" ? "info" : "neutral"}>
+                        {role ? ROLE_LABEL[role] : "Sin rol"}
+                      </WBadge>
+                    )}
                   </div>
                   <div className="hidden lg:block text-xs text-muted-foreground min-w-[120px]">
                     {m.last_seen_at ? `Hace ${formatDistanceToNow(new Date(m.last_seen_at), { locale: es })}` : "Nunca"}

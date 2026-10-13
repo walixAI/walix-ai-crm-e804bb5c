@@ -5,6 +5,7 @@ import {
   setMemberActive,
   createInvitation,
   revokeInvitation,
+  changeMemberRole,
 } from "@/services/tenant";
 import { logAudit } from "@/services/audit";
 import type { Role } from "@/store/auth";
@@ -32,6 +33,17 @@ export function useMembers(tenantId: string | null | undefined) {
     enabled: !!tenantId,
     queryFn: () => fetchMembers(tenantId!),
     staleTime: 30_000,
+  });
+}
+
+export function useChangeMemberRole(tenantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: Role }) => changeMemberRole(tenantId, userId, role),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members", tenantId] });
+      qc.invalidateQueries({ queryKey: ["tenant-users"] });
+    },
   });
 }
 

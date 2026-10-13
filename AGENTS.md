@@ -1,5 +1,7 @@
 # AGENTS
 
+- Team role changes use the authenticated change_tenant_member_role RPC, restricted to the active tenant owner/platform and audited with auth.uid(); why: atomic tenant-scoped changes must not expose direct role writes or accept caller-supplied actor identities.
+
 - Opportunity labels are synchronized in database triggers from stage_id and related product/program; contact views and follow-ups share latestActiveOpportunity (newest created open opportunity), and query invalidation includes contact views and stage history, because all screens must agree after advisor or agent changes.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
