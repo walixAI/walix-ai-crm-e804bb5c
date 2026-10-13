@@ -1,5 +1,10 @@
 # Información unificada del prospecto
 
+# Roles del equipo
+
+- [ ] Permitir al propietario cambiar roles de usuarios de su empresa con validación segura.
+- [ ] Verificar controles y autorización; prueba autenticada pendiente de sesión del propietario.
+
 # Detalle de oportunidad y perfilamiento
 
 - [x] Quitar resumen del prospecto, siguiente paso, alertas, mensajes, guion y bloques bajo Notas; conservar propuesta PDF Pro.

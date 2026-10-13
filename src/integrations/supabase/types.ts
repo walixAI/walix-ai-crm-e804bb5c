@@ -6240,6 +6240,14 @@ export type Database = {
         Returns: boolean
       }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }
+      change_tenant_member_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       close_recurrence_from_deal: { Args: { _deal_id: string }; Returns: Json }
       contact_last_inbound: {
         Args: { _contact_ids: string[]; _tenant_id: string }
