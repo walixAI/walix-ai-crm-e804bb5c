@@ -427,16 +427,12 @@ async function notify(
     const prefs = (profile?.notification_prefs ?? {}) as Record<string, any>;
     const emailOn = opts.category === "ai" ? prefs.email_ai === true : prefs.email_operational === true;
     if (!emailOn || !profile?.email) return;
-    await admin.functions.invoke("send-transactional-email", {
-      body: {
-        templateName: "walix-notification",
-        to: profile.email,
-        data: {
-          titulo: opts.title,
-          mensaje: opts.body,
-          ctaUrl: `https://s1.walix.app${opts.link ?? "/mi-dia"}`,
-          ctaLabel: "Abrir en Walix",
-        },
+    await sendAndLog("walix-notification", profile.email, {
+      templateData: {
+        titulo: opts.title,
+        mensaje: opts.body,
+        ctaUrl: `https://s1.walix.app${opts.link ?? "/mi-dia"}`,
+        ctaLabel: "Abrir en Walix",
       },
     });
   } catch (e) {
