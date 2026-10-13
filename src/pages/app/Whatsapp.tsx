@@ -177,14 +177,14 @@ export default function Whatsapp() {
   }, [activeConv?.id]); // eslint-disable-line
 
   const handleSend = async (body: string, opts?: { internal?: boolean }) => {
-    if (!activeConv || !user) return;
+    if (!activeConv || !user) return false;
     if (!opts?.internal && waBlockedReason) {
       toast({ title: "WhatsApp no conectado", description: waBlockedReason, variant: "destructive" as any });
-      return;
+      return false;
     }
     if (!tenantId) {
       toast({ title: "Sin tenant", description: "No se pudo identificar tu organización.", variant: "destructive" });
-      return;
+      return false;
     }
     try {
       await sendMutation.mutateAsync({
@@ -194,8 +194,10 @@ export default function Whatsapp() {
         isInternalNote: opts?.internal,
       });
       setAiDraftActive(false);
+      return true;
     } catch (e: any) {
       toast({ title: "Error al enviar", description: e?.message ?? "Intenta de nuevo", variant: "destructive" });
+      return false;
     }
   };
 

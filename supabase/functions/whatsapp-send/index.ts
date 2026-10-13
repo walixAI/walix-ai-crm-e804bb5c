@@ -167,12 +167,12 @@ Deno.serve(async (req) => {
         return jsonRes({ error: "Contacto sin teléfono" }, 400);
       }
       const toNumber = toWaId(phone);
-      const payload = isTemplateSend
+      const payload = isTemplateSend && tpl
         ? {
             messaging_product: "whatsapp", to: toNumber, type: "template",
             template: {
-              name: tpl!.name, language: { code: tpl!.language },
-              ...(tpl!.params.length ? { components: [{ type: "body", parameters: tpl!.params.map((t: string) => ({ type: "text", text: t })) }] } : {}),
+              name: tpl.name, language: { code: tpl.language },
+              ...(tpl.params.length ? { components: [{ type: "body", parameters: tpl.params.map((t: string) => ({ type: "text", text: t })) }] } : {}),
             },
           }
         : { messaging_product: "whatsapp", to: toNumber, type: "text", text: { body: body.body } };
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
       metadata: {
         wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected" || isSim,
         sent_by_user_id: userData.user.id, billing,
-        ...(isTemplateSend ? { kind: "template", template_name: tpl!.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
+        ...(isTemplateSend && tpl ? { kind: "template", template_name: tpl.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
       },
     });
     if (insErr) throw insErr;

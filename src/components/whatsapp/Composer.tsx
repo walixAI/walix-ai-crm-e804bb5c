@@ -11,7 +11,7 @@ interface Props {
   draft: string;
   onDraftChange: (v: string) => void;
   templates: MessageTemplate[];
-  onSend: (body: string, opts?: { internal?: boolean }) => void;
+  onSend: (body: string, opts?: { internal?: boolean }) => Promise<boolean>;
   sending?: boolean;
   onAiSuggest?: () => void;
   onAiSummarize?: () => void;
@@ -72,11 +72,12 @@ export function Composer({
 
   const filteredTpl = templates.filter((t) => t.name.toLowerCase().includes(tplFilter));
 
-  const submit = () => {
+  const submit = async () => {
     const v = draft.trim();
-    if (!v) return;
+    if (!v || sending) return;
     if (blockedReason && !internal) return;
-    onSend(v, { internal });
+    const sent = await onSend(v, { internal });
+    if (!sent) return;
     onDraftChange("");
     setInternal(false);
   };
