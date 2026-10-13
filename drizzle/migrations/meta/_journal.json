@@ -232,6 +232,13 @@
       "when": 1791926666660,
       "tag": "0032_tenant_owner_change_member_role",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791927037191,
+      "tag": "0033_advisor_messaging_reassignment_and_new_program",
+      "breakpoints": true
     }
   ]
 }
