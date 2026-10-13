@@ -73,7 +73,7 @@ export default function ContactDetail() {
       <div className="flex gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><PanelLeft className="h-4 w-4" /> Info</Button></SheetTrigger>
-          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><ContactAttributionCard contactId={contact.id} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
+          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><ProfilingCard contactId={contact.id} /><ContactAttributionCard contactId={contact.id} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
         </Sheet>
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Oportunidades</Button></SheetTrigger>
@@ -86,6 +86,7 @@ export default function ContactDetail() {
         <aside className="hidden lg:block">
           <div className="sticky top-4 space-y-2">
             <ContactInfoCard contact={contact} />
+            <ProfilingCard contactId={contact.id} />
             <ContactAttributionCard contactId={contact.id} />
             <CompanyCard contact={contact} />
             <SubscriptionsCard contactId={contact.id} />
@@ -108,27 +109,26 @@ export default function ContactDetail() {
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
-              <LatestActivity activity={activity} />
               <div className="mb-4"><LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} /></div>
+              <div className="mb-4"><LatestActivity activity={activity} /></div>
               <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} />
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4">
               <TasksTab contactId={contact.id} />
-              <div className="mt-4"><ProfilingCard contactId={contact.id} /></div>
             </TabsContent>
 
             <TabsContent value="conversations" className="mt-4">
               <div className="rounded-xl border border-border bg-card divide-y divide-border shadow-card">
                 {convs.map(c => (
-                  <div key={c.id} className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors cursor-pointer">
+                  <button type="button" key={c.id} onClick={() => navigate(`/whatsapp?conversationId=${c.id}`)} className="w-full text-left flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors cursor-pointer">
                     <div className="h-10 w-10 rounded-full bg-success/10 grid place-items-center"><MessageCircle className="h-5 w-5 text-success" /></div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm truncate">{c.preview}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{relativeTime(c.lastAt)}</div>
                     </div>
                     {c.unread > 0 && <span className="h-5 min-w-5 px-1.5 rounded-full bg-success text-success-foreground text-[10px] font-bold grid place-items-center">{c.unread}</span>}
-                  </div>
+                  </button>
                 ))}
                 {convs.length === 0 && (
                   <div className="p-8 text-center text-sm text-muted-foreground">Sin conversaciones todavía.</div>
