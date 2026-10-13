@@ -204,6 +204,13 @@
       "when": 1791925127698,
       "tag": "0028_allow_manual_opportunity_name",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791925153205,
+      "tag": "0029_refresh_names_flag",
+      "breakpoints": true
     }
   ]
 }
