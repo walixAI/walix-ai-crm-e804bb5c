@@ -158,6 +158,42 @@
   50% { background-color: hsl(var(--warning) / 0.18); }
 }
 .human-attention { animation: human-attention-pulse 2s ease-in-out infinite; }
+/* Keep the document scrollbar; nested desktop panes expose a subtle thumb
+   only while interacting, without disabling wheel, touch or keyboard scrolling. */
+@media (min-width: 768px) and (hover: hover) {
+  .walix-workspace * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .walix-workspace *:hover,
+  .walix-workspace *:focus-within {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.45) transparent;
+  }
+  .walix-workspace *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .walix-workspace *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .walix-workspace *::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+  }
+  .walix-workspace *:hover::-webkit-scrollbar-thumb,
+  .walix-workspace *:focus-within::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.45);
+  }
+  .walix-workspace [data-radix-scroll-area-viewport] + [data-orientation] {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .walix-workspace [data-radix-scroll-area-viewport]:hover + [data-orientation],
+  .walix-workspace [data-radix-scroll-area-viewport]:focus-within + [data-orientation],
+  .walix-workspace [data-orientation]:hover {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .human-attention { animation: none; background-color: hsl(var(--warning) / 0.1); }
 }

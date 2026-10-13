@@ -1,5 +1,10 @@
 # Información unificada del prospecto
 
+# Desplazamiento en computadora
+
+- [x] Eliminar desplazamiento anidado accidental y la barra duplicada del Pipeline; comprobar estilos compilados y desplazamiento por teclado.
+- [ ] Verificar las secciones con datos reales en computadora — requiere que Erick inicie sesión en la vista previa; no hay sesión disponible para su cuenta.
+
 # Atención humana pendiente
 
 - [x] Sustituir bloques locales por pleca persistente debajo de Copiloto y comprobar navegación (sin pendientes reales en la sesión; visualización con datos simulados).

@@ -21,11 +21,11 @@ export function Sidebar() {
           expanded ? "w-60 shadow-xl" : "w-16"
         )}
       >
-        <div className={cn("h-16 flex items-center border-b border-sidebar-border", collapsed ? "justify-center" : "px-5")}>
+        <div className={cn("h-16 shrink-0 flex items-center border-b border-sidebar-border", collapsed ? "justify-center" : "px-5")}>
           <Logo collapsed={collapsed} />
         </div>
 
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-0.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-0.5">
           {items.map((item) => (
             <NavItem key={item.to} {...item} collapsed={collapsed} />
           ))}
