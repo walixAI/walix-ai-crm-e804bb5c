@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Paperclip, Smile, Send, StickyNote, Sparkles, FileText, Slash, Clock, AlertCircle, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MessageTemplate } from "@/lib/queries/whatsapp";
 import type { Guidance } from "@/lib/whatsapp/guidance";
 import { DocumentPicker } from "@/components/documents/DocumentPicker";
+
+/** Emojis frecuentes en conversaciones de ventas, agrupados para el selector. */
+const EMOJIS = [
+  "😀","😄","😁","🙂","😉","😊","😍","🤩","😎","🤔","🙌","👏","👍","🙏","💪","🤝",
+  "👋","✌️","🫶","❤️","🔥","✨","🎉","🎓","📚","💼","📅","⏰","✅","⭐","💡","📞",
+  "💬","📩","🚀","🏆","💯","😢","😅","🤗","👀","📍","🧑‍🎓","🏫","💳","📄","✍️","☕",
+];
 
 interface Props {
   draft: string;
@@ -54,6 +62,22 @@ export function Composer({
   const [aiPrompt, setAiPrompt] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
   const highlight = guidance?.state === "awaiting_reply";
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  /** Inserta el emoji en la posición del cursor del textarea. */
+  const insertEmoji = (emoji: string) => {
+    const el = taRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    onDraftChange(next);
+    setEmojiOpen(false);
+    requestAnimationFrame(() => {
+      el?.focus();
+      const pos = start + emoji.length;
+      el?.setSelectionRange(pos, pos);
+    });
+  };
 
   // auto-grow
   useEffect(() => {
@@ -217,9 +241,27 @@ export function Composer({
             trigger={<Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Adjuntar documento" disabled={!!blockedReason || sending}><Paperclip className="h-4 w-4" /></Button>}
           />
         ) : null}
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Emoji">
-          <Smile className="h-4 w-4" />
-        </Button>
+        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Emoji">
+              <Smile className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-72 p-2">
+            <div className="grid grid-cols-8 gap-0.5">
+              {EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => insertEmoji(e)}
+                  className="h-8 w-8 rounded-md text-lg hover:bg-muted grid place-items-center transition"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Plantillas" onClick={onOpenTemplates}>
           <Slash className="h-4 w-4" />
         </Button>

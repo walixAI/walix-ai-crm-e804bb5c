@@ -26,7 +26,7 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
   const { data: sellers = [] } = useTenantUsers();
   return (
     <div className="border-b border-border bg-card px-4 py-3 flex items-center gap-3">
-      <Link to={`/contacts/${conv.contactId}`} className="flex items-center gap-3 group min-w-0">
+      <Link to={`/contacts/${conv.contactId}`} className="flex items-center gap-3 group min-w-0 shrink">
         <div
           className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0"
           style={{ background: conv.avatarColor }}
@@ -35,12 +35,14 @@ export function ChatHeader({ conv, onChangeStatus, onChangeAssignee, onTogglePan
         </div>
         <div className="min-w-0">
           <p className="font-semibold text-sm truncate group-hover:text-primary group-hover:underline transition">{conv.contactName}</p>
-          <p className="text-xs text-muted-foreground truncate">{conv.contactPhone}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="text-xs text-muted-foreground truncate">{conv.contactPhone}</p>
+            <ContactOriginBadge contactId={conv.contactId} className="hidden sm:inline-flex shrink-0" />
+          </div>
         </div>
       </Link>
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <ContactOriginBadge contactId={conv.contactId} className="hidden sm:inline-flex" />
+      <div className="ml-auto flex items-center gap-1.5 shrink-0">
         <BotTakeoverButton contactId={conv.contactId} conversationId={conv.id} />
         {/* Status */}
         <DropdownMenu>
