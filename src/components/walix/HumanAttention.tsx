@@ -10,16 +10,23 @@ export function HumanAttentionBadge() {
   return <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning"><UserRound className="h-3.5 w-3.5" />Requiere asesor</span>;
 }
 
-export function HumanAttentionPanel() {
+export function HumanAttentionBanner() {
   const { data: pending = [], isError } = useHumanAttention();
   const navigate = useNavigate();
-  return <section className="space-y-2 border-b border-border pb-4" aria-label="Leads que requieren atención">
-    <h2 className="font-semibold flex items-center gap-2 text-warning"><UserRound className="h-4 w-4" />Requieren atención del asesor · {pending.length}</h2>
-    {isError ? <p className="text-sm text-destructive">No se pudieron cargar los pendientes.</p> : pending.length === 0 ? <p className="text-sm text-muted-foreground">Sin transferencias pendientes.</p> :
-      <div className="grid gap-2 md:grid-cols-2">{pending.map(item => <div key={item.session_id} className="human-attention rounded-lg border border-warning/40 p-3 flex items-center gap-3">
-        <div className="min-w-0 flex-1"><p className="font-semibold text-sm truncate">{item.contact_name}</p><p className="text-xs text-muted-foreground">{item.reason} · {item.owner_name || "Sin asesor asignado"}</p></div>
-        <Button size="sm" variant="outline" onClick={() => navigate(attentionLink(item))}>Atender<ArrowRight className="h-3.5 w-3.5 ml-1" /></Button>
-      </div>)}</div>}
+  if (!pending.length && !isError) return null;
+  return <section className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-warning/30 bg-warning/10 px-3 py-2 md:px-6" aria-label="Leads que requieren atención">
+    <div className="flex shrink-0 items-center gap-2 text-sm font-semibold text-warning" role="status">
+      <UserRound className="h-4 w-4 shrink-0" />
+      {isError ? "No se pudieron actualizar los pendientes" : `${pending.length} ${pending.length === 1 ? "lead requiere" : "leads requieren"} atención del asesor`}
+    </div>
+    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+      {pending.map(item => <Button key={item.session_id} size="sm" variant="ghost"
+        className="h-8 shrink-0 gap-2 text-foreground hover:bg-warning/15"
+        title={`${item.reason || "Requiere asesor"} · ${item.owner_name || "Sin asesor asignado"}`}
+        onClick={() => navigate(attentionLink(item))}>
+        <span className="max-w-40 truncate">{item.contact_name}</span><ArrowRight className="h-3.5 w-3.5 shrink-0" />
+      </Button>)}
+    </div>
   </section>;
 }
 
