@@ -2,7 +2,8 @@
 
 # Desplazamiento en computadora
 
-- [ ] Eliminar desplazamiento anidado accidental y la barra duplicada del Pipeline; verificar páginas con sesión.
+- [x] Eliminar desplazamiento anidado accidental y la barra duplicada del Pipeline; comprobar estilos compilados y desplazamiento por teclado.
+- [ ] Verificar las secciones con datos reales en computadora — requiere que Erick inicie sesión en la vista previa; no hay sesión disponible para su cuenta.
 
 # Atención humana pendiente
 
