@@ -260,6 +260,13 @@
       "when": 1791928566859,
       "tag": "0036_tenant_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791928585794,
+      "tag": "0037_tenant_documents_read_by_row",
+      "breakpoints": true
     }
   ]
 }
