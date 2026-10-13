@@ -26,9 +26,9 @@ export function ProfilingCard({ contactId }: { contactId: string }) {
       ]);
       const session = sessions?.[0] ?? null;
       let agent: any = null;
-      if (session?.agent_id) agent = (await sb.from("sales_agents").select("id, name, profiling_fields").eq("id", session.agent_id).maybeSingle()).data;
+      if (session?.agent_id) agent = (await sb.from("sales_agents").select("id, name, profiling_fields").eq("id", session.agent_id).eq("enabled", true).maybeSingle()).data;
       const pipelineId = deals?.[0]?.pipeline_stages?.pipeline_id;
-      if (!agent && pipelineId) agent = (await sb.from("sales_agents").select("id, name, profiling_fields").eq("pipeline_id", pipelineId).limit(1)).data?.[0] ?? null;
+      if (!agent && pipelineId) agent = (await sb.from("sales_agents").select("id, name, profiling_fields").eq("pipeline_id", pipelineId).eq("enabled", true).limit(1)).data?.[0] ?? null;
       const fields: Field[] = (Array.isArray(agent?.profiling_fields) ? agent.profiling_fields : []).filter((f: any) => f?.key && f?.label);
       const values = { ...(contact?.custom_fields ?? {}), ...(session?.profile_data ?? {}) };
       return { agent, fields, values, session, custom: contact?.custom_fields ?? {} };

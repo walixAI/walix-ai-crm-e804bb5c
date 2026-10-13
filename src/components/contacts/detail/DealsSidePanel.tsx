@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CheckCircle2, Plus } from "lucide-react";
+import { CheckCircle2, Pencil, Plus } from "lucide-react";
+import { EditDealQuickDialog } from "@/components/pipeline/EditDealQuickDialog";
 import { useContactTasks } from "@/lib/queries/contacts";
 import { DealDrawer } from "@/components/pipeline/DealDrawer";
 import { StageStepper } from "./StageStepper";
@@ -27,6 +28,7 @@ export function DealsSidePanel({ contactId }: Props) {
   const { data: tasks = [] } = useContactTasks(contactId);
   const [taskOpen, setTaskOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
+  const [editing, setEditing] = useState<PipelineDeal | null>(null);
   const now = Date.now();
   const upcoming = tasks
     .filter((t) => !t.completed)
@@ -53,16 +55,28 @@ export function DealsSidePanel({ contactId }: Props) {
         </div>
         <div className="p-3 space-y-2">
           {deals.map(d => (
-            <button
+            <div
               key={d.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setSelected(d)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(d); } }}
               className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/40 transition-colors cursor-pointer"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="font-medium text-sm leading-tight">{d.name}</div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0 whitespace-nowrap">{d.stageName}</span>
               </div>
-              <div className="text-lg font-bold text-gradient-brand mt-1">${d.amount.toLocaleString("es-MX")}</div>
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <div className="text-lg font-bold text-gradient-brand">${d.amount.toLocaleString("es-MX")}</div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setEditing(d); }}
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <Pencil className="h-3 w-3" /> Editar
+                </button>
+              </div>
               <div className="mt-1.5"><DueBadge date={d.expectedCloseDate} /></div>
               <div className="mt-2">
                 <StageStepper stages={maps.stagesFor(d)} currentStageId={d.stageId} isWon={d.isWon} isLost={d.isLost} stageName={d.stageName} />
@@ -74,7 +88,7 @@ export function DealsSidePanel({ contactId }: Props) {
               <div className="h-1 rounded-full bg-muted overflow-hidden">
                 <div className="h-full bg-gradient-brand" style={{ width: `${effectiveProbability(d)}%` }} />
               </div>
-            </button>
+            </div>
           ))}
           {deals.length === 0 && (
             <div className="text-xs text-muted-foreground italic text-center py-4">Sin oportunidades activas</div>
@@ -116,6 +130,7 @@ export function DealsSidePanel({ contactId }: Props) {
         stages={maps.allStages}
         defaultContactId={contactId}
       />
+      <EditDealQuickDialog deal={editing} onClose={() => setEditing(null)} />
       <DealDrawer
         deal={allDeals.find((d) => d.id === selected?.id) ?? selected}
         stages={selected ? maps.stagesFor(selected) : []}
