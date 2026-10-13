@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { attentionPriority } from "@/lib/queries/humanAttention";
 import { HumanAttentionBadge } from "@/components/walix/HumanAttention";
 import { useAuthStore } from "@/store/auth";
@@ -42,6 +42,13 @@ export function ConversationList({ conversations, activeId, onSelect, myUserId, 
   const roles = useAuthStore(s => s.roles);
   const advisor = roles.includes("sales_rep") && !roles.some(r => ["tenant_owner", "tenant_admin", "sales_manager", "platform_owner", "platform_staff", "super_admin"].includes(r));
   const [tab, setTab] = useState<Tab>(() => advisor ? "pending" : "all");
+  const initializedRole = useRef(roles.length > 0);
+  useEffect(() => {
+    if (!initializedRole.current && roles.length > 0) {
+      initializedRole.current = true;
+      if (advisor) setTab("pending");
+    }
+  }, [roles, advisor]);
   const [q, setQ] = useState("");
   const term = q.trim();
   const { data: matchingConvIds, isFetching: searching } = useMessageSearch(term);

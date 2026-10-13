@@ -2,10 +2,10 @@
 
 # Atención humana pendiente
 
-- [ ] Diagnosticar y reparar tareas y avisos de transferencia.
-- [ ] Mostrar modal y atención pendiente en WhatsApp, Mi día e Inbox, según asesor/supervisor.
-- [ ] Destacar y priorizar pendientes en Kanban, Lista y Desempeño.
-- [ ] Verificar transferencia y atención desde las pantallas.
+- [x] Diagnosticar y reparar tareas y avisos de transferencia.
+- [x] Mostrar modal y atención pendiente en WhatsApp, Mi día e Inbox, según asesor/supervisor.
+- [x] Destacar y priorizar pendientes en Kanban, Lista y Desempeño.
+- [x] Verificar transferencia y atención desde las pantallas.
 
 - [x] Compartir resumen, perfil y seguimiento entre WhatsApp, contacto y oportunidad.
 - [x] Unificar probabilidad comercial sin confundirla con completitud del perfil.
