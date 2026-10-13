@@ -86,7 +86,16 @@ function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | und
         <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{body}</p>
         <div className={cn("text-[10px] mt-0.5 flex items-center gap-1", out ? "justify-end text-muted-foreground" : "text-muted-foreground")}>
           <span>{formatTime(m.sentAt)}</span>
-          {out && (m.readAt ? <CheckCheck className="h-3 w-3 text-info" /> : <Check className="h-3 w-3" />)}
+          {out && m.waStatus === "failed" && (
+            <span title="No se pudo entregar" className="text-danger font-semibold">⚠</span>
+          )}
+          {out && m.waStatus !== "failed" && (
+            m.waStatus === "read"
+              ? <span title="Leído" className="inline-flex"><CheckCheck className="h-3 w-3 text-info" /></span>
+              : m.waStatus === "delivered"
+                ? <span title="Entregado" className="inline-flex"><CheckCheck className="h-3 w-3" /></span>
+                : <Check className="h-3 w-3" />
+          )}
         </div>
       </div>
     </div>

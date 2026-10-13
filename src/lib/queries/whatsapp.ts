@@ -59,6 +59,7 @@ export interface MessageItem {
   mediaUrl: string | null;
   isInternalNote: boolean;
   readAt: string | null;
+  waStatus: string | null;
   sentAt: string;
   metadata: any;
   sentByUserId: string | null;
@@ -223,6 +224,7 @@ export function useMessages(conversationId: string | null) {
         mediaUrl: m.media_url,
         isInternalNote: !!m.is_internal_note,
         readAt: m.read_at,
+        waStatus: m.wa_status ?? m.metadata?.wa_status ?? null,
         sentAt: m.sent_at ?? m.created_at,
         metadata: m.metadata ?? null,
         sentByUserId: m.metadata?.sent_by_user_id ?? null,
