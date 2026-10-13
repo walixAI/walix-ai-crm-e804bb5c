@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { toE164, phoneMatchVariants } from "../_shared/phone.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
+import { notifyAgentNoReply } from "../_shared/agent-no-reply.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -408,29 +409,9 @@ Deno.serve(async (req) => {
             const skipReason = agentError ? "error" : agentResult?.skipped;
             if (agentError || (skipReason && ALERT[skipReason])) {
               try {
-                const { data: c } = await sb.from("contacts").select("name, owner_id").eq("id", contactId).maybeSingle();
-                const recipients = new Set<string>();
-                if (c?.owner_id) recipients.add(c.owner_id);
-                const { data: admins } = await sb.from("user_roles").select("user_id")
-                  .eq("tenant_id", channel.tenant_id).in("role", ["tenant_admin", "tenant_owner"]);
-                (admins ?? []).forEach((a: any) => recipients.add(a.user_id));
                 const why = agentError ? `ocurrió un error (${agentError})` : ALERT[skipReason];
-                // Anti-inundación: máximo una alerta por conversación cada 24 h.
-                const { data: recentAlert } = await sb.from("notifications").select("id")
-                  .eq("tenant_id", channel.tenant_id).eq("type", "agent_no_reply")
-                  .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-                  .contains("data", { conversation_id: convId })
-                  .limit(1).maybeSingle();
-                if (recipients.size && !recentAlert) {
-                  await sb.from("notifications").insert([...recipients].map((uid) => ({
-                    tenant_id: channel.tenant_id, user_id: uid, category: "operational", severity: "danger",
-                    type: "agent_no_reply", icon: "AlertTriangle",
-                    title: "Un mensaje quedó sin respuesta del agente",
-                    body: `${c?.name ?? from} escribió y el agente no contestó porque ${why}. Atiéndelo desde Bandeja.`,
-                    link: `/whatsapp?conversationId=${convId}`,
-                    data: { reason: skipReason, conversation_id: convId, contact_id: contactId },
-                  })));
-                }
+                await notifyAgentNoReply(sb, { tenantId: channel.tenant_id, contactId,
+                  conversationId: convId, reason: skipReason, why });
               } catch (e) { console.error("agent alert failed", e); }
             }
 
