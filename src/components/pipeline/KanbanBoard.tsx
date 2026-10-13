@@ -138,18 +138,18 @@ export function KanbanBoard(props: Props) {
       </div>
 
       {/* Sticky footer totals */}
-      <div className="sticky bottom-0 -mx-6 px-6 py-2 bg-slate-800 text-white border-t border-slate-700 mt-2 z-10">
-        <div className="flex gap-3 overflow-x-auto items-center">
+      <div className="sticky bottom-0 px-3 py-2 bg-secondary text-secondary-foreground border-t border-border mt-2 z-10">
+        <div className="flex flex-wrap gap-x-6 gap-y-2 items-center">
           {stages.map(stage => {
             const total = deals.filter(d => d.stageId === stage.id).reduce((s, d) => s + d.amount, 0);
             return (
-              <div key={stage.id} className="w-[280px] shrink-0 text-xs">
-                <span className="text-slate-400">{stage.name}: </span>
+              <div key={stage.id} className="min-w-0 text-xs break-words">
+                <span className="text-muted-foreground">{stage.name}: </span>
                 <span className="font-semibold">{formatMXN(total)}</span>
               </div>
             );
           })}
-          <div className="ml-auto pl-4 border-l border-slate-600 text-sm font-bold whitespace-nowrap">
+          <div className="ml-auto text-sm font-bold">
             Total pipeline: {formatMXN(totalPipeline)}
           </div>
         </div>

@@ -1,5 +1,9 @@
 # Información unificada del prospecto
 
+# Desplazamiento en computadora
+
+- [ ] Eliminar desplazamiento anidado accidental y la barra duplicada del Pipeline; verificar páginas con sesión.
+
 # Atención humana pendiente
 
 - [x] Sustituir bloques locales por pleca persistente debajo de Copiloto y comprobar navegación (sin pendientes reales en la sesión; visualización con datos simulados).
