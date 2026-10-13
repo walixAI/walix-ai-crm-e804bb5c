@@ -401,6 +401,9 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   const { data: kb } = await sb.from("sales_agent_knowledge").select("kind,title,content,url")
     .eq("tenant_id", ctx.tenantId).or(`agent_id.is.null,agent_id.eq.${agent.id}`);
 
+  const { loadAgentDocuments, documentsPrompt } = await import("./tenant-documents.ts");
+  const agentDocs = await loadAgentDocuments(sb, ctx.tenantId);
+
   // 3. Historial.
   const { data: hist } = await sb.from("messages").select("direction, body, is_internal_note")
     .eq("conversation_id", ctx.conversationId).order("sent_at", { ascending: false }).limit(20);
@@ -424,7 +427,8 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     known: { nombre_whatsapp: ct?.name, correo: ct?.email, direccion: ct?.address },
   }) + (afterHandoff
     ? "\n\n## YA TRANSFERISTE A UN ASESOR\nEl asesor humano ya fue avisado y contactará al lead. Mientras tanto responde sus dudas con la base de conocimiento, breve y sin volver a perfilar ni repetir que lo transfieres. handoff debe ser false."
-    : "") + jsonInstructions(agent);
+    : "") + documentsPrompt(agentDocs) + jsonInstructions(agent) +
+    (agentDocs.length ? ' Agrega "document_id":"" (vacío si no envías documento).' : "");
 
   const { resolveTenantModel } = await import("./tenant-model.ts");
   const { recordAiUsage } = await import("./ai-usage.ts");
@@ -493,7 +497,32 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
     direction: "outbound", body: finalReply, type: "text",
     metadata: { wamid, provider_error: providerError, bot: true, sales_agent_id: agent.id, sales_agent_name: agent.name },
   });
-  await sb.from("conversations").update({ preview: `${agent.name}: ${finalReply}`.slice(0, 200), last_message_at: new Date().toISOString() }).eq("id", ctx.conversationId);
+  let preview = `${agent.name}: ${finalReply}`;
+  const doc = agentDocs.find((d) => d.id === String(parsed.document_id ?? "").trim());
+  if (doc && !providerError) {
+    const { signedDocumentUrl, waMediaPayload, docMessageBody, isImage } = await import("./tenant-documents.ts");
+    const link = await signedDocumentUrl(sb, doc.storage_path, 24 * 3600);
+    let dWamid: string | null = null; let dErr: string | null = null;
+    if (link && isSim) dWamid = `sim.${crypto.randomUUID()}`;
+    else if (link && ctx.channel.access_token && ctx.channel.phone_number_id) {
+      const r = await fetch(`${META_API}/${ctx.channel.phone_number_id}/messages`, {
+        method: "POST", headers: { Authorization: `Bearer ${ctx.channel.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(waMediaPayload(ctx.to, doc, link)),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) dWamid = j?.messages?.[0]?.id ?? null; else dErr = j?.error?.message ?? `Meta ${r.status}`;
+    }
+    if (link) {
+      await sb.from("messages").insert({
+        tenant_id: ctx.tenantId, conversation_id: ctx.conversationId, channel_id: ctx.channel.id,
+        direction: "outbound", body: docMessageBody(doc), type: isImage(doc.mime_type) ? "image" : "document",
+        metadata: { wamid: dWamid, provider_error: dErr, bot: true, sales_agent_id: agent.id, sales_agent_name: agent.name,
+          document_id: doc.id, document_name: doc.name, mime_type: doc.mime_type },
+      });
+      preview = `${agent.name}: 📎 ${doc.name}`;
+    }
+  }
+  await sb.from("conversations").update({ preview: preview.slice(0, 200), last_message_at: new Date().toISOString() }).eq("id", ctx.conversationId);
   await sb.from("sales_agent_sessions").update({
 
     replies_today: repliesToday + 1, replies_date: today, last_agent_message_at: new Date().toISOString(),
