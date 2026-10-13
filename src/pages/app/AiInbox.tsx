@@ -95,9 +95,6 @@ export default function AiInbox() {
             <div>
               <h1 className="text-xl font-semibold flex items-center gap-2">
                 AI Inbox
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase tracking-wide">
-                  <Sparkles className="inline h-2.5 w-2.5 mr-1" />
-                </span>
               </h1>
               <p className="text-sm text-muted-foreground">
                 Sugerencias proactivas que tu IA detectó. Tú decides qué hacer.
