@@ -2,8 +2,9 @@
 
 # Nombres de documentos
 
-- [ ] Acortar automáticamente títulos al subir, editar y adjuntar documentos.
-- [ ] Contener nombres largos en biblioteca y conversaciones; verificar con pruebas.
+- [x] Acortar automáticamente títulos al subir, editar y adjuntar documentos; envíos del asesor y agente desplegados.
+- [x] Contener nombres largos en biblioteca y conversaciones; cinco pruebas aprobadas y compilación sin errores.
+- [ ] Verificar subida y envío en pantalla como asesor — requiere iniciar sesión en la vista previa; no se pudo obtener sesión para Erick.
 
 # Correcciones de gestión del asesor
 
