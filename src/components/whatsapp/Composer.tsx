@@ -62,6 +62,22 @@ export function Composer({
   const [aiPrompt, setAiPrompt] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
   const highlight = guidance?.state === "awaiting_reply";
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  /** Inserta el emoji en la posición del cursor del textarea. */
+  const insertEmoji = (emoji: string) => {
+    const el = taRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    onDraftChange(next);
+    setEmojiOpen(false);
+    requestAnimationFrame(() => {
+      el?.focus();
+      const pos = start + emoji.length;
+      el?.setSelectionRange(pos, pos);
+    });
+  };
 
   // auto-grow
   useEffect(() => {
