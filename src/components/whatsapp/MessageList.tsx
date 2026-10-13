@@ -91,10 +91,10 @@ function MessageBubble({ m, users }: { m: MessageItem; users: TenantUser[] | und
           )}
           {out && m.waStatus !== "failed" && (
             m.waStatus === "read"
-              ? <CheckCheck className="h-3 w-3 text-info" title="Leído" />
+              ? <span title="Leído" className="inline-flex"><CheckCheck className="h-3 w-3 text-info" /></span>
               : m.waStatus === "delivered"
-                ? <CheckCheck className="h-3 w-3" title="Entregado" />
-                : <Check className="h-3 w-3" title="Enviado" />
+                ? <span title="Entregado" className="inline-flex"><CheckCheck className="h-3 w-3" /></span>
+                : <Check className="h-3 w-3" />
           )}
         </div>
       </div>
