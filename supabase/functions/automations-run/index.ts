@@ -1,3 +1,4 @@
+import { sendAndLog } from "../_shared/transactional-email-templates/logged-send.ts";
 // Edge function: motor de automatizaciones programadas.
 // Se invoca vía cron cada hora y ejecuta triggers de tipo scheduled y recurrencias.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -427,16 +428,12 @@ async function notify(
     const prefs = (profile?.notification_prefs ?? {}) as Record<string, any>;
     const emailOn = opts.category === "ai" ? prefs.email_ai === true : prefs.email_operational === true;
     if (!emailOn || !profile?.email) return;
-    await admin.functions.invoke("send-transactional-email", {
-      body: {
-        templateName: "walix-notification",
-        to: profile.email,
-        data: {
-          titulo: opts.title,
-          mensaje: opts.body,
-          ctaUrl: `https://s1.walix.app${opts.link ?? "/mi-dia"}`,
-          ctaLabel: "Abrir en Walix",
-        },
+    await sendAndLog("walix-notification", profile.email, {
+      templateData: {
+        titulo: opts.title,
+        mensaje: opts.body,
+        ctaUrl: `https://s1.walix.app${opts.link ?? "/mi-dia"}`,
+        ctaLabel: "Abrir en Walix",
       },
     });
   } catch (e) {
