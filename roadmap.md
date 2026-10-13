@@ -2,10 +2,11 @@
 
 # Ajustes de contactos y oportunidades
 
-- [ ] Unificar etapa vigente, nombre por producto e historial con responsables.
-- [ ] Colocar perfilamiento debajo de tareas, última actividad primero y etapa bajo el nombre.
-- [ ] Facilitar edición del nombre y simplificar Actividades.
-- [ ] Preseleccionar la última oportunidad activa en seguimientos y verificar el flujo.
+- [x] Unificar etapa vigente, nombre por producto e historial con responsables; datos de Juan Manuel verificados. Los responsables históricos ausentes se muestran como no registrados.
+- [x] Colocar perfilamiento debajo de tareas, última actividad primero y etapa bajo el nombre.
+- [x] Facilitar edición del nombre y simplificar Actividades.
+- [x] Preseleccionar la última oportunidad activa en seguimientos; ocho pruebas aprobadas.
+- [ ] Verificar edición y seguimiento en pantalla con sesión de asesor — la cuenta de Erick no pudo abrirse automáticamente; requiere iniciar sesión en la vista previa.
 
 # Desplazamiento en computadora
 

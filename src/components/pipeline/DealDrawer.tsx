@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { WBadge } from "@/components/walix/Badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  formatMXN, useDealActivity, useDealAiSuggestions, useUpdateDeal, useStageHistory,
+  formatMXN, useDeal, useDealActivity, useDealAiSuggestions, useUpdateDeal, useStageHistory,
   type PipelineDeal, type PipelineStage,
 } from "@/lib/queries/pipeline";
 import { useScoreProbability, useSuggestNextStep, type NextStepSuggestion, type ProbabilityScore } from "@/lib/queries/pipelineAi";
@@ -51,7 +51,9 @@ interface Props {
   defaultTab?: "summary" | "activity" | "history" | "ai";
 }
 
-export function DealDrawer({ deal, stages, open, onClose, contactName, contactLastActivityAt, defaultTab = "summary" }: Props) {
+export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactName, contactLastActivityAt, defaultTab = "summary" }: Props) {
+  const { data: persistedDeal } = useDeal(open ? initialDeal?.id : undefined);
+  const deal = persistedDeal ?? initialDeal;
   const update = useUpdateDeal();
   const suggestNextStep = useSuggestNextStep();
   const scoreProbability = useScoreProbability();

@@ -244,6 +244,7 @@ export function useContactPipelineDeals(contactId: string | undefined) {
   return useQuery({
     queryKey: ["contact-pipeline-deals", contactId, users?.length ?? 0],
     enabled: !!contactId,
+    refetchInterval: 15000,
     queryFn: async (): Promise<PipelineDeal[]> => {
       const { data, error } = await supabase
         .from("deals")
@@ -419,6 +420,7 @@ export function useDeal(id: string | undefined) {
   return useQuery({
     queryKey: ["pipeline-deal", id, users?.length ?? 0],
     enabled: !!id,
+    refetchInterval: 15000,
     queryFn: async (): Promise<PipelineDeal | null> => {
       const { data, error } = await supabase
         .from("deals")
