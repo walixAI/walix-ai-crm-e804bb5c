@@ -11,3 +11,4 @@
 - WhatsApp no-reply alerts use the tenant-scoped agent-no-reply helper and deduplicate by recipient, reason and conversation for 24 hours; why: supervisors must receive daily-limit notices even if an advisor already received another alert.
 
 - Human-attention views share pending_human_attention, authorized server-side by tenant and owner/supervisor role; pending ends only with a real human response or completed contact task, never a bot reply or opening the alert, so all work views agree.
+- Pending human attention is displayed once in the shared sticky TopBar below Copilot, not in page-local panels; why: pending leads remain reachable across all authenticated sections without duplicating content.

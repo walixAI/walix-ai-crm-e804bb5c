@@ -1,4 +1,3 @@
-import { HumanAttentionPanel } from "@/components/walix/HumanAttention";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -111,7 +110,6 @@ export default function MiDia() {
 
   return (
     <div className="min-h-screen bg-background pb-32">
-      <div className="px-6 py-4"><HumanAttentionPanel /></div>
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
           <div>

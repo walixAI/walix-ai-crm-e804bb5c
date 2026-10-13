@@ -16,6 +16,7 @@ import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AgentsActivityIndicator } from "@/components/agents/AgentsActivityIndicator";
 import { MobileNavSheet } from "@/components/layout/MobileNavSheet";
+import { HumanAttentionBanner } from "@/components/walix/HumanAttention";
 
 const ROTATING_PLACEHOLDERS = [
   "¿Qué oportunidades están en riesgo?",
@@ -58,7 +59,8 @@ export function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-16 w-full max-w-full overflow-hidden bg-card/80 backdrop-blur border-b border-border flex items-center gap-2 md:gap-3 px-3 md:px-6">
+    <header className="sticky top-0 z-40 w-full max-w-full bg-card/95 backdrop-blur border-b border-border">
+    <div className="h-16 w-full max-w-full overflow-hidden flex items-center gap-2 md:gap-3 px-3 md:px-6">
       <MobileNavSheet />
 
       <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-border">
@@ -136,6 +138,8 @@ export function TopBar() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+    </div>
+    <HumanAttentionBanner />
     </header>
   );
 }
