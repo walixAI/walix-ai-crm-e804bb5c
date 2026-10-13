@@ -1,3 +1,4 @@
+import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHumanAttention } from "@/lib/queries/humanAttention";
 import { useEffect } from "react";
@@ -39,6 +40,8 @@ export interface ConversationItem {
   /** true si el último mensaje es del cliente y aún no hay respuesta del vendedor. */
   awaitingReply: boolean;
   status: ConversationStatus;
+  /** Etapa de la oportunidad abierta más reciente del contacto. */
+  stageName?: string | null;
   assigneeId: string | null;
   assigneeName: string;
   assigneeInitials: string;
@@ -129,6 +132,23 @@ export function useConversations() {
         const cid = (m as any).conversation_id as string;
         if (!lastOutbound[cid]) lastOutbound[cid] = (m as any).sent_at;
       }
+      // Etapa real: la oportunidad abierta más reciente del contacto (misma regla que el resto de vistas).
+      const contactIds = Array.from(new Set((data ?? []).map((c: any) => c.contact_id).filter(Boolean)));
+      const stageByContact: Record<string, string> = {};
+      for (let i = 0; i < contactIds.length; i += 200) {
+        const { data: ds } = await supabase.from("deals")
+          .select("contact_id, stage_name, created_at, is_won, pipeline_stages:stage_id(name, is_lost)")
+          .in("contact_id", contactIds.slice(i, i + 200));
+        const byContact: Record<string, any[]> = {};
+        for (const d of (ds ?? []) as any[]) (byContact[d.contact_id] ??= []).push({
+          createdAt: d.created_at, isWon: !!d.is_won, isLost: !!d.pipeline_stages?.is_lost,
+          stage: d.pipeline_stages?.name ?? d.stage_name,
+        });
+        for (const [cid, list] of Object.entries(byContact)) {
+          const cur = latestActiveOpportunity(list);
+          if (cur?.stage) stageByContact[cid] = cur.stage;
+        }
+      }
       return (data ?? []).map((c: any) => {
         const contact = c.contacts ?? {};
         const fullName = [contact.name, contact.last_name].filter(Boolean).join(" ") || "Contacto";
@@ -158,6 +178,7 @@ export function useConversations() {
           assigneeInitials: owner.initials,
           assigneeColor: owner.color,
           dealId: c.deal_id,
+          stageName: c.contact_id ? stageByContact[c.contact_id] ?? null : null,
           internalNotes: c.internal_notes,
         };
       });
