@@ -1,5 +1,11 @@
 # Información unificada del prospecto
 
+# Detalle de oportunidad y perfilamiento
+
+- [x] Quitar resumen del prospecto, siguiente paso, alertas, mensajes, guion y bloques bajo Notas; conservar propuesta PDF Pro.
+- [ ] Autocompletar programa y monto desde perfilamiento con datos confirmados, sin inventar precios.
+- [ ] Comprobar sincronización y detalle de oportunidad.
+
 # Ajustes de contactos y oportunidades
 
 - [x] Unificar etapa vigente, nombre por producto e historial con responsables; datos de Juan Manuel verificados. Los responsables históricos ausentes se muestran como no registrados.
