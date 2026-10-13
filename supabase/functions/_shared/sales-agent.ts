@@ -211,6 +211,7 @@ export function jsonInstructions(agent: any) {
 export async function applyAgentTurn(sb: any, p: {
   agent: any; session: any; parsed: any; tenantId: string; contactId: string; dealId: string | null;
   ownerId: string | null; channelLabel: string; note: (t: string) => Promise<any>;
+  conversationId?: string | null;
 }) {
   const { agent, session, parsed } = p;
   const prev = (session?.profile_data ?? {}) as Record<string, any>;
@@ -295,6 +296,24 @@ export async function applyAgentTurn(sb: any, p: {
       due_at: new Date(Date.now() + sla * 60000).toISOString(), task_kind: "followup" });
     await p.note(`🤝 ${agent.name} transfirió al asesor (${p.channelLabel}). Llamar en máx. ${sla} min.\nMotivo de handoff: ${reason}\n${summary()}`);
     if (session?.id) await sb.from("sales_agent_sessions").update({ state: "escalated", handoff_reason: reason, handoff_at: new Date().toISOString() }).eq("id", session.id);
+    // Aviso inmediato al asesor asignado y a los supervisores (admin/owner del tenant).
+    try {
+      const { data: lead } = await sb.from("contacts").select("name").eq("id", p.contactId).maybeSingle();
+      const recipients = new Set<string>();
+      if (assignee) recipients.add(assignee); else if (p.ownerId) recipients.add(p.ownerId);
+      const { data: admins } = await sb.from("user_roles").select("user_id").eq("tenant_id", p.tenantId).in("role", ["tenant_admin", "tenant_owner"]);
+      (admins ?? []).forEach((a: any) => recipients.add(a.user_id));
+      if (recipients.size) {
+        await sb.from("notifications").insert([...recipients].map((uid: string) => ({
+          tenant_id: p.tenantId, user_id: uid, category: "operational", severity: "warning",
+          type: "agent_handoff", icon: "PhoneCall",
+          title: `${lead?.name ?? "Un lead"} fue transferido por ${agent.name} (${p.channelLabel})`,
+          body: `Motivo: ${reason}. Llamar en máx. ${sla} min.`,
+          ...(p.conversationId ? { link: `/whatsapp?conversationId=${p.conversationId}` } : {}),
+          data: { conversation_id: p.conversationId ?? null, contact_id: p.contactId, deal_id: p.dealId, agent_id: agent.id },
+        })));
+      }
+    } catch (e) { console.error("handoff notification failed", e); }
   };
 
   if (parsed?.handoff) { await doHandoff(parsed.handoff_reason || "requiere atención humana"); return { handoff: true, profile }; }
@@ -429,7 +448,8 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   });
 
   const turn = await applyAgentTurn(sb, { agent, session: s, parsed, tenantId: ctx.tenantId, contactId: ctx.contactId,
-    dealId: deal.id, ownerId: facts.owner_id ?? deal.owner_id ?? null, channelLabel: "WhatsApp", note });
+    dealId: deal.id, ownerId: facts.owner_id ?? deal.owner_id ?? null, channelLabel: "WhatsApp", note,
+    conversationId: ctx.conversationId });
   if (turn.handoff && !turn.scheduled) {
     // Handoff inmediato: avisa al lead con el mensaje configurado (si la autonomía permite enviar).
     if (autonomy !== "solo_sugiere" && agent.handoff_message) parsed.reply = agent.handoff_message;
