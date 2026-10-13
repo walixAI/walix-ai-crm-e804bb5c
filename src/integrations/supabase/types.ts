@@ -6218,6 +6218,10 @@ export type Database = {
         Args: { _deal_id: string; _reason: string }
         Returns: boolean
       }
+      advance_deal_to_stage: {
+        Args: { _deal_id: string; _pattern: string; _reason: string }
+        Returns: boolean
+      }
       ai_cleanup_old_data: { Args: never; Returns: undefined }
       ai_recompute_next_run: { Args: { p_agent_id: string }; Returns: string }
       ai_run_due_agents: { Args: never; Returns: number }

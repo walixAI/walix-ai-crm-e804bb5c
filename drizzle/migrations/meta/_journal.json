@@ -155,6 +155,13 @@
       "when": 1791916130085,
       "tag": "0021_auto_advance_contactado",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791916313115,
+      "tag": "0022_auto_advance_milestones",
+      "breakpoints": true
     }
   ]
 }
