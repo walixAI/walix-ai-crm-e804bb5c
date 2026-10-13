@@ -1,5 +1,13 @@
 # Información unificada del prospecto
 
+# Correcciones de gestión del asesor
+
+- [ ] Permitir escribir y enviar WhatsApp después de tomar control o recibir transferencia del bot.
+- [ ] Corregir enlace de WhatsApp desde Kanban.
+- [ ] Permitir reasignación segura del propio lead/contacto a un asesor de la misma empresa.
+- [ ] Evitar que nuevas oportunidades hereden el programa anterior.
+- [ ] Centralizar edición de nombre y monto en el modal de Oportunidad y verificar los flujos.
+
 # Roles del equipo
 
 - [x] Permitir al propietario cambiar roles desde Configuración > Equipo con validación del tenant y registro del cambio.

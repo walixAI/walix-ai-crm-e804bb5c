@@ -86,6 +86,7 @@ export function NewDealDialog({ open, onOpenChange, stages, defaultStageId, defa
     setCloseDate(undefined); setSource("Manual"); setNotes("");
     setAiAuto(true); setProbability(50);
     setProductCategoryId("");
+    setPipelineId("");
     setStageId("");
     setWithTask(false); setTaskTitle(""); setTaskDue(defaultTaskDue());
     // Solo al abrir: evita que un refetch de pipelines/etapas borre lo que el usuario ya escribió.

@@ -35,6 +35,7 @@ import {
 import { useDealFieldHistory, useLogDealFieldChange } from "@/lib/queries/dealFieldHistory";
 import { useProductCategories } from "@/lib/queries/monthlyGoals";
 import { SERVICE_FREQUENCY_OPTIONS } from "@/lib/serviceFrequency";
+import { EditDealQuickDialog } from "./EditDealQuickDialog";
 
 const sources = ["WhatsApp", "Formulario web", "Referido", "Manual"];
 
@@ -54,6 +55,7 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
   const update = useUpdateDeal();
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
+  const [editingOpportunity, setEditingOpportunity] = useState(false);
 
   const { data: activity = [] } = useDealActivity(deal?.id);
   const { data: stageHistory = [] } = useStageHistory(deal?.id);
@@ -119,35 +121,13 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <TabsContent value="summary" className="space-y-4 m-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ring-0">
-              <EditableField
-                label="Nombre del programa / oportunidad"
-                display={deal.name}
-                value={deal.name}
-                onSave={async (v) => {
-                  const next = v.trim();
-                  if (!next || next === deal.name) return;
-                  await savePatch({ name: next });
-                }}
-                render={(v, set) => <Input autoFocus value={v} onChange={(e) => set(e.target.value)} />}
-              />
-              <EditableField
-                label="Monto MXN"
-                display={formatMXN(deal.amount)}
-                value={String(deal.amount)}
-                onSave={async (v) => {
-                  const next = Number(v) || 0;
-                  if (next === deal.amount) return;
-                  await savePatch({ amount: next });
-                  await logFieldChange.mutateAsync({
-                    field: "amount",
-                    from: String(deal.amount),
-                    to: String(next),
-                    contactId: deal.contactId,
-                    description: `Monto actualizado de ${formatMXN(deal.amount)} a ${formatMXN(next)}`,
-                  });
-                }}
-                render={(v, set) => <Input type="number" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
-              />
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => setEditingOpportunity(true)}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar oportunidad
+                </Button>
+              </div>
+              <Field label="Nombre del programa / oportunidad"><ReadValue>{deal.name}</ReadValue></Field>
+              <Field label="Monto MXN"><ReadValue>{formatMXN(deal.amount)}</ReadValue></Field>
 
               <Field label="Etapa">
                 <ReadValue>{deal.stageName}</ReadValue>
@@ -428,6 +408,7 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
         stageId={deal.stageId}
         pipelineId={stages[0]?.pipelineId ?? null}
       />
+      <EditDealQuickDialog deal={editingOpportunity && open ? deal : null} onClose={() => setEditingOpportunity(false)} />
     </Sheet>
   );
 }
