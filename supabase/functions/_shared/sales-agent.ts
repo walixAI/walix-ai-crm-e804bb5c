@@ -452,6 +452,11 @@ export async function handleInboundWithAgent(sb: any, ctx: InboundCtx) {
   const raw = out.choices?.[0]?.message?.content ?? "";
   try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch { parsed = { reply: raw }; }
   if (afterHandoff) parsed.handoff = false;
+  if (returnedByAdvisor && parsed.handoff) {
+    const lastIn = [...history].reverse().find((m: any) => m.role === "user")?.content ?? "";
+    const asksHuman = /\b(asesor|asesora|persona|humano|alguien|llamen|llámame|llamame|hablar con)\b/i.test(lastIn);
+    if (!asksHuman) parsed.handoff = false;
+  }
   const reply = String(parsed.reply ?? "").trim().slice(0, 1500);
 
   const autonomy = goal.autonomy || agent.autonomy;

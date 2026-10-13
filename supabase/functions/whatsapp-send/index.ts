@@ -33,6 +33,8 @@ Deno.serve(async (req) => {
       category?: "service" | "utility" | "marketing" | "authentication";
       template?: { name: string; language?: string; params?: string[] };
       documentId?: string;
+      /** Mensaje de retorno al agente de ventas: se envía a nombre del bot. */
+      agentReturn?: boolean;
     };
     body.body = String(body.body ?? "");
     if (!body.conversationId || (!body.body.trim() && !body.documentId) || (body.documentId && body.internal)) {
@@ -223,6 +225,7 @@ Deno.serve(async (req) => {
       metadata: {
         wamid, provider_error: providerError, simulated: !channel || channel.status !== "connected" || isSim,
         sent_by_user_id: userData.user.id, billing,
+        ...(body.agentReturn ? { bot: true, kind: "agent_return" } : {}),
         ...(isTemplateSend && tpl ? { kind: "template", template_name: tpl.name, policy_bypass: !!policy?.bypass, attempt: policy?.attempt } : {}),
         ...(doc && !isTemplateSend ? { document_id: doc.id, document_name: doc.name, mime_type: doc.mime_type } : {}),
       },
