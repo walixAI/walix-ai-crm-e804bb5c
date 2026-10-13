@@ -12,7 +12,7 @@ export function Sidebar() {
   const { items, adminItems } = useNavItems();
 
   return (
-    <div className="hidden md:block w-16 shrink-0 sticky top-0 h-screen z-40">
+    <div className="hidden md:block w-16 shrink-0 sticky top-0 h-screen z-50">
       <aside
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
