@@ -565,6 +565,13 @@ const CRM_TOOLS = [
 // Tool executor (uses user's Supabase client → respeta RLS)
 // ────────────────────────────────────────────────────────────────────────
 
+const ADMIN_ROLES = ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"];
+
+async function isTenantAdmin(sb: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId);
+  return (data ?? []).some((r: any) => ADMIN_ROLES.includes(r.role));
+}
+
 async function executeTool(
   name: string,
   args: Record<string, any>,
