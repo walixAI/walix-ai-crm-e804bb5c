@@ -5,7 +5,7 @@
 - DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
-- The authenticated shell uses overflow-x-clip, not overflow-x-hidden, so the document owns vertical scrolling; nested desktop scrollbars are subtle and interactive, and Kanban totals wrap instead of creating a second horizontal scroller.
+- Authenticated shell uses overflow-x-clip so the document owns vertical scroll; Kanban totals wrap instead of a second horizontal scroller.
 
 - Sales agent behavior (profiling, format, handoff, knowledge selection) lives in supabase/functions/_shared/sales-agent.ts and is shared by WhatsApp, web chat and test; why: one brain for all channels.
 - WhatsApp, contact and deal advisor panels share the contact-keyed lead brief; deal probabilities come from persisted deals and profiling completeness stays separate, because different screens must not invent competing prospect assessments.
