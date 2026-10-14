@@ -7,11 +7,11 @@
 
 - Authenticated shell uses overflow-x-clip so the document owns vertical scroll; Kanban totals wrap instead of a second horizontal scroller.
 
-- Sales agent behavior lives in supabase/functions/_shared/sales-agent.ts and is shared by WhatsApp, web chat and test; why: one brain for all channels.
+- Sales agent behavior lives in supabase/functions/_shared/sales-agent.ts, shared by WhatsApp, web chat and test; why: one brain for all channels.
 - WhatsApp, contact and deal advisor panels share the contact-keyed lead brief; deal probabilities come from persisted deals and profiling completeness stays separate, because different screens must not invent competing prospect assessments.
 - WhatsApp campaign enrollment runs in the webhook for new contacts plus a periodic scan in wa-campaign-worker (both via supabase/functions/_shared/wa-enroll.ts), and lead silence is measured from real inbound messages through contact_last_inbound instead of contacts.last_activity_at; why: Click-to-WhatsApp leads never pass through form intake and that column stays empty for contacts created by WhatsApp.
-- Email module: all mailbox/provider credentials are AES-GCM encrypted (EMAIL_CRED_SECRET) and only handled in email-api/email-worker; thread visibility is enforced by RLS (owner or contact owner, supervisors via email_is_supervisor); why: advisors must only see their leads' mail and secrets must never reach the browser.
-- Bulk email goes only through tenant-configured providers (Brevo, SendGrid, Mandrill, SES, Mailgun, SMTP) with mandatory signed unsubscribe and per-tenant suppression; why: personal Gmail/Outlook accounts get blocked by volume and Lovable built-in email forbids marketing.
+- Email credentials are AES-GCM encrypted (EMAIL_CRED_SECRET), handled only in email-api/email-worker; thread visibility by RLS (owner/contact owner, supervisors via email_is_supervisor); why: advisors see only their leads' mail and secrets never reach the browser.
+- Bulk email only via tenant providers (Brevo, SendGrid, Mandrill, SES, Mailgun, SMTP) with signed unsubscribe and per-tenant suppression; why: personal Gmail/Outlook get blocked by volume and built-in email forbids marketing.
 - Built-in stage milestones: DB triggers on messages, email_messages and activities advance open deals forward-only to stages matched by name (Intento de contacto, Contactado, Calificado, Agendado/Entrevista/Reunión, Propuesta/Inscripción) from replies and outcome text, independent of pipeline_stage_rules; payment→won uses pipeline_stage_rules; why: reliable funnel movement without per-tenant configuration.
 - WhatsApp messages and emails are mirrored into activities by DB triggers (WhatsApp grouped per conversation in 30-minute blocks; agent handoff notes as notes); why: the lead's activity timeline must show bot and advisor follow-ups without each sender logging them.
 - After a handoff the sales agent keeps answering until a human advisor sends a message in that conversation; why: leads must not be left in silence while waiting for the advisor.
@@ -22,6 +22,7 @@
 - Sales reps (sales_rep without admin/manager role in that tenant) only see/update their own leads, enforced by restrictive RLS via is_rep_only/rep_owns_contact; frontend roles are filtered to the active tenant; why: users can hold different roles in different tenants.
 
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
-- WhatsApp readiness uses credential-free RPCs; send resolves exact tenant/channel credentials server-side after caller-RLS conversation authorization; why: reps must send without accessing secrets.
+- WhatsApp readiness uses credential-free RPCs; send resolves tenant/channel credentials server-side after caller-RLS authorization; why: reps must send without accessing secrets.
 - Tenant documents: private bucket, category flags gate advisors/agent, non-reps manage, signed links; shared document-name normalizes upload/send titles; why: private access and bounded names across channels.
 - Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
+- Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.

@@ -18,6 +18,9 @@ import {
   ACTIVITY_KINDS, filterOutcomes, useActivityOutcomes, useLogFollowUp,
 } from "@/lib/queries/activityOutcomes";
 import {
+  useOutcomeTypifications, typificationsForOutcome, suggestTypification,
+} from "@/lib/queries/typifications";
+import {
   useDealBlockers, useDealLossReasons, useDealDiagnostic, daysSince,
 } from "@/lib/queries/dealDiagnostics";
 
@@ -101,6 +104,8 @@ export function LogFollowUpDialog({
   const [selectedDealId, setSelectedDealId] = useState<string | null>(dealId);
   const selectionChanged = useRef(false);
   const [outcomeId, setOutcomeId] = useState<string>("");
+  const [typificationId, setTypificationId] = useState<string>("");
+  const [aiSuggestedId, setAiSuggestedId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [occurred, setOccurred] = useState(() => toLocalInput(new Date()));
   const [hasNext, setHasNext] = useState(true);
@@ -146,6 +151,28 @@ export function LogFollowUpDialog({
   );
   const outcome = available.find((o) => o.id === outcomeId) ?? null;
 
+  const { data: allTypifications = [] } = useOutcomeTypifications();
+  const typifications = useMemo(
+    () => typificationsForOutcome(allTypifications, outcomeId || null),
+    [allTypifications, outcomeId],
+  );
+  const typification = typifications.find((t) => t.id === typificationId) ?? null;
+
+  // Al cambiar el resultado: limpiar tipificación y pedir sugerencia a la IA.
+  useEffect(() => {
+    setTypificationId("");
+    setAiSuggestedId("");
+    if (!open || !outcomeId || !contactId) return;
+    if (!typificationsForOutcome(allTypifications, outcomeId).length) return;
+    let cancelled = false;
+    suggestTypification(contactId, outcomeId).then((id) => {
+      if (cancelled || !id) return;
+      setAiSuggestedId(id);
+      setTypificationId((cur) => cur || id);
+    });
+    return () => { cancelled = true; };
+  }, [outcomeId, open, contactId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!open) return;
     setKind("llamada_saliente");
@@ -161,6 +188,8 @@ export function LogFollowUpDialog({
     setShowProblem(false);
     setShowStage(false);
     setDiagMode("none");
+    setTypificationId("");
+    setAiSuggestedId("");
     setBlockerId("");
     setLossReasonId("");
     setClearBlocker(false);
@@ -240,6 +269,9 @@ export function LogFollowUpDialog({
         stageId: effectiveStageId,
         kind,
         outcome: outcome ?? null,
+        typificationId: typification?.id ?? null,
+        typificationLabel: typification?.label ?? null,
+        typificationSentiment: typification?.sentiment ?? null,
         description: description.trim() || outcome?.label || "Seguimiento registrado",
         occurredAt: fromLocalInput(occurred),
         nextActionAt: hasNext ? dayToIso(nextDay, nextTime) : null,
@@ -361,6 +393,46 @@ export function LogFollowUpDialog({
               placeholder="Comentarios (opcional)…"
             />
           </div>
+
+          {/* 2b. Tipificación (qué dijo el lead) */}
+          {typifications.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-base">Tipificación</Label>
+              <p className="text-xs text-muted-foreground">
+                ¿Qué mejor describe lo que dijo el lead?
+              </p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {typifications.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTypificationId(t.id === typificationId ? "" : t.id)}
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                      typificationId === t.id
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40",
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          t.sentiment === "positive" && "bg-success",
+                          t.sentiment === "negative" && "bg-destructive",
+                          t.sentiment === "neutral" && "bg-muted-foreground",
+                        )}
+                      />
+                      {t.label}
+                    </span>
+                    {t.id === aiSuggestedId && (
+                      <WBadge variant="info" className="text-[10px]">Sugerida por IA</WBadge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {outcome?.isWon && (
             <div className="space-y-1.5 rounded-lg border border-success/40 bg-success/5 p-3">

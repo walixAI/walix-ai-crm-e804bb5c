@@ -116,6 +116,10 @@ export interface LogFollowUpInput {
   stageId: string | null;
   kind: string;
   outcome: ActivityOutcome | null;
+  /** tipificación estructurada del resultado (catálogo outcome_typifications) */
+  typificationId?: string | null;
+  typificationLabel?: string | null;
+  typificationSentiment?: string | null;
   description: string;
   occurredAt: string;
   /** null = el usuario indicó que no habrá siguiente acción */
@@ -161,6 +165,9 @@ export function useLogFollowUp() {
           direction: k?.direction ?? "none",
           outcome_id: input.outcome?.id ?? null,
           result: input.outcome?.label ?? null,
+          typification_id: input.typificationId ?? null,
+          typification_label: input.typificationLabel ?? null,
+          typification_sentiment: input.typificationSentiment ?? null,
           next_action_at: input.nextActionAt,
           follow_up: true,
           blocker_id: input.blockerId ?? null,
