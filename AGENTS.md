@@ -24,4 +24,4 @@
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
 - WhatsApp readiness uses credential-free RPCs; send resolves exact tenant/channel credentials server-side after caller-RLS conversation authorization; why: reps must send without accessing secrets.
 - Tenant documents: private bucket, category flags gate advisors/agent, non-reps manage, signed links; shared document-name normalizes upload/send titles; why: private access and bounded names across channels.
-- Screen layouts (Dashboard, Mi Día, contact/deal detail) resolve catalog → group:advisor|group:supervisor (fallback tenant_default) → user:<id>; users may reorder/hide but never show group-hidden or hide locked sections; why: tenants control what each user level sees.
+- Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
