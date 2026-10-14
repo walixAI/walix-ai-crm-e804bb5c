@@ -206,6 +206,10 @@ export function OutcomesTab() {
       ))}
 
       <div className="pt-2 border-t border-border">
+        <TypificationsSettings pipelineId={activePipelineId} />
+      </div>
+
+      <div className="pt-2 border-t border-border">
         <DiagnosticsSettings />
       </div>
     </div>
