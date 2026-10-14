@@ -158,20 +158,28 @@ export function LogFollowUpDialog({
   );
   const typification = typifications.find((t) => t.id === typificationId) ?? null;
 
-  // Al cambiar el resultado: limpiar tipificación y pedir sugerencia a la IA.
+  // Al cambiar el resultado: limpiar tipificación.
   useEffect(() => {
     setTypificationId("");
     setAiSuggestedId("");
+  }, [outcomeId]);
+
+  // Sugerencia de IA según conversación + comentario del asesor (con pausa al escribir).
+  useEffect(() => {
     if (!open || !outcomeId || !contactId) return;
     if (!typificationsForOutcome(allTypifications, outcomeId).length) return;
     let cancelled = false;
-    suggestTypification(contactId, outcomeId).then((id) => {
-      if (cancelled || !id) return;
-      setAiSuggestedId(id);
-      setTypificationId((cur) => cur || id);
-    });
-    return () => { cancelled = true; };
-  }, [outcomeId, open, contactId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const t = setTimeout(() => {
+      suggestTypification(contactId, outcomeId, description).then((id) => {
+        if (cancelled || !id) return;
+        setAiSuggestedId((prevAi) => {
+          setTypificationId((cur) => (!cur || cur === prevAi ? id : cur));
+          return id;
+        });
+      });
+    }, description.trim() ? 900 : 0);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [outcomeId, open, contactId, description]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;

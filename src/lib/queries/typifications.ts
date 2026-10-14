@@ -98,10 +98,11 @@ export function useDeleteTypification() {
 export async function suggestTypification(
   contactId: string,
   outcomeId: string,
+  note?: string,
 ): Promise<string | null> {
   try {
     const { data, error } = await (supabase as any).functions.invoke("typification-suggest", {
-      body: { contactId, outcomeId },
+      body: { contactId, outcomeId, note: (note ?? "").slice(0, 1000) },
     });
     if (error || !data?.typificationId) return null;
     return data.typificationId as string;

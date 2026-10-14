@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
         .map((m: any) => `${m.direction === "inbound" ? "Lead" : "Asesor"}: ${String(m.body ?? "").slice(0, 300)}`)
         .join("\n");
     }
-    if (!transcript.trim()) return json({ typificationId: null });
+    const note = String((body as any).note ?? "").trim().slice(0, 1000);
+    if (!transcript.trim() && !note) return json({ typificationId: null });
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) return json({ typificationId: null });
@@ -80,12 +81,14 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "Eliges la tipificación que mejor describe la conversación entre un asesor y un lead. " +
+              "Eliges la tipificación que mejor describe la razón real por la que el lead avanza o no avanza. " +
+              "El comentario del asesor es la fuente más importante: si existe, manda sobre la conversación. " +
+              "Detecta objeciones implícitas aunque el lead no diga que no (lo está pensando, consulta con familia, espera dinero, dudas de validez, tiempo, etc.). " +
               "Responde SOLO con el id exacto de la lista, o con la palabra NINGUNA si ninguna aplica claramente.",
           },
           {
             role: "user",
-            content: `Tipificaciones disponibles:\n${catalog}\n\nConversación reciente:\n${transcript}`,
+            content: `Tipificaciones disponibles:\n${catalog}\n\nComentario del asesor:\n${note || "(sin comentario)"}\n\nConversación reciente:\n${transcript || "(sin conversación)"}`,
           },
         ],
         max_completion_tokens: 200,
