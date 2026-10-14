@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BookOpen, CheckCircle2, Loader2, Plus, Send, Target, Trash2, UserRound, Users } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, Loader2, Plus, Send, Target, Trash2, Upload, UserRound, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,7 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
   };
 
   const [k, setK] = useState({ title: "", content: "", url: "", shared: false });
+  const [uploadingKb, setUploadingKb] = useState(false);
   const addKb = async () => {
     if (!k.title || (!k.content && !k.url)) return toast.error("Agrega título y contenido o enlace");
     const { error } = await db.from("sales_agent_knowledge").insert({
@@ -99,6 +100,27 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
     });
     if (error) return toast.error(error.message);
     setK({ title: "", content: "", url: "", shared: false }); kb.refetch();
+  };
+
+  const uploadKbFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length) return;
+    setUploadingKb(true);
+    let ok = 0;
+    for (const f of files) {
+      const content = (await f.text()).trim();
+      if (!content) continue;
+      const title = f.name.replace(/\.(md|markdown|txt)$/i, "").replace(/[-_]+/g, " ").trim() || f.name;
+      const { error } = await db.from("sales_agent_knowledge").insert({
+        tenant_id: a.tenant_id, agent_id: a.id, title, content, kind: "texto",
+      });
+      if (error) { toast.error(`${f.name}: ${error.message}`); continue; }
+      ok++;
+    }
+    setUploadingKb(false);
+    if (ok) toast.success(ok === 1 ? "Archivo agregado al conocimiento" : `${ok} archivos agregados al conocimiento`);
+    kb.refetch();
   };
 
   const [chat, setChat] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
