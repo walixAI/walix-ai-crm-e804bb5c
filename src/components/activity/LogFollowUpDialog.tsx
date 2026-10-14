@@ -188,6 +188,8 @@ export function LogFollowUpDialog({
     setShowProblem(false);
     setShowStage(false);
     setDiagMode("none");
+    setTypificationId("");
+    setAiSuggestedId("");
     setBlockerId("");
     setLossReasonId("");
     setClearBlocker(false);
@@ -388,6 +390,46 @@ export function LogFollowUpDialog({
               placeholder="Comentarios (opcional)…"
             />
           </div>
+
+          {/* 2b. Tipificación (qué dijo el lead) */}
+          {typifications.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-base">Tipificación</Label>
+              <p className="text-xs text-muted-foreground">
+                ¿Qué mejor describe lo que dijo el lead?
+              </p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {typifications.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTypificationId(t.id === typificationId ? "" : t.id)}
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                      typificationId === t.id
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40",
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          t.sentiment === "positive" && "bg-success",
+                          t.sentiment === "negative" && "bg-destructive",
+                          t.sentiment === "neutral" && "bg-muted-foreground",
+                        )}
+                      />
+                      {t.label}
+                    </span>
+                    {t.id === aiSuggestedId && (
+                      <WBadge variant="info" className="text-[10px]">Sugerida por IA</WBadge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {outcome?.isWon && (
             <div className="space-y-1.5 rounded-lg border border-success/40 bg-success/5 p-3">
