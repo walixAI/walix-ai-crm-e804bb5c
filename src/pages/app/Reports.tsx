@@ -16,6 +16,7 @@ import { StalledDealsCard } from "@/components/reports/StalledDealsCard";
 import { TeamActivityHeatmap } from "@/components/reports/TeamActivityHeatmap";
 import { StageConversionsSection } from "@/components/reports/StageConversionsSection";
 import { CopilotImpactCard } from "@/components/reports/CopilotImpactCard";
+import { FunnelDrilldownCard } from "@/components/reports/FunnelDrilldownCard";
 
 export default function Reports() {
   const { filters, setPeriod, setSellers } = useReportFilters();
