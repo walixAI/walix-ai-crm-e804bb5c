@@ -34,7 +34,7 @@ const ALL_TABS = [
   { id: "outcomes", label: "Seguimiento" },
   { id: "goals", label: "Metas" },
   { id: "expenses", label: "Gastos" },
-  { id: "widgets", label: "Tarjetas" },
+  { id: "widgets", label: "Vistas por usuario" },
   { id: "import", label: "Importar" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "email", label: "Email" },

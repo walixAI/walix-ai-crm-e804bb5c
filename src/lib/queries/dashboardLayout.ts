@@ -4,7 +4,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenantId } from "@/lib/queries/tenant";
 
-export type Surface = "dashboard" | "mi_dia";
+export type Surface = "dashboard" | "mi_dia" | "contact_detail" | "deal_detail";
+export type UserGroup = "advisor" | "supervisor";
+
+export const SURFACE_LABEL: Record<Surface, string> = {
+  dashboard: "Dashboard",
+  mi_dia: "Mi Día",
+  contact_detail: "Detalle de contacto",
+  deal_detail: "Detalle de oportunidad",
+};
+
+export const GROUP_LABEL: Record<UserGroup, string> = {
+  advisor: "Asesores (vendedores)",
+  supervisor: "Supervisores y administradores",
+};
+
+/** Vendedor sin rol de supervisión en la empresa activa = asesor. */
+export function groupForRoles(roles: string[]): UserGroup {
+  const sup = ["tenant_owner", "tenant_admin", "sales_manager", "org_owner", "platform_owner", "platform_staff", "super_admin"];
+  return roles.includes("sales_rep") && !roles.some((r) => sup.includes(r)) ? "advisor" : "supervisor";
+}
 
 export interface DashboardWidget {
   id: string;
@@ -26,6 +45,8 @@ export interface LayoutItem {
   key: string;         // widget.key
   position: number;
   hidden?: boolean;
+  /** Solo en layouts de grupo: el usuario no puede ocultarla. */
+  locked?: boolean;
 }
 
 export interface DashboardLayout {
@@ -75,6 +96,10 @@ export interface ResolvedWidget {
   widget: DashboardWidget;
   position: number;
   hidden: boolean;
+  /** Oculta por el grupo: el usuario no puede mostrarla. */
+  blocked: boolean;
+  /** Obligatoria (catálogo o grupo): el usuario no puede ocultarla. */
+  locked: boolean;
 }
 
 /**
@@ -91,31 +116,32 @@ export function useResolvedLayout(surface: Surface) {
     const all = layouts.data ?? [];
     const uid = user?.id ?? "";
 
-    const userScope = `user:${uid}`;
-    const userLayout = all.find((l) => l.scope === userScope);
-    const roleLayout =
-      roles.map((r) => all.find((l) => l.scope === `role:${r}`)).find(Boolean) ?? null;
+    const group = groupForRoles(roles as string[]);
+    const userLayout = all.find((l) => l.scope === `user:${uid}`);
+    const groupLayout = all.find((l) => l.scope === `group:${group}`) ?? null;
+    const roleLayout = null as DashboardLayout | null;
     const tenantLayout = all.find((l) => l.scope === "tenant_default") ?? null;
+    const baseLayout = groupLayout ?? tenantLayout;
 
     const map = new Map<string, ResolvedWidget>();
     for (const w of widgets) {
-      map.set(w.key, { widget: w, position: w.default_position, hidden: false });
+      map.set(w.key, { widget: w, position: w.default_position, hidden: false, blocked: false, locked: w.is_mandatory });
     }
-    const apply = (layout: DashboardLayout | null) => {
-      if (!layout) return;
-      for (const item of layout.items ?? []) {
-        const cur = map.get(item.key);
-        if (!cur) continue;
-        map.set(item.key, {
-          widget: cur.widget,
-          position: item.position,
-          hidden: !!item.hidden,
-        });
-      }
-    };
-    apply(tenantLayout);
-    apply(roleLayout);
-    apply(userLayout);
+    for (const item of baseLayout?.items ?? []) {
+      const cur = map.get(item.key);
+      if (!cur) continue;
+      const locked = cur.widget.is_mandatory || !!item.locked;
+      map.set(item.key, { ...cur, position: item.position, hidden: !!item.hidden && !locked, blocked: !!item.hidden && !locked, locked });
+    }
+    for (const item of userLayout?.items ?? []) {
+      const cur = map.get(item.key);
+      if (!cur) continue;
+      map.set(item.key, {
+        ...cur,
+        position: item.position,
+        hidden: cur.blocked ? true : cur.locked ? false : !!item.hidden,
+      });
+    }
 
     const list = Array.from(map.values()).sort((a, b) => a.position - b.position);
     return {
@@ -128,6 +154,8 @@ export function useResolvedLayout(surface: Surface) {
       },
       hasUserOverride: !!userLayout,
       tenantLayout,
+      groupLayout,
+      group,
       roleLayout,
       userLayout,
     };

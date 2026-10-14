@@ -5,9 +5,9 @@
 - DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
-- The authenticated shell uses overflow-x-clip, not overflow-x-hidden, so the document owns vertical scrolling; nested desktop scrollbars are subtle and interactive, and Kanban totals wrap instead of creating a second horizontal scroller.
+- Authenticated shell uses overflow-x-clip so the document owns vertical scroll; Kanban totals wrap instead of a second horizontal scroller.
 
-- Sales agent behavior (profiling, format, handoff, knowledge selection) lives in supabase/functions/_shared/sales-agent.ts and is shared by WhatsApp, web chat and test; why: one brain for all channels.
+- Sales agent behavior lives in supabase/functions/_shared/sales-agent.ts and is shared by WhatsApp, web chat and test; why: one brain for all channels.
 - WhatsApp, contact and deal advisor panels share the contact-keyed lead brief; deal probabilities come from persisted deals and profiling completeness stays separate, because different screens must not invent competing prospect assessments.
 - WhatsApp campaign enrollment runs in the webhook for new contacts plus a periodic scan in wa-campaign-worker (both via supabase/functions/_shared/wa-enroll.ts), and lead silence is measured from real inbound messages through contact_last_inbound instead of contacts.last_activity_at; why: Click-to-WhatsApp leads never pass through form intake and that column stays empty for contacts created by WhatsApp.
 - Email module: all mailbox/provider credentials are AES-GCM encrypted (EMAIL_CRED_SECRET) and only handled in email-api/email-worker; thread visibility is enforced by RLS (owner or contact owner, supervisors via email_is_supervisor); why: advisors must only see their leads' mail and secrets must never reach the browser.
@@ -24,3 +24,4 @@
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
 - WhatsApp readiness uses credential-free RPCs; send resolves exact tenant/channel credentials server-side after caller-RLS conversation authorization; why: reps must send without accessing secrets.
 - Tenant documents: private bucket, category flags gate advisors/agent, non-reps manage, signed links; shared document-name normalizes upload/send titles; why: private access and bounded names across channels.
+- Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.

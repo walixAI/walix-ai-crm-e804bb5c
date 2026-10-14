@@ -15,7 +15,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useResolvedLayout, useSaveLayout, useResetUserLayout,
-  type Surface, type LayoutItem,
+  type Surface, type LayoutItem, SURFACE_LABEL,
 } from "@/lib/queries/dashboardLayout";
 import { useTenantFeatures } from "@/lib/queries/tenantFeatures";
 
@@ -55,6 +55,7 @@ export function CustomizeSheet({ open, onOpenChange, surface, scope = "user", ti
     if (!open) return;
     const next: Row[] = resolved.widgets
       .filter((r) => {
+        if (scope === "user" && r.blocked) return false;
         if (!featureRecurrences && RECURRENCE_WIDGETS.has(r.widget.key)) return false;
         if (!featureExpenses && EXPENSE_WIDGETS.has(r.widget.key)) return false;
         return true;
@@ -64,7 +65,7 @@ export function CustomizeSheet({ open, onOpenChange, surface, scope = "user", ti
         name: r.widget.name,
         description: r.widget.description,
         hidden: r.hidden,
-        mandatory: r.widget.is_mandatory,
+        mandatory: r.locked,
         position: r.position,
       }));
     next.sort((a, b) => a.position - b.position);
@@ -124,8 +125,8 @@ export function CustomizeSheet({ open, onOpenChange, surface, scope = "user", ti
         <SheetHeader>
           <SheetTitle>{title ?? (scope === "user" ? "Personalizar mi vista" : "Layout por defecto del tenant")}</SheetTitle>
           <SheetDescription>
-            Arrastra para reordenar. Activa o desactiva las tarjetas que quieres ver en{" "}
-            <strong>{surface === "dashboard" ? "Dashboard" : "Mi Día"}</strong>.
+            Arrastra para reordenar. Activa o desactiva las secciones que quieres ver en{" "}
+            <strong>{SURFACE_LABEL[surface]}</strong>.
           </SheetDescription>
         </SheetHeader>
 
