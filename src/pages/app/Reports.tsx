@@ -72,6 +72,8 @@ export default function Reports() {
 
         <StageConversionsSection />
 
+        <FunnelDrilldownCard />
+
         <CopilotImpactCard />
 
         <div className="text-xs text-muted-foreground text-center pt-2 pb-6">
