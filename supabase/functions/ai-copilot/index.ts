@@ -521,6 +521,44 @@ const CRM_TOOLS = [
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   },
+  // ── Configuración del Agente de Ventas (SOLO admin del Tenant) ──────
+  {
+    type: "function",
+    function: {
+      name: "get_sales_agents",
+      description:
+        "Lista los Agentes de Ventas del tenant con su configuración completa (identidad, tono, objetivo, autonomía, perfilamiento, handoff, canales, reglas de formato). Úsala antes de modificar un agente para conocer sus valores actuales. Solo tenant_owner/tenant_admin.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent_id: { type: "string", description: "UUID de un agente específico (opcional; sin él lista todos)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_sales_agent",
+      description:
+        "Modifica la configuración de un Agente de Ventas. Solo tenant_owner/tenant_admin. Campos editables: name, identity, tone, never_do, enabled, default_goal, default_key_message, out_of_scope, objections, examples, profiling_notes, profiling_fields, handoff_message, handoff_triggers, autonomy ('solo_sugiere'|'mixto'|'autonomo'), autonomy_config, channels, format_rules, sla_minutes, privacy_url, priority, assignment_conditions, assignment_rule, default_allow_close, default_handoff. Antes de llamarla, SIEMPRE muestra al usuario el resumen de cambios y obtén su confirmación explícita (confirmed=true).",
+      parameters: {
+        type: "object",
+        properties: {
+          agent_id: { type: "string", description: "UUID del agente a modificar" },
+          fields: {
+            type: "object",
+            description: "Solo los campos a cambiar, ej. { \"tone\": \"Más directo\", \"enabled\": true }",
+            additionalProperties: true,
+          },
+          confirmed: { type: "boolean", description: "Debe ser true — el usuario ya confirmó explícitamente el cambio." },
+        },
+        required: ["agent_id", "fields", "confirmed"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────
