@@ -1707,7 +1707,11 @@ Deno.serve(async (req) => {
     const toolsUsed: { name: string; args: any; result: any }[] = [];
     // Capacidades nativas apagadas por el tenant (Ajustes → Copiloto).
     const disabledCaps = await getDisabledNativeTools(sb, tenantId);
-    const ACTIVE_TOOLS = filterTools(CRM_TOOLS as any[], disabledCaps);
+    let ACTIVE_TOOLS = filterTools(CRM_TOOLS as any[], disabledCaps);
+    // Configuración de Agentes de Ventas: solo visible para admin del tenant
+    if (!(await isTenantAdmin(sb, userId))) {
+      ACTIVE_TOOLS = ACTIVE_TOOLS.filter((t: any) => !["get_sales_agents", "update_sales_agent"].includes(t.function?.name));
+    }
     let pendingWhatsapp: { contact_id: string; draft: string } | undefined;
     let finalText = "";
     let usageInput = 0, usageOutput = 0, usageTotal = 0, usageIters = 0;
