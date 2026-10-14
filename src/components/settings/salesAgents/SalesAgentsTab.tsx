@@ -254,7 +254,16 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
               <Textarea rows={5} placeholder="Contenido: FAQ, precios, requisitos, políticas..." value={k.content} onChange={(e) => setK({ ...k, content: e.target.value })} />
               <Input placeholder="Enlace de referencia (opcional)" value={k.url} onChange={(e) => setK({ ...k, url: e.target.value })} />
               <label className="flex items-center gap-2 text-sm"><Switch checked={k.shared} onCheckedChange={(v) => setK({ ...k, shared: v })} />Compartir con todos los agentes de la empresa</label>
-              <Button size="sm" onClick={addKb}><Plus className="h-4 w-4 mr-1" />Agregar conocimiento</Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={addKb}><Plus className="h-4 w-4 mr-1" />Agregar conocimiento</Button>
+                <Button size="sm" variant="outline" disabled={uploadingKb}
+                  onClick={() => document.getElementById("kb-file-input")?.click()}>
+                  {uploadingKb ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                  Subir archivos (.md, .txt)
+                </Button>
+                <input id="kb-file-input" type="file" accept=".md,.txt,.markdown" multiple className="hidden" onChange={uploadKbFiles} />
+              </div>
+              <p className="text-xs text-muted-foreground">Sube un archivo por licenciatura; el nombre del archivo se usa como título.</p>
             </Card>
           </TabsContent>
 
