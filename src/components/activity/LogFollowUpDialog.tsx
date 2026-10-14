@@ -151,6 +151,28 @@ export function LogFollowUpDialog({
   );
   const outcome = available.find((o) => o.id === outcomeId) ?? null;
 
+  const { data: allTypifications = [] } = useOutcomeTypifications();
+  const typifications = useMemo(
+    () => typificationsForOutcome(allTypifications, outcomeId || null),
+    [allTypifications, outcomeId],
+  );
+  const typification = typifications.find((t) => t.id === typificationId) ?? null;
+
+  // Al cambiar el resultado: limpiar tipificación y pedir sugerencia a la IA.
+  useEffect(() => {
+    setTypificationId("");
+    setAiSuggestedId("");
+    if (!open || !outcomeId || !contactId) return;
+    if (!typificationsForOutcome(allTypifications, outcomeId).length) return;
+    let cancelled = false;
+    suggestTypification(contactId, outcomeId).then((id) => {
+      if (cancelled || !id) return;
+      setAiSuggestedId(id);
+      setTypificationId((cur) => cur || id);
+    });
+    return () => { cancelled = true; };
+  }, [outcomeId, open, contactId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!open) return;
     setKind("llamada_saliente");
