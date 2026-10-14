@@ -13,6 +13,7 @@ import {
   useDeleteActivityOutcome, useSeedActivityOutcomes, STAGE_BEHAVIORS, type StageBehavior,
 } from "@/lib/queries/activityOutcomes";
 import { DiagnosticsSettings } from "./DiagnosticsSettings";
+import { TypificationsSettings } from "./TypificationsSettings";
 
 export function OutcomesTab() {
   const { data: pipelines = [] } = usePipelines();
