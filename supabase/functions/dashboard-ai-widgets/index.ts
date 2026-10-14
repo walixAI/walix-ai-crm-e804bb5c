@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
     ];
 
     const out = await callGateway({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3.5-flash",
       messages,
       tools,
       tool_choice: { type: "function", function: { name: "render_dashboard" } },

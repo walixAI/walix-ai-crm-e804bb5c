@@ -50,7 +50,7 @@ async function callLLM(prompt: string, system: string): Promise<UpdatedContext> 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3.5-flash",
       messages: [
         { role: "system", content: system },
         { role: "user", content: prompt },
