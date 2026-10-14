@@ -11,6 +11,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import { summarizeWaActivity } from "@/lib/activities/waSummary";
+import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,9 +172,10 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
               )}
 
 
-              <RecurringServiceBlock dealId={deal.id} isWon={deal.isWon} />
+              <div className="space-y-4"><LayoutRenderer surface="deal_detail">
+              <Widget k="deal.recurring"><RecurringServiceBlock dealId={deal.id} isWon={deal.isWon} /></Widget>
 
-              <EditableField
+              <Widget k="deal.close_date"><EditableField
                 label="Fecha estimada de cierre"
                 display={deal.expectedCloseDate ? format(new Date(deal.expectedCloseDate), "PPP", { locale: es }) : "—"}
                 value={deal.expectedCloseDate ?? ""}
@@ -191,9 +193,9 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                   });
                 }}
                 render={(v, set) => <Input type="date" autoFocus value={v} onChange={(e) => set(e.target.value)} />}
-              />
+              /></Widget>
 
-              {<Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
+              <Widget k="deal.probability">{<Field label={`Probabilidad de cierre: ${probabilityLabel(deal)}`}>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn(
@@ -203,29 +205,29 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                     style={{ width: `${deal.isLost ? 100 : effectiveProbability(deal)}%` }}
                   />
                 </div>
-              </Field>}
+              </Field>}</Widget>
 
-              <Field label="Fuente">
+              <Widget k="deal.source"><Field label="Fuente">
                 <ReadValue>{deal.source}</ReadValue>
-              </Field>
+              </Field></Widget>
 
-              <ProductCategoryField
+              <Widget k="deal.category"><ProductCategoryField
                 value={deal.productCategoryId ?? null}
                 onChange={(v) => savePatch({ product_category_id: v })}
-              />
+              /></Widget>
 
-              <ServiceFrequencyField
+              <Widget k="deal.frequency"><ServiceFrequencyField
                 value={deal.serviceFrequencyMonths ?? null}
                 onChange={(v) => savePatch({ service_frequency_months: v })}
-              />
+              /></Widget>
 
-              <DealDiagnosticPanel deal={deal} />
+              <Widget k="deal.diagnostic"><DealDiagnosticPanel deal={deal} /></Widget>
 
-              <Field label="Descripción general">
+              <Widget k="deal.description"><Field label="Descripción general">
                 <ReadValue>{deal.notes ?? "—"}</ReadValue>
-              </Field>
+              </Field></Widget>
 
-              <div className="space-y-2">
+              <Widget k="deal.notes"><div className="space-y-2">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
                 <div className="flex gap-2 items-start">
                   <Textarea
@@ -271,8 +273,8 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                     </div>
                   </div>
                 ))}
-              </div>
-              <div className="border border-dashed border-border bg-muted/30 rounded-lg p-4">
+              </div></Widget>
+              <Widget k="deal.proposal"><div className="border border-dashed border-border bg-muted/30 rounded-lg p-4">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="font-semibold text-sm flex items-center gap-1.5">
@@ -282,7 +284,8 @@ export function DealDrawer({ deal: initialDeal, stages, open, onClose, contactNa
                   </div>
                   <WBadge variant="brand">Pro</WBadge>
                 </div>
-              </div>
+              </div></Widget>
+              </LayoutRenderer></div>
             </TabsContent>
 
             <TabsContent value="activity" className="m-0">
