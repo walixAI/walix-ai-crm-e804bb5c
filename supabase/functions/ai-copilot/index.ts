@@ -521,11 +521,56 @@ const CRM_TOOLS = [
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   },
+  // ── Configuración del Agente de Ventas (SOLO admin del Tenant) ──────
+  {
+    type: "function",
+    function: {
+      name: "get_sales_agents",
+      description:
+        "Lista los Agentes de Ventas del tenant con su configuración completa (identidad, tono, objetivo, autonomía, perfilamiento, handoff, canales, reglas de formato). Úsala antes de modificar un agente para conocer sus valores actuales. Solo tenant_owner/tenant_admin.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent_id: { type: "string", description: "UUID de un agente específico (opcional; sin él lista todos)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_sales_agent",
+      description:
+        "Modifica la configuración de un Agente de Ventas. Solo tenant_owner/tenant_admin. Campos editables: name, identity, tone, never_do, enabled, default_goal, default_key_message, out_of_scope, objections, examples, profiling_notes, profiling_fields, handoff_message, handoff_triggers, autonomy ('solo_sugiere'|'mixto'|'autonomo'), autonomy_config, channels, format_rules, sla_minutes, privacy_url, priority, assignment_conditions, assignment_rule, default_allow_close, default_handoff. Antes de llamarla, SIEMPRE muestra al usuario el resumen de cambios y obtén su confirmación explícita (confirmed=true).",
+      parameters: {
+        type: "object",
+        properties: {
+          agent_id: { type: "string", description: "UUID del agente a modificar" },
+          fields: {
+            type: "object",
+            description: "Solo los campos a cambiar, ej. { \"tone\": \"Más directo\", \"enabled\": true }",
+            additionalProperties: true,
+          },
+          confirmed: { type: "boolean", description: "Debe ser true — el usuario ya confirmó explícitamente el cambio." },
+        },
+        required: ["agent_id", "fields", "confirmed"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────────
 // Tool executor (uses user's Supabase client → respeta RLS)
 // ────────────────────────────────────────────────────────────────────────
+
+const ADMIN_ROLES = ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"];
+
+async function isTenantAdmin(sb: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId);
+  return (data ?? []).some((r: any) => ADMIN_ROLES.includes(r.role));
+}
 
 async function executeTool(
   name: string,
@@ -541,6 +586,61 @@ async function executeTool(
         if (args.list_all) return { ok: true, sections: guideIndex() };
         const topics = searchGuide(String(args.query ?? ""));
         return { ok: true, topics };
+      }
+
+      case "get_sales_agents": {
+        if (!(await isTenantAdmin(sb, userId))) {
+          return { ok: false, error: "Solo un administrador o propietario del tenant puede ver la configuración de los agentes." };
+        }
+        let q = sb.from("sales_agents")
+          .select("id, name, enabled, is_default, pipeline_id, identity, tone, language, never_do, default_goal, default_key_message, out_of_scope, objections, examples, profiling_notes, profiling_fields, handoff_message, handoff_triggers, autonomy, autonomy_config, channels, format_rules, sla_minutes, privacy_url, priority, assignment_conditions, assignment_rule, default_allow_close, default_handoff, profiled_stage_id, handoff_stage_id")
+          .eq("tenant_id", tenantId)
+          .order("priority", { ascending: true });
+        if (args.agent_id) q = q.eq("id", String(args.agent_id));
+        const { data, error } = await q;
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, agents: data ?? [] };
+      }
+
+      case "update_sales_agent": {
+        if (!(await isTenantAdmin(sb, userId))) {
+          return { ok: false, error: "Solo un administrador o propietario del tenant puede modificar los agentes de ventas." };
+        }
+        if (args.confirmed !== true) {
+          return { ok: false, error: "Falta confirmación explícita del usuario (confirmed=true)." };
+        }
+        const agentId = String(args.agent_id ?? "");
+        if (!agentId) return { ok: false, error: "agent_id requerido" };
+        const ALLOWED = new Set([
+          "name", "identity", "tone", "language", "never_do", "enabled",
+          "default_goal", "default_key_message", "out_of_scope", "objections",
+          "examples", "profiling_notes", "profiling_fields", "handoff_message",
+          "handoff_triggers", "autonomy", "autonomy_config", "channels",
+          "format_rules", "sla_minutes", "privacy_url", "priority",
+          "assignment_conditions", "assignment_rule", "default_allow_close", "default_handoff",
+        ]);
+        const patch: Record<string, any> = {};
+        for (const [k, v] of Object.entries(args.fields ?? {})) {
+          if (ALLOWED.has(k)) patch[k] = v;
+        }
+        if (!Object.keys(patch).length) return { ok: false, error: "Sin campos editables en 'fields'." };
+        if (patch.autonomy && !["solo_sugiere", "mixto", "autonomo"].includes(patch.autonomy)) {
+          return { ok: false, error: "autonomy debe ser solo_sugiere, mixto o autonomo." };
+        }
+        patch.updated_at = new Date().toISOString();
+        const { data, error } = await sb.from("sales_agents")
+          .update(patch).eq("id", agentId).eq("tenant_id", tenantId)
+          .select("id, name, enabled, autonomy").maybeSingle();
+        if (error) return { ok: false, error: error.message };
+        if (!data) return { ok: false, error: "Agente no encontrado en este tenant." };
+        try {
+          await sb.from("audit_log").insert({
+            tenant_id: tenantId, actor_id: userId, action: "sales_agent_updated_via_copilot",
+            target_type: "sales_agent", target_id: agentId,
+            metadata: { fields: Object.keys(patch).filter((k) => k !== "updated_at") },
+          });
+        } catch { /* auditoría best-effort */ }
+        return { ok: true, agent: data, updated_fields: Object.keys(patch).filter((k) => k !== "updated_at") };
       }
 
       case "bulk_preview":
@@ -1465,7 +1565,16 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "`bulk_preview` NO es un buscador: si no incluyes campos a cambiar devolverá error. Ese error NO significa que no existan registros. Para localizar oportunidades de un contacto usa `search_contacts` y luego `get_contact_context` (devuelve TODAS sus oportunidades con etapa y estatus).",
     "PROHIBIDO afirmar 'este contacto no tiene oportunidades' sin haber llamado `get_contact_context` y visto deals_count = 0. Si el título que dio el usuario no coincide exacto (p.ej. dijo 'agosto' y la oportunidad dice 'Julio'), muéstrale las oportunidades que sí existen y pregunta cuál es.",
 
-
+    "",
+    (roles ?? []).some((r: any) => ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"].includes(r.role))
+      ? [
+          "AGENTES DE VENTAS (eres admin del tenant, tienes esta capacidad):",
+          "Puedes ver y modificar la configuración de los Agentes de Ventas con `get_sales_agents` y `update_sales_agent`.",
+          "  • Si el usuario pide cambiar el tono, objetivo, objeciones, perfilamiento, handoff, autonomía o encender/apagar un agente, primero llama `get_sales_agents` para ver sus valores actuales.",
+          "  • Luego muestra un resumen de los cambios propuestos y pide confirmación explícita; solo entonces llama `update_sales_agent` con confirmed=true.",
+          "  • No inventes el agent_id: tómalo de `get_sales_agents`. Si hay varios agentes y no queda claro cuál, pregunta.",
+        ].join("\n")
+      : "",
     "",
     "PREGUNTA ANTES DE ACTUAR (obligatorio):",
     "Antes de ejecutar cualquier acción que ESCRIBA o BORRE datos (crear/mover/editar deals, tareas, contactos, metas, fechas de ganado, widgets, cambios masivos), verifica que entendiste bien. Si algo es ambiguo, haz 1-2 preguntas cortas con opciones concretas ANTES de ejecutar.",
@@ -1607,7 +1716,11 @@ Deno.serve(async (req) => {
     const toolsUsed: { name: string; args: any; result: any }[] = [];
     // Capacidades nativas apagadas por el tenant (Ajustes → Copiloto).
     const disabledCaps = await getDisabledNativeTools(sb, tenantId);
-    const ACTIVE_TOOLS = filterTools(CRM_TOOLS as any[], disabledCaps);
+    let ACTIVE_TOOLS = filterTools(CRM_TOOLS as any[], disabledCaps);
+    // Configuración de Agentes de Ventas: solo visible para admin del tenant
+    if (!(await isTenantAdmin(sb, userId))) {
+      ACTIVE_TOOLS = ACTIVE_TOOLS.filter((t: any) => !["get_sales_agents", "update_sales_agent"].includes(t.function?.name));
+    }
     let pendingWhatsapp: { contact_id: string; draft: string } | undefined;
     let finalText = "";
     let usageInput = 0, usageOutput = 0, usageTotal = 0, usageIters = 0;
