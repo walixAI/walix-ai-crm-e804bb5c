@@ -40,6 +40,13 @@ Nueva sección en `src/pages/app/Reports.tsx` (componente `FunnelDrilldownCard`)
 ### 4. Consultas
 - `src/lib/queries/funnelDrilldown.ts`: una consulta a `activities` (metadata->outcome/typification) unida a `deals` (etapa, programa) y `contact_attribution` (campaña), agregada en cliente con caché de React Query; respeta RLS existente (vendedores solo ven lo suyo; el análisis es para supervisores/admin).
 
+## Experiencia de uso (UX)
+- **Asesor:** la tipificación es un clic extra dentro del mismo diálogo de seguimiento que ya usa; la IA la preselecciona y él solo confirma. Cero texto libre obligatorio, cero pantallas nuevas.
+- **Analista/Gerente:** la tabla de 3 niveles se expande con un clic (como una tabla dinámica de Excel), con barras de proporción y semáforo de colores — se lee sin exportar nada.
+- **Filtros persistentes** en la parte superior (fechas, campaña, programa, asesor), mismos patrones que el resto de Reportes.
+- **Accesible:** tokens semánticos del tema (modo claro/oscuro), sin colores hardcodeados, contraste AA, navegable con teclado.
+- **Sin curva de aprendizaje:** usa los mismos componentes y patrones visuales que ya conocen en Walix.
+
 ## Notas técnicas
 - Sin cambios en triggers ni en avance de etapas; la tipificación es informativa, no mueve la oportunidad.
 - Actividades históricas sin tipificación aparecen como «Sin tipificar» — el análisis mejora conforme los asesores la usen.
