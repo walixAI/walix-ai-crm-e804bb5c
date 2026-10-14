@@ -116,6 +116,10 @@ export interface LogFollowUpInput {
   stageId: string | null;
   kind: string;
   outcome: ActivityOutcome | null;
+  /** tipificación estructurada del resultado (catálogo outcome_typifications) */
+  typificationId?: string | null;
+  typificationLabel?: string | null;
+  typificationSentiment?: string | null;
   description: string;
   occurredAt: string;
   /** null = el usuario indicó que no habrá siguiente acción */

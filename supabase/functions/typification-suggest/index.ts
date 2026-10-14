@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
             content: `Tipificaciones disponibles:\n${catalog}\n\nConversación reciente:\n${transcript}`,
           },
         ],
-        max_tokens: 60,
+        max_completion_tokens: 200,
       }),
     });
     if (!res.ok) return json({ typificationId: null });
