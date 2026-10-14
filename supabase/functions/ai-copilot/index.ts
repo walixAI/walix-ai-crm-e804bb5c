@@ -636,7 +636,7 @@ async function executeTool(
         try {
           await sb.from("audit_log").insert({
             tenant_id: tenantId, actor_id: userId, action: "sales_agent_updated_via_copilot",
-            entity_type: "sales_agent", entity_id: agentId,
+            target_type: "sales_agent", target_id: agentId,
             metadata: { fields: Object.keys(patch).filter((k) => k !== "updated_at") },
           });
         } catch { /* auditoría best-effort */ }
