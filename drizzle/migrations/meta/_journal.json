@@ -281,6 +281,13 @@
       "when": 1791947131028,
       "tag": "0039_layouts_detail_surfaces",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791992774271,
+      "tag": "0040_create_outcome_typifications",
+      "breakpoints": true
     }
   ]
 }

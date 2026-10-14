@@ -3830,6 +3830,57 @@ export type Database = {
         }
         Relationships: []
       }
+      outcome_typifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          outcome_id: string | null
+          position: number
+          sentiment: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          outcome_id?: string | null
+          position?: number
+          sentiment?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          outcome_id?: string | null
+          position?: number
+          sentiment?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outcome_typifications_outcome_id_fkey"
+            columns: ["outcome_id"]
+            isOneToOne: false
+            referencedRelation: "activity_outcomes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outcome_typifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_stage_rules: {
         Row: {
           created_at: string
