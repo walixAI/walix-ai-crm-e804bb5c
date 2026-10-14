@@ -30,12 +30,18 @@ import { useMyProfile } from "@/lib/queries/profile";
 import ContactDetailSimple from "./ContactDetailSimple";
 import { blockWhatsappAction, useWhatsappChatEnabled, WHATSAPP_DISABLED_REASON } from "@/lib/whatsapp/featureFlags";
 import { LatestActivity } from "@/components/contacts/detail/LatestActivity";
+import { LayoutRenderer, Widget } from "@/components/walix/widgets/LayoutRenderer";
+import { CustomizeSheet } from "@/components/walix/widgets/CustomizeSheet";
+import { useResolvedLayout } from "@/lib/queries/dashboardLayout";
+import { SlidersHorizontal } from "lucide-react";
 
 export default function ContactDetail() {
   const WHATSAPP_CHAT_ENABLED = useWhatsappChatEnabled();
   const { id } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState("summary");
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const layout = useResolvedLayout("contact_detail");
   const { data: contact, isLoading } = useContact(id);
   const { data: activity = [] } = useContactActivity(id);
   const { data: convs = [] } = useContactConversations(id);
@@ -63,9 +69,14 @@ export default function ContactDetail() {
 
   return (
     <div className="space-y-4 max-w-[1600px] min-w-0">
-      <Link to="/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Contactos
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link to="/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Contactos
+        </Link>
+        <Button variant="ghost" size="sm" onClick={() => setCustomizeOpen(true)}>
+          <SlidersHorizontal className="h-4 w-4" /> Personalizar
+        </Button>
+      </div>
 
       <ContactHeader contact={contact} onWhatsApp={openWA} />
 
@@ -73,7 +84,13 @@ export default function ContactDetail() {
       <div className="flex gap-2 lg:hidden">
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><PanelLeft className="h-4 w-4" /> Info</Button></SheetTrigger>
-          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><ContactInfoCard contact={contact} /><ProfilingCard contactId={contact.id} /><ContactAttributionCard contactId={contact.id} /><CompanyCard contact={contact} /><SubscriptionsCard contactId={contact.id} /></div></SheetContent>
+          <SheetContent side="left" className="w-[86vw] max-w-[340px] overflow-y-auto"><div className="mt-6 space-y-2"><LayoutRenderer surface="contact_detail">
+              <Widget k="contact.info"><ContactInfoCard contact={contact} /></Widget>
+              <Widget k="contact.profiling"><ProfilingCard contactId={contact.id} /></Widget>
+              <Widget k="contact.attribution"><ContactAttributionCard contactId={contact.id} /></Widget>
+              <Widget k="contact.company"><CompanyCard contact={contact} /></Widget>
+              <Widget k="contact.subscriptions"><SubscriptionsCard contactId={contact.id} /></Widget>
+            </LayoutRenderer></div></SheetContent>
         </Sheet>
         <Sheet>
           <SheetTrigger asChild><Button variant="outline" size="sm" className="flex-1"><KanbanSquare className="h-4 w-4" /> Oportunidades</Button></SheetTrigger>
@@ -85,11 +102,13 @@ export default function ContactDetail() {
       <div className="grid gap-4 lg:grid-cols-[256px_1fr_256px]">
         <aside className="hidden lg:block">
           <div className="sticky top-4 space-y-2">
-            <ContactInfoCard contact={contact} />
-            <ProfilingCard contactId={contact.id} />
-            <ContactAttributionCard contactId={contact.id} />
-            <CompanyCard contact={contact} />
-            <SubscriptionsCard contactId={contact.id} />
+            <LayoutRenderer surface="contact_detail">
+              <Widget k="contact.info"><ContactInfoCard contact={contact} /></Widget>
+              <Widget k="contact.profiling"><ProfilingCard contactId={contact.id} /></Widget>
+              <Widget k="contact.attribution"><ContactAttributionCard contactId={contact.id} /></Widget>
+              <Widget k="contact.company"><CompanyCard contact={contact} /></Widget>
+              <Widget k="contact.subscriptions"><SubscriptionsCard contactId={contact.id} /></Widget>
+            </LayoutRenderer>
           </div>
         </aside>
 
@@ -109,9 +128,13 @@ export default function ContactDetail() {
             </TabsList>
 
             <TabsContent value="summary" className="mt-4">
-              <div className="mb-4"><LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} /></div>
-              <div className="mb-4"><LatestActivity activity={activity} /></div>
-              <SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} />
+              <div className="space-y-4">
+                <LayoutRenderer surface="contact_detail">
+                  <Widget k="contact.assistant"><LeadAssistantPanel contactId={contact.id} signal={activity[0]?.id ?? null} /></Widget>
+                  <Widget k="contact.latest_activity"><LatestActivity activity={activity} /></Widget>
+                  <Widget k="contact.summary"><SummaryTab contact={contact} onWhatsApp={openWA} activity={activity} onViewAllTasks={() => setTab("tasks")} /></Widget>
+                </LayoutRenderer>
+              </div>
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4">
@@ -151,13 +174,16 @@ export default function ContactDetail() {
         </div>
 
         <aside className="hidden lg:block">
-          <div className="sticky top-4">
-            <DealsSidePanel contactId={contact.id} />
-          </div>
+          {layout.isVisible("contact.deals_panel") && (
+            <div className="sticky top-4">
+              <DealsSidePanel contactId={contact.id} />
+            </div>
+          )}
         </aside>
       </div>
 
       <AiFloatingPanel contact={contact} onWhatsApp={openWA} />
+      <CustomizeSheet open={customizeOpen} onOpenChange={setCustomizeOpen} surface="contact_detail" scope="user" />
     </div>
   );
 }
