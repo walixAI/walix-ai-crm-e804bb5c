@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
             systemPrompt: agent.system_prompt + `\n\nTenant ID: ${tenantId}. Hoy: ${now.toISOString()}.`,
             userMessage,
             allowedTools: perEntityTools,
-            model: agent.model || "google/gemini-3.5-flash",
+            model: agent.model || "google/gemini-3.8-flash",
             maxIterations: 3,
             surface: "agent",
             agentId: agent.id,

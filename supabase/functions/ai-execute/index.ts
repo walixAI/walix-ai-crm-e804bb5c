@@ -526,7 +526,7 @@ Deno.serve(async (req) => {
             }))
           : null,
         payload: body.payload,
-        ai_model: "google/gemini-3.5-flash",
+        ai_model: "google/gemini-3.8-flash",
       },
     });
 

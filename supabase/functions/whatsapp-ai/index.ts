@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
     if (mode === "suggest_reply") {
       payload = {
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-3.8-flash",
         messages: [
           {
             role: "system",
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       };
     } else if (mode === "summarize") {
       payload = {
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-3.8-flash",
         messages: [
           {
             role: "system",
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
         });
       }
       payload = {
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-3.8-flash",
         messages: [
           {
             role: "system",
