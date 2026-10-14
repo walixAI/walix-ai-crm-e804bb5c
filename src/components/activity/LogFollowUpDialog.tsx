@@ -18,6 +18,9 @@ import {
   ACTIVITY_KINDS, filterOutcomes, useActivityOutcomes, useLogFollowUp,
 } from "@/lib/queries/activityOutcomes";
 import {
+  useOutcomeTypifications, typificationsForOutcome, suggestTypification,
+} from "@/lib/queries/typifications";
+import {
   useDealBlockers, useDealLossReasons, useDealDiagnostic, daysSince,
 } from "@/lib/queries/dealDiagnostics";
 
@@ -101,6 +104,8 @@ export function LogFollowUpDialog({
   const [selectedDealId, setSelectedDealId] = useState<string | null>(dealId);
   const selectionChanged = useRef(false);
   const [outcomeId, setOutcomeId] = useState<string>("");
+  const [typificationId, setTypificationId] = useState<string>("");
+  const [aiSuggestedId, setAiSuggestedId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [occurred, setOccurred] = useState(() => toLocalInput(new Date()));
   const [hasNext, setHasNext] = useState(true);
