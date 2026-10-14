@@ -96,7 +96,7 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
     if (!k.title || (!k.content && !k.url)) return toast.error("Agrega título y contenido o enlace");
     const { error } = await db.from("sales_agent_knowledge").insert({
       tenant_id: a.tenant_id, agent_id: k.shared ? null : a.id, title: k.title, content: k.content, url: k.url || null,
-      kind: k.url ? "web" : "texto",
+      kind: k.url ? "url" : "text",
     });
     if (error) return toast.error(error.message);
     setK({ title: "", content: "", url: "", shared: false }); kb.refetch();
@@ -113,7 +113,7 @@ function AgentEditor({ agent, onClose }: { agent: any; onClose: () => void }) {
       if (!content) continue;
       const title = f.name.replace(/\.(md|markdown|txt)$/i, "").replace(/[-_]+/g, " ").trim() || f.name;
       const { error } = await db.from("sales_agent_knowledge").insert({
-        tenant_id: a.tenant_id, agent_id: a.id, title, content, kind: "texto",
+        tenant_id: a.tenant_id, agent_id: a.id, title, content, kind: "text",
       });
       if (error) { toast.error(`${f.name}: ${error.message}`); continue; }
       ok++;
