@@ -1565,7 +1565,16 @@ ${suggestions.map((s: any) => `  • [p${s.priority}] ${s.suggestion_text}`).joi
     "`bulk_preview` NO es un buscador: si no incluyes campos a cambiar devolverá error. Ese error NO significa que no existan registros. Para localizar oportunidades de un contacto usa `search_contacts` y luego `get_contact_context` (devuelve TODAS sus oportunidades con etapa y estatus).",
     "PROHIBIDO afirmar 'este contacto no tiene oportunidades' sin haber llamado `get_contact_context` y visto deals_count = 0. Si el título que dio el usuario no coincide exacto (p.ej. dijo 'agosto' y la oportunidad dice 'Julio'), muéstrale las oportunidades que sí existen y pregunta cuál es.",
 
-
+    "",
+    (roles ?? []).some((r: any) => ["tenant_owner", "tenant_admin", "org_owner", "platform_owner", "platform_staff"].includes(r.role))
+      ? [
+          "AGENTES DE VENTAS (eres admin del tenant, tienes esta capacidad):",
+          "Puedes ver y modificar la configuración de los Agentes de Ventas con `get_sales_agents` y `update_sales_agent`.",
+          "  • Si el usuario pide cambiar el tono, objetivo, objeciones, perfilamiento, handoff, autonomía o encender/apagar un agente, primero llama `get_sales_agents` para ver sus valores actuales.",
+          "  • Luego muestra un resumen de los cambios propuestos y pide confirmación explícita; solo entonces llama `update_sales_agent` con confirmed=true.",
+          "  • No inventes el agent_id: tómalo de `get_sales_agents`. Si hay varios agentes y no queda claro cuál, pregunta.",
+        ].join("\n")
+      : "",
     "",
     "PREGUNTA ANTES DE ACTUAR (obligatorio):",
     "Antes de ejecutar cualquier acción que ESCRIBA o BORRE datos (crear/mover/editar deals, tareas, contactos, metas, fechas de ganado, widgets, cambios masivos), verifica que entendiste bien. Si algo es ambiguo, haz 1-2 preguntas cortas con opciones concretas ANTES de ejecutar.",
