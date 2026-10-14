@@ -567,7 +567,7 @@ Deno.serve(async (req) => {
     const MAX_TURNS = 3;
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const out = await callGateway({ model: "google/gemini-2.5-flash", messages: convoMessages, tools, tool_choice: "auto" });
+      const out = await callGateway({ model: "google/gemini-3.5-flash", messages: convoMessages, tools, tool_choice: "auto" });
       if ("error" in out) {
         return new Response(JSON.stringify({ error: out.error }), {
           status: out.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
