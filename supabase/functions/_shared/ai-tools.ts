@@ -510,7 +510,7 @@ export interface AgenticLoopResult {
 export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticLoopResult> {
   const {
     sb, tenantId, userId, systemPrompt, userMessage,
-    priorMessages = [], allowedTools, model = "google/gemini-3.5-flash",
+    priorMessages = [], allowedTools, model = "google/gemini-3.8-flash",
     maxIterations = 5, onAssistant, onTool, surface = "copilot", agentId = null,
   } = opts;
 

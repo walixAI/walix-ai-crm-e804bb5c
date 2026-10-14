@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         dis: d.daysInStage ?? 0, dsc: d.daysSinceContact ?? null, ecd: d.expectedCloseDate,
       }));
       const result = await callGateway({
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-3.8-flash",
         messages: [
           { role: "system", content: "Eres un coach de ventas. Analiza un pipeline B2B en español y devuelves insights breves y accionables. Sé directo y específico." },
           { role: "user", content: `Pipeline (resumen JSON, n=name, a=monto MXN, p=prob%, s=etapa, dis=días en etapa, dsc=días desde último contacto, ecd=fecha cierre):\n${JSON.stringify(compact)}` },
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
       // Limit to top 15 deals to keep latency/cost reasonable
       const targets = deals.slice(0, 15);
       const result = await callGateway({
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-3.8-flash",
         messages: [
           { role: "system", content: "Eres un asesor de ventas en español. Para cada deal sugieres UNA acción concreta para avanzarlo. Sé específico y breve (máx 100 chars por acción)." },
           { role: "user", content: `Sugiere siguiente paso para cada deal. JSON:\n${JSON.stringify(targets)}` },
@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
 
       if (mode === "suggest_next_step") {
         const result = await callGateway({
-          model: "google/gemini-3.5-flash",
+          model: "google/gemini-3.8-flash",
           messages: [
             { role: "system", content: "Eres un asesor de ventas en español. Sugieres el siguiente paso concreto para avanzar un deal. Una sola acción, clara y específica." },
             { role: "user", content: `Deal:\n${JSON.stringify(deal)}` },
@@ -288,7 +288,7 @@ Deno.serve(async (req) => {
 
       // score_probability
       const result = await callGateway({
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-3.8-flash",
         messages: [
           { role: "system", content: "Eres un experto en forecast de ventas B2B. Calculas la probabilidad de cierre (0-100) basándote en señales: días en etapa, días desde contacto, monto, fecha esperada de cierre y notas. Sé conservador y realista." },
           { role: "user", content: `Deal:\n${JSON.stringify(deal)}` },
