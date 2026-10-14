@@ -581,6 +581,61 @@ async function executeTool(
         return { ok: true, topics };
       }
 
+      case "get_sales_agents": {
+        if (!(await isTenantAdmin(sb, userId))) {
+          return { ok: false, error: "Solo un administrador o propietario del tenant puede ver la configuración de los agentes." };
+        }
+        let q = sb.from("sales_agents")
+          .select("id, name, enabled, is_default, pipeline_id, identity, tone, language, never_do, default_goal, default_key_message, out_of_scope, objections, examples, profiling_notes, profiling_fields, handoff_message, handoff_triggers, autonomy, autonomy_config, channels, format_rules, sla_minutes, privacy_url, priority, assignment_conditions, assignment_rule, default_allow_close, default_handoff, profiled_stage_id, handoff_stage_id")
+          .eq("tenant_id", tenantId)
+          .order("priority", { ascending: true });
+        if (args.agent_id) q = q.eq("id", String(args.agent_id));
+        const { data, error } = await q;
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, agents: data ?? [] };
+      }
+
+      case "update_sales_agent": {
+        if (!(await isTenantAdmin(sb, userId))) {
+          return { ok: false, error: "Solo un administrador o propietario del tenant puede modificar los agentes de ventas." };
+        }
+        if (args.confirmed !== true) {
+          return { ok: false, error: "Falta confirmación explícita del usuario (confirmed=true)." };
+        }
+        const agentId = String(args.agent_id ?? "");
+        if (!agentId) return { ok: false, error: "agent_id requerido" };
+        const ALLOWED = new Set([
+          "name", "identity", "tone", "language", "never_do", "enabled",
+          "default_goal", "default_key_message", "out_of_scope", "objections",
+          "examples", "profiling_notes", "profiling_fields", "handoff_message",
+          "handoff_triggers", "autonomy", "autonomy_config", "channels",
+          "format_rules", "sla_minutes", "privacy_url", "priority",
+          "assignment_conditions", "assignment_rule", "default_allow_close", "default_handoff",
+        ]);
+        const patch: Record<string, any> = {};
+        for (const [k, v] of Object.entries(args.fields ?? {})) {
+          if (ALLOWED.has(k)) patch[k] = v;
+        }
+        if (!Object.keys(patch).length) return { ok: false, error: "Sin campos editables en 'fields'." };
+        if (patch.autonomy && !["solo_sugiere", "mixto", "autonomo"].includes(patch.autonomy)) {
+          return { ok: false, error: "autonomy debe ser solo_sugiere, mixto o autonomo." };
+        }
+        patch.updated_at = new Date().toISOString();
+        const { data, error } = await sb.from("sales_agents")
+          .update(patch).eq("id", agentId).eq("tenant_id", tenantId)
+          .select("id, name, enabled, autonomy").maybeSingle();
+        if (error) return { ok: false, error: error.message };
+        if (!data) return { ok: false, error: "Agente no encontrado en este tenant." };
+        try {
+          await sb.from("audit_log").insert({
+            tenant_id: tenantId, actor_id: userId, action: "sales_agent_updated_via_copilot",
+            entity_type: "sales_agent", entity_id: agentId,
+            metadata: { fields: Object.keys(patch).filter((k) => k !== "updated_at") },
+          });
+        } catch { /* auditoría best-effort */ }
+        return { ok: true, agent: data, updated_fields: Object.keys(patch).filter((k) => k !== "updated_at") };
+      }
+
       case "bulk_preview":
         return await bulkPreview(
           sb, tenantId, userId, args.entity as BulkEntity,
