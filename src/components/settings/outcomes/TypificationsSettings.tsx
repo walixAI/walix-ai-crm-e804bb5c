@@ -47,17 +47,31 @@ export function TypificationsSettings({ pipelineId }: { pipelineId: string | nul
     return [...m.keys()];
   }, [outcomes]);
 
+  // Un resultado se repite por etapa: agrupamos las copias (mismo resultado + misma
+  // tipificación) en una sola fila y los cambios se aplican a todas.
   const byOutcomeLabel = useMemo(() => {
-    const m = new Map<string, typeof typs>();
+    const m = new Map<string, Map<string, typeof typs>>();
     const labelOf = new Map(outcomes.map((o) => [o.id, o.label.trim()]));
     for (const t of typs) {
-      const k = t.outcomeId ? labelOf.get(t.outcomeId) ?? "Otros" : "Todas los resultados";
-      if (!m.has(k)) m.set(k, []);
-      const list = m.get(k)!;
-      if (!list.some((x) => x.id === t.id)) list.push(t);
+      const k = t.outcomeId ? labelOf.get(t.outcomeId) ?? "Otros" : "Todos los resultados";
+      if (!m.has(k)) m.set(k, new Map());
+      const g = m.get(k)!;
+      const tk = t.label.trim().toLowerCase();
+      g.set(tk, [...(g.get(tk) ?? []), t]);
     }
-    return m;
+    return new Map([...m.entries()].map(([k, g]) => [k, [...g.values()]]));
   }, [typs, outcomes]);
+
+  async function updateAll(list: typeof typs, patch: Partial<(typeof typs)[number]>) {
+    try {
+      await Promise.all(list.map((t) => upsert.mutateAsync({ ...t, ...patch })));
+    } catch (e: any) { toast.error(e?.message ?? "Error"); }
+  }
+  async function deleteAll(list: typeof typs) {
+    try {
+      await Promise.all(list.map((t) => del.mutateAsync(t.id)));
+    } catch (e: any) { toast.error(e?.message ?? "Error"); }
+  }
 
   async function add() {
     if (!label.trim()) return toast.error("Escribe la tipificación");
@@ -128,34 +142,35 @@ export function TypificationsSettings({ pipelineId }: { pipelineId: string | nul
         </div>
       </div>
 
-      {[...byOutcomeLabel.entries()].map(([group, list]) => (
+      {[...byOutcomeLabel.entries()].map(([group, rows]) => (
         <div key={group} className="space-y-1.5">
           <div className="text-xs font-medium text-muted-foreground">{group}</div>
-          {list.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-              <span className={cn("h-2 w-2 rounded-full", DOT[t.sentiment])} />
-              <span className="flex-1 text-sm">{t.label}</span>
-              <Select
-                value={t.sentiment}
-                onValueChange={(v) => upsert.mutate({ ...t, sentiment: v as TypificationSentiment })}
-              >
-                <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SENTIMENTS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1">
-                <Switch
-                  checked={t.isActive}
-                  onCheckedChange={(v) => upsert.mutate({ ...t, isActive: v })}
-                />
-                <span className="text-[11px] text-muted-foreground">Activa</span>
+          {rows.map((copies) => {
+            const t = copies[0];
+            const active = copies.some((c) => c.isActive);
+            return (
+              <div key={t.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+                <span className={cn("h-2 w-2 rounded-full", DOT[t.sentiment])} />
+                <span className="flex-1 text-sm">{t.label}</span>
+                <Select
+                  value={t.sentiment}
+                  onValueChange={(v) => updateAll(copies, { sentiment: v as TypificationSentiment })}
+                >
+                  <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SENTIMENTS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-1">
+                  <Switch checked={active} onCheckedChange={(v) => updateAll(copies, { isActive: v })} />
+                  <span className="text-[11px] text-muted-foreground">Activa</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-danger" onClick={() => deleteAll(copies)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-danger" onClick={() => del.mutate(t.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ))}
     </Card>
