@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
     let sent = 0, failed = 0;
 
-    const { data: contacts } = await sb.from("contacts").select("id, name, phone, company").in("id", ids).not("phone", "is", null);
+    const { data: contacts } = await sb.from("contacts").select("id, name, phone, company").in("id", ids).not("phone", "is", null).is("wa_opt_out_at", null);
 
     for (const c of contacts ?? []) {
       const vars: Record<string, string> = {
@@ -81,6 +81,8 @@ Deno.serve(async (req) => {
       let result: { wamid?: string; error?: string };
       let bodyPreview = renderText(text, vars);
 
+      const { data: pol } = await sb.rpc("wa_template_policy_check", { _tenant_id: tenantId, _contact_id: c.id, _user_id: null, _bot: true });
+      if (pol && !pol.allowed) { failed++; continue; }
       if (template?.name && (!windowOpen || !text.trim())) {
         const params = ((body?.template_variables ?? []) as string[]).map((p) => renderText(String(p), vars));
         bodyPreview = renderText(template.body_text ?? `Plantilla ${template.name}`, vars);
