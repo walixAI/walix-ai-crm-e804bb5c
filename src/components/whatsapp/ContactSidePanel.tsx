@@ -19,6 +19,7 @@ import type { ServiceWindow } from "@/lib/whatsapp/serviceWindow";
 import type { ConversationItem } from "@/lib/queries/whatsapp";
 import { LeadAssistantPanel } from "@/components/walix/LeadAssistantPanel";
 import { ProfilingCard } from "@/components/walix/ProfilingCard";
+import { WaConsentControl } from "@/components/whatsapp/WaSafety";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -176,6 +177,7 @@ export function ContactSidePanel({
               <div className="text-xs">
                 Estado: <span className="font-medium">{conv.contactStatus}</span>
               </div>
+              {conv.contactId && <WaConsentControl contactId={conv.contactId} />}
               <Button asChild variant="outline" size="sm" className="w-full h-8 text-xs">
                 <Link to={`/contacts/${conv.contactId}`}>
                   <ExternalLink className="h-3 w-3 mr-1.5" />

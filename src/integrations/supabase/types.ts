@@ -1504,6 +1504,10 @@ export type Database = {
           tags: string[]
           tenant_id: string
           updated_at: string
+          wa_consent_at: string | null
+          wa_consent_source: string | null
+          wa_opt_out_at: string | null
+          wa_opt_out_reason: string | null
         }
         Insert: {
           address?: string | null
@@ -1533,6 +1537,10 @@ export type Database = {
           tags?: string[]
           tenant_id: string
           updated_at?: string
+          wa_consent_at?: string | null
+          wa_consent_source?: string | null
+          wa_opt_out_at?: string | null
+          wa_opt_out_reason?: string | null
         }
         Update: {
           address?: string | null
@@ -1562,6 +1570,10 @@ export type Database = {
           tags?: string[]
           tenant_id?: string
           updated_at?: string
+          wa_consent_at?: string | null
+          wa_consent_source?: string | null
+          wa_opt_out_at?: string | null
+          wa_opt_out_reason?: string | null
         }
         Relationships: [
           {
@@ -5987,10 +5999,14 @@ export type Database = {
           last_inbound_from: string | null
           last_webhook_at: string | null
           last_webhook_payload: Json | null
+          messaging_limit: string | null
+          pause_reason: string | null
+          paused_at: string | null
           phone_number: string | null
           phone_number_id: string | null
           position: number
           provider: string
+          quality_rating: string | null
           status: Database["public"]["Enums"]["whatsapp_channel_status"]
           tenant_id: string | null
           updated_at: string
@@ -6013,10 +6029,14 @@ export type Database = {
           last_inbound_from?: string | null
           last_webhook_at?: string | null
           last_webhook_payload?: Json | null
+          messaging_limit?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           phone_number?: string | null
           phone_number_id?: string | null
           position?: number
           provider?: string
+          quality_rating?: string | null
           status?: Database["public"]["Enums"]["whatsapp_channel_status"]
           tenant_id?: string | null
           updated_at?: string
@@ -6039,10 +6059,14 @@ export type Database = {
           last_inbound_from?: string | null
           last_webhook_at?: string | null
           last_webhook_payload?: Json | null
+          messaging_limit?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           phone_number?: string | null
           phone_number_id?: string | null
           position?: number
           provider?: string
+          quality_rating?: string | null
           status?: Database["public"]["Enums"]["whatsapp_channel_status"]
           tenant_id?: string | null
           updated_at?: string

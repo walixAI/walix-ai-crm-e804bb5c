@@ -288,6 +288,13 @@
       "when": 1791992774271,
       "tag": "0040_create_outcome_typifications",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792078025393,
+      "tag": "0041_wa_compliance_guards",
+      "breakpoints": true
     }
   ]
 }

@@ -128,16 +128,23 @@ Deno.serve(async (req) => {
       let bodyPreview = renderText(step.body_text ?? "", vars);
       let status = "sent";
 
+      // Protección del número: baja, consentimiento, pausa, freno por fallas y subida gradual.
+      const { data: pol } = await sb.rpc("wa_template_policy_check", {
+        _tenant_id: e.tenant_id, _contact_id: e.contact_id, _user_id: null, _bot: true,
+      });
+      if (pol?.opted_out || pol?.reason === "no_consent") {
+        await sb.from("wa_enrollments").update({ status: "stopped", exit_reason: pol.opted_out ? "pidió baja" : "sin consentimiento", next_send_at: null }).eq("id", e.id);
+        skipped++; continue;
+      }
+
       if (step.kind === "text" && windowOpen) {
         result = await sendText(channel, contact.phone, bodyPreview);
       } else if (template?.name) {
-        // Control de gasto: los mensajes del bot cuentan dentro del límite por lead.
-        const { data: pol } = await sb.rpc("wa_template_policy_check", {
-          _tenant_id: e.tenant_id, _contact_id: e.contact_id, _user_id: null, _bot: true,
-        });
         if (pol && !pol.window_open && !pol.allowed) {
-          if (pol.reason === "lead_gap" && pol.next_at) {
+          if (pol.next_at) {
             await sb.from("wa_enrollments").update({ next_send_at: pol.next_at }).eq("id", e.id);
+          } else if (pol.hard) {
+            await sb.from("wa_enrollments").update({ next_send_at: new Date(Date.now() + 6 * 3600_000).toISOString() }).eq("id", e.id);
           } else {
             await sb.from("wa_enrollments").update({ status: "stopped", exit_reason: "límite de gasto", next_send_at: null }).eq("id", e.id);
           }

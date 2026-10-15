@@ -107,6 +107,25 @@ Deno.serve(async (req) => {
     for (const entry of entries) {
       for (const change of entry?.changes ?? []) {
         const value = change?.value;
+        // Calidad del número (Meta): semáforo y pausa automática al bajar.
+        if (change?.field === "phone_number_quality_update" || change?.field === "account_update") {
+          const digits = String(value?.display_phone_number ?? "").replace(/\D/g, "");
+          const ev = String(value?.event ?? "").toUpperCase();
+          if (digits) {
+            const bad = ["FLAGGED", "DOWNGRADE", "DISABLED", "ACCOUNT_RESTRICTION", "ACCOUNT_VIOLATION"].includes(ev);
+            const { data: chs } = await sb.from("whatsapp_channels").select("id, phone_number, paused_at");
+            for (const ch of (chs ?? []).filter((c: any) => String(c.phone_number ?? "").replace(/\D/g, "").endsWith(digits.slice(-10)))) {
+              const upd: Record<string, unknown> = {
+                quality_rating: bad ? "RED" : ev === "UNFLAGGED" || ev === "UPGRADE" ? "GREEN" : undefined,
+                messaging_limit: value?.current_limit ?? undefined,
+              };
+              if (bad && !ch.paused_at) { upd.paused_at = new Date().toISOString(); upd.pause_reason = `Meta reportó ${ev} en la calidad del número. Revisa los mensajes antes de reanudar.`; }
+              await sb.from("whatsapp_channels").update(upd).eq("id", ch.id);
+            }
+          }
+          await sb.from("whatsapp_webhook_log").insert({ kind: "unknown", payload: value ?? change, note: `quality: ${ev}` });
+          continue;
+        }
         const phoneNumberId = value?.metadata?.phone_number_id;
         const hasMessages = Array.isArray(value?.messages) && value.messages.length > 0;
         const hasStatuses = Array.isArray(value?.statuses) && value.statuses.length > 0;
@@ -433,6 +452,24 @@ Deno.serve(async (req) => {
                 event_data: { from, length: body.length, wamid: msg.id, conversation_id: convId },
               },
             ]);
+
+            // Baja automática por palabra clave: detiene campañas y el bot, y confirma una sola vez.
+            const norm = String(body ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const OPT_OUT = /^(baja|stop|alto|cancelar|unsubscribe)$|no me (escriban|escribas|manden|mandes|contacten|molesten)|ya no (me )?(escriban|manden|envien|quiero mensajes)|dejen de (escribir|mandar)|eliminen mi numero/;
+            if (OPT_OUT.test(norm)) {
+              await sb.from("contacts").update({ wa_opt_out_at: new Date().toISOString(), wa_opt_out_reason: String(body).slice(0, 200) }).eq("id", contactId);
+              await sb.from("wa_enrollments").update({ status: "stopped", exit_reason: "pidió baja", next_send_at: null }).eq("contact_id", contactId).eq("status", "active");
+              const bye = "Listo, ya no recibirás mensajes automáticos de nuestra parte. Si más adelante quieres información, escríbenos aquí. 🙏";
+              if (channel.access_token && !String(channel.phone_number_id).startsWith("SIM")) await sendWhatsappText(channel.access_token, channel.phone_number_id, from, bye);
+              await sb.from("messages").insert({ tenant_id: channel.tenant_id, conversation_id: convId, channel_id: channel.id, direction: "outbound", body: bye, type: "text", metadata: { bot: true, kind: "opt_out_confirm" } });
+              continue;
+            }
+            if (/^(alta|start|reanudar)$/.test(norm)) {
+              await sb.from("contacts").update({ wa_opt_out_at: null, wa_opt_out_reason: null }).eq("id", contactId);
+            } else {
+              const { data: oc } = await sb.from("contacts").select("wa_opt_out_at").eq("id", contactId).maybeSingle();
+              if (oc?.wa_opt_out_at) continue; // dio de baja: solo atiende un asesor humano
+            }
 
             // Agente de ventas del Pipeline: responde, sugiere o canaliza al asesor.
             let agentResult: any = null;

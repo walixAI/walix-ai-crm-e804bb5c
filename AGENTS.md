@@ -5,7 +5,7 @@
 - DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
-- Authenticated shell uses overflow-x-clip so the document owns vertical scroll; Kanban totals wrap instead of a second horizontal scroller.
+- Authenticated shell uses overflow-x-clip; Kanban totals wrap; why: no duplicate scrollbars.
 
 - Sales agent behavior lives in supabase/functions/_shared/sales-agent.ts, shared by WhatsApp, web chat and test; why: one brain for all channels.
 - WhatsApp, contact and deal advisor panels share the contact-keyed lead brief; deal probabilities come from persisted deals and profiling completeness stays separate, because different screens must not invent competing prospect assessments.
@@ -18,11 +18,12 @@
 - WhatsApp no-reply alerts use the tenant-scoped agent-no-reply helper and deduplicate by recipient, reason and conversation for 24 hours; why: supervisors must receive daily-limit notices even if an advisor already received another alert.
 
 - Human-attention views share pending_human_attention, authorized server-side by tenant and owner/supervisor role; pending ends only with a real human response or completed contact task, never a bot reply or opening the alert, so all work views agree.
-- Pending human attention is displayed once in the shared sticky TopBar below Copilot, not in page-local panels; why: pending leads remain reachable across all authenticated sections without duplicating content.
+- Pending human attention shows once in the sticky TopBar below Copilot; why: reachable everywhere without duplicates.
 - Sales reps (sales_rep without admin/manager role in that tenant) only see/update their own leads, enforced by restrictive RLS via is_rep_only/rep_owns_contact; frontend roles are filtered to the active tenant; why: users can hold different roles in different tenants.
 
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
 - WhatsApp readiness uses credential-free RPCs; send resolves tenant/channel credentials server-side after caller-RLS authorization; why: reps must send without accessing secrets.
-- Tenant documents: private bucket, category flags gate advisors/agent, non-reps manage, signed links; shared document-name normalizes upload/send titles; why: private access and bounded names across channels.
+- Tenant documents: private bucket, category flags gate advisors/agent, signed links, shared document-name for titles; why: private access, bounded names.
 - Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
 - Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.
+- WhatsApp number protection (opt-out, consent, pause, failure brake, ramp, platform caps) lives in wa_template_policy_check for all outbound paths; why: one guard so no tenant risks a number.
