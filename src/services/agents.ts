@@ -102,7 +102,7 @@ export async function createCustomAgent(input: CreateCustomAgentInput) {
     agent_type: "custom",
     system_prompt: input.system_prompt,
     schedule: input.schedule,
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3.8-flash",
     allowed_tools: input.allowed_tools,
     max_actions_per_run: input.max_actions_per_run,
     is_active: true,

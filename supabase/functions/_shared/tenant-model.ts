@@ -2,7 +2,7 @@
 // Por defecto todos los tenants usan el motor más económico.
 
 // Modelo por defecto: rápido y con buen razonamiento para uso agéntico (tools).
-export const DEFAULT_MODEL = "google/gemini-3.6-flash";
+export const DEFAULT_MODEL = "google/gemini-3.8-flash";
 export const DEFAULT_VENDOR = "gemini";
 
 export interface TenantModel {
