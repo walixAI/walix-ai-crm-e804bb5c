@@ -462,7 +462,6 @@ Deno.serve(async (req) => {
               const bye = "Listo, ya no recibirás mensajes automáticos de nuestra parte. Si más adelante quieres información, escríbenos aquí. 🙏";
               if (channel.access_token && !String(channel.phone_number_id).startsWith("SIM")) await sendWhatsappText(channel.access_token, channel.phone_number_id, from, bye);
               await sb.from("messages").insert({ tenant_id: channel.tenant_id, conversation_id: convId, channel_id: channel.id, direction: "outbound", body: bye, type: "text", metadata: { bot: true, kind: "opt_out_confirm" } });
-              await sb.from("conversations").update({ bot_paused: true } as any).eq("id", convId).then(() => {}, () => {});
               continue;
             }
             if (/^(alta|start|reanudar)$/.test(norm)) {
