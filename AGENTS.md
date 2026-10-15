@@ -26,3 +26,4 @@
 - Tenant documents: private bucket, category flags gate advisors/agent, non-reps manage, signed links; shared document-name normalizes upload/send titles; why: private access and bounded names across channels.
 - Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
 - Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.
+- WhatsApp number protection (opt-out, consent, channel pause, failure brake, new-number ramp, fixed platform caps) lives inside wa_template_policy_check, used by advisor send, campaign worker and segment send; why: one guard for every outbound path so no tenant can put a number at risk.
