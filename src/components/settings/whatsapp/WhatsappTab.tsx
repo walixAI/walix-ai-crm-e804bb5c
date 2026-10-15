@@ -28,6 +28,7 @@ import { TeamAccessTable } from "./TeamAccessTable";
 import { LiveTestDialog } from "./LiveTestDialog";
 import { WebhookDiagnosticsPanel } from "./WebhookDiagnosticsPanel";
 import { relativeTime } from "@/lib/format/relativeTime";
+import { ChannelSafety } from "@/components/whatsapp/WaSafety";
 import { usePlatformBotPublic } from "@/lib/queries/platformWhatsapp";
 
 export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
@@ -241,6 +242,7 @@ export function WhatsappSettingsTab({ tenantId }: { tenantId: string }) {
                       {c.status === "disabled" && <WBadge variant="neutral">Desconectado</WBadge>}
                     </div>
                     <p className="text-xs text-muted-foreground font-mono">{c.phone_number ?? "Sin número"}</p>
+                    <ChannelSafety channel={c} isAdmin={!!isTenantAdmin} />
                   </div>
                   {isTenantAdmin && !c.is_default && c.status !== "disabled" && (
                     <Button
