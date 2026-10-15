@@ -23,7 +23,7 @@
 
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
 - WhatsApp readiness uses credential-free RPCs; send resolves tenant/channel credentials server-side after caller-RLS authorization; why: reps must send without accessing secrets.
-- Tenant documents: private bucket, category flags gate advisors/agent, non-reps manage, signed links; shared document-name normalizes upload/send titles; why: private access and bounded names across channels.
+- Tenant documents: private bucket, category flags gate advisors/agent, signed links, shared document-name for titles; why: private access, bounded names.
 - Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
 - Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.
 - WhatsApp number protection (opt-out, consent, pause, failure brake, ramp, platform caps) lives in wa_template_policy_check for all outbound paths; why: one guard so no tenant risks a number.
