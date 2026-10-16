@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Edit, MoreHorizontal, Plus, Phone, X, Check } from "lucide-react";
+import { MessageCircle, Edit, MoreHorizontal, Plus, X, Check } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
@@ -15,6 +15,7 @@ import { ChangeStatusPopover } from "@/components/contacts/ChangeStatusPopover";
 import { TagsPopover } from "@/components/contacts/TagsPopover";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
+import { CallButton } from "@/components/calls/CallButton";
 import { toast } from "sonner";
 import { useContactPipelineDeals } from "@/lib/queries/pipeline";
 import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
@@ -36,7 +37,6 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const callPhone = () => window.open(`tel:${contact.phone.replace(/[^0-9+]/g, "")}`);
   const reassign = (uid: string | null) =>
     update.mutate({ id: contact.id, patch: { owner_id: uid } }, { onSuccess: () => toast.success("Reasignado"), onError: (e) => toast.error(e.message) });
   const changeStatus = (s: any) =>
@@ -99,7 +99,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
           <Button onClick={onWhatsApp} size="sm" className="flex-1 sm:flex-none bg-success hover:bg-success/90 text-success-foreground">
             <MessageCircle className="h-4 w-4" /> WhatsApp
           </Button>
-          <Button variant="outline" size="icon" onClick={callPhone} title="Llamar"><Phone className="h-4 w-4" /></Button>
+          <CallButton contactId={contact.id} phone={contact.phone} contactName={contact.name} size="icon" />
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Edit className="h-4 w-4" /> Editar
           </Button>

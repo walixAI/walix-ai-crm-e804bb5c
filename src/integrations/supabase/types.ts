@@ -1090,6 +1090,297 @@ export type Database = {
           },
         ]
       }
+      call_campaign_contacts: {
+        Row: {
+          attempts: number
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          id: string
+          last_call_id: string | null
+          next_attempt_at: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          attempts?: number
+          campaign_id: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_call_id?: string | null
+          next_attempt_at?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          attempts?: number
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_call_id?: string | null
+          next_attempt_at?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_campaign_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "call_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_campaign_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_campaign_contacts_last_call_id_fkey"
+            columns: ["last_call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_campaign_contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_campaigns: {
+        Row: {
+          channel_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          redial_rules: Json
+          schedule: Json
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          redial_rules?: Json
+          schedule?: Json
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          redial_rules?: Json
+          schedule?: Json
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_campaigns_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "call_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_channels: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credentials_encrypted: string | null
+          id: string
+          name: string
+          pbx_config: Json
+          phone_number: string | null
+          provider: string
+          record_calls: boolean
+          recording_notice: string | null
+          redial_rules: Json
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credentials_encrypted?: string | null
+          id?: string
+          name: string
+          pbx_config?: Json
+          phone_number?: string | null
+          provider?: string
+          record_calls?: boolean
+          recording_notice?: string | null
+          redial_rules?: Json
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credentials_encrypted?: string | null
+          id?: string
+          name?: string
+          pbx_config?: Json
+          phone_number?: string | null
+          provider?: string
+          record_calls?: boolean
+          recording_notice?: string | null
+          redial_rules?: Json
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_channels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calls: {
+        Row: {
+          ai_suggestions: Json | null
+          ai_summary: string | null
+          answered_at: string | null
+          campaign_id: string | null
+          channel_id: string | null
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          from_number: string | null
+          id: string
+          metadata: Json
+          notes: string | null
+          outcome: string | null
+          provider_call_id: string | null
+          recording_url: string | null
+          started_at: string | null
+          status: string
+          tenant_id: string
+          to_number: string
+          transcript: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ai_suggestions?: Json | null
+          ai_summary?: string | null
+          answered_at?: string | null
+          campaign_id?: string | null
+          channel_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          outcome?: string | null
+          provider_call_id?: string | null
+          recording_url?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+          to_number: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ai_suggestions?: Json | null
+          ai_summary?: string | null
+          answered_at?: string | null
+          campaign_id?: string | null
+          channel_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string | null
+          id?: string
+          metadata?: Json
+          notes?: string | null
+          outcome?: string | null
+          provider_call_id?: string | null
+          recording_url?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+          to_number?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "call_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null

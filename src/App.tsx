@@ -47,6 +47,7 @@ const EmailUnsubscribe = lazy(() => import("@/pages/EmailUnsubscribe"));
 const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 const Team = lazy(() => import("@/pages/app/Team"));
 const WhatsappSim = lazy(() => import("@/pages/app/WhatsappSim"));
+const Calls = lazy(() => import("@/pages/app/Calls"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
@@ -128,6 +129,7 @@ const AppRoutes = () => {
         <Route path="/automations" element={<Automations />} />
         <Route path="/campanas" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Campaigns /></ProtectedRoute>} />
         <Route path="/email" element={<EmailPage />} />
+        <Route path="/llamadas" element={<Calls />} />
         <Route path="/documentos" element={<ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "platform_owner", "platform_staff", "super_admin"]}><Documents /></ProtectedRoute>} />
         <Route path="/settings" element={
           <ProtectedRoute requireRoles={["tenant_admin", "tenant_owner", "sales_manager", "sales_rep", "platform_owner", "platform_staff", "super_admin"]}>
