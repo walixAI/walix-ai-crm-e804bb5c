@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, Plus, Pencil } from "lucide-react";
+import { Phone, Plus, Pencil, Network, PhoneIncoming } from "lucide-react";
+import { PbxConfigDialog } from "./PbxConfigDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,15 @@ export function CallsSettingsTab({ tenantId }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [pbx, setPbx] = useState<any>(null);
+  const [simNumber, setSimNumber] = useState("");
+  const [simDigit, setSimDigit] = useState("");
+  const simulate = async () => {
+    const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "simulate_inbound", from_number: simNumber, digit: simDigit || null } });
+    if (error || (data as any)?.error) return toast.error((data as any)?.error ?? "No se pudo simular");
+    const t = (data as any).target;
+    toast.success(t === "voicemail" ? "Llamada enviada a buzón (fuera de horario o por menú)" : (data as any).call?.user_id ? "Llamada sonando con el asesor" : "Sin asesor disponible: se avisó a supervisores");
+  };
   const [form, setForm] = useState({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "" });
 
   const { data: channels } = useQuery({
@@ -115,11 +125,27 @@ export function CallsSettingsTab({ tenantId }: Props) {
                 </p>
               </div>
               <Switch checked={c.status === "active"} onCheckedChange={() => toggleStatus.mutate({ id: c.id, status: c.status })} />
+              <Button size="sm" variant="outline" onClick={() => setPbx(c)}><Network className="h-4 w-4 mr-1" /> Conmutador</Button>
               <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
             </div>
           ))}
         </div>
       )}
+
+      {(channels ?? []).length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <p className="font-medium flex items-center gap-2"><PhoneIncoming className="h-4 w-4 text-primary" /> Probar llamada entrante</p>
+          <p className="text-xs text-muted-foreground">Simula que un lead llama. Si el número es de un contacto, suena con su asesor asignado.</p>
+          <div className="flex flex-wrap gap-2">
+            <Input className="w-48" placeholder="Teléfono del lead" value={simNumber} onChange={(e) => setSimNumber(e.target.value)} />
+            <Input className="w-28" placeholder="Opción (1-9)" maxLength={1} value={simDigit} onChange={(e) => setSimDigit(e.target.value)} />
+            <Button onClick={simulate}>Simular</Button>
+          </div>
+        </div>
+      )}
+
+      <PbxConfigDialog channel={pbx} tenantId={tenantId} open={!!pbx} onOpenChange={(v) => !v && setPbx(null)}
+        onSaved={() => qc.invalidateQueries({ queryKey: ["call-channels", tenantId] })} />
 
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground space-y-1">
         <p className="font-medium text-foreground">Protección y cumplimiento</p>
