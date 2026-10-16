@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("automations_ai_draft");
 // Edge function: convierte una descripción en lenguaje natural en un borrador
 // estructurado de automatización. Usa Lovable AI Gateway con tool-calling para
 // asegurar JSON válido.

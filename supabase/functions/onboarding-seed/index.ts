@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("onboarding_seed");
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {

@@ -16,6 +16,8 @@ export interface AiUsageInput {
   iterations?: number;
   /** Si no se pasa, se resuelve desde ai_model_catalog. */
   creditFactor?: number;
+  /** false = solo registrar en la bitácora, sin descontar créditos del periodo. */
+  charge?: boolean;
 }
 
 function serviceClient() {
@@ -57,6 +59,12 @@ export async function recordAiUsage(u: AiUsageInput) {
       total_tokens: u.totalTokens || inputTokens + outputTokens,
       iterations,
     });
+
+    if (u.charge === false) {
+      const { error } = await logPromise;
+      if (error) console.error("[ai-usage] log", error.message);
+      return 0;
+    }
 
     const period = periodStart();
     const { data: bal } = await svc.from("tenant_credit_balances")

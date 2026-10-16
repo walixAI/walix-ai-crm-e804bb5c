@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("ai_onboarding_setup");
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":

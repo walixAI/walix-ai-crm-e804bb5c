@@ -87,7 +87,7 @@ export function installAiUsageTracking(feature: string) {
     let reqModel: string | undefined;
     try { reqModel = JSON.parse(String(init?.body ?? "{}"))?.model; } catch { /* noop */ }
     const clone = res.clone();
-    (async () => {
+    const job = (async () => {
       try {
         const { model, usage } = usageFromText(await clone.text());
         const { tenantId, userId } = await resolveTenant(ctx);
@@ -103,6 +103,8 @@ export function installAiUsageTracking(feature: string) {
         console.error("[ai-track]", e);
       }
     })();
+    // deno-lint-ignore no-explicit-any
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(job); } catch { /* noop */ }
     return res;
   };
 }

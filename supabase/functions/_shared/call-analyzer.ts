@@ -1,3 +1,4 @@
+import { setAiUsageContext } from "./ai-track.ts";
 // Análisis IA de una llamada: resumen, perfilamiento, resultado y tipificación sugeridos.
 // El perfilamiento solo llena campos vacíos (lo editado por el asesor manda);
 // resultado/tipificación quedan como sugerencia hasta que el asesor confirma el seguimiento.
@@ -10,6 +11,7 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
   const { data: call } = await admin.from("calls")
     .select("id, tenant_id, contact_id, deal_id, direction, transcript, notes")
     .eq("id", callId).maybeSingle();
+  if (call?.tenant_id) setAiUsageContext({ tenantId: call.tenant_id });
   if (!call) return { ok: false, status: 404, error: "Llamada no encontrada" };
 
   const transcript = String(transcriptOverride ?? call.transcript ?? "").trim().slice(0, 20000);

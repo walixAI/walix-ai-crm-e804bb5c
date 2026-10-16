@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("contacts_ai_create");
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
