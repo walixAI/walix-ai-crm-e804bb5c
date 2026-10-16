@@ -129,7 +129,6 @@ export default function Calls() {
           })}
         </div>
       )}
-        </TabsContent>
           <CallAnalysisDialog call={analysisCall} onClose={() => setAnalysisCall(null)} />
         </TabsContent>
         <TabsContent value="campanas" className="mt-4">
