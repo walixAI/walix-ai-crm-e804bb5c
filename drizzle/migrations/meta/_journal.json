@@ -309,6 +309,13 @@
       "when": 1792111047951,
       "tag": "0043_calls_realtime",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792111560008,
+      "tag": "0044_schedule_call_campaign_worker",
+      "breakpoints": true
     }
   ]
 }

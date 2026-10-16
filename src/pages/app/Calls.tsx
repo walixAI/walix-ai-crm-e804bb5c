@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CallCampaignsTab from "@/components/calls/CallCampaignsTab";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   queued: { label: "En cola", variant: "outline" },
@@ -68,6 +70,12 @@ export default function Calls() {
         />
       </div>
 
+      <Tabs defaultValue="historial">
+        <TabsList>
+          <TabsTrigger value="historial">Historial</TabsTrigger>
+          <TabsTrigger value="campanas">Campañas</TabsTrigger>
+        </TabsList>
+        <TabsContent value="historial" className="mt-4">
       {isLoading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : filtered.length === 0 ? (
@@ -113,6 +121,11 @@ export default function Calls() {
           })}
         </div>
       )}
+        </TabsContent>
+        <TabsContent value="campanas" className="mt-4">
+          <CallCampaignsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
