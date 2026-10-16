@@ -70,6 +70,12 @@ export default function Calls() {
         />
       </div>
 
+      <Tabs defaultValue="historial">
+        <TabsList>
+          <TabsTrigger value="historial">Historial</TabsTrigger>
+          <TabsTrigger value="campanas">Campañas</TabsTrigger>
+        </TabsList>
+        <TabsContent value="historial" className="mt-4">
       {isLoading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : filtered.length === 0 ? (
