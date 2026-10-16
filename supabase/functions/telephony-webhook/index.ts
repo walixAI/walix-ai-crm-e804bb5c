@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { routeInboundCall } from "../_shared/telephony-routing.ts";
+import { analyzeCall } from "../_shared/call-analyzer.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -70,6 +71,17 @@ serve(async (req) => {
 
     if (Object.keys(update).length > 0) {
       await admin.from("calls").update(update).eq("provider_call_id", providerCallId);
+    }
+
+    // Transcripción entregada por el proveedor (Telnyx/Twilio): guardar y analizar con IA.
+    const transcriptText: string | undefined = p.transcription_text ?? p.TranscriptionText;
+    if (transcriptText && String(transcriptText).trim().length >= 20) {
+      const { data: callRow } = await admin.from("calls").select("id, ai_summary").eq("provider_call_id", providerCallId).maybeSingle();
+      if (callRow && !callRow.ai_summary) {
+        await admin.from("calls").update({ transcript: String(transcriptText).slice(0, 20000) }).eq("id", callRow.id);
+        const r = await analyzeCall(admin, callRow.id);
+        if (!r.ok) console.error("call analysis failed:", r.status, r.error);
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {

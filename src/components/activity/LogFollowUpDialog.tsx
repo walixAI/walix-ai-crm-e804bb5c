@@ -33,6 +33,10 @@ interface Props {
   pipelineId?: string | null;
   /** permite elegir la oportunidad cuando se abre desde el contacto */
   allowDealPicker?: boolean;
+  /** comentario precargado (p. ej. resumen IA de una llamada) */
+  initialDescription?: string;
+  /** resultado sugerido para preseleccionar si aplica a la etapa */
+  initialOutcomeId?: string | null;
 }
 
 /** Fecha (YYYY-MM-DD) a N días de hoy. */
@@ -92,6 +96,7 @@ type DiagMode = "none" | "blocked" | "lost";
 
 export function LogFollowUpDialog({
   open, onOpenChange, contactId, dealId = null, stageId = null, pipelineId = null, allowDealPicker = false,
+  initialDescription = "", initialOutcomeId = null,
 }: Props) {
   const { data: pipelines = [] } = usePipelines();
   const { data: contactDeals = [] } = useContactPipelineDeals(allowDealPicker ? contactId ?? undefined : undefined);
@@ -186,7 +191,7 @@ export function LogFollowUpDialog({
     setKind("llamada_saliente");
     setSelectedDealId(dealId);
     selectionChanged.current = false;
-    setDescription("");
+    setDescription(initialDescription);
     setOccurred(toLocalInput(new Date()));
     setHasNext(true);
     setNextDay(dateInput(2));
@@ -246,6 +251,17 @@ export function LogFollowUpDialog({
     if (available.length && !available.some((o) => o.id === outcomeId)) setOutcomeId(available[0].id);
     if (!available.length) setOutcomeId("");
   }, [available, outcomeId]);
+
+  // Resultado sugerido por la IA de la llamada: preseleccionar una vez al abrir.
+  const appliedInitialOutcome = useRef(false);
+  useEffect(() => { if (!open) appliedInitialOutcome.current = false; }, [open]);
+  useEffect(() => {
+    if (!open || appliedInitialOutcome.current || !initialOutcomeId) return;
+    if (available.some((o) => o.id === initialOutcomeId)) {
+      appliedInitialOutcome.current = true;
+      setOutcomeId(initialOutcomeId);
+    }
+  }, [open, available, initialOutcomeId]);
 
   const suggestedStageName = stages.find((s) => s.id === outcome?.movesToStageId)?.name ?? null;
   const currentStageName = stages.find((s) => s.id === effectiveStageId)?.name ?? null;

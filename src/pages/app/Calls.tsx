@@ -11,6 +11,9 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CallCampaignsTab from "@/components/calls/CallCampaignsTab";
+import CallAnalysisDialog from "@/components/calls/CallAnalysisDialog";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   queued: { label: "En cola", variant: "outline" },
@@ -26,6 +29,7 @@ const STATUS_LABEL: Record<string, { label: string; variant: "default" | "second
 export default function Calls() {
   const { activeTenantId } = useAuth();
   const [q, setQ] = useState("");
+  const [analysisCall, setAnalysisCall] = useState<any | null>(null);
 
   const { data: calls, isLoading } = useQuery({
     queryKey: ["calls", activeTenantId],
@@ -34,7 +38,7 @@ export default function Calls() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("calls")
-        .select("id, direction, status, to_number, from_number, duration_seconds, outcome, notes, created_at, contact_id, contacts(name)")
+        .select("id, direction, status, to_number, from_number, duration_seconds, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
         .eq("tenant_id", activeTenantId!)
         .order("created_at", { ascending: false })
         .limit(200);
@@ -115,12 +119,17 @@ export default function Calls() {
                     <span>{formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: es })}</span>
                   </div>
                   {c.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{c.notes}</p>}
+                  {c.ai_summary && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{c.ai_summary}</p>}
                 </div>
+                <Button size="sm" variant={c.ai_summary ? "secondary" : "outline"} className="shrink-0" onClick={() => setAnalysisCall(c)}>
+                  <Sparkles className="h-4 w-4 mr-1" />{c.ai_summary ? "Ver análisis" : "Analizar"}
+                </Button>
               </div>
             );
           })}
         </div>
       )}
+          <CallAnalysisDialog call={analysisCall} onClose={() => setAnalysisCall(null)} />
         </TabsContent>
         <TabsContent value="campanas" className="mt-4">
           <CallCampaignsTab />
