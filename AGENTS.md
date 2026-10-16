@@ -18,7 +18,7 @@
 - WhatsApp no-reply alerts use the tenant-scoped agent-no-reply helper and deduplicate by recipient, reason and conversation for 24 hours; why: supervisors must receive daily-limit notices even if an advisor already received another alert.
 
 - Human-attention views share pending_human_attention, authorized server-side by tenant and owner/supervisor role; pending ends only with a real human response or completed contact task, never a bot reply or opening the alert, so all work views agree.
-- Pending human attention shows once in the sticky TopBar below Copilot; why: reachable everywhere without duplicates.
+- Pending human attention shows once in the sticky TopBar; why: no duplicates.
 - Sales reps (sales_rep without admin/manager role in that tenant) only see/update their own leads, enforced by restrictive RLS via is_rep_only/rep_owns_contact; frontend roles are filtered to the active tenant; why: users can hold different roles in different tenants.
 
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
