@@ -5,7 +5,7 @@
 - DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
-- Shell uses overflow-x-clip; why: no duplicate scrollbars.
+- Shell uses overflow-x-clip (no duplicate scrollbars); documents use a private bucket with signed links.
 
 - Sales agent behavior lives in supabase/functions/_shared/sales-agent.ts, shared by WhatsApp, web chat and test; why: one brain for all channels.
 - WhatsApp, contact and deal advisor panels share the contact-keyed lead brief; deal probabilities come from persisted deals and profiling completeness stays separate, because different screens must not invent competing prospect assessments.
@@ -23,9 +23,8 @@
 
 - Contact reassignment uses authenticated reassign_contact_atomic, checking tenant/ownership and moving open deals, conversations and pending tasks; why: transfers must be secure and consistent.
 - WhatsApp readiness uses credential-free RPCs; send resolves tenant/channel credentials server-side after caller-RLS authorization; why: reps must send without accessing secrets.
-- Documents: private bucket, category flags, signed links; why: private access.
 - Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
 - Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.
 - WhatsApp number protection (opt-out, consent, pause, failure brake, ramp, platform caps) lives in wa_template_policy_check for all outbound paths; why: one guard so no tenant risks a number.
 - Lead briefs regenerate only on real messages/activities (3-min burst debounce) or manual refresh; screens read the stored brief; why: no AI spend on page views.
-- Every AI-calling edge function either calls recordAiUsage or installs _shared/ai-track.ts (logs gateway usage to ai_usage_log with surface = function key, no credit charge); why: the AI metrics report must cover every feature.
+- AI edge functions log usage via recordAiUsage or _shared/ai-track.ts (surface = function key); why: metrics cover every feature.
