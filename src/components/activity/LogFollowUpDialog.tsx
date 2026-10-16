@@ -33,6 +33,10 @@ interface Props {
   pipelineId?: string | null;
   /** permite elegir la oportunidad cuando se abre desde el contacto */
   allowDealPicker?: boolean;
+  /** comentario precargado (p. ej. resumen IA de una llamada) */
+  initialDescription?: string;
+  /** resultado sugerido para preseleccionar si aplica a la etapa */
+  initialOutcomeId?: string | null;
 }
 
 /** Fecha (YYYY-MM-DD) a N días de hoy. */
@@ -92,6 +96,7 @@ type DiagMode = "none" | "blocked" | "lost";
 
 export function LogFollowUpDialog({
   open, onOpenChange, contactId, dealId = null, stageId = null, pipelineId = null, allowDealPicker = false,
+  initialDescription = "", initialOutcomeId = null,
 }: Props) {
   const { data: pipelines = [] } = usePipelines();
   const { data: contactDeals = [] } = useContactPipelineDeals(allowDealPicker ? contactId ?? undefined : undefined);
