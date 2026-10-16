@@ -15,6 +15,7 @@ import { ChangeStatusPopover } from "@/components/contacts/ChangeStatusPopover";
 import { TagsPopover } from "@/components/contacts/TagsPopover";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
 import { relativeTime } from "@/lib/format/relativeTime";
+import { CallButton } from "@/components/calls/CallButton";
 import { toast } from "sonner";
 import { useContactPipelineDeals } from "@/lib/queries/pipeline";
 import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
@@ -99,7 +100,7 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
           <Button onClick={onWhatsApp} size="sm" className="flex-1 sm:flex-none bg-success hover:bg-success/90 text-success-foreground">
             <MessageCircle className="h-4 w-4" /> WhatsApp
           </Button>
-          <Button variant="outline" size="icon" onClick={callPhone} title="Llamar"><Phone className="h-4 w-4" /></Button>
+          <CallButton contactId={contact.id} phone={contact.phone} contactName={contact.name} size="icon" />
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Edit className="h-4 w-4" /> Editar
           </Button>
