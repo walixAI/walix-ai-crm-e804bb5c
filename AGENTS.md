@@ -27,3 +27,4 @@
 - Screen layouts resolve catalog → group:advisor|supervisor (or tenant_default) → user:<id>; users never reveal group-hidden or hide locked sections; why: tenants control each user level.
 - Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.
 - WhatsApp number protection (opt-out, consent, pause, failure brake, ramp, platform caps) lives in wa_template_policy_check for all outbound paths; why: one guard so no tenant risks a number.
+- Lead briefs regenerate only on real events (latest message or activity, debounced 3 min after a message burst) or manual refresh; screens read the stored brief without polling; why: avoid repeated AI spend on page views and automatic updates.
