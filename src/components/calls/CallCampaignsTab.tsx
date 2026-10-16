@@ -225,7 +225,7 @@ function CreateCampaignDialog({
           .from("deals")
           .select("contact_id, contacts!inner(id, phone)")
           .eq("tenant_id", tenantId)
-          .eq("stage", stage)
+          .eq("stage_id", stage)
           .not("contacts.phone", "is", null);
         if (error) throw error;
         contactIds = [...new Set((data ?? []).map((d: any) => d.contact_id))];
