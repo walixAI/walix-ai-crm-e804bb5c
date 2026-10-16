@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Edit, MoreHorizontal, Plus, Phone, X, Check } from "lucide-react";
+import { MessageCircle, Edit, MoreHorizontal, Plus, X, Check } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
@@ -37,7 +37,6 @@ export function ContactHeader({ contact, onWhatsApp }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const callPhone = () => window.open(`tel:${contact.phone.replace(/[^0-9+]/g, "")}`);
   const reassign = (uid: string | null) =>
     update.mutate({ id: contact.id, patch: { owner_id: uid } }, { onSuccess: () => toast.success("Reasignado"), onError: (e) => toast.error(e.message) });
   const changeStatus = (s: any) =>
