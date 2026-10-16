@@ -292,8 +292,8 @@ function CreateCampaignDialog({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los contactos con teléfono</SelectItem>
-                {(stages ?? []).map((s) => (
-                  <SelectItem key={s} value={s}>Leads en etapa «{s}»</SelectItem>
+                {(stages ?? []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>Leads en etapa «{s.name}»</SelectItem>
                 ))}
               </SelectContent>
             </Select>
