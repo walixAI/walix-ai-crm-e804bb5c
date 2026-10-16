@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("wa_campaign_rule_ai");
 // Traduce un prompt en español a condiciones estructuradas de campaña y devuelve una vista previa.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { matchContacts, type CampaignConditions } from "../_shared/wa-campaigns.ts";

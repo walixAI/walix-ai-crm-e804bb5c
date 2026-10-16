@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("pipeline_suggest");
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {

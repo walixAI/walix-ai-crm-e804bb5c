@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("dashboard_ai_widgets");
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {

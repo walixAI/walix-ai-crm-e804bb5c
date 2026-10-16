@@ -1,3 +1,6 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("onboarding_seed");
+import { setAiUsageContext } from "../_shared/ai-track.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
@@ -208,6 +211,7 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as Body;
+    setAiUsageContext({ tenantId: body.tenant_id });
     if (!body.tenant_id) {
       return new Response(JSON.stringify({ error: "missing_tenant_id" }), {
         status: 400,

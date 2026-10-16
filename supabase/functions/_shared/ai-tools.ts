@@ -577,18 +577,13 @@ export async function runAgenticLoop(opts: AgenticLoopOptions): Promise<AgenticL
     break;
   }
 
-  // Registro de uso (best-effort, no bloquea respuesta)
+  // Registro de uso con rol de servicio (con la sesión del usuario el INSERT se pierde).
   try {
-    await sb.from("ai_usage_log").insert({
-      tenant_id: tenantId,
-      user_id: userId,
-      surface,
-      agent_id: agentId,
-      model,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      total_tokens: totalTokens || (inputTokens + outputTokens),
-      iterations: iter + 1,
+    const { recordAiUsage } = await import("./ai-usage.ts");
+    await recordAiUsage({
+      tenantId, userId, surface: surface === "agent" ? "ai_agent_runner" : surface, model,
+      inputTokens, outputTokens, totalTokens: totalTokens || (inputTokens + outputTokens),
+      iterations: iter + 1, charge: false,
     });
   } catch { /* noop */ }
 

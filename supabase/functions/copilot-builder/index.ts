@@ -1,3 +1,5 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("copilot_builder");
 // Edge Function: copilot-builder
 // "Walix Builder" — asistente que ayuda al admin a componer capacidades del
 // Copiloto por chat, a partir del catálogo de primitivas ya soportadas.

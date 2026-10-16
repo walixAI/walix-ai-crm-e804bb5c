@@ -1,7 +1,10 @@
+import { installAiUsageTracking } from "../_shared/ai-track.ts";
+installAiUsageTracking("ai_context_updater");
 // Edge Function: ai-context-updater
 // Trigger: Database Webhook on INSERT into public.ai_memory_events
 // Purpose: Recompute ai_entity_context using LLM and emit proactive suggestions when urgency is high.
 
+import { setAiUsageContext } from "../_shared/ai-track.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -140,6 +143,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    setAiUsageContext({ tenantId: record.tenant_id });
 
     // 1. Últimos 20 eventos de la entidad
     const { data: recentEvents } = await admin
