@@ -262,8 +262,6 @@ export function LogFollowUpDialog({
       setOutcomeId(initialOutcomeId);
     }
   }, [open, available, initialOutcomeId]);
-  useEffect(() => {
-  }, [available, outcomeId]);
 
   const suggestedStageName = stages.find((s) => s.id === outcome?.movesToStageId)?.name ?? null;
   const currentStageName = stages.find((s) => s.id === effectiveStageId)?.name ?? null;
