@@ -134,6 +134,7 @@ export const SETTINGS_TAB_PERMISSIONS: Record<string, PermissionToken> = {
   widgets: "settings.widgets",
   import: "settings.import",
   whatsapp: "settings.whatsapp",
+  llamadas: "settings.whatsapp",
   email: "settings.me",
   modules: "settings.modules",
   agents: "ai.manage",
