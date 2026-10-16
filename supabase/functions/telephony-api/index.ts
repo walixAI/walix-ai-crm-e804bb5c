@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getTelephonyProvider } from "../_shared/telephony-provider.ts";
+import { routeInboundCall } from "../_shared/telephony-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,6 +118,36 @@ serve(async (req) => {
       }).eq("id", callId);
       if (upErr) throw upErr;
 
+      return json({ ok: true });
+    }
+
+    if (action === "simulate_inbound") {
+      const fromNumber = String(body?.from_number ?? "").trim();
+      if (fromNumber.replace(/\D/g, "").length < 7) return json({ error: "Número de origen inválido" }, 400);
+      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId);
+      if (!(roles ?? []).some((r: any) => ["tenant_admin", "tenant_owner", "sales_manager"].includes(r.role))) {
+        return json({ error: "Solo administradores pueden simular llamadas" }, 403);
+      }
+      const { data: channel } = await admin.from("call_channels").select("*")
+        .eq("tenant_id", tenantId).eq("status", "active").order("created_at").limit(1).maybeSingle();
+      if (!channel) return json({ error: "No hay canal de llamadas activo" }, 400);
+      const digit = body?.digit ? String(body.digit).slice(0, 1) : null;
+      const r = await routeInboundCall(admin, { channel, fromNumber, digit, providerCallId: `sim_in_${crypto.randomUUID()}` });
+      return json({ ok: true, ...r });
+    }
+
+    if (action === "answer" || action === "decline") {
+      const callId = body?.call_id as string | undefined;
+      const { data: call } = await admin.from("calls").select("id, tenant_id, user_id, status")
+        .eq("id", callId ?? "").maybeSingle();
+      if (!call || call.tenant_id !== tenantId) return json({ error: "Llamada no encontrada" }, 404);
+      if (call.user_id && call.user_id !== user.id) return json({ error: "Esta llamada es de otro asesor" }, 403);
+      if (call.status !== "ringing") return json({ error: "La llamada ya no está sonando" }, 409);
+      const now = new Date().toISOString();
+      const upd = action === "answer"
+        ? { status: "answered", answered_at: now, user_id: user.id }
+        : { status: "no_answer", ended_at: now, outcome: "Rechazada por el asesor", user_id: user.id };
+      await admin.from("calls").update(upd).eq("id", call.id);
       return json({ ok: true });
     }
 
