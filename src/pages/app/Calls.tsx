@@ -121,6 +121,11 @@ export default function Calls() {
           })}
         </div>
       )}
+        </TabsContent>
+        <TabsContent value="campanas" className="mt-4">
+          <CallCampaignsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
