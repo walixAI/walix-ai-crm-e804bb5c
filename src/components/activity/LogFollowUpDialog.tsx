@@ -191,7 +191,7 @@ export function LogFollowUpDialog({
     setKind("llamada_saliente");
     setSelectedDealId(dealId);
     selectionChanged.current = false;
-    setDescription("");
+    setDescription(initialDescription);
     setOccurred(toLocalInput(new Date()));
     setHasNext(true);
     setNextDay(dateInput(2));
@@ -250,6 +250,19 @@ export function LogFollowUpDialog({
   useEffect(() => {
     if (available.length && !available.some((o) => o.id === outcomeId)) setOutcomeId(available[0].id);
     if (!available.length) setOutcomeId("");
+  }, [available, outcomeId]);
+
+  // Resultado sugerido por la IA de la llamada: preseleccionar una vez al abrir.
+  const appliedInitialOutcome = useRef(false);
+  useEffect(() => { if (!open) appliedInitialOutcome.current = false; }, [open]);
+  useEffect(() => {
+    if (!open || appliedInitialOutcome.current || !initialOutcomeId) return;
+    if (available.some((o) => o.id === initialOutcomeId)) {
+      appliedInitialOutcome.current = true;
+      setOutcomeId(initialOutcomeId);
+    }
+  }, [open, available, initialOutcomeId]);
+  useEffect(() => {
   }, [available, outcomeId]);
 
   const suggestedStageName = stages.find((s) => s.id === outcome?.movesToStageId)?.name ?? null;
