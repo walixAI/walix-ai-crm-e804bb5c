@@ -28,3 +28,4 @@
 - Typifications live in outcome_typifications, stored on activities.metadata.typification_*; why: drill-down needs structured data.
 - WhatsApp number protection (opt-out, consent, pause, failure brake, ramp, platform caps) lives in wa_template_policy_check for all outbound paths; why: one guard so no tenant risks a number.
 - Lead briefs regenerate only on real messages/activities (3-min burst debounce) or manual refresh; screens read the stored brief; why: no AI spend on page views.
+- Every AI-calling edge function either calls recordAiUsage or installs _shared/ai-track.ts (logs gateway usage to ai_usage_log with surface = function key, no credit charge); why: the AI metrics report must cover every feature.
