@@ -34,13 +34,13 @@ export function useLeadAssistant(contactId: string | null | undefined, signal?: 
   const q = useQuery({
     queryKey: key,
     enabled: !!contactId,
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
     retry: false,
     queryFn: async () => {
       if (!contactId) throw new Error("Contacto no disponible");
       const result = await fetchBrief(contactId);
-      for (const prefix of ["pipeline-deals", "pipeline-deal", "contact-deals", "contact-pipeline-deals", "contact"]) {
+      if (!result.cached) for (const prefix of ["pipeline-deals", "pipeline-deal", "contact-deals", "contact-pipeline-deals", "contact"]) {
         void qc.invalidateQueries({ queryKey: [prefix] });
       }
       return result;

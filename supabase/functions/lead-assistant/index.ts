@@ -136,11 +136,16 @@ Deno.serve(async (req) => {
     msgs = (data ?? []).reverse();
   }
 
-  let basisAt = maxIso(msgs.at(-1)?.sent_at, acts[0]?.occurred_at, deals[0]?.updated_at, contact.last_activity_at, contact.created_at, contact.updated_at, sessions[0]?.updated_at, currentAgent?.updated_at);
+  // Solo eventos reales (mensajes, seguimientos, llamadas, tipificaciones) disparan un nuevo análisis;
+  // abrir pantallas o cambios automáticos (probabilidad, etiquetas, perfil) NO regeneran.
+  let basisAt = maxIso(msgs.at(-1)?.sent_at, acts[0]?.occurred_at, contact.created_at);
 
   const svc = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: cached } = await svc.from("lead_assistant_briefs").select("brief, basis_at, generated_at").eq("contact_id", contactId).maybeSingle();
-  if (cached && !force && cached.basis_at && basisAt && new Date(cached.basis_at) >= new Date(basisAt)) {
+  // Agrupa ráfagas: si el último mensaje llegó hace menos de 3 min, se usa el resumen guardado.
+  const lastMsgAt = msgs.at(-1)?.sent_at ? new Date(msgs.at(-1).sent_at).getTime() : 0;
+  const burst = !!cached && Date.now() - lastMsgAt < 180_000;
+  if (cached && !force && (burst || (cached.basis_at && basisAt && new Date(cached.basis_at) >= new Date(basisAt)))) {
     return json({ brief: enrichProspectBrief(cached.brief, deals, sessions, agents), generated_at: cached.generated_at, cached: true });
   }
 
