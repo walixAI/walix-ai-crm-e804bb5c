@@ -152,6 +152,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionToken | null> = {
   "/contacts": "contacts.read.own",
   "/pipeline": "pipeline.read",
   "/whatsapp": "whatsapp.use",
+  "/llamadas": "whatsapp.use",
   "/reports": "reports.read",
   "/automations": "automations.read",
   "/settings": "settings.read",
