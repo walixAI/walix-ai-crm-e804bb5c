@@ -103,7 +103,7 @@ export async function routeInboundCall(admin: any, opts: {
     (sups ?? []).forEach((s: any) => recipients.add(s.user_id));
     const who = contact?.name ?? fromNumber;
     const rows = [...recipients].map((uid) => ({
-      tenant_id: tenantId, user_id: uid,
+      tenant_id: tenantId, user_id: uid, type: "inbound_call", severity: "warning",
       title: target === "voicemail" ? `Llamada a buzón: ${who}` : `Llamada entrante sin asesor: ${who}`,
       body: target === "voicemail" ? "Devuelve la llamada lo antes posible." : "Configura la fila de asesores en Configuración → Llamadas.",
       link: contact ? `/contacts/${contact.id}` : "/llamadas",

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { routeInboundCall } from "../_shared/telephony-routing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -23,6 +24,21 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Llamada entrante nueva: enrutar por PBX
+    const isInbound = (eventType === "call.initiated" && p.direction === "incoming") || (p.Direction === "inbound" && p.CallStatus === "ringing");
+    if (isInbound) {
+      const { data: existing } = await admin.from("calls").select("id").eq("provider_call_id", providerCallId).maybeSingle();
+      if (!existing) {
+        const toNum = String(p.to ?? p.To ?? "").replace(/\D/g, "").slice(-10);
+        const { data: channels } = await admin.from("call_channels").select("*").eq("status", "active");
+        const channel = (channels ?? []).find((c: any) => String(c.phone_number ?? "").replace(/\D/g, "").slice(-10) === toNum);
+        if (channel) {
+          const r = await routeInboundCall(admin, { channel, fromNumber: String(p.from ?? p.From ?? ""), digit: p.Digits ?? null, providerCallId });
+          return new Response(JSON.stringify({ ok: true, routed: r.target }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
     }
 
     const statusMap: Record<string, string> = {
