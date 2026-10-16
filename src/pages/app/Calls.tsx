@@ -22,18 +22,18 @@ const STATUS_LABEL: Record<string, { label: string; variant: "default" | "second
 };
 
 export default function Calls() {
-  const { tenantId } = useAuth();
+  const { activeTenantId } = useAuth();
   const [q, setQ] = useState("");
 
   const { data: calls, isLoading } = useQuery({
-    queryKey: ["calls", tenantId],
-    enabled: !!tenantId,
+    queryKey: ["calls", activeTenantId],
+    enabled: !!activeTenantId,
     refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("calls")
-        .select("id, direction, status, to_number, from_number, duration_seconds, outcome, notes, created_at, contact_id, contacts(name), profiles:user_id(full_name)")
-        .eq("tenant_id", tenantId!)
+        .select("id, direction, status, to_number, from_number, duration_seconds, outcome, notes, created_at, contact_id, contacts(name)")
+        .eq("tenant_id", activeTenantId!)
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -103,9 +103,6 @@ export default function Calls() {
                     <span>{c.direction === "inbound" ? c.from_number : c.to_number}</span>
                     {c.duration_seconds != null && (
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{Math.floor(c.duration_seconds / 60)}m {c.duration_seconds % 60}s</span>
-                    )}
-                    {c.profiles?.full_name && (
-                      <span className="flex items-center gap-1"><User className="h-3 w-3" />{c.profiles.full_name}</span>
                     )}
                     <span>{formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: es })}</span>
                   </div>
