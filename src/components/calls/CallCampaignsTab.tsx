@@ -181,15 +181,16 @@ function CreateCampaignDialog({
   });
 
   const { data: stages } = useQuery({
-    queryKey: ["deal-stages", tenantId],
+    queryKey: ["pipeline-stages", tenantId],
     enabled: !!tenantId && open,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("deals")
-        .select("stage")
-        .eq("tenant_id", tenantId!);
+        .from("pipeline_stages")
+        .select("id, name")
+        .eq("tenant_id", tenantId!)
+        .order("position", { ascending: true });
       if (error) throw error;
-      return [...new Set((data ?? []).map((d) => d.stage).filter(Boolean))] as string[];
+      return data ?? [];
     },
   });
 
