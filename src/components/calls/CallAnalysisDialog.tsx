@@ -101,7 +101,7 @@ export default function CallAnalysisDialog({ call, onClose }: Props) {
           onOpenChange={(v) => { setFollowUp(v); if (!v) onClose(); }}
           contactId={call.contact_id}
           dealId={call.deal_id ?? null}
-          allowDealPicker={!call.deal_id}
+          allowDealPicker
           initialDescription={call.ai_summary ?? ""}
           initialOutcomeId={s?.outcome_id ?? null}
         />
