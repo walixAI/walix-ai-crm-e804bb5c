@@ -52,12 +52,15 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
     const { data, error } = await supabase.functions.invoke("telephony-api", {
       body: { action: "start", contact_id: contactId, to_number: phone },
     });
+    const dialTel = () => { window.location.href = `tel:${phone.replace(/[^\d+]/g, "")}`; };
     if (error || !data?.ok) {
-      const msg = data?.error ?? error?.message ?? "No se pudo iniciar la llamada";
-      toast.error(msg);
+      // Sin canal de llamadas real: marcar con el teléfono del dispositivo
+      dialTel();
       setOpen(false); reset();
       return;
     }
+    // Canal simulado: no sale ninguna llamada real, se marca desde el dispositivo y se registra el resultado
+    if (data.provider === "simulated") dialTel();
     setCallId(data.call.id);
     setState("ringing");
   };
