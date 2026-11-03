@@ -7,8 +7,21 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 
-type CallState = "idle" | "starting" | "ringing" | "ending";
+type CallState = "idle" | "starting" | "ringing" | "ending" | "failed";
+
+async function callError(data: { error?: string } | null, error: unknown) {
+  if (typeof data?.error === "string" && data.error) return data.error;
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.clone().json();
+      if (typeof body?.error === "string" && body.error) return body.error;
+    } catch { /* La respuesta puede no contener JSON. */ }
+  }
+  return "No se pudo iniciar la llamada. Intenta de nuevo o pide ayuda a un administrador.";
+}
 
 const OUTCOMES = [
   { value: "completed", label: "Contestó" },
@@ -32,6 +45,8 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   const [callId, setCallId] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [notes, setNotes] = useState("");
+  const [failure, setFailure] = useState("");
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -42,33 +57,38 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   }, [state]);
 
   const reset = () => {
-    setState("idle"); setCallId(null); setSeconds(0); setNotes("");
+    setState("idle"); setCallId(null); setSeconds(0); setNotes(""); setFailure("");
     if (timer.current) clearInterval(timer.current);
   };
 
   const start = async () => {
     if (!phone) { toast.error("Este contacto no tiene número de teléfono"); return; }
     setOpen(true); setState("starting");
+    try {
     const { data, error } = await supabase.functions.invoke("telephony-api", {
       body: { action: "start", contact_id: contactId, to_number: phone },
     });
     const dialTel = () => { window.location.href = `tel:${phone.replace(/[^\d+]/g, "")}`; };
     if (error || !data?.ok) {
-      // Sin canal de llamadas real: marcar con el teléfono del dispositivo
-      dialTel();
-      setOpen(false); reset();
+      const message = await callError(data, error);
+      setFailure(message); setState("failed"); toast.error(message);
       return;
     }
     // Canal simulado: no sale ninguna llamada real, se marca desde el dispositivo y se registra el resultado
     if (data.provider === "simulated") dialTel();
     setCallId(data.call.id);
     setState("ringing");
+    } catch (error) {
+      const message = await callError(null, error);
+      setFailure(message); setState("failed"); toast.error(message);
+    }
   };
 
   const end = async (status: string) => {
     if (!callId) return;
     setState("ending");
-    const { error } = await supabase.functions.invoke("telephony-api", {
+    try {
+    const { data, error } = await supabase.functions.invoke("telephony-api", {
       body: {
         action: "end", call_id: callId, status,
         duration_seconds: status === "completed" ? seconds : null,
@@ -76,9 +96,16 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
         notes: notes.trim() || null,
       },
     });
-    if (error) toast.error("No se pudo registrar el resultado");
-    else toast.success("Llamada registrada en la actividad del lead");
+    if (error || !data?.ok) {
+      toast.error(data?.error ?? "No se pudo registrar el resultado. Tus notas se conservaron; intenta de nuevo.");
+      setState("ringing"); return;
+    }
+    toast.success("Resultado de llamada registrado");
     setOpen(false); reset();
+    } catch {
+      toast.error("No se pudo registrar el resultado. Tus notas se conservaron; intenta de nuevo.");
+      setState("ringing");
+    }
   };
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
@@ -86,7 +113,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
 
   return (
     <>
-      <Button size={size} variant={variant} onClick={start} disabled={!phone} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
+      <Button size={size} variant={variant} onClick={start} disabled={!phone || state === "starting" || state === "ending"} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
         <Phone className="h-4 w-4" />
         {size !== "icon" && <span className="ml-1.5">Llamar</span>}
       </Button>
@@ -104,6 +131,20 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
           {state === "starting" && (
             <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /> Iniciando llamada…
+            </div>
+          )}
+
+          {state === "failed" && (
+            <div className="space-y-4">
+              <p role="alert" className="text-sm text-destructive">{failure}</p>
+              <p className="text-sm text-muted-foreground">No se confirmó ninguna llamada ni se registró un resultado. El marcador del dispositivo requiere una aplicación de llamadas instalada.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={start}>Reintentar</Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  if (phone) window.location.href = `tel:${phone.replace(/[^\d+]/g, "")}`;
+                }}><Phone className="h-4 w-4 mr-1" />Abrir marcador</Button>
+                {contactId && <Button size="sm" variant="outline" onClick={() => { setOpen(false); setFollowUpOpen(true); }}>Registrar seguimiento</Button>}
+              </div>
             </div>
           )}
 
@@ -138,6 +179,13 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
           )}
         </DialogContent>
       </Dialog>
+      {contactId && followUpOpen && <LogFollowUpDialog
+        open={followUpOpen}
+        onOpenChange={(value) => { setFollowUpOpen(value); if (!value) reset(); }}
+        contactId={contactId}
+        allowDealPicker
+        initialDescription={`No se pudo iniciar la llamada desde Walix: ${failure}. ${notes}`.trim()}
+      />}
     </>
   );
 }

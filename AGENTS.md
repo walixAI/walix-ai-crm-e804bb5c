@@ -28,3 +28,4 @@
 - WhatsApp number protection (opt-out, consent, pause, failure brake, ramp, platform caps) lives in wa_template_policy_check for all outbound paths; why: one guard so no tenant risks a number.
 - Lead briefs regenerate only on real messages/activities (3-min burst debounce) or manual refresh; screens read the stored brief; why: no AI spend on page views.
 - AI edge functions log usage via recordAiUsage or _shared/ai-track.ts (surface = function key); why: metrics cover every feature.
+- Call start failures remain visible and device dialing is explicit; manual outcomes reuse LogFollowUpDialog, while provider outcomes require a returned call ID; why: a tel: handoff does not confirm a call or justify a fabricated result.
