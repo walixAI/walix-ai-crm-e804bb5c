@@ -323,6 +323,13 @@
       "when": 1794007115381,
       "tag": "0045_deal_auto_name_template",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794008630103,
+      "tag": "0046_deal_auto_name_use_expected_close",
+      "breakpoints": true
     }
   ]
 }
