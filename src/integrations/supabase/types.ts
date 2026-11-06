@@ -5605,6 +5605,7 @@ export type Database = {
           created_at: string
           currency: string
           customer_inactivity_months: number | null
+          deal_name_template: string | null
           feature_advanced_tracking: boolean
           feature_deal_types: boolean
           feature_expenses: boolean
@@ -5649,6 +5650,7 @@ export type Database = {
           created_at?: string
           currency?: string
           customer_inactivity_months?: number | null
+          deal_name_template?: string | null
           feature_advanced_tracking?: boolean
           feature_deal_types?: boolean
           feature_expenses?: boolean
@@ -5693,6 +5695,7 @@ export type Database = {
           created_at?: string
           currency?: string
           customer_inactivity_months?: number | null
+          deal_name_template?: string | null
           feature_advanced_tracking?: boolean
           feature_deal_types?: boolean
           feature_expenses?: boolean
@@ -6721,6 +6724,10 @@ export type Database = {
           contact_id: string
           last_inbound: string
         }[]
+      }
+      deal_auto_name: {
+        Args: { _at: string; _category: string; _freq: number }
+        Returns: string
       }
       delete_pipeline_stage: {
         Args: {
