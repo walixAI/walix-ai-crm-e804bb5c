@@ -4,6 +4,7 @@ import type { PipelineDeal } from "@/lib/queries/pipeline";
 const { save } = vi.hoisted(() => ({ save: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/queries/pipeline", () => ({ useUpdateDeal: () => ({ mutateAsync: save, isPending: false }) }));
 vi.mock("@/lib/queries/dealFieldHistory", () => ({ useLogDealFieldChange: () => ({ mutateAsync: vi.fn().mockResolvedValue(undefined) }) }));
+vi.mock("@/lib/queries/monthlyGoals", () => ({ useProductCategories: () => ({ data: [] }) }));
 import { EditDealQuickDialog } from "./EditDealQuickDialog";
 describe("opportunity modal", () => {
   afterEach(() => { cleanup(); save.mockClear(); });
