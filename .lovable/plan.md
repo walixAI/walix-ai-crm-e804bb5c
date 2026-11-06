@@ -1,21 +1,23 @@
-# Agente de Refrigeración y nombre de la oportunidad
+# Agente de Refrigeración y nombre automático de la oportunidad
 
-Solo para el tenant **Refrigeración González y Rodríguez**. No cambia nada en SCALA, SXP ni otros tenants.
+Solo para el tenant **Refrigeración González y Rodríguez**. SCALA, SXP y los demás tenants no cambian.
 
-## 1. Agentes (ya existen, se configuran)
-El tenant ya tiene dos agentes, uno por embudo; se configuran en lugar de crear uno nuevo:
-- **Agente de Servicio y Mantenimiento**: atiende fallas, mantenimientos 6M/12M, cambio de filtro y refacciones. Pregunta el tipo de equipo, la marca, la falla, la colonia y el horario preferido, y luego agenda la visita.
-- **Agente de Ventas Nuevas**: atiende cotizaciones de equipo nuevo. Pregunta el uso (casa o negocio), la capacidad y el presupuesto.
-- Modo **mixto**: responde y perfila solo, y pasa la conversación al asesor cuando hay que cotizar un precio o confirmar una visita. No inventa precios porque todavía no hay catálogo.
-- Tono cordial y breve, en español de México.
+## 1. Agente exclusivo de Refrigeración
+- Se configura el agente del embudo **Servicio y Mantenimiento**, que solo corre en este tenant. Pregunta qué servicio necesita el cliente, el equipo, la falla, la zona y el mes deseado.
+- Modo mixto: el agente perfila y pasa la conversación al asesor para el precio y la confirmación. No inventa precios.
 
-## 2. Nombre de la oportunidad
-- Se agrega un campo **«Nombre de la oportunidad»**.
-- Se llena solo con el servicio y el equipo que dio el cliente, por ejemplo: «Mantenimiento 6M – Refrigerador Whirlpool».
-- El asesor puede cambiarlo cuando quiera desde la edición rápida que ya existe. Si el asesor lo cambia, el agente ya no lo vuelve a sobrescribir.
-- Las oportunidades viejas se quedan como están.
+## 2. Nombre automático según categoría y frecuencia
+- El asesor (o el agente) captura la **Categoría** (por ejemplo «Mantenimiento») y la **Frecuencia** (Mensual, Trimestral, Semestral o Anual).
+- Walix arma el nombre así: **Categoría + frecuencia en meses + mes y año del servicio**.
+  - Mantenimiento + Semestral en noviembre → **«Mantenimiento 6M Nov 2026»**
+  - Anual → «12M», Trimestral → «3M», Mensual → «1M», sin frecuencia → solo «Cambio de filtro Nov 2026»
+- El mes es el del servicio programado; si no hay fecha, se usa el mes en que se crea la oportunidad.
+- El nombre se recalcula si cambian la categoría, la frecuencia o el mes, **salvo que el asesor lo haya editado a mano**. En ese caso se respeta su nombre.
+- En la ficha de la oportunidad aparecen los campos Categoría y Frecuencia junto al nombre, que se puede editar.
+- Las oportunidades que ya existen no se renombran.
 
 ## Detalles técnicos
-- Actualizar en `sales_agents` las instrucciones, el objetivo, el modo y las preguntas de perfilamiento de los 2 agentes del tenant, solo con datos (sin cambios en el código del cerebro compartido).
-- Agregar a `contact_custom_fields` de este tenant los campos de perfilamiento: equipo, marca, falla y zona. El nombre se arma con el trigger de nombres que ya existe, que respeta las ediciones del asesor.
-- Probar con el simulador `/wa-sim` una conversación de mantenimiento y confirmar que el nombre generado aparece en la oportunidad.
+- La oportunidad ya guarda la categoría del producto y la frecuencia del servicio en meses, además del último nombre que se llenó automáticamente. Se agrega una regla en la base de datos, activada solo para este tenant, que genera el nombre `<categoría> <N>M <Mes abreviado es-MX> <año>`. Solo sobrescribe el nombre si sigue igual al último que se llenó automáticamente, así se preservan las ediciones del asesor.
+- El selector de Categoría y Frecuencia se muestra en la edición rápida que ya existe para las oportunidades.
+- Las instrucciones y el objetivo del agente se actualizan solo en los datos de este tenant, y el agente llena la categoría y la frecuencia al perfilar.
+- Pruebas: Mantenimiento + Semestral en noviembre de 2026 genera «Mantenimiento 6M Nov 2026», y después de una edición manual el nombre ya no cambia. Además se probará en el simulador de WhatsApp.
