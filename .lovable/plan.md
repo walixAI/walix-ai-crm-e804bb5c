@@ -17,7 +17,8 @@ Solo para el tenant **Refrigeración González y Rodríguez**. SCALA, SXP y los 
 - El mes es el del servicio programado; si no hay fecha, se usa el mes en que se crea la oportunidad.
 - El nombre se recalcula si cambian la categoría, la frecuencia o el mes, **salvo que el asesor lo haya editado a mano**. En ese caso se respeta su nombre.
 - En la ficha de la oportunidad aparecen los campos Categoría y Frecuencia junto al nombre, que se puede editar.
-- Las oportunidades que ya existen no se renombran.
+- Las categorías sin recurrencia (Refacciones, Cambio de filtro, Otros varios) no muestran frecuencia y llevan solo la categoría y el mes, por ejemplo «Refacciones Nov 2026». La frecuencia es opcional en todas las categorías.
+- Aplica a las oportunidades nuevas y a las que se editen mientras conserven el nombre automático. Las oportunidades que ya existen no se renombran.
 
 ## Detalles técnicos
 - La oportunidad ya guarda la categoría del producto y la frecuencia del servicio en meses, además del último nombre que se llenó automáticamente. Se agrega una opción de configuración por tenant, «formato de nombre de la oportunidad», que viene apagada para todos y solo se enciende en Refrigeración; no hay un tenant escrito en el código. Con esa opción encendida, una regla en la base de datos genera el nombre `<categoría> <N>M <Mes abreviado es-MX> <año>`. Solo sobrescribe el nombre si sigue igual al último que se llenó automáticamente, así se preservan las ediciones del asesor.
