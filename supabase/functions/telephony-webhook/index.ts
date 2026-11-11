@@ -10,69 +10,112 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Webhook de eventos del proveedor (Telnyx/Twilio). Actualiza el estado de la llamada.
-// Más adelante: al llegar la grabación, dispara call-analyzer.
+// Twilio entrega formularios codificados; Telnyx entrega JSON.
+
+async function readPayload(req: Request): Promise<Record<string, any>> {
+  const ct = (req.headers.get("content-type") ?? "").toLowerCase();
+  if (ct.includes("application/x-www-form-urlencoded")) {
+    const form = await req.formData().catch(() => null);
+    const out: Record<string, string> = {};
+    form?.forEach((value, key) => { out[key] = String(value); });
+    return out;
+  }
+  return await req.json().catch(() => ({}));
+}
+
+function ok(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// Estados que reporta cada proveedor sobre la misma llamada.
+const STATUS_MAP: Record<string, string> = {
+  // Telnyx v2
+  "call.initiated": "queued",
+  "call.ringing": "ringing",
+  "call.answered": "answered",
+  "call.hangup": "completed",
+  "call.machine.detection.ended": "voicemail",
+  // Twilio (CallStatus)
+  queued: "queued",
+  ringing: "ringing",
+  "in-progress": "answered",
+  completed: "completed",
+  busy: "busy",
+  "no-answer": "no_answer",
+  canceled: "no_answer",
+  failed: "failed",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const payload = await req.json().catch(() => ({}));
+
+    // El callback debe traer el token del canal: sin él no se modifica ninguna llamada.
+    const url = new URL(req.url);
+    const token = url.searchParams.get("token") ?? req.headers.get("x-walix-webhook-token");
+    if (!token) return ok({ ok: true, ignored: true });
+
+    const { data: channel } = await admin.from("call_channels")
+      .select("id, tenant_id, phone_number, pbx_config, provider")
+      .eq("webhook_token", token).maybeSingle();
+    if (!channel) return ok({ ok: true, ignored: true }, 401);
+
+    const payload = await readPayload(req);
 
     // Formato Telnyx v2: data.event_type, data.payload.call_control_id
     const eventType: string | undefined = payload?.data?.event_type ?? payload?.event_type;
     const p = payload?.data?.payload ?? payload ?? {};
     const providerCallId: string | undefined = p.call_control_id ?? p.CallSid;
-
-    if (!providerCallId) {
-      return new Response(JSON.stringify({ ok: true, ignored: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!providerCallId) return ok({ ok: true, ignored: true });
 
     // Llamada entrante nueva: enrutar por PBX
-    const isInbound = (eventType === "call.initiated" && p.direction === "incoming") || (p.Direction === "inbound" && p.CallStatus === "ringing");
+    const isInbound = (eventType === "call.initiated" && p.direction === "incoming") ||
+      (String(p.Direction ?? "").toLowerCase() === "inbound" && !!p.CallStatus);
     if (isInbound) {
       const { data: existing } = await admin.from("calls").select("id").eq("provider_call_id", providerCallId).maybeSingle();
       if (!existing) {
         const toNum = String(p.to ?? p.To ?? "").replace(/\D/g, "").slice(-10);
-        const { data: channels } = await admin.from("call_channels").select("*").eq("status", "active");
-        const channel = (channels ?? []).find((c: any) => String(c.phone_number ?? "").replace(/\D/g, "").slice(-10) === toNum);
-        if (channel) {
-          const r = await routeInboundCall(admin, { channel, fromNumber: String(p.from ?? p.From ?? ""), digit: p.Digits ?? null, providerCallId });
-          return new Response(JSON.stringify({ ok: true, routed: r.target }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const channelLast10 = String(channel.phone_number ?? "").replace(/\D/g, "").slice(-10);
+        if (toNum && toNum === channelLast10) {
+          const r = await routeInboundCall(admin, {
+            channel,
+            fromNumber: String(p.from ?? p.From ?? ""),
+            digit: p.Digits ?? null,
+            providerCallId,
+          });
+          return ok({ ok: true, routed: r.target });
         }
       }
     }
 
-    const statusMap: Record<string, string> = {
-      "call.initiated": "queued",
-      "call.ringing": "ringing",
-      "call.answered": "answered",
-      "call.hangup": "completed",
-      "call.machine.detection.ended": "voicemail",
-      Ringing: "ringing",
-      Completed: "completed",
-      Busy: "busy",
-      NoAnswer: "no_answer",
-      Failed: "failed",
-    };
-    const status = eventType ? statusMap[eventType] : undefined;
+    const rawStatus: string | undefined = eventType ?? p.CallStatus ?? p.call_status;
+    const status = rawStatus ? STATUS_MAP[rawStatus] : undefined;
+
+    // Aviso de grabación: Twilio lo publica en la misma URL con RecordingSid/RecordingUrl.
+    if (p.RecordingSid && p.RecordingUrl) {
+      await admin.from("calls").update({ recording_url: String(p.RecordingUrl) })
+        .eq("provider_call_id", providerCallId).is("ended_at", null);
+    }
 
     const update: Record<string, unknown> = {};
     if (status) update.status = status;
-    if (eventType === "call.answered") update.answered_at = new Date().toISOString();
-    if (eventType === "call.hangup" || eventType === "Completed") {
+    if (status === "answered") update.answered_at = new Date().toISOString();
+    if (status === "completed" || status === "busy" || status === "no_answer" || status === "failed" || status === "voicemail") {
       update.ended_at = new Date().toISOString();
-      if (p.call_leg_duration_secs ?? p.Duration) {
-        update.duration_seconds = Number(p.call_leg_duration_secs ?? p.Duration);
-      }
+      const secs = Number(p.call_leg_duration_secs ?? p.Duration);
+      if (Number.isFinite(secs)) update.duration_seconds = secs;
     }
-    if (p.recording_urls?.[0]?.mp3 || p.RecordingUrl) {
-      update.recording_url = p.recording_urls?.[0]?.mp3 ?? p.RecordingUrl;
-    }
+    if (p.recording_urls?.[0]?.mp3) update.recording_url = p.recording_urls[0].mp3;
 
     if (Object.keys(update).length > 0) {
-      await admin.from("calls").update(update).eq("provider_call_id", providerCallId);
+      // No pisar una llamada que el asesor ya cerró desde Walix.
+      await admin.from("calls").update(update)
+        .eq("provider_call_id", providerCallId).is("ended_at", null);
     }
 
     // Transcripción entregada por el proveedor (Telnyx/Twilio): guardar y analizar con IA.
@@ -86,9 +129,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return ok({ ok: true });
   } catch (e) {
     console.error("telephony-webhook error:", e);
     return new Response(JSON.stringify({ error: "Error interno" }), {
