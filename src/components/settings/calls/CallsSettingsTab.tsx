@@ -18,6 +18,27 @@ import { toast } from "sonner";
 
 interface Props { tenantId: string }
 
+const CRED_FIELDS: Record<string, { key: string; label: string; placeholder: string }[]> = {
+  twilio: [
+    { key: "account_sid", label: "Account SID", placeholder: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+    { key: "api_key_sid", label: "API Key SID", placeholder: "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+    { key: "api_key_secret", label: "API Key Secret", placeholder: "Se guarda cifrada, nunca se muestra" },
+  ],
+  telnyx: [
+    { key: "api_key", label: "API Key", placeholder: "Se guarda cifrada, nunca se muestra" },
+    { key: "connection_id", label: "Connection ID", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+  ],
+};
+
+function collectCredentials(form: any): Record<string, string> | null {
+  const fields = CRED_FIELDS[form.provider] ?? [];
+  if (!fields.length) return null;
+  const filled = fields.filter((f) => String(form[f.key] ?? "").trim());
+  if (!filled.length) return null;
+  if (filled.length !== fields.length) throw new Error("Completa todas las credenciales del proveedor");
+  return Object.fromEntries(fields.map((f) => [f.key, String(form[f.key]).trim()]));
+}
+
 export function CallsSettingsTab({ tenantId }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -31,7 +52,10 @@ export function CallsSettingsTab({ tenantId }: Props) {
     const t = (data as any).target;
     toast.success(t === "voicemail" ? "Llamada enviada a buzón (fuera de horario o por menú)" : (data as any).call?.user_id ? "Llamada sonando con el asesor" : "Sin asesor disponible: se avisó a supervisores");
   };
-  const [form, setForm] = useState({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "" });
+  const [form, setForm] = useState({
+    name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "",
+    account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "",
+  });
 
   const { data: channels } = useQuery({
     queryKey: ["call-channels", tenantId],
@@ -53,12 +77,23 @@ export function CallsSettingsTab({ tenantId }: Props) {
         recording_notice: form.recording_notice.trim() || null,
       };
       if (!payload.name) throw new Error("Ponle un nombre al canal");
+      let channelId: string;
       if (editing) {
         const { error } = await supabase.from("call_channels").update(payload).eq("id", editing.id);
         if (error) throw error;
+        channelId = editing.id;
       } else {
-        const { error } = await supabase.from("call_channels").insert({ ...payload, tenant_id: tenantId });
+        const { data, error } = await supabase.from("call_channels")
+          .insert({ ...payload, tenant_id: tenantId }).select("id").single();
         if (error) throw error;
+        channelId = data.id;
+      }
+      const creds = collectCredentials(form);
+      if (creds) {
+        const { data: res, error } = await supabase.functions.invoke("telephony-api", {
+          body: { action: "save_credentials", channel_id: channelId, credentials: creds },
+        });
+        if (error || (res as any)?.error) throw new Error((res as any)?.error ?? "No se pudieron guardar las credenciales");
       }
     },
     onSuccess: () => {
@@ -80,12 +115,12 @@ export function CallsSettingsTab({ tenantId }: Props) {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "" });
+    setForm({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "", account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "" });
     setOpen(true);
   };
   const openEdit = (c: any) => {
     setEditing(c);
-    setForm({ name: c.name, provider: c.provider, phone_number: c.phone_number ?? "", record_calls: c.record_calls, recording_notice: c.recording_notice ?? "" });
+    setForm({ name: c.name, provider: c.provider, phone_number: c.phone_number ?? "", record_calls: c.record_calls, recording_notice: c.recording_notice ?? "", account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "" });
     setOpen(true);
   };
 
@@ -119,6 +154,11 @@ export function CallsSettingsTab({ tenantId }: Props) {
                     {c.status === "active" ? "Activo" : "Pausado"}
                   </Badge>
                   <Badge variant="outline">{c.provider === "simulated" ? "Simulado" : c.provider}</Badge>
+                  {c.provider !== "simulated" && (
+                    <Badge variant={c.credentials_encrypted ? "secondary" : "outline"}>
+                      {c.credentials_encrypted ? "Credenciales listas" : "Sin credenciales"}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {c.phone_number ?? "Sin número"} · {c.record_calls ? "Graba llamadas" : "Sin grabación"}
@@ -174,8 +214,29 @@ export function CallsSettingsTab({ tenantId }: Props) {
                   <SelectItem value="twilio">Twilio</SelectItem>
                 </SelectContent>
               </Select>
-              {form.provider !== "simulated" && (
-                <p className="text-xs text-muted-foreground">Las credenciales se configuran cuando conectemos la cuenta real. Por ahora el canal queda listo.</p>
+              {(CRED_FIELDS[form.provider] ?? []).length > 0 && (
+                <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Se guardan cifradas en el servidor y solo las usa Walix al marcar. No se vuelven a mostrar.
+                  </p>
+                  {(CRED_FIELDS[form.provider] ?? []).map((f) => (
+                    <div key={f.key} className="space-y-1">
+                      <Label className="text-xs">{f.label}</Label>
+                      <Input
+                        type={f.key.includes("secret") || f.key === "api_key" ? "password" : "text"}
+                        value={(form as any)[f.key]}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        placeholder={f.placeholder}
+                        autoComplete="off"
+                      />
+                    </div>
+                  ))}
+                  {editing?.credentials_encrypted && (
+                    <p className="text-xs text-muted-foreground">
+                      Ya hay credenciales guardadas. Déjalas vacías para conservarlas o escribe nuevas para reemplazarlas.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <div className="space-y-1.5">
