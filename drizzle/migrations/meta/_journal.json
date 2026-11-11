@@ -330,6 +330,13 @@
       "when": 1794008630103,
       "tag": "0046_deal_auto_name_use_expected_close",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794429011152,
+      "tag": "0047_add_call_channel_webhook_token",
+      "breakpoints": true
     }
   ]
 }
