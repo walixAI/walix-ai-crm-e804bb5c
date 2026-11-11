@@ -115,12 +115,12 @@ export function CallsSettingsTab({ tenantId }: Props) {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "" });
+    setForm({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "", account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "" });
     setOpen(true);
   };
   const openEdit = (c: any) => {
     setEditing(c);
-    setForm({ name: c.name, provider: c.provider, phone_number: c.phone_number ?? "", record_calls: c.record_calls, recording_notice: c.recording_notice ?? "" });
+    setForm({ name: c.name, provider: c.provider, phone_number: c.phone_number ?? "", record_calls: c.record_calls, recording_notice: c.recording_notice ?? "", account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "" });
     setOpen(true);
   };
 
@@ -154,6 +154,11 @@ export function CallsSettingsTab({ tenantId }: Props) {
                     {c.status === "active" ? "Activo" : "Pausado"}
                   </Badge>
                   <Badge variant="outline">{c.provider === "simulated" ? "Simulado" : c.provider}</Badge>
+                  {c.provider !== "simulated" && (
+                    <Badge variant={c.credentials_encrypted ? "secondary" : "outline"}>
+                      {c.credentials_encrypted ? "Credenciales listas" : "Sin credenciales"}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {c.phone_number ?? "Sin número"} · {c.record_calls ? "Graba llamadas" : "Sin grabación"}
@@ -209,8 +214,29 @@ export function CallsSettingsTab({ tenantId }: Props) {
                   <SelectItem value="twilio">Twilio</SelectItem>
                 </SelectContent>
               </Select>
-              {form.provider !== "simulated" && (
-                <p className="text-xs text-muted-foreground">Las credenciales se configuran cuando conectemos la cuenta real. Por ahora el canal queda listo.</p>
+              {(CRED_FIELDS[form.provider] ?? []).length > 0 && (
+                <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Se guardan cifradas en el servidor y solo las usa Walix al marcar. No se vuelven a mostrar.
+                  </p>
+                  {(CRED_FIELDS[form.provider] ?? []).map((f) => (
+                    <div key={f.key} className="space-y-1">
+                      <Label className="text-xs">{f.label}</Label>
+                      <Input
+                        type={f.key.includes("secret") || f.key === "api_key" ? "password" : "text"}
+                        value={(form as any)[f.key]}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        placeholder={f.placeholder}
+                        autoComplete="off"
+                      />
+                    </div>
+                  ))}
+                  {editing?.credentials_encrypted && (
+                    <p className="text-xs text-muted-foreground">
+                      Ya hay credenciales guardadas. Déjalas vacías para conservarlas o escribe nuevas para reemplazarlas.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <div className="space-y-1.5">
