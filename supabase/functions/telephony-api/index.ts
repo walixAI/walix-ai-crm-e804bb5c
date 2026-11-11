@@ -3,6 +3,13 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getTelephonyProvider } from "../_shared/telephony-provider.ts";
 import { routeInboundCall } from "../_shared/telephony-routing.ts";
+import { decryptCredentials, encryptCredentials } from "../_shared/telephony-creds.ts";
+
+const CRED_KEYS: Record<string, string[]> = {
+  twilio: ["account_sid", "api_key_sid", "api_key_secret"],
+  telnyx: ["api_key", "connection_id"],
+};
+const ADMIN_ROLES = ["tenant_admin", "tenant_owner", "sales_manager"];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -65,12 +72,24 @@ serve(async (req) => {
         dealId = deal?.id ?? null;
       }
 
+      const credentials = channel.credentials_encrypted
+        ? await decryptCredentials(channel.credentials_encrypted)
+        : null;
+      const { data: caller } = await admin.from("profiles").select("phone").eq("id", user.id).maybeSingle();
+
       const provider = getTelephonyProvider({
         provider: channel.provider,
         phone_number: channel.phone_number,
-        credentials: null, // credenciales cifradas se resolverán al conectar proveedor real
+        credentials,
       });
-      const started = await provider.startCall(toNumber, channel.phone_number);
+      const started = await provider.startCall(toNumber, channel.phone_number, {
+        bridgingTo: caller?.phone ?? null,
+        recordCalls: !!channel.record_calls,
+        recordingNotice: channel.recording_notice ?? null,
+        statusCallbackUrl: channel.webhook_token
+          ? `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${channel.webhook_token}`
+          : null,
+      });
 
       const { data: call, error: insErr } = await admin.from("calls").insert({
         tenant_id: tenantId,
@@ -149,6 +168,39 @@ serve(async (req) => {
         : { status: "no_answer", ended_at: now, outcome: "Rechazada por el asesor", user_id: user.id };
       await admin.from("calls").update(upd).eq("id", call.id);
       return json({ ok: true });
+    }
+
+    if (action === "save_credentials") {
+      const channelId = body?.channel_id as string | undefined;
+      const incoming = body?.credentials as Record<string, string> | undefined;
+      if (!channelId || !incoming || typeof incoming !== "object") {
+        return json({ error: "Faltan el canal o las credenciales" }, 400);
+      }
+      const { data: roles } = await admin.from("user_roles").select("role")
+        .eq("user_id", user.id).eq("tenant_id", tenantId);
+      if (!(roles ?? []).some((r: any) => ADMIN_ROLES.includes(r.role))) {
+        return json({ error: "Solo administradores pueden guardar credenciales" }, 403);
+      }
+      const { data: channel } = await admin.from("call_channels")
+        .select("id, provider, webhook_token").eq("id", channelId).eq("tenant_id", tenantId).maybeSingle();
+      if (!channel) return json({ error: "Canal no encontrado" }, 404);
+
+      const allowed = CRED_KEYS[channel.provider] ?? [];
+      if (!allowed.length) return json({ error: "Este canal no usa credenciales" }, 400);
+      const clean: Record<string, string> = {};
+      for (const key of allowed) {
+        const v = incoming[key];
+        if (typeof v === "string" && v.trim()) clean[key] = v.trim();
+      }
+      if (Object.keys(clean).length !== allowed.length) {
+        return json({ error: "Faltan credenciales por capturar" }, 400);
+      }
+
+      const patch: Record<string, unknown> = { credentials_encrypted: await encryptCredentials(clean) };
+      if (!channel.webhook_token) patch.webhook_token = crypto.randomUUID().replace(/-/g, "");
+      const { error: upErr } = await admin.from("call_channels").update(patch).eq("id", channelId);
+      if (upErr) throw upErr;
+      return json({ ok: true, configured: true });
     }
 
     return json({ error: "Acción no reconocida" }, 400);
