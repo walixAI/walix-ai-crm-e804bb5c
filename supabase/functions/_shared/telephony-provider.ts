@@ -39,10 +39,19 @@ class SimulatedProvider implements TelephonyProvider {
  * TwiML de click-to-call: la primera pierna es el asesor y la segunda el lead.
  * El aviso de grabación se anuncia antes de marcar, y la grabación arranca al contestar.
  */
-export function buildDialTwiml(o: { lead: string; record: boolean; notice?: string | null }): string {
+export function buildDialTwiml(o: {
+  lead: string;
+  record: boolean;
+  notice?: string | null;
+  recordingCallbackUrl?: string | null;
+}): string {
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const say = o.notice && o.notice.trim() ? `<Say language="es-mx">${esc(o.notice.trim())}</Say>` : "";
-  const rec = o.record ? ' record="record-from-answer-dual"' : "";
+  let rec = "";
+  if (o.record) {
+    rec = ' record="record-from-answer-dual"';
+    if (o.recordingCallbackUrl) rec += ` recordingStatusCallback="${esc(o.recordingCallbackUrl)}"`;
+  }
   return `<Response>${say}<Dial timeout="30"${rec}><Number noWrap="true">${esc(o.lead)}</Number></Dial></Response>`;
 }
 
@@ -101,7 +110,12 @@ class TwilioProvider implements TelephonyProvider {
     const body = new URLSearchParams({
       To: advisor,
       From: fromNumber,
-      Twiml: buildDialTwiml({ lead: to, record: !!opts.recordCalls, notice: opts.recordingNotice }),
+      Twiml: buildDialTwiml({
+        lead: to,
+        record: !!opts.recordCalls,
+        notice: opts.recordingNotice,
+        recordingCallbackUrl: opts.statusCallbackUrl ?? null,
+      }),
     });
     if (opts.statusCallbackUrl) body.set("StatusCallback", opts.statusCallbackUrl);
 
