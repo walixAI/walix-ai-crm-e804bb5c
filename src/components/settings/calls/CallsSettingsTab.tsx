@@ -18,6 +18,27 @@ import { toast } from "sonner";
 
 interface Props { tenantId: string }
 
+const CRED_FIELDS: Record<string, { key: string; label: string; placeholder: string }[]> = {
+  twilio: [
+    { key: "account_sid", label: "Account SID", placeholder: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+    { key: "api_key_sid", label: "API Key SID", placeholder: "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+    { key: "api_key_secret", label: "API Key Secret", placeholder: "Se guarda cifrada, nunca se muestra" },
+  ],
+  telnyx: [
+    { key: "api_key", label: "API Key", placeholder: "Se guarda cifrada, nunca se muestra" },
+    { key: "connection_id", label: "Connection ID", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+  ],
+};
+
+function collectCredentials(form: any): Record<string, string> | null {
+  const fields = CRED_FIELDS[form.provider] ?? [];
+  if (!fields.length) return null;
+  const filled = fields.filter((f) => String(form[f.key] ?? "").trim());
+  if (!filled.length) return null;
+  if (filled.length !== fields.length) throw new Error("Completa todas las credenciales del proveedor");
+  return Object.fromEntries(fields.map((f) => [f.key, String(form[f.key]).trim()]));
+}
+
 export function CallsSettingsTab({ tenantId }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -31,7 +52,10 @@ export function CallsSettingsTab({ tenantId }: Props) {
     const t = (data as any).target;
     toast.success(t === "voicemail" ? "Llamada enviada a buzón (fuera de horario o por menú)" : (data as any).call?.user_id ? "Llamada sonando con el asesor" : "Sin asesor disponible: se avisó a supervisores");
   };
-  const [form, setForm] = useState({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "" });
+  const [form, setForm] = useState({
+    name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "",
+    account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "",
+  });
 
   const { data: channels } = useQuery({
     queryKey: ["call-channels", tenantId],
@@ -53,12 +77,23 @@ export function CallsSettingsTab({ tenantId }: Props) {
         recording_notice: form.recording_notice.trim() || null,
       };
       if (!payload.name) throw new Error("Ponle un nombre al canal");
+      let channelId: string;
       if (editing) {
         const { error } = await supabase.from("call_channels").update(payload).eq("id", editing.id);
         if (error) throw error;
+        channelId = editing.id;
       } else {
-        const { error } = await supabase.from("call_channels").insert({ ...payload, tenant_id: tenantId });
+        const { data, error } = await supabase.from("call_channels")
+          .insert({ ...payload, tenant_id: tenantId }).select("id").single();
         if (error) throw error;
+        channelId = data.id;
+      }
+      const creds = collectCredentials(form);
+      if (creds) {
+        const { data: res, error } = await supabase.functions.invoke("telephony-api", {
+          body: { action: "save_credentials", channel_id: channelId, credentials: creds },
+        });
+        if (error || (res as any)?.error) throw new Error((res as any)?.error ?? "No se pudieron guardar las credenciales");
       }
     },
     onSuccess: () => {
