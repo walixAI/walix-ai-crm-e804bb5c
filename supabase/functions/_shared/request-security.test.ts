@@ -1,4 +1,4 @@
-// @vitest-environment node
+import { webcrypto } from "node:crypto";
 import { describe, it, expect } from "vitest";
 import { matchesServiceCredential, safeConversation } from "./request-validation";
 import { validMetaSignature } from "./meta-signature";
@@ -17,8 +17,8 @@ describe("trusted request boundaries", () => {
   });
   it("verifies the raw body signature and rejects tampering", async () => {
     const body = '{"entry":[]}';
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode("test-secret"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)));
+    const key = await webcrypto.subtle.importKey("raw", new TextEncoder().encode("test-secret"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = new Uint8Array(await webcrypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)));
     const header = "sha256=" + Array.from(sig, b => b.toString(16).padStart(2, "0")).join("");
     expect(await validMetaSignature(body, header, "test-secret")).toBe(true);
     expect(await validMetaSignature(body + " ", header, "test-secret")).toBe(false);
