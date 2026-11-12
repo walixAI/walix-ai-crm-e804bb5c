@@ -34,13 +34,17 @@ Deno.serve(async (req) => {
   if (denied) return denied;
 
   try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !serviceKey) throw new Error("Configuración del proceso incompleta");
     const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      url,
+      serviceKey,
     );
 
     const now = new Date();
     const today = toDateStr(now);
+    let processedSubscriptions = 0;
 
     // 1. Procesar recurrencias genéricas (constructor de servicios recurrentes).
     // La agenda futura (2 citas por suscripción) la mantiene recurrence_fill_horizon.
@@ -253,6 +257,7 @@ Deno.serve(async (req) => {
       const { data: allSubs } = await admin
         .from("recurrence_subscriptions")
         .select("id, recurrence:recurrence_id(future_horizon, enabled)");
+      processedSubscriptions = allSubs?.length ?? 0;
       const { data: futureOccs } = await admin
         .from("recurrence_occurrences")
         .select("subscription_id, due_date, status")
@@ -274,11 +279,12 @@ Deno.serve(async (req) => {
     }
 
     // 2. Procesar automatizaciones programadas clásicas
-    const { data: automations } = await admin
+    const { data: automations, error: automationsError } = await admin
       .from("automations")
       .select("*")
-      .eq("is_active", true)
+      .eq("enabled", true)
       .in("trigger_type", ["deal_inactive", "deal_close_date_near", "contact_no_reply"]);
+    if (automationsError) throw automationsError;
 
     for (const auto of automations ?? []) {
       try {
@@ -286,37 +292,49 @@ Deno.serve(async (req) => {
         if (auto.trigger_type === "deal_inactive") {
           const days = Number(cfg.days || 5);
           const since = addDays(now, -days).toISOString();
-          const { data: deals } = await admin
+          const { data: deals, error: dealsError } = await admin
             .from("deals")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
-            .or(`updated_at.lt.${since},last_activity_at.lt.${since}`)
-            .not("status", "in", "(won,lost)");
+            .lt("updated_at", since)
+            .eq("is_won", false)
+            .eq("is_lost", false);
+          if (dealsError) throw dealsError;
           for (const d of deals ?? []) {
             await executeActions(admin, auto, d);
           }
         } else if (auto.trigger_type === "deal_close_date_near") {
           const days = Number(cfg.days || 3);
           const target = addDays(now, days).toISOString().slice(0, 10);
-          const { data: deals } = await admin
+          const { data: deals, error: dealsError } = await admin
             .from("deals")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
             .eq("expected_close_date", target)
-            .not("status", "in", "(won,lost)");
+            .eq("is_won", false)
+            .eq("is_lost", false);
+          if (dealsError) throw dealsError;
           for (const d of deals ?? []) {
             await executeActions(admin, auto, d);
           }
         } else if (auto.trigger_type === "contact_no_reply") {
           const days = Number(cfg.days || 3);
           const since = addDays(now, -days).toISOString();
-          const { data: contacts } = await admin
+          const { data: contacts, error: contactsError } = await admin
             .from("contacts")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
-            .lt("last_inbound_at", since)
-            .or("lifecycle.eq.prospecto,lifecycle.eq.cliente");
+            .in("status", ["prospecto", "cliente"]);
+          if (contactsError) throw contactsError;
+          const { data: inbound, error: inboundError } = await admin.rpc("contact_last_inbound", {
+            _tenant_id: auto.tenant_id,
+            _contact_ids: (contacts ?? []).map((c: any) => c.id),
+          });
+          if (inboundError) throw inboundError;
+          const lastInbound = new Map<string, string>((inbound ?? []).map((row: any) => [row.contact_id, row.last_inbound]));
           for (const c of contacts ?? []) {
+            const last = lastInbound.get(c.id);
+            if (!last || last >= since) continue;
             await executeActions(admin, auto, c);
           }
         }
@@ -325,7 +343,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed_subscriptions: subs?.length ?? 0, processed_automations: automations?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, processed_subscriptions: processedSubscriptions, processed_automations: automations?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("automations-run error", e);
     return new Response(JSON.stringify({ error: e?.message ?? "Error interno" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });

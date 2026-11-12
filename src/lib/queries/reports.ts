@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
@@ -451,17 +451,16 @@ export function useReportsData(filters: ReportFilters) {
   const { data: tenantId } = useTenantId();
   const { data: users } = useTenantUsers();
 
-  const [minute, setMinute] = useState(() => Math.floor(Date.now() / 60_000));
-  useEffect(() => { const timer = setInterval(() => setMinute(Math.floor(Date.now() / 60_000)), 30_000); return () => clearInterval(timer); }, []);
-  const range = useMemo(() => resolvePeriodRange(filters.period), [filters.period, minute]);
   const sellersKey = filters.sellers.join(",");
 
   const query = useQuery({
-    queryKey: ["reports", tenantId, filters.period.preset, filters.period.from, filters.period.to, minute],
+    queryKey: ["reports", tenantId, filters.period.preset, filters.period.from, filters.period.to],
     enabled: !!tenantId && !!users,
     staleTime: 30_000,
+    refetchInterval: 60_000,
     queryFn: async () => {
       if (!tenantId) throw new Error("Sin empresa activa");
+      const range = resolvePeriodRange(filters.period);
       const [curr, prev] = await Promise.all([
         fetchRange(tenantId, range.from, range.to),
         fetchRange(tenantId, range.prevFrom, range.prevTo),
