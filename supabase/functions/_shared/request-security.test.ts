@@ -1,5 +1,6 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { matchesServiceCredential, safeConversation } from "./request-security";
+import { matchesServiceCredential, safeConversation } from "./request-validation";
 import { validMetaSignature } from "./meta-signature";
 
 describe("trusted request boundaries", () => {
