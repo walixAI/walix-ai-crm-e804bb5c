@@ -30,3 +30,4 @@
 - AI edge functions log usage via recordAiUsage or _shared/ai-track.ts (surface = function key); why: metrics cover every feature.
 - Call start failures remain visible and device dialing is explicit; manual outcomes reuse LogFollowUpDialog, while provider outcomes require a returned call ID; why: a tel: handoff does not confirm a call or justify a fabricated result.
 - Tenant-specific opportunity naming is configured via tenants.deal_name_template (NULL = default) and applied in sync_opportunity_labels through deal_auto_name, recalculating only while the name equals profile_auto_name; why: per-tenant behavior lives in data, never hardcoded tenant checks, and advisor edits win.
+- Pipeline "active" lens counts open deals from creation until closed, regardless of period start; why: stage filters must never hide live opportunities created in earlier months.
