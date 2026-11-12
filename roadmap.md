@@ -2,14 +2,17 @@
 
 # Auditoría integral solicitada
 
-- [ ] Primera etapa autorizada: bloque 1, contención inmediata.
-- [ ] Primera etapa autorizada: bloque 2, aislamiento y permisos.
-- [ ] Primera etapa autorizada: bloque 4, exactitud de resultados y manejo de fallas.
+- [x] Bloque 1: función administrativa retirada; prueba y rechazo desplegado 410 comprobados; registros disponibles no demuestran uso indebido.
+- [x] Bloque 2: permisos de automatizaciones/claves de entrada, roles del copiloto, consultas privilegiadas, importaciones y envíos segmentados reforzados; credenciales sin lectura de usuarios; chat público sin identidad CRM heredada; cachés privadas limpiadas.
+- [x] Bloque 4: comparativos constantes retirados, tasa real por cierre, lost_at estable, reportes relativos y paginación de indicadores/diagnóstico; eliminación con respaldo y recuperación; 76 pruebas de aplicación y una de función retiradas aprobadas.
+- [ ] Validar los bloques 2 y 4 en pantalla con sesión autorizada, incluidos Ariela, cambios de empresa y recuperación de archivos — no pudo obtenerse la sesión de Erick.
+- [ ] Resolver significado de «Creadas en el periodo» y «Hoy» — espera decisión de Erick; comportamiento conservado.
+- [ ] Fechas de pérdida históricas: 138 sin fecha confiable en la nueva columna; no usar última edición ni inventar fecha — espera confirmar criterio de recuperación histórica.
 - [ ] Segunda etapa: bloques 3 y 5; no ejecutar todavía, por decisión de Erick.
 - [x] Comprobar integridad de datos en las 14 empresas y controles anónimos; sin certificar aislamiento autenticado.
 - [x] Ejecutar 61 pruebas existentes y revisar acciones/permisos por código; 20 rutas privadas comprobadas sin sesión.
 - [x] Revisar seguridad de interfaz, funciones y base de datos; entregar diagnóstico con hallazgos y cobertura explícita, sin cambios comerciales.
-- [ ] Incorporar resultado del análisis profundo de seguridad — espera su notificación de finalización.
+- [x] Incorporar análisis profundo terminado: aislamiento de importaciones, envíos y chat público reforzado; procesos, avisos y dependencias reservados para segunda etapa. No certifica seguridad total.
 - [ ] Verificar acciones autenticadas por empresa y rol — pendiente de una sesión autorizada; la cuenta del solicitante no pudo obtenerse automáticamente.
 
 # Nombres de documentos
