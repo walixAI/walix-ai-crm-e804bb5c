@@ -2416,6 +2416,7 @@ export type Database = {
           last_inbound_at: string | null
           last_known_blocker_id: string | null
           loss_reason_id: string | null
+          lost_at: string | null
           lost_comment: string | null
           lost_reason: string | null
           name: string
@@ -2458,6 +2459,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_known_blocker_id?: string | null
           loss_reason_id?: string | null
+          lost_at?: string | null
           lost_comment?: string | null
           lost_reason?: string | null
           name: string
@@ -2500,6 +2502,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_known_blocker_id?: string | null
           loss_reason_id?: string | null
+          lost_at?: string | null
           lost_comment?: string | null
           lost_reason?: string | null
           name?: string
