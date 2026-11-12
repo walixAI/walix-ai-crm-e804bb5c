@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { resolvePeriodRange } from "./reports";
 import { useReportsData } from "./reports";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 const fetchState = vi.hoisted(() => ({ blocked: false }));

@@ -34,9 +34,12 @@ Deno.serve(async (req) => {
   if (denied) return denied;
 
   try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !serviceKey) throw new Error("Configuración del proceso incompleta");
     const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      url,
+      serviceKey,
     );
 
     const now = new Date();
@@ -289,37 +292,40 @@ Deno.serve(async (req) => {
         if (auto.trigger_type === "deal_inactive") {
           const days = Number(cfg.days || 5);
           const since = addDays(now, -days).toISOString();
-          const { data: deals } = await admin
+          const { data: deals, error: dealsError } = await admin
             .from("deals")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
             .lt("updated_at", since)
             .eq("is_won", false)
             .eq("is_lost", false);
+          if (dealsError) throw dealsError;
           for (const d of deals ?? []) {
             await executeActions(admin, auto, d);
           }
         } else if (auto.trigger_type === "deal_close_date_near") {
           const days = Number(cfg.days || 3);
           const target = addDays(now, days).toISOString().slice(0, 10);
-          const { data: deals } = await admin
+          const { data: deals, error: dealsError } = await admin
             .from("deals")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
             .eq("expected_close_date", target)
             .eq("is_won", false)
             .eq("is_lost", false);
+          if (dealsError) throw dealsError;
           for (const d of deals ?? []) {
             await executeActions(admin, auto, d);
           }
         } else if (auto.trigger_type === "contact_no_reply") {
           const days = Number(cfg.days || 3);
           const since = addDays(now, -days).toISOString();
-          const { data: contacts } = await admin
+          const { data: contacts, error: contactsError } = await admin
             .from("contacts")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
             .in("status", ["prospecto", "cliente"]);
+          if (contactsError) throw contactsError;
           const { data: inbound, error: inboundError } = await admin.rpc("contact_last_inbound", {
             _tenant_id: auto.tenant_id,
             _contact_ids: (contacts ?? []).map((c: any) => c.id),
