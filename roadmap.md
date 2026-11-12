@@ -1,5 +1,12 @@
 # Información unificada del prospecto
 
+# Auditoría integral solicitada
+
+- [ ] Comprobar consistencia de datos y aislamiento en todas las empresas.
+- [ ] Ejecutar pruebas existentes y revisar pantallas, acciones y permisos con evidencia.
+- [ ] Revisar seguridad de interfaz, funciones y base de datos; entregar hallazgos y límites de cobertura.
+- [ ] Verificar acciones autenticadas por empresa y rol — pendiente de una sesión autorizada; la cuenta del solicitante no pudo obtenerse automáticamente.
+
 # Nombres de documentos
 
 - [x] Acortar automáticamente títulos al subir, editar y adjuntar documentos; envíos del asesor y agente desplegados.
