@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export type PeriodPreset = "today" | "week" | "month" | "quarter" | "custom";
 
@@ -31,12 +32,15 @@ export function periodLabel(p: PeriodValue): string {
 }
 
 export function useReportFilters() {
+  const { user, activeTenantId } = useAuth();
+  const storageKey = `${STORAGE_KEY}:${user?.id ?? "signed-out"}:${activeTenantId ?? "none"}`;
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT);
 
   // Load persisted filters
   useEffect(() => {
+    setFilters(DEFAULT);
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<ReportFilters>;
         if (parsed.period) {
@@ -47,15 +51,15 @@ export function useReportFilters() {
         }
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [storageKey]);
 
   const update = useCallback((next: Partial<ReportFilters>) => {
     setFilters(prev => {
       const merged = { ...prev, ...next };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
+      try { localStorage.setItem(storageKey, JSON.stringify(merged)); } catch { /* ignore */ }
       return merged;
     });
-  }, []);
+  }, [storageKey]);
 
   const setPeriod = useCallback((period: PeriodValue) => update({ period }), [update]);
   const setSellers = useCallback((sellers: string[]) => update({ sellers }), [update]);

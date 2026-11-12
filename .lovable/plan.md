@@ -3,6 +3,9 @@
 ## Objetivo
 Corregir los hallazgos de la auditoría sin alterar datos comerciales ni interrumpir procesos legítimos, y responder por cada flujo: **cumple, no cumple o falta verificar**, con evidencia.
 
+## Orden autorizado
+Primera etapa: bloques 1, 2 y 4, con sus pruebas de corrección. Segunda etapa: bloques 3 y 5, pendientes de nueva autorización. No adelantar el trabajo de la segunda etapa.
+
 ## 1. Contención inmediata — prioridad crítica
 - Retirar o bloquear la función administrativa de pruebas que permite crear usuarios, cambiar contraseñas y asignar roles sin autorización. Eliminar el cambio de contraseña de cuentas existentes de ese mecanismo.
 - Comprobar que solicitudes sin sesión y usuarios sin permiso quedan rechazados antes de cualquier modificación.
@@ -54,7 +57,7 @@ Corregir los hallazgos de la auditoría sin alterar datos comerciales ni interru
 - Revisar políticas, permisos de ejecución y funciones desplegadas; no considerar suficiente ocultar botones.
 - Preparar cambios de permisos junto con sus consumidores para no romper campañas, agente, correo o telefonía.
 - No ejecutar pruebas destructivas sobre registros comerciales ni relajar aislamiento para facilitar la validación.
-- Repetir análisis de seguridad y contrastarlo con la revisión manual. Los resultados disponibles actualmente son anteriores a esta auditoría y no confirman la finalización del análisis profundo.
+- Repetir análisis de seguridad y contrastarlo con la revisión manual. El análisis profundo terminó y sus hallazgos de aislamiento en importaciones, WhatsApp y chat público se incorporaron a la primera etapa; los procesos y avisos de proveedores permanecen en la segunda.
 
 ## Entrega y criterio de finalización
 Entregar por bloque: hallazgos corregidos, pruebas realizadas, riesgos residuales y pendientes con bloqueador. El cierre general exige pruebas de regresión aprobadas, ningún hallazgo crítico/alto confirmado sin tratar y comprobación autenticada de los flujos cubiertos. No equivale a prometer ausencia absoluta de errores ni a certificar acciones que no se probaron.

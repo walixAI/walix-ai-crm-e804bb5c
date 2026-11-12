@@ -1,5 +1,13 @@
 # AGENTS
 
+- QA account administration is retired and always returns 410; why: production must never expose test password resets or caller-selected roles.
+- Query caches are cancelled and cleared on identity, active-tenant or role changes; private reports use scoped in-memory queries, not shared browser storage; why: shared devices must never reuse another user's commercial data.
+- Sensitive channel/account columns have no authenticated SELECT grant; callers select safe metadata and a generated configuration flag; why: RLS alone does not hide secrets inside an authorized row.
+- Public chat never links a claimed phone/email to an existing contact or reads private cross-channel history; only session-created isolated contacts may be updated; why: visitor identity claims are not proof of ownership.
+- Import execution/reversal requires active-tenant management authorization, fixed target tables and tenant-scoped deletion; result columns are server-managed; why: import identifiers and row metadata cannot authorize privileged operations.
+- Losses use stable lost_at maintained by a trigger; unknown historical dates stay null, never updated_at; why: later edits must not move historical losses between periods.
+- Aggregate queries use readAllPages with stable ordering and propagate page failures; document deletion backs up files and restores on failure; why: truncation and partial deletion must not masquerade as complete success.
+
 - Team role changes use the authenticated change_tenant_member_role RPC, restricted to the active tenant owner/platform and audited with auth.uid(); why: atomic tenant-scoped changes must not expose direct role writes or accept caller-supplied actor identities.
 
 - DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
