@@ -2,7 +2,10 @@
 
 # Auditoría integral solicitada
 
-- [ ] Ejecutar el plan de corrección por bloques de riesgo — pendiente de aprobación del plan.
+- [ ] Primera etapa autorizada: bloque 1, contención inmediata.
+- [ ] Primera etapa autorizada: bloque 2, aislamiento y permisos.
+- [ ] Primera etapa autorizada: bloque 4, exactitud de resultados y manejo de fallas.
+- [ ] Segunda etapa: bloques 3 y 5; no ejecutar todavía, por decisión de Erick.
 - [x] Comprobar integridad de datos en las 14 empresas y controles anónimos; sin certificar aislamiento autenticado.
 - [x] Ejecutar 61 pruebas existentes y revisar acciones/permisos por código; 20 rutas privadas comprobadas sin sesión.
 - [x] Revisar seguridad de interfaz, funciones y base de datos; entregar diagnóstico con hallazgos y cobertura explícita, sin cambios comerciales.
