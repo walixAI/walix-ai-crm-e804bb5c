@@ -85,8 +85,10 @@ Deno.serve(async (req) => {
     if (!tenantId) return bad(400, "Sin tenant activo");
 
     // Admin role check (cached for this request)
-    const { data: rolesData } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    const isAdmin = (rolesData ?? []).some((r: any) => r.role === "tenant_admin" || r.role === "tenant_owner" || r.role === "platform_owner" || r.role === "platform_staff");
+    const { data: rolesData } = await supabase.from("user_roles").select("role, tenant_id").eq("user_id", userId);
+    const isAdmin = (rolesData ?? []).some((r: any) =>
+      (r.tenant_id === null && ["platform_owner", "platform_staff"].includes(r.role)) ||
+      (r.tenant_id === tenantId && ["tenant_admin", "tenant_owner"].includes(r.role)));
 
     const body = (await req.json()) as Body;
     if (!body?.kind || !body?.payload) return bad(400, "Cuerpo inválido");

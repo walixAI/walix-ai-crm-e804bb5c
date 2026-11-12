@@ -19,10 +19,11 @@ interface Props {
   onHistory: () => void;
   onDryRun: () => void;
   disabledToggleReason?: string;
+  readOnly?: boolean;
 }
 
 export function AutomationCard({
-  automation, onToggle, onEdit, onDuplicate, onDelete, onHistory, onDryRun, disabledToggleReason,
+  automation, onToggle, onEdit, onDuplicate, onDelete, onHistory, onDryRun, disabledToggleReason, readOnly = false,
 }: Props) {
   const Icon = iconByName(automation.icon);
   const [confirming, setConfirming] = useState(false);
@@ -66,12 +67,12 @@ export function AutomationCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-popover">
-            <DropdownMenuItem onClick={onEdit}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+            <DropdownMenuItem disabled={readOnly} onClick={onEdit}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
             <DropdownMenuItem onClick={onDryRun}><FlaskConical className="h-4 w-4 mr-2" /> Probar (simulación)</DropdownMenuItem>
             <DropdownMenuItem onClick={onHistory}><History className="h-4 w-4 mr-2" /> Ver historial</DropdownMenuItem>
-            <DropdownMenuItem onClick={onDuplicate}><Copy className="h-4 w-4 mr-2" /> Duplicar</DropdownMenuItem>
+            <DropdownMenuItem disabled={readOnly} onClick={onDuplicate}><Copy className="h-4 w-4 mr-2" /> Duplicar</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-danger focus:text-danger">
+            <DropdownMenuItem disabled={readOnly} onClick={onDelete} className="text-danger focus:text-danger">
               <Trash2 className="h-4 w-4 mr-2" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -93,7 +94,7 @@ export function AutomationCard({
           ) : null}
           <Switch
             checked={automation.enabled}
-            disabled={!!disabledToggleReason && !automation.enabled}
+            disabled={readOnly || (!!disabledToggleReason && !automation.enabled)}
             onCheckedChange={handleToggleClick}
             aria-label="Activar automatización"
           />
