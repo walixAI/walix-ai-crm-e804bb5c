@@ -351,6 +351,13 @@
       "when": 1794459927023,
       "tag": "0049_audit_loss_dates_and_rpc_access",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794460249042,
+      "tag": "0050_audit_recurrence_ownership_guard",
+      "breakpoints": true
     }
   ]
 }
