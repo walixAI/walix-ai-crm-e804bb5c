@@ -16,13 +16,9 @@ import { usePipelineHealthScore } from "@/lib/queries/dashboard";
 import { useClosingSoon, useStaleDeals, useOverdueDeals } from "@/lib/queries/dashboardExtras";
 import { DealsListDialog, type DealListItem } from "@/components/dashboard/DealsListDialog";
 import type { HealthStatus } from "@/lib/pipelineHealth";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
-const REPORT_CACHE_KEY = "walix.weeklyReport.v1";
-
-interface CachedReport {
-  week: string;
-  data: DashboardAiResponse;
-}
 
 function healthColor(status: HealthStatus) {
   switch (status) {
@@ -41,8 +37,13 @@ function severityStyle(s: RiskWidget["severity"]) {
 
 export function DashboardAiSection() {
   const navigate = useNavigate();
-  const [data, setData] = useState<DashboardAiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, activeTenantId, roles, contextLoading } = useAuth();
+  const { data, isFetching: loading, refetch } = useQuery({
+    queryKey: ["dashboard-ai-widgets", user?.id, activeTenantId, [...roles].sort()],
+    enabled: !!user && !!activeTenantId && !contextLoading,
+    staleTime: 5 * 60_000,
+    queryFn: () => fetchDashboardAiWidgets(true),
+  });
   const [reportOpen, setReportOpen] = useState(false);
   const { data: health } = usePipelineHealthScore();
   const { data: closingSoon = [] } = useClosingSoon();
@@ -91,32 +92,6 @@ export function DashboardAiSection() {
     });
   };
 
-  const load = async (forceRefreshReport = false) => {
-    setLoading(true);
-    // Try cached weekly report first
-    let cachedReport: CachedReport | null = null;
-    if (!forceRefreshReport) {
-      try {
-        const raw = localStorage.getItem(REPORT_CACHE_KEY);
-        if (raw) cachedReport = JSON.parse(raw) as CachedReport;
-      } catch { /* ignore */ }
-    }
-    // We always fetch widgets; only fetch full report if cache is missing/stale
-    const needReport = forceRefreshReport || !cachedReport;
-    const res = await fetchDashboardAiWidgets(needReport);
-    if (cachedReport && cachedReport.week === res.week && !needReport) {
-      res.weeklyReport = cachedReport.data.weeklyReport;
-    }
-    if (res.weeklyReport && res.source === "live") {
-      try {
-        localStorage.setItem(REPORT_CACHE_KEY, JSON.stringify({ week: res.week, data: res } satisfies CachedReport));
-      } catch { /* ignore */ }
-    }
-    setData(res);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(false); /* eslint-disable-next-line */ }, []);
 
   if (loading && !data) {
     return <AiSectionSkeleton />;
@@ -148,7 +123,7 @@ export function DashboardAiSection() {
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => load(true)} disabled={loading} className="gap-1.5 text-xs">
+        <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={loading} className="gap-1.5 text-xs">
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           Regenerar
         </Button>

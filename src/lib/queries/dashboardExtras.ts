@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, resolveOwner } from "@/lib/queries/tenantUsers";
+import { readAllPages } from "./paginate";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface PipelineBreakdownRow {
   pipelineId: string;
@@ -16,15 +18,14 @@ async function loadBase() {
   const [pRes, sRes, dRes] = await Promise.all([
     supabase.from("pipelines").select("id,name,position").order("position"),
     supabase.from("pipeline_stages").select("id,name,position,is_won,is_lost,pipeline_id").order("position"),
-    supabase.from("deals").select("id,name,amount,stage_id,stage_name,is_won,is_lost,owner_id,contact_id,expected_close_date,probability,updated_at"),
+    readAllPages((from, to) => supabase.from("deals").select("id,name,amount,stage_id,stage_name,is_won,is_lost,owner_id,contact_id,expected_close_date,probability,updated_at").order("id").range(from, to)),
   ]);
   if (pRes.error) throw pRes.error;
   if (sRes.error) throw sRes.error;
-  if (dRes.error) throw dRes.error;
   return {
     pipelines: (pRes.data ?? []) as { id: string; name: string; position: number }[],
     stages: (sRes.data ?? []) as unknown as StageLite[],
-    deals: (dRes.data ?? []) as any[],
+    deals: dRes as any[],
   };
 }
 
@@ -188,6 +189,8 @@ export interface SellerRunRate {
 
 /** Run rate per seller for the current month (uses get_user_run_rate). */
 export function useRunRateBySeller() {
+  const { user, roles } = useAuth();
+  const onlyOwn = roles.includes("sales_rep") && !roles.some((r) => ["tenant_owner", "tenant_admin", "sales_manager", "platform_owner", "platform_staff"].includes(r));
   const { data: tenantId } = useTenantId();
   const { data: users } = useTenantUsers();
   return useQuery({
@@ -198,11 +201,12 @@ export function useRunRateBySeller() {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
-      const active = (users ?? []).filter((u) => u.isActive);
+      const active = (users ?? []).filter((u) => u.isActive && (!onlyOwn || u.id === user?.id));
       const rows = await Promise.all(active.map(async (u) => {
-        const { data } = await (supabase as any).rpc("get_user_run_rate", {
+        const { data, error } = await (supabase as any).rpc("get_user_run_rate", {
           _tenant_id: tenantId, _user_id: u.id, _year: year, _month: month,
         });
+        if (error) throw error;
         const r = Array.isArray(data) ? data[0] : data;
         return {
           userId: u.id,

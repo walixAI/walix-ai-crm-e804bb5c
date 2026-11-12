@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, type TenantUser } from "@/lib/queries/tenantUsers";
 import type { ReportFilters } from "@/lib/reports/filters";
+import { readAllPages } from "./paginate";
 
 // ─────────────────────────────────────────────────────────────────
 // Period helpers
@@ -70,6 +71,7 @@ interface RawDataset {
     created_at: string;
     updated_at: string;
     won_at?: string | null;
+    lost_at?: string | null;
   }>;
   contacts: Array<{
     id: string;
@@ -103,39 +105,35 @@ async function fetchRange(tenantId: string, from: Date, to: Date): Promise<RawDa
   const toISO = to.toISOString();
 
   const [deals, contacts, activities, stageHistory, stages] = await Promise.all([
-    supabase.from("deals")
-      .select("id, name, amount, owner_id, contact_id, stage_id, stage_name, is_won, is_lost, lost_reason, source, created_at, updated_at, won_at")
+    readAllPages((start, end) => supabase.from("deals")
+      .select("id, name, amount, owner_id, contact_id, stage_id, stage_name, is_won, is_lost, lost_reason, source, created_at, updated_at, won_at, lost_at")
       .eq("tenant_id", tenantId)
-      .or(`and(created_at.gte.${fromISO},created_at.lte.${toISO}),and(won_at.gte.${fromISO},won_at.lte.${toISO})`),
-    supabase.from("contacts")
+      .or(`and(is_won.eq.false,is_lost.eq.false,created_at.lte.${toISO}),and(is_won.eq.true,won_at.gte.${fromISO},won_at.lte.${toISO}),and(is_lost.eq.true,lost_at.gte.${fromISO},lost_at.lte.${toISO})`).order("id").range(start, end)),
+    readAllPages((start, end) => supabase.from("contacts")
       .select("id, name, last_name, owner_id, source, status, created_at")
       .eq("tenant_id", tenantId)
-      .gte("created_at", fromISO).lte("created_at", toISO),
-    supabase.from("activities")
+      .gte("created_at", fromISO).lte("created_at", toISO).order("id").range(start, end)),
+    readAllPages((start, end) => supabase.from("activities")
       .select("id, type, deal_id, contact_id, agent_id, occurred_at")
       .eq("tenant_id", tenantId)
-      .gte("occurred_at", fromISO).lte("occurred_at", toISO),
-    supabase.from("deal_stage_history")
+      .gte("occurred_at", fromISO).lte("occurred_at", toISO).order("id").range(start, end)),
+    readAllPages((start, end) => supabase.from("deal_stage_history")
       .select("deal_id, from_stage_name, to_stage_name, changed_by, changed_at")
       .eq("tenant_id", tenantId)
-      .gte("changed_at", fromISO).lte("changed_at", toISO),
+      .gte("changed_at", fromISO).lte("changed_at", toISO).order("id").range(start, end)),
     supabase.from("pipeline_stages")
       .select("id, name, position, is_won, is_lost")
       .eq("tenant_id", tenantId)
       .order("position", { ascending: true }),
   ]);
 
-  if (deals.error)        throw deals.error;
-  if (contacts.error)     throw contacts.error;
-  if (activities.error)   throw activities.error;
-  if (stageHistory.error) throw stageHistory.error;
   if (stages.error)       throw stages.error;
 
   return {
-    deals:        (deals.data        ?? []) as RawDataset["deals"],
-    contacts:     (contacts.data     ?? []) as RawDataset["contacts"],
-    activities:   (activities.data   ?? []) as RawDataset["activities"],
-    stageHistory: (stageHistory.data ?? []) as RawDataset["stageHistory"],
+    deals:        deals as RawDataset["deals"],
+    contacts:     contacts as RawDataset["contacts"],
+    activities:   activities as RawDataset["activities"],
+    stageHistory: stageHistory as RawDataset["stageHistory"],
     stages:       (stages.data       ?? []) as RawDataset["stages"],
   };
 }
@@ -453,17 +451,20 @@ export function useReportsData(filters: ReportFilters) {
   const { data: tenantId } = useTenantId();
   const { data: users } = useTenantUsers();
 
-  const range = useMemo(() => resolvePeriodRange(filters.period), [filters.period]);
+  const [minute, setMinute] = useState(() => Math.floor(Date.now() / 60_000));
+  useEffect(() => { const timer = setInterval(() => setMinute(Math.floor(Date.now() / 60_000)), 30_000); return () => clearInterval(timer); }, []);
+  const range = useMemo(() => resolvePeriodRange(filters.period), [filters.period, minute]);
   const sellersKey = filters.sellers.join(",");
 
   const query = useQuery({
-    queryKey: ["reports", tenantId, range.from.toISOString(), range.to.toISOString()],
+    queryKey: ["reports", tenantId, filters.period.preset, filters.period.from, filters.period.to, minute],
     enabled: !!tenantId && !!users,
     staleTime: 30_000,
     queryFn: async () => {
+      if (!tenantId) throw new Error("Sin empresa activa");
       const [curr, prev] = await Promise.all([
-        fetchRange(tenantId!, range.from, range.to),
-        fetchRange(tenantId!, range.prevFrom, range.prevTo),
+        fetchRange(tenantId, range.from, range.to),
+        fetchRange(tenantId, range.prevFrom, range.prevTo),
       ]);
       return { curr, prev };
     },
