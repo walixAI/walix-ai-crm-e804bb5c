@@ -144,7 +144,8 @@ export function filterPeriodSet(
     }
     if (lens === "created") return createdIn;
     if (lens === "all" || closedSelected) return createdIn || closeIn;
-    return closeIn;
+    // Activas: una oportunidad abierta sigue viva desde su creación hasta que se cierra.
+    return created < end;
   });
 }
 
