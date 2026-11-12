@@ -1,5 +1,19 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { resolvePeriodRange } from "./reports";
+import { useReportsData } from "./reports";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement } from "react";
+const fetchState = vi.hoisted(() => ({ blocked: false }));
+vi.mock("@/lib/queries/tenant", () => ({ useTenantId: () => ({ data: "tenant" }) }));
+vi.mock("@/lib/queries/tenantUsers", () => ({ useTenantUsers: () => ({ data: [] }) }));
+vi.mock("./paginate", () => ({ readAllPages: () => fetchState.blocked ? new Promise(() => {}) : Promise.resolve([]) }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => {
+  const chain: any = {};
+  for (const method of ["select", "eq", "or", "gte", "lte", "order", "range"]) chain[method] = () => chain;
+  chain.then = (resolve: any) => resolve({ data: [], error: null });
+  return chain;
+} } }));
 afterEach(() => vi.useRealTimers());
 it("relative report boundaries advance instead of staying at the mount date", () => {
   vi.useFakeTimers();
@@ -9,4 +23,20 @@ it("relative report boundaries advance instead of staying at the mount date", ()
   const next = resolvePeriodRange({ preset: "today" });
   expect(next.to.getTime() - first.to.getTime()).toBe(60_000);
   expect(next.from).toEqual(first.from);
+});
+it("keeps loaded report data while the minute refresh is pending", async () => {
+  fetchState.blocked = false;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => createElement(QueryClientProvider, { client }, children);
+  const hook = renderHook(() => useReportsData({ period: { preset: "today" }, sellers: [] }), { wrapper });
+  await waitFor(() => expect(hook.result.current.data).not.toBeNull());
+  const previous = hook.result.current.data;
+  vi.useFakeTimers();
+  fetchState.blocked = true;
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(client.getQueryCache().getAll()).toHaveLength(1);
+  expect(client.getQueryCache().getAll()[0].state.fetchStatus).toBe("fetching");
+  expect(hook.result.current.data).toBe(previous);
+  expect(hook.result.current.isLoading).toBe(false);
+  hook.unmount(); client.clear(); fetchState.blocked = false;
 });
