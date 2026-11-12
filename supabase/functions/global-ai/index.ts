@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
           `Contactos: ${JSON.stringify(contactCatalog)}\n` +
           `Etapas de pipeline: ${JSON.stringify(stageCatalog)}`,
       },
-      ...(body.history ?? []).slice(-6),
+      ...safeConversation(body.history, 6),
       { role: "user", content: body.prompt },
     ];
 

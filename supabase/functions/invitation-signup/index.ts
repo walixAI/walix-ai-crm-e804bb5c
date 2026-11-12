@@ -22,12 +22,13 @@ Deno.serve(async (req) => {
 
     const { data: inv, error: invErr } = await admin
       .from("invitations")
-      .select("id, email, role, tenant_id, accepted_at, expires_at")
+      .select("id, email, role, tenant_id, status, accepted_at, expires_at")
       .eq("token", token)
       .maybeSingle();
 
     if (invErr) throw invErr;
     if (!inv) return json({ error: "La invitación no existe." }, 404);
+    if (inv.status !== "pending") return json({ error: "Esta invitación ya no está disponible." }, 410);
     if (inv.accepted_at) return json({ error: "Esta invitación ya fue aceptada." }, 409);
     if (new Date(inv.expires_at) < new Date()) return json({ error: "Esta invitación expiró." }, 410);
 

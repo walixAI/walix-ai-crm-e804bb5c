@@ -122,7 +122,9 @@ Deno.serve(async (req) => {
     const action = body.action ?? "chat";
 
     if (action === "chat") {
-      const messages = Array.isArray(body.messages) ? body.messages : [];
+      let messages;
+      try { messages = safeConversation(body.messages); }
+      catch { return json({ error: "Conversación inválida" }, 400); }
       const chatMessages = [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages,
