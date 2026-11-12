@@ -293,8 +293,9 @@ Deno.serve(async (req) => {
             .from("deals")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
-            .or(`updated_at.lt.${since},last_activity_at.lt.${since}`)
-            .not("status", "in", "(won,lost)");
+            .lt("updated_at", since)
+            .eq("is_won", false)
+            .eq("is_lost", false);
           for (const d of deals ?? []) {
             await executeActions(admin, auto, d);
           }
@@ -306,7 +307,8 @@ Deno.serve(async (req) => {
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
             .eq("expected_close_date", target)
-            .not("status", "in", "(won,lost)");
+            .eq("is_won", false)
+            .eq("is_lost", false);
           for (const d of deals ?? []) {
             await executeActions(admin, auto, d);
           }
@@ -317,9 +319,16 @@ Deno.serve(async (req) => {
             .from("contacts")
             .select("id, tenant_id, owner_id")
             .eq("tenant_id", auto.tenant_id)
-            .lt("last_inbound_at", since)
-            .or("lifecycle.eq.prospecto,lifecycle.eq.cliente");
+            .in("status", ["prospecto", "cliente"]);
+          const { data: inbound, error: inboundError } = await admin.rpc("contact_last_inbound", {
+            _tenant_id: auto.tenant_id,
+            _contact_ids: (contacts ?? []).map((c: any) => c.id),
+          });
+          if (inboundError) throw inboundError;
+          const lastInbound = new Map<string, string>((inbound ?? []).map((row: any) => [row.contact_id, row.last_inbound]));
           for (const c of contacts ?? []) {
+            const last = lastInbound.get(c.id);
+            if (!last || last >= since) continue;
             await executeActions(admin, auto, c);
           }
         }
