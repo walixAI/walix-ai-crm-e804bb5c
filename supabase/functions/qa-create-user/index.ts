@@ -12,4 +12,4 @@ export function handleRetiredQaRequest(req: Request): Response {
   });
 }
 
-Deno.serve(handleRetiredQaRequest);
+if (import.meta.main) Deno.serve(handleRetiredQaRequest);
