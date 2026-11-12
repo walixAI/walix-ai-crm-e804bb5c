@@ -1,3 +1,4 @@
+import { requireInternalRequest } from "../_shared/request-security.ts";
 import { sendAndLog } from "../_shared/transactional-email-templates/logged-send.ts";
 // Edge function: motor de automatizaciones programadas.
 // Se invoca vía cron cada hora y ejecuta triggers de tipo scheduled y recurrencias.
@@ -29,6 +30,9 @@ function monthStart(dateStr: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const denied = requireInternalRequest(req, cors);
+  if (denied) return denied;
+
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,

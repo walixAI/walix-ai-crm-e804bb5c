@@ -310,16 +310,7 @@ async function executeStrong(sb: SB, row: any, ownerId: string | null): Promise<
 // ================= Main =================
 
 function isServiceRoleAuth(auth: string): boolean {
-  if (auth.includes(SERVICE_KEY)) return true;
-  const token = auth.replace(/^Bearer\s+/i, "").trim();
-  const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  try {
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload?.role === "service_role" && payload?.ref === Deno.env.get("SUPABASE_PROJECT_ID" as string) || payload?.role === "service_role";
-  } catch {
-    return false;
-  }
+  return !!SERVICE_KEY && auth === `Bearer ${SERVICE_KEY}`;
 }
 
 Deno.serve(async (req) => {

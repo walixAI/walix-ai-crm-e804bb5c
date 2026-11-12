@@ -1,3 +1,4 @@
+import { requireUserRequest } from "../_shared/request-security.ts";
 import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("pipeline_ai");
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -55,6 +56,9 @@ function extractToolArgs(json: any): any | null {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const denied = await requireUserRequest(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const { mode, deals, deal } = await req.json() as {

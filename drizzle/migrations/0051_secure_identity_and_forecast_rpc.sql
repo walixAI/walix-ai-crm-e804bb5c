@@ -1,0 +1,6 @@
+CREATE OR REPLACE FUNCTION public.get_user_tenant(_user_id uuid) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT COALESCE(active_tenant_id,tenant_id) FROM public.profiles WHERE id=_user_id AND (auth.role()='service_role' OR (auth.uid() IS NOT NULL AND _user_id=auth.uid())); $$;
+REVOKE ALL ON FUNCTION public.get_user_tenant(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.get_user_tenant(uuid) TO authenticated,service_role;
+DO $$ DECLARE def text; BEGIN SELECT pg_get_functiondef('public.get_user_run_rate(uuid,uuid,integer,integer)'::regprocedure) INTO def; def := replace(def, '(public.is_rep_only(auth.uid(), _tenant_id) AND _user_id IS DISTINCT FROM auth.uid())', '(_user_id IS DISTINCT FROM auth.uid() AND NOT (public.is_platform(auth.uid()) OR public.has_tenant_role(auth.uid(), ''tenant_owner'', _tenant_id) OR public.has_tenant_role(auth.uid(), ''tenant_admin'', _tenant_id)))'); EXECUTE def; END $$;
+REVOKE ALL ON FUNCTION public.rep_owns_contact(uuid,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.rep_owns_contact(uuid,uuid) TO authenticated,service_role;

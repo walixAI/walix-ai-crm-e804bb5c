@@ -4,6 +4,7 @@ import { toE164, phoneMatchVariants } from "../_shared/phone.ts";
 import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
 import { notifyAgentNoReply } from "../_shared/agent-no-reply.ts";
+import { validMetaSignature } from "../_shared/meta-signature.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,8 +84,12 @@ Deno.serve(async (req) => {
   }
 
   let payload: any;
+  const rawBody = await req.text();
+  if (!await validMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), Deno.env.get("META_APP_SECRET"))) {
+    return new Response("forbidden", { status: 403, headers: corsHeaders });
+  }
   try {
-    payload = await req.json();
+    payload = JSON.parse(rawBody);
   } catch {
     await sb.from("whatsapp_webhook_log").insert({
       kind: "unknown",

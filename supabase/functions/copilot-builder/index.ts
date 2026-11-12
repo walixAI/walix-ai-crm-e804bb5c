@@ -1,3 +1,4 @@
+import { safeConversation } from "../_shared/request-security.ts";
 import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("copilot_builder");
 // Edge Function: copilot-builder
@@ -122,7 +123,9 @@ Deno.serve(async (req) => {
     const action = body.action ?? "chat";
 
     if (action === "chat") {
-      const messages = Array.isArray(body.messages) ? body.messages : [];
+      let messages;
+      try { messages = safeConversation(body.messages); }
+      catch { return json({ error: "Conversación inválida" }, 400); }
       const chatMessages = [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages,

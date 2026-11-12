@@ -1,5 +1,12 @@
 # AGENTS
 
+- Scheduled HTTP workers validate managed cron authentication or an exact server credential; schedules use the managed scheduling tools; why: unauthenticated requests and decoded role claims cannot authorize global work.
+- Meta inbound events verify HMAC-SHA256 over the untouched body before processing; why: forged provider events must not create records or send replies.
+- Mail sockets resolve and reject non-public addresses, pin the selected address and preserve TLS servername; why: configurable SMTP/IMAP must not reach private networks or follow DNS rebinding.
+- Client AI history accepts bounded user/assistant text only and strips extra fields; why: server instructions and tool roles cannot come from caller-supplied messages.
+- Identity RPCs return only the caller's active tenant, and coworker forecasts require active-tenant ownership/admin or platform permission; why: SECURITY DEFINER reads need explicit caller scope.
+- Invitation signup accepts only pending invitations; why: revoked links must never assign roles.
+
 - QA account administration is retired and always returns 410; why: production must never expose test password resets or caller-selected roles.
 - Query caches are cancelled and cleared on identity, active-tenant or role changes; private reports use scoped in-memory queries, not shared browser storage; why: shared devices must never reuse another user's commercial data.
 - Sensitive channel/account columns have no authenticated SELECT grant; callers select safe metadata and a generated configuration flag; why: RLS alone does not hide secrets inside an authorized row.

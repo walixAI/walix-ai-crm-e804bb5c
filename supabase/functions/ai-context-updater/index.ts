@@ -1,3 +1,4 @@
+import { requireInternalRequest } from "../_shared/request-security.ts";
 import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("ai_context_updater");
 // Edge Function: ai-context-updater
@@ -132,6 +133,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const denied = requireInternalRequest(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const body = await req.json();
