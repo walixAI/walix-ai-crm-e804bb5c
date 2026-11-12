@@ -132,8 +132,7 @@ export function usePipelineByStage(
         since.setHours(0, 0, 0, 0);
         dq = dq.gte("updated_at", since.toISOString());
       }
-      const { data: deals, error: e2 } = await dq;
-      if (e2) throw e2;
+      const deals = await readAllPages((from, to) => dq.order("id").range(from, to));
       return (stages ?? []).map(s => ({
         stage: s.name,
         value: (deals ?? [])
@@ -162,10 +161,9 @@ export function useDealsClosedTimeline(
           .from("pipeline_stages").select("id").eq("pipeline_id", pipelineId);
         stageIds = new Set((st ?? []).map((s: any) => s.id));
       }
-      const { data: raw, error } = await supabase
+      const raw = await readAllPages((from, to) => supabase
         .from("deals").select("amount,updated_at,won_at,is_won,stage_id")
-        .eq("is_won", true).gte("won_at", since.toISOString());
-      if (error) throw error;
+        .eq("is_won", true).gte("won_at", since.toISOString()).order("id").range(from, to));
       let data = stageIds
         ? (raw ?? []).filter((d: any) => d.stage_id && stageIds?.has(d.stage_id))
         : (raw ?? []);
@@ -195,17 +193,14 @@ export function usePipelineHealthScore() {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
       const [dealsRes, convRes, contactsRes] = await Promise.all([
-        supabase.from("deals").select("amount,probability,is_won,is_lost,expected_close_date,updated_at,contact_id"),
-        supabase.from("conversations").select("unread_count,status"),
-        supabase.from("contacts").select("id,last_activity_at"),
+        readAllPages((from, to) => supabase.from("deals").select("amount,probability,is_won,is_lost,expected_close_date,updated_at,contact_id,won_at,lost_at").order("id").range(from, to)),
+        readAllPages((from, to) => supabase.from("conversations").select("unread_count,status").order("id").range(from, to)),
+        readAllPages((from, to) => supabase.from("contacts").select("id,last_activity_at").order("id").range(from, to)),
       ]);
-      if (dealsRes.error) throw dealsRes.error;
-      if (convRes.error) throw convRes.error;
-      if (contactsRes.error) throw contactsRes.error;
 
-      const deals = dealsRes.data ?? [];
-      const conversations = convRes.data ?? [];
-      const contacts = contactsRes.data ?? [];
+      const deals = dealsRes;
+      const conversations = convRes;
+      const contacts = contactsRes;
 
       const lastActivityMap = new Map<string, string | null>();
       for (const c of contacts) lastActivityMap.set(c.id, c.last_activity_at);
@@ -227,8 +222,8 @@ export function usePipelineHealthScore() {
       const totalOpenConversations = openConvos.length;
       const unreadOpenConversations = openConvos.filter((c) => (c.unread_count ?? 0) > 0).length;
 
-      const wonLast30 = deals.filter((d) => d.is_won && d.updated_at >= thirtyDaysAgo).length;
-      const lostLast30 = deals.filter((d) => d.is_lost && d.updated_at >= thirtyDaysAgo).length;
+      const wonLast30 = deals.filter((d) => d.is_won && d.won_at && d.won_at >= thirtyDaysAgo).length;
+      const lostLast30 = deals.filter((d) => d.is_lost && d.lost_at && d.lost_at >= thirtyDaysAgo).length;
 
       return computePipelineHealth({
         activeDeals: active.length,
