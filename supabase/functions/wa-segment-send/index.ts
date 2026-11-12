@@ -33,23 +33,30 @@ Deno.serve(async (req) => {
     if (!preview && !templateId && !text.trim()) return json({ error: "Escribe un mensaje o elige una plantilla" }, 400);
     if (text.length > 4000) return json({ error: "El mensaje es demasiado largo" }, 400);
 
-    const { data: profile } = await userClient.from("profiles").select("tenant_id").eq("id", userData.user.id).maybeSingle();
-    const tenantId = profile?.tenant_id;
+    const { data: profile } = await userClient.from("profiles").select("tenant_id,active_tenant_id").eq("id", userData.user.id).maybeSingle();
+    const tenantId = profile?.active_tenant_id ?? profile?.tenant_id;
     if (!tenantId) return json({ error: "Sin empresa asignada" }, 400);
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: roles } = await userClient.from("user_roles").select("role,tenant_id").eq("user_id", userData.user.id);
+    const canSend = (roles ?? []).some((r: any) =>
+      (r.tenant_id === tenantId && ["tenant_owner", "tenant_admin", "sales_manager"].includes(r.role)) ||
+      (r.tenant_id === null && ["platform_owner", "platform_staff"].includes(r.role)));
+    if (!canSend) return json({ error: "Sin permiso para envíos segmentados" }, 403);
 
     let ids: string[];
     let total: number;
     if (contactIds?.length) {
-      ids = contactIds; total = contactIds.length;
+      const { data: permitted, error } = await userClient.from("contacts").select("id").eq("tenant_id", tenantId).in("id", contactIds);
+      if (error || permitted?.length !== new Set(contactIds).size) return json({ error: "Hay contactos no autorizados" }, 403);
+      ids = permitted.map((c) => c.id); total = ids.length;
     } else {
       const res = await matchContacts(sb, tenantId, conditions, 1000);
       ids = res.ids; total = res.total;
     }
 
     if (preview) {
-      const { data: sample } = await sb.from("contacts").select("id, name, phone, company").in("id", ids.slice(0, 10));
+      const { data: sample } = await userClient.from("contacts").select("id, name, phone, company").eq("tenant_id", tenantId).in("id", ids.slice(0, 10));
       return json({ total, sample: sample ?? [] });
     }
 
@@ -68,7 +75,7 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
     let sent = 0, failed = 0;
 
-    const { data: contacts } = await sb.from("contacts").select("id, name, phone, company").in("id", ids).not("phone", "is", null).is("wa_opt_out_at", null);
+    const { data: contacts } = await userClient.from("contacts").select("id, name, phone, company").eq("tenant_id", tenantId).in("id", ids).not("phone", "is", null).is("wa_opt_out_at", null);
 
     for (const c of contacts ?? []) {
       const vars: Record<string, string> = {

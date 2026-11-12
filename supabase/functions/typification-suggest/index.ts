@@ -34,12 +34,16 @@ Deno.serve(async (req) => {
     if (!userData.user) return json({ error: "No autenticado" }, 401);
 
     const body = (await req.json().catch(() => ({}))) as Partial<Body>;
-    if (!body?.contactId || !body?.outcomeId) return json({ error: "contactId y outcomeId requeridos" }, 400);
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!body.contactId || !body.outcomeId || !uuid.test(body.contactId) || !uuid.test(body.outcomeId)) return json({ error: "Identificadores inválidos" }, 400);
+    const { data: contact } = await supabase.from("contacts").select("id,tenant_id").eq("id", body.contactId).maybeSingle();
+    if (!contact) return json({ error: "Contacto no disponible" }, 404);
 
     // Catálogo aplicable: del resultado elegido + globales del tenant.
     const { data: typs, error: tErr } = await supabase
       .from("outcome_typifications")
       .select("id, label, sentiment")
+      .eq("tenant_id", contact.tenant_id)
       .or(`outcome_id.eq.${body.outcomeId},outcome_id.is.null`)
       .eq("is_active", true)
       .order("position", { ascending: true });

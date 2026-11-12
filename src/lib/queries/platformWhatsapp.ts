@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { WhatsappChannel, PermLevel } from "./whatsappChannels";
+import { WA_CHANNEL_COLUMNS } from "./whatsappChannels";
 
 function genVerifyToken() {
   return Array.from(crypto.getRandomValues(new Uint8Array(18)))
@@ -16,7 +17,7 @@ export function usePlatformChannel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_channels")
-        .select("*")
+        .select(WA_CHANNEL_COLUMNS)
         .eq("is_platform", true)
         .maybeSingle();
       if (error) throw error;
