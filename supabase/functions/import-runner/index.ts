@@ -2,6 +2,7 @@
 // Valida fila por fila, normaliza teléfonos, detecta duplicados e inserta.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { hasTenantManagementRole } from "../_shared/tenant-authorization.ts";
 
 const cors = { ...corsHeaders };
 
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
     const { data: tenantId, error: tenantError } = await supabase.rpc("get_user_tenant", { _user_id: u.user.id });
     if (tenantError || !tenantId) return new Response(JSON.stringify({ error: "Sin empresa autorizada" }), { status: 403, headers: cors });
     const { data: roles } = await supabase.from("user_roles").select("role,tenant_id").eq("user_id", u.user.id);
-    const allowed = (roles ?? []).some((r: any) => (r.tenant_id === tenantId && ["tenant_owner", "tenant_admin", "sales_manager"].includes(r.role)) || (r.tenant_id === null && ["platform_owner", "platform_staff"].includes(r.role)));
+    const allowed = hasTenantManagementRole(roles ?? [], tenantId, true);
     if (!allowed) return new Response(JSON.stringify({ error: "Sin permiso para importar" }), { status: 403, headers: cors });
 
     const { data: batch, error: batchErr } = await admin

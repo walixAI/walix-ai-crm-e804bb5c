@@ -1,6 +1,7 @@
 import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("typification_suggest");
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isUuid } from "../_shared/tenant-authorization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,8 +35,7 @@ Deno.serve(async (req) => {
     if (!userData.user) return json({ error: "No autenticado" }, 401);
 
     const body = (await req.json().catch(() => ({}))) as Partial<Body>;
-    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!body.contactId || !body.outcomeId || !uuid.test(body.contactId) || !uuid.test(body.outcomeId)) return json({ error: "Identificadores inválidos" }, 400);
+    if (!isUuid(body.contactId) || !isUuid(body.outcomeId)) return json({ error: "Identificadores inválidos" }, 400);
     const { data: contact } = await supabase.from("contacts").select("id,tenant_id").eq("id", body.contactId).maybeSingle();
     if (!contact) return json({ error: "Contacto no disponible" }, 404);
 

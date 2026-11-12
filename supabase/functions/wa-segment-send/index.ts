@@ -1,5 +1,6 @@
 // Envío puntual segmentado: plantilla o texto libre a los contactos que cumplen las condiciones.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hasTenantManagementRole, isUuid } from "../_shared/tenant-authorization.ts";
 import {
   defaultClientsChannel, ensureConversation, matchContacts, renderText,
   sendTemplate, sendText, serviceWindowOpen, type CampaignConditions,
@@ -39,10 +40,10 @@ Deno.serve(async (req) => {
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: roles } = await userClient.from("user_roles").select("role,tenant_id").eq("user_id", userData.user.id);
-    const canSend = (roles ?? []).some((r: any) =>
-      (r.tenant_id === tenantId && ["tenant_owner", "tenant_admin", "sales_manager"].includes(r.role)) ||
-      (r.tenant_id === null && ["platform_owner", "platform_staff"].includes(r.role)));
+    const canSend = hasTenantManagementRole(roles ?? [], tenantId, true);
     if (!canSend) return json({ error: "Sin permiso para envíos segmentados" }, 403);
+    if (contactIds && !contactIds.every(isUuid)) return json({ error: "Contactos inválidos" }, 400);
+    if (contactIds?.length === 0) return json({ total: 0, sample: [], sent: 0, failed: 0 });
 
     let ids: string[];
     let total: number;

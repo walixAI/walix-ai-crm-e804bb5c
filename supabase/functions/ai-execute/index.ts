@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hasTenantManagementRole } from "../_shared/tenant-authorization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,9 +87,7 @@ Deno.serve(async (req) => {
 
     // Admin role check (cached for this request)
     const { data: rolesData } = await supabase.from("user_roles").select("role, tenant_id").eq("user_id", userId);
-    const isAdmin = (rolesData ?? []).some((r: any) =>
-      (r.tenant_id === null && ["platform_owner", "platform_staff"].includes(r.role)) ||
-      (r.tenant_id === tenantId && ["tenant_admin", "tenant_owner"].includes(r.role)));
+    const isAdmin = hasTenantManagementRole(rolesData ?? [], tenantId);
 
     const body = (await req.json()) as Body;
     if (!body?.kind || !body?.payload) return bad(400, "Cuerpo inválido");
@@ -98,6 +97,21 @@ Deno.serve(async (req) => {
     const ADMIN_KINDS: Kind[] = ["create_contact_source", "create_contact_stage", "create_pipeline_stage"];
     if (ADMIN_KINDS.includes(body.kind) && !isAdmin) {
       return bad(403, "Solo administradores pueden modificar la configuración");
+    }
+
+    // The same reference checks apply before preview and before execution.
+    for (const [field, table] of [["deal_id", "deals"], ["contact_id", "contacts"], ["stage_id", "pipeline_stages"], ["pipeline_id", "pipelines"], ["conversation_id", "conversations"]] as const) {
+      if (p[field] == null) continue;
+      if (!isUuid(p[field])) return bad(400, `${field} inválido`);
+      const { data: reference, error } = await supabase.from(table).select("id").eq("id", p[field]).eq("tenant_id", tenantId).maybeSingle();
+      if (error || !reference) return bad(404, "Registro no disponible en tu empresa");
+    }
+    if (p.assignee_id != null) {
+      if (!isUuid(p.assignee_id)) return bad(400, "Asesor inválido");
+      const { data: member, error } = await supabase.rpc("user_can_use_tenant", { _user_id: p.assignee_id, _tenant_id: tenantId });
+      if (error || member !== true) return bad(403, "El asesor no pertenece a tu empresa");
+      const { data: repOnly, error: roleError } = await supabase.rpc("is_rep_only", { _user_id: userId, _tenant_id: tenantId });
+      if (roleError || (repOnly && p.assignee_id !== userId)) return bad(403, "Solo puedes asignarte tus tareas");
     }
 
     // ─── PREVIEW MODE: read current state, compute diff, do NOT write ───
