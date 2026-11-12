@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const today = toDateStr(now);
+    let processedSubscriptions = 0;
 
     // 1. Procesar recurrencias genéricas (constructor de servicios recurrentes).
     // La agenda futura (2 citas por suscripción) la mantiene recurrence_fill_horizon.
@@ -253,6 +254,7 @@ Deno.serve(async (req) => {
       const { data: allSubs } = await admin
         .from("recurrence_subscriptions")
         .select("id, recurrence:recurrence_id(future_horizon, enabled)");
+      processedSubscriptions = allSubs?.length ?? 0;
       const { data: futureOccs } = await admin
         .from("recurrence_occurrences")
         .select("subscription_id, due_date, status")
@@ -274,11 +276,12 @@ Deno.serve(async (req) => {
     }
 
     // 2. Procesar automatizaciones programadas clásicas
-    const { data: automations } = await admin
+    const { data: automations, error: automationsError } = await admin
       .from("automations")
       .select("*")
-      .eq("is_active", true)
+      .eq("enabled", true)
       .in("trigger_type", ["deal_inactive", "deal_close_date_near", "contact_no_reply"]);
+    if (automationsError) throw automationsError;
 
     for (const auto of automations ?? []) {
       try {
@@ -325,7 +328,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed_subscriptions: subs?.length ?? 0, processed_automations: automations?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, processed_subscriptions: processedSubscriptions, processed_automations: automations?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("automations-run error", e);
     return new Response(JSON.stringify({ error: e?.message ?? "Error interno" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });

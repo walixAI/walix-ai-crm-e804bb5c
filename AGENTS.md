@@ -16,6 +16,7 @@
 - Import execution/reversal requires active-tenant management authorization, fixed target tables and tenant-scoped deletion; result columns are server-managed; why: import identifiers and row metadata cannot authorize privileged operations.
 - Losses use stable lost_at maintained by a trigger; unknown historical dates stay null, never updated_at; why: later edits must not move historical losses between periods.
 - Aggregate queries use readAllPages with stable ordering and propagate page failures; document deletion backs up files and restores on failure; why: truncation and partial deletion must not masquerade as complete success.
+- Reports refresh on a stable tenant/filter query key and resolve relative dates inside each fetch; why: periodic refresh must retain visible data without sharing data across tenants or filters.
 
 - Team role changes use the authenticated change_tenant_member_role RPC, restricted to the active tenant owner/platform and audited with auth.uid(); why: atomic tenant-scoped changes must not expose direct role writes or accept caller-supplied actor identities.
 
