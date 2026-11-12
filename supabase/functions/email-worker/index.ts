@@ -1,3 +1,4 @@
+import { requireInternalRequest } from "../_shared/request-security.ts";
 // Corre cada 5 min: lee buzones IMAP (solo correos de contactos) y envía lotes de campañas.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -12,6 +13,9 @@ globalThis.addEventListener("unhandledrejection", (e) => { console.warn("worker 
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const denied = requireInternalRequest(req, corsHeaders);
+  if (denied) return denied;
+
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const out = { synced: 0, inbound: 0, sent: 0, failed: 0, errors: [] as string[] };
 

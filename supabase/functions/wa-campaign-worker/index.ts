@@ -1,3 +1,4 @@
+import { requireInternalRequest } from "../_shared/request-security.ts";
 // Worker periódico e idempotente: ejecuta los pasos programados de cada enrolamiento activo.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
@@ -15,6 +16,9 @@ const json = (b: unknown, s = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const denied = requireInternalRequest(req, corsHeaders);
+  if (denied) return denied;
+
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // Primero se inscribe a quien ya cumple las condiciones pero no estaba dentro:

@@ -1,3 +1,4 @@
+import { safeConversation } from "../_shared/request-security.ts";
 import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("copilot_builder");
 // Edge Function: copilot-builder

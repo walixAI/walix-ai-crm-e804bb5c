@@ -1,3 +1,4 @@
+import { requireInternalRequest } from "../_shared/request-security.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -24,6 +25,9 @@ const RETRYABLE = ["no_answer", "busy", "failed", "voicemail"];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const denied = requireInternalRequest(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);

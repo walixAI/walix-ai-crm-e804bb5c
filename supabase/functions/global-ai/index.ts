@@ -1,3 +1,4 @@
+import { safeConversation } from "../_shared/request-security.ts";
 import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("global_ai");
 import { createClient } from "npm:@supabase/supabase-js@2";
