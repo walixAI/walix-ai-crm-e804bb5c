@@ -5,6 +5,7 @@ import { ensureLeadDeal } from "../_shared/lead-deal.ts";
 import { tenantForMetaForm } from "../_shared/source-rules.ts";
 import { buildAttributionRow, clientIpFrom, type RawAttribution } from "../_shared/attribution.ts";
 import { enrollContact } from "../_shared/wa-enroll.ts";
+import { validMetaSignature } from "../_shared/meta-signature.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,9 +33,14 @@ Deno.serve(async (req) => {
     return new Response("forbidden", { status: 403 });
   }
 
+  if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
+  const rawBody = await req.text();
+  if (!await validMetaSignature(rawBody, req.headers.get("x-hub-signature-256"), Deno.env.get("META_APP_SECRET"))) {
+    return json({ error: "No autorizado" }, 403);
+  }
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let payload: any;
-  try { payload = await req.json(); } catch { return json({ ok: true }); }
+  try { payload = JSON.parse(rawBody); } catch { return json({ error: "Datos inválidos" }, 400); }
   console.log("leadgen webhook", JSON.stringify(payload).slice(0, 800));
 
   try {
