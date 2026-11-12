@@ -3,6 +3,7 @@ import nodemailer from "npm:nodemailer@6.9.14";
 import { ImapFlow } from "npm:imapflow@1.0.164";
 import { simpleParser } from "npm:mailparser@3.7.1";
 import { AwsClient } from "npm:aws4fetch@1.0.20";
+import { publicMailTarget } from "./mail-network.ts";
 
 async function aesKey(): Promise<CryptoKey> {
   const raw = Deno.env.get("EMAIL_CRED_SECRET");
@@ -54,9 +55,10 @@ export async function smtpSend(acc: MailAccount, msg: {
   inReplyTo?: string | null; references?: string | null;
   attachments?: { filename: string; content: string; contentType?: string }[];
 }): Promise<{ messageId: string }> {
+  const target = await publicMailTarget(acc.smtp_host, acc.smtp_port ?? 465, "smtp");
   const pass = await decryptSecret(acc.secret_ciphertext!);
   const transport = nodemailer.createTransport({
-    host: acc.smtp_host!, port: acc.smtp_port ?? 465, secure: acc.smtp_secure ?? (acc.smtp_port === 465),
+    host: target.host, tls: { servername: target.servername }, port: acc.smtp_port ?? 465, secure: acc.smtp_secure ?? (acc.smtp_port === 465),
     auth: { user: acc.username || acc.email, pass },
   });
   const info = await transport.sendMail({
@@ -70,17 +72,19 @@ export async function smtpSend(acc: MailAccount, msg: {
 }
 
 export async function smtpVerify(acc: MailAccount): Promise<void> {
+  const target = await publicMailTarget(acc.smtp_host, acc.smtp_port ?? 465, "smtp");
   const pass = await decryptSecret(acc.secret_ciphertext!);
   const transport = nodemailer.createTransport({
-    host: acc.smtp_host!, port: acc.smtp_port ?? 465, secure: acc.smtp_secure ?? (acc.smtp_port === 465),
+    host: target.host, tls: { servername: target.servername }, port: acc.smtp_port ?? 465, secure: acc.smtp_secure ?? (acc.smtp_port === 465),
     auth: { user: acc.username || acc.email, pass },
   });
   await transport.verify();
 }
 
-function imapClient(acc: MailAccount, pass: string) {
+async function imapClient(acc: MailAccount, pass: string) {
+  const target = await publicMailTarget(acc.imap_host, acc.imap_port ?? 993, "imap");
   const c = new ImapFlow({
-    host: acc.imap_host!, port: acc.imap_port ?? 993, secure: acc.imap_secure ?? true,
+    host: target.host, tls: { servername: target.servername }, port: acc.imap_port ?? 993, secure: acc.imap_secure ?? true,
     auth: { user: acc.username || acc.email, pass }, logger: false,
   });
   // Servidores que cierran sin close_notify emiten 'error' asíncrono; sin listener tumba el proceso.
@@ -89,7 +93,7 @@ function imapClient(acc: MailAccount, pass: string) {
 }
 
 export async function imapVerify(acc: MailAccount): Promise<void> {
-  const c = imapClient(acc, await decryptSecret(acc.secret_ciphertext!));
+  const c = await imapClient(acc, await decryptSecret(acc.secret_ciphertext!));
   await c.connect(); await c.logout();
 }
 
@@ -100,7 +104,7 @@ export interface FetchedMail {
 
 /** Fetch new mails from INBOX since sync_cursor (last UID). First sync pulls last 3 days. */
 export async function imapFetchNew(acc: MailAccount, max = 100): Promise<{ mails: FetchedMail[]; cursor: string }> {
-  const c = imapClient(acc, await decryptSecret(acc.secret_ciphertext!));
+  const c = await imapClient(acc, await decryptSecret(acc.secret_ciphertext!));
   await c.connect();
   const mails: FetchedMail[] = [];
   let lastUid = Number(acc.sync_cursor || 0);
@@ -188,7 +192,8 @@ export async function bulkSend(p: BulkProvider, m: BulkMsg): Promise<{ id: strin
       return { id: (await r.json()).MessageId ?? null };
     }
     case "smtp": {
-      const transport = nodemailer.createTransport({ host: p.config.host, port: Number(p.config.port || 587), secure: Number(p.config.port) === 465, auth: { user: p.config.username, pass: key } });
+      const target = await publicMailTarget(p.config.host, Number(p.config.port || 587), "smtp");
+      const transport = nodemailer.createTransport({ host: target.host, tls: { servername: target.servername }, port: Number(p.config.port || 587), secure: Number(p.config.port) === 465, auth: { user: p.config.username, pass: key } });
       const info = await transport.sendMail({ from: fromStr, to: m.to, subject: m.subject, html: m.html, text: m.text, headers: m.headers });
       return { id: info.messageId };
     }
