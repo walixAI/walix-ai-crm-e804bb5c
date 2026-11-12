@@ -49,7 +49,7 @@ export function useDealBlockers() {
   return useQuery({
     queryKey: ["deal-blockers"],
     queryFn: async (): Promise<DealBlocker[]> => {
-      const data = await readAllPages<any>((from, to) => (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("deal_blockers")
         .select("*")
         .order("position", { ascending: true });
@@ -267,7 +267,7 @@ export function useDiagnosticsDeals() {
   return useQuery({
     queryKey: ["diagnostics-deals"],
     queryFn: async (): Promise<DiagnosticsRow[]> => {
-      const { data, error } = await (supabase as any)
+      const data = await readAllPages<any>((from, to) => (supabase as any)
         .from("deals")
         .select(
           "id, name, amount, owner_id, stage_id, stage_name, is_won, is_lost, current_blocker_id, last_known_blocker_id, blocker_set_at, blocker_expected_at, loss_reason_id, no_response_since, created_at, updated_at",
