@@ -1,46 +1,45 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { computePipelineHealth, type PipelineHealth } from "@/lib/pipelineHealth";
+import { readAllPages } from "./paginate";
+import { dashboardMetrics } from "./dashboardMetrics";
 
 export interface KpiBundle {
   pipelineValue: number;
-  pipelineDeltaPct: number;
+  pipelineDeltaPct: number | null;
   activeDeals: number;
   staleDeals: number;
   messagesToday: number;
   messagesUnanswered: number;
   closeRate: number;
-  closeRateDelta: number;
+  closeRateDelta: number | null;
 }
 
 export function useDashboardKpis() {
   return useQuery({
     queryKey: ["dashboard-kpis"],
     queryFn: async (): Promise<KpiBundle> => {
-      const { data: deals, error: e1 } = await supabase
-        .from("deals").select("amount,is_won,is_lost,updated_at");
-      if (e1) throw e1;
+      const deals = await readAllPages((from, to) => supabase
+        .from("deals").select("amount,is_won,is_lost,updated_at,won_at,lost_at").order("id").range(from, to));
       const active = (deals ?? []).filter(d => !d.is_won && !d.is_lost);
-      const won = (deals ?? []).filter(d => d.is_won).length;
-      const lost = (deals ?? []).filter(d => d.is_lost).length;
-      const closeRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : 0;
-      const pipelineValue = active.reduce((s, d) => s + Number(d.amount), 0);
+      const metrics = dashboardMetrics(deals, new Date());
       const tenDaysAgo = new Date(Date.now() - 10 * 86400000).toISOString();
       const stale = active.filter(d => (d.updated_at ?? "") < tenDaysAgo).length;
 
       const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-      const { count: msgCount } = await supabase
+      const { count: msgCount, error: messageError } = await supabase
         .from("messages").select("*", { count: "exact", head: true })
         .gte("sent_at", startOfDay.toISOString());
-      const { count: unanswered } = await supabase
+      const { count: unanswered, error: conversationError } = await supabase
         .from("conversations").select("*", { count: "exact", head: true })
         .gt("unread_count", 0);
+      if (messageError) throw messageError;
+      if (conversationError) throw conversationError;
 
       return {
-        pipelineValue, pipelineDeltaPct: 12,
+        ...metrics,
         activeDeals: active.length, staleDeals: stale,
         messagesToday: msgCount ?? 0, messagesUnanswered: unanswered ?? 0,
-        closeRate, closeRateDelta: 3,
       };
     },
   });
@@ -168,7 +167,7 @@ export function useDealsClosedTimeline(
         .eq("is_won", true).gte("won_at", since.toISOString());
       if (error) throw error;
       let data = stageIds
-        ? (raw ?? []).filter((d: any) => d.stage_id && stageIds!.has(d.stage_id))
+        ? (raw ?? []).filter((d: any) => d.stage_id && stageIds?.has(d.stage_id))
         : (raw ?? []);
       if (until) data = data.filter((d: any) => new Date(d.won_at ?? d.updated_at) <= until);
       const buckets = new Map<string, number>();
