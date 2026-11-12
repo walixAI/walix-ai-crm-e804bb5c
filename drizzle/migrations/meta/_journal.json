@@ -358,6 +358,13 @@
       "when": 1794460249042,
       "tag": "0050_audit_recurrence_ownership_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794461251393,
+      "tag": "0051_secure_identity_and_forecast_rpc",
+      "breakpoints": true
     }
   ]
 }
