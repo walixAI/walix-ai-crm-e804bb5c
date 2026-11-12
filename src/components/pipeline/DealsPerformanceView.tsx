@@ -127,8 +127,8 @@ export function filterPeriodSet(
       const w = new Date(d.wonAt);
       return w >= start && w < end;
     }
-    if (d.isLost) {
-      const u = new Date(d.updatedAt);
+    if (d.isLost && d.lostAt) {
+      const u = new Date(d.lostAt);
       return u >= start && u < end;
     }
     return false;
@@ -215,8 +215,8 @@ export function DealsPerformanceView({
         const w = new Date(d.wonAt);
         return w >= start && w < end;
       }
-      if (d.isLost) {
-        const u = new Date(d.updatedAt);
+      if (d.isLost && d.lostAt) {
+        const u = new Date(d.lostAt);
         return u >= start && u < end;
       }
       return false;
