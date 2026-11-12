@@ -2,6 +2,7 @@
 // Valida fila por fila, normaliza teléfonos, detecta duplicados e inserta.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { hasTenantManagementRole } from "../_shared/tenant-authorization.ts";
 
 const cors = { ...corsHeaders };
 
@@ -58,10 +59,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const { data: tenantId, error: tenantError } = await supabase.rpc("get_user_tenant", { _user_id: u.user.id });
+    if (tenantError || !tenantId) return new Response(JSON.stringify({ error: "Sin empresa autorizada" }), { status: 403, headers: cors });
+    const { data: roles } = await supabase.from("user_roles").select("role,tenant_id").eq("user_id", u.user.id);
+    const allowed = hasTenantManagementRole(roles ?? [], tenantId, true);
+    if (!allowed) return new Response(JSON.stringify({ error: "Sin permiso para importar" }), { status: 403, headers: cors });
+
     const { data: batch, error: batchErr } = await admin
       .from("import_batches")
       .select("*, tenants:tenant_id(organization_id)")
       .eq("id", batchId)
+      .eq("tenant_id", tenantId)
       .single();
     if (batchErr || !batch) {
       return new Response(JSON.stringify({ error: "Lote no encontrado" }), { status: 404, headers: { ...cors, "Content-Type": "application/json" } });
@@ -73,7 +81,6 @@ Deno.serve(async (req) => {
       .eq("batch_id", batchId)
       .eq("status", "pending");
 
-    const tenantId = batch.tenant_id;
     const orgId = batch.tenants?.organization_id;
 
     let imported = 0;
@@ -131,7 +138,8 @@ Deno.serve(async (req) => {
 
           if (mapped.owner_email) {
             const { data: owner } = await admin.from("profiles").select("id").eq("email", mapped.owner_email).maybeSingle();
-            if (owner) {
+            const { data: member } = owner ? await admin.rpc("user_can_use_tenant", { _user_id: owner.id, _tenant_id: tenantId }) : { data: false };
+            if (owner && member === true) {
               await admin.from("contacts").update({ owner_id: owner.id }).eq("id", contact.id);
             }
           }

@@ -1,6 +1,7 @@
 // Edge function: revierte un lote de importación eliminando los registros creados.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { hasTenantManagementRole } from "../_shared/tenant-authorization.ts";
 
 const cors = { ...corsHeaders };
 
@@ -24,7 +25,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const batchId = String(body?.batchId ?? "");
-    const revertedBy = body?.revertedBy ?? u.user.id;
+    const revertedBy = u.user.id;
     if (!batchId) {
       return new Response(JSON.stringify({ error: "batchId requerido" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
@@ -34,7 +35,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: batch } = await admin.from("import_batches").select("*").eq("id", batchId).single();
+    const { data: tenantId, error: tenantError } = await supabase.rpc("get_user_tenant", { _user_id: u.user.id });
+    if (tenantError || !tenantId) return new Response(JSON.stringify({ error: "Sin empresa autorizada" }), { status: 403, headers: cors });
+    const { data: roles } = await supabase.from("user_roles").select("role,tenant_id").eq("user_id", u.user.id);
+    const allowed = hasTenantManagementRole(roles ?? [], tenantId, true);
+    if (!allowed) return new Response(JSON.stringify({ error: "Sin permiso para revertir importaciones" }), { status: 403, headers: cors });
+    const { data: batch } = await admin.from("import_batches").select("*").eq("id", batchId).eq("tenant_id", tenantId).single();
     if (!batch) {
       return new Response(JSON.stringify({ error: "Lote no encontrado" }), { status: 404, headers: { ...cors, "Content-Type": "application/json" } });
     }
@@ -46,18 +52,22 @@ Deno.serve(async (req) => {
     const byTable: Record<string, string[]> = {};
     for (const row of rows ?? []) {
       if (!row.target_table || !row.target_id) continue;
+      const expectedTable: Record<string, string> = { contacts: "contacts", deals: "deals", activities: "activities", products: "products" };
+      if (expectedTable[batch.kind] !== row.target_table) throw new Error("El lote contiene un destino de eliminación inválido");
       byTable[row.target_table] = byTable[row.target_table] ?? [];
       byTable[row.target_table].push(row.target_id);
     }
 
     for (const [table, ids] of Object.entries(byTable)) {
       if (ids.length === 0) continue;
-      const { error } = await admin.from(table).delete().in("id", ids);
-      if (error) console.error(`revert delete ${table}`, error);
+      const { error } = await admin.from(table).delete().eq("tenant_id", tenantId).in("id", ids);
+      if (error) throw error;
     }
 
-    await admin.from("import_rows").update({ status: "pending", target_table: null, target_id: null }).eq("batch_id", batchId);
-    await admin.from("import_batches").update({ status: "reverted", reverted_at: new Date().toISOString(), reverted_by: revertedBy }).eq("id", batchId);
+    const { error: rowsError } = await admin.from("import_rows").update({ status: "pending", target_table: null, target_id: null }).eq("batch_id", batchId);
+    if (rowsError) throw rowsError;
+    const { error: batchError } = await admin.from("import_batches").update({ status: "reverted", reverted_at: new Date().toISOString(), reverted_by: revertedBy }).eq("id", batchId).eq("tenant_id", tenantId);
+    if (batchError) throw batchError;
 
     return new Response(JSON.stringify({ ok: true, deleted: rows?.length ?? 0 }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e: any) {

@@ -19,6 +19,7 @@ import NotFound from "@/pages/NotFound";
 import RootRedirect from "@/pages/app/RootRedirect";
 import { useAuth } from "@/hooks/useAuth";
 import { getInitialHash, readRecoveryHash } from "@/lib/auth/recoveryHash";
+import { watchPrivateScope } from "@/lib/auth/queryIsolation";
 
 // Lazy: rutas pesadas
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
@@ -61,6 +62,7 @@ const queryClient = new QueryClient({
     },
   },
 });
+watchPrivateScope(queryClient);
 
 function RouteFallback() {
   return (

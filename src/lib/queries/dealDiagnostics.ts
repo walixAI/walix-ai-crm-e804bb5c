@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
+import { readAllPages } from "./paginate";
 
 /* ============ Tipos ============ */
 
@@ -266,14 +267,13 @@ export function useDiagnosticsDeals() {
   return useQuery({
     queryKey: ["diagnostics-deals"],
     queryFn: async (): Promise<DiagnosticsRow[]> => {
-      const { data, error } = await (supabase as any)
+      const data = await readAllPages<any>((from, to) => (supabase as any)
         .from("deals")
         .select(
           "id, name, amount, owner_id, stage_id, stage_name, is_won, is_lost, current_blocker_id, last_known_blocker_id, blocker_set_at, blocker_expected_at, loss_reason_id, no_response_since, created_at, updated_at",
         )
-        .order("updated_at", { ascending: false })
-        .limit(1000);
-      if (error) throw error;
+        .order("updated_at", { ascending: false }).order("id")
+        .range(from, to));
       return (data ?? []).map((r: any) => ({
         id: r.id,
         name: r.name,

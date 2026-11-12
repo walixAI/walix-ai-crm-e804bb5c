@@ -61,7 +61,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
     queryKey: ["call-channels", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("call_channels").select("*").eq("tenant_id", tenantId).order("created_at");
+        .from("call_channels").select("id,tenant_id,name,provider,phone_number,status,pbx_config,record_calls,recording_notice,created_at,credentials_configured").eq("tenant_id", tenantId).order("created_at");
       if (error) throw error;
       return data ?? [];
     },
@@ -155,8 +155,8 @@ export function CallsSettingsTab({ tenantId }: Props) {
                   </Badge>
                   <Badge variant="outline">{c.provider === "simulated" ? "Simulado" : c.provider}</Badge>
                   {c.provider !== "simulated" && (
-                    <Badge variant={c.credentials_encrypted ? "secondary" : "outline"}>
-                      {c.credentials_encrypted ? "Credenciales listas" : "Sin credenciales"}
+                    <Badge variant={c.credentials_configured ? "secondary" : "outline"}>
+                      {c.credentials_configured ? "Credenciales listas" : "Sin credenciales"}
                     </Badge>
                   )}
                 </div>
@@ -231,7 +231,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
                       />
                     </div>
                   ))}
-                  {editing?.credentials_encrypted && (
+                  {editing?.credentials_configured && (
                     <p className="text-xs text-muted-foreground">
                       Ya hay credenciales guardadas. Déjalas vacías para conservarlas o escribe nuevas para reemplazarlas.
                     </p>

@@ -1213,6 +1213,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          credentials_configured: boolean | null
           credentials_encrypted: string | null
           id: string
           name: string
@@ -1230,6 +1231,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          credentials_configured?: boolean | null
           credentials_encrypted?: string | null
           id?: string
           name: string
@@ -1247,6 +1249,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          credentials_configured?: boolean | null
           credentials_encrypted?: string | null
           id?: string
           name?: string
@@ -2413,6 +2416,7 @@ export type Database = {
           last_inbound_at: string | null
           last_known_blocker_id: string | null
           loss_reason_id: string | null
+          lost_at: string | null
           lost_comment: string | null
           lost_reason: string | null
           name: string
@@ -2455,6 +2459,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_known_blocker_id?: string | null
           loss_reason_id?: string | null
+          lost_at?: string | null
           lost_comment?: string | null
           lost_reason?: string | null
           name: string
@@ -2497,6 +2502,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_known_blocker_id?: string | null
           loss_reason_id?: string | null
+          lost_at?: string | null
           lost_comment?: string | null
           lost_reason?: string | null
           name?: string
@@ -6204,6 +6210,7 @@ export type Database = {
         Row: {
           agent_id: string
           contact_id: string | null
+          contact_isolated: boolean
           created_at: string
           deal_id: string | null
           id: string
@@ -6217,6 +6224,7 @@ export type Database = {
         Insert: {
           agent_id: string
           contact_id?: string | null
+          contact_isolated?: boolean
           created_at?: string
           deal_id?: string | null
           id?: string
@@ -6230,6 +6238,7 @@ export type Database = {
         Update: {
           agent_id?: string
           contact_id?: string | null
+          contact_isolated?: boolean
           created_at?: string
           deal_id?: string | null
           id?: string
@@ -6701,6 +6710,10 @@ export type Database = {
           p_event_filters?: Json
           p_event_type: Database["public"]["Enums"]["pipeline_stage_trigger_event"]
         }
+        Returns: boolean
+      }
+      audit_can_manage_tenant: {
+        Args: { _tenant_id: string }
         Returns: boolean
       }
       bootstrap_platform_owner: { Args: { _email: string }; Returns: undefined }

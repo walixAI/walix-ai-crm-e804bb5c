@@ -36,9 +36,9 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: profile } = await admin
-      .from("profiles").select("tenant_id").eq("id", user.id).single();
-    if (!profile?.tenant_id) return json({ error: "Sin empresa asignada" }, 403);
-    const tenantId = profile.tenant_id;
+      .from("profiles").select("tenant_id,active_tenant_id").eq("id", user.id).single();
+    const tenantId = profile?.active_tenant_id ?? profile?.tenant_id;
+    if (!tenantId) return json({ error: "Sin empresa asignada" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
@@ -51,8 +51,8 @@ serve(async (req) => {
       // Validar que el contacto pertenece al tenant y (si es vendedor) que es suyo
       let contact: any = null;
       if (contactId) {
-        const { data } = await admin.from("contacts")
-          .select("id, tenant_id, owner_id, phone").eq("id", contactId).single();
+        const { data } = await userClient.from("contacts")
+          .select("id, tenant_id, owner_id, phone").eq("tenant_id", tenantId).eq("id", contactId).single();
         if (!data || data.tenant_id !== tenantId) return json({ error: "Contacto no encontrado" }, 404);
         contact = data;
       }
@@ -68,7 +68,7 @@ serve(async (req) => {
       if (contactId) {
         const { data: deal } = await admin.from("deals")
           .select("id").eq("contact_id", contactId).eq("tenant_id", tenantId)
-          .neq("stage", "won").order("created_at", { ascending: false }).limit(1).maybeSingle();
+          .eq("is_won", false).eq("is_lost", false).order("created_at", { ascending: false }).limit(1).maybeSingle();
         dealId = deal?.id ?? null;
       }
 

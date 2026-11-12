@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       const { data: agent } = await sb.from("sales_agents").select("name, enabled, channels").eq("public_key", key).maybeSingle();
       const off = !agent || !agent.enabled || agent.channels?.web === false;
       const endpoint = `${Deno.env.get("SUPABASE_URL")}/functions/v1/web-chat`;
-      return new Response(off ? "/* Walix: chat no disponible */" : widget(endpoint, key, agent!.name), {
+      return new Response(off || !agent ? "/* Walix: chat no disponible */" : widget(endpoint, key, agent.name), {
         headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
       });
     }
@@ -87,7 +87,10 @@ Deno.serve(async (req) => {
       if (phone || email) {
         if (phone) contactId = (await sb.from("contacts").select("id").eq("tenant_id", agent.tenant_id).eq("phone", phone).limit(1).maybeSingle()).data?.id ?? null;
         if (!contactId && email) contactId = (await sb.from("contacts").select("id").eq("tenant_id", agent.tenant_id).eq("email", email).limit(1).maybeSingle()).data?.id ?? null;
-        if (!contactId) {
+        // Claimed phone/email never authorizes access to an existing CRM contact.
+        const matchesExisting = !!contactId;
+        contactId = null;
+        if (!matchesExisting) {
           const { data: c } = await sb.from("contacts").insert({ tenant_id: agent.tenant_id, name, phone, email, source: "Formulario web" }).select("id").single();
           contactId = c?.id ?? null;
         }
@@ -98,6 +101,7 @@ Deno.serve(async (req) => {
       const { data: s, error } = await sb.from("web_chat_sessions").insert({
         tenant_id: agent.tenant_id, agent_id: agent.id, pipeline_id: agent.pipeline_id, contact_id: contactId, deal_id: dealId,
         visitor_name: name, visitor_phone: phone, visitor_email: email,
+        contact_isolated: !!contactId,
       }).select("id").single();
       if (error) return json({ error: "No se pudo iniciar el chat" }, 500);
       const greeting = `Hola ${name.split(" ")[0]}, soy ${agent.name}. ¿En qué te ayudo?`;
@@ -109,6 +113,8 @@ Deno.serve(async (req) => {
     if (!b.session_id || !b.text) return json({ error: "Falta el mensaje" }, 400);
     const { data: s } = await sb.from("web_chat_sessions").select("*").eq("id", b.session_id).eq("agent_id", agent.id).maybeSingle();
     if (!s) return json({ error: "Sesión no encontrada" }, 404);
+    // Old sessions linked only by a claimed identity are untrusted too.
+    if (!s.contact_isolated) { s.contact_id = null; s.deal_id = null; }
 
     const { data: past } = await sb.from("web_chat_messages").select("role, body").eq("session_id", s.id)
       .order("created_at", { ascending: true }).limit(MAX_MSGS_PER_SESSION + 5);
@@ -119,7 +125,7 @@ Deno.serve(async (req) => {
 
     // Si el lead ya fue canalizado al asesor, el agente no responde.
     let agentSession: any = null;
-    if (s.contact_id) {
+    if (s.contact_id && s.contact_isolated) {
       agentSession = (await sb.from("sales_agent_sessions").select("*").eq("contact_id", s.contact_id).eq("agent_id", agent.id).maybeSingle()).data;
       if (agentSession && agentSession.state !== "agent") {
         return json({ reply: "Gracias, ya avisé a tu asesor y te contactará en breve." });
@@ -133,18 +139,7 @@ Deno.serve(async (req) => {
       .eq("tenant_id", agent.tenant_id).or(`agent_id.is.null,agent_id.eq.${agent.id}`);
 
     // Memoria entre canales: últimos mensajes de WhatsApp del mismo contacto.
-    let waMemory = "";
-    if (s.contact_id) {
-      const { data: convs } = await sb.from("conversations").select("id").eq("contact_id", s.contact_id).limit(3);
-      const ids = (convs ?? []).map((c: any) => c.id);
-      if (ids.length) {
-        const { data: wa } = await sb.from("messages").select("direction, body, is_internal_note").in("conversation_id", ids)
-          .order("sent_at", { ascending: false }).limit(12);
-        const lines = (wa ?? []).reverse().filter((m: any) => !m.is_internal_note && m.body)
-          .map((m: any) => `${m.direction === "inbound" ? "Lead" : "Nosotros"}: ${String(m.body).slice(0, 300)}`);
-        if (lines.length) waMemory = `\n\n## Lo hablado antes por WhatsApp\n${lines.join("\n")}`;
-      }
-    }
+    const waMemory = ""; // Public visitors never receive private cross-channel history.
 
     const system = buildSystemPrompt(agent, goal, kb ?? [], "chat del sitio web", {
       query: [...(past ?? []).slice(-3).map((m: any) => m.body), b.text].join(" "),

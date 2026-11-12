@@ -82,7 +82,7 @@ export default function Dashboard() {
   const kpiData = [
     {
       label: "Valor del Pipeline", value: kpis ? formatMXN(kpis.pipelineValue) : "—", suffix: "MXN",
-      delta: `+${kpis?.pipelineDeltaPct ?? 0}%`, trend: "up" as const, hint: "vs ayer", icon: Wallet,
+      delta: kpis?.pipelineDeltaPct == null ? "—" : `${kpis.pipelineDeltaPct >= 0 ? "+" : ""}${kpis.pipelineDeltaPct}%`, trend: "up" as const, hint: kpis?.pipelineDeltaPct == null ? "Sin histórico comparable" : "vs ayer", icon: Wallet,
       breakdown: breakdown.map((b) => ({ label: b.pipelineName, value: formatMXN(b.value) })),
     },
     {
@@ -91,17 +91,18 @@ export default function Dashboard() {
       breakdown: breakdown.map((b) => ({ label: b.pipelineName, value: `${b.activeCount}` })),
     },
     { label: "Mensajes WhatsApp", value: String(kpis?.messagesToday ?? 0), suffix: "hoy", delta: String(kpis?.messagesUnanswered ?? 0), trend: "down" as const, hint: "sin respuesta", icon: MessageSquare, breakdown: [] },
-    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "", delta: `+${kpis?.closeRateDelta ?? 0}pts`, trend: "up" as const, hint: "este mes", icon: TrendingUp, breakdown: [] },
+    { label: "Tasa de Cierre", value: `${kpis?.closeRate ?? 0}%`, suffix: "este mes", delta: kpis?.closeRateDelta == null ? "—" : `${kpis.closeRateDelta >= 0 ? "+" : ""}${kpis.closeRateDelta} pts`, trend: (kpis?.closeRateDelta ?? 0) < 0 ? "down" as const : "up" as const, hint: kpis?.closeRateDelta == null ? "Sin periodo comparable" : "vs mes anterior", icon: TrendingUp, breakdown: [] },
   ];
 
   const { data: profile } = useQuery({
     queryKey: ["profile-name", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
+      if (!user) return null;
       const { data } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", user!.id)
+        .eq("id", user.id)
         .maybeSingle();
       return data;
     },
@@ -216,7 +217,7 @@ export default function Dashboard() {
                   "inline-flex items-center gap-0.5 font-semibold",
                   k.trend === "up" ? "text-success" : "text-danger"
                 )}>
-                  <TrendIcon className="h-3 w-3" />
+                  {k.delta !== "—" && <TrendIcon className="h-3 w-3" />}
                   {k.delta}
                 </span>
                 <span className="text-muted-foreground">{k.hint}</span>

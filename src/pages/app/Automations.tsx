@@ -28,11 +28,14 @@ import type { AutomationTemplate } from "@/lib/automations/templates";
 
 import type { AutomationDraft } from "@/services/automations";
 import type { RecurrenceDefinition } from "@/lib/queries/recurrence";
+import { useAuth } from "@/hooks/useAuth";
+import { can } from "@/lib/permissions";
 
 type Tab = "active" | "paused" | "drafts" | "all" | "recurrence" | "agenda";
 
 export default function Automations() {
-
+  const { roles } = useAuth();
+  const canManage = can(roles, "automations.write");
   const { toast } = useToast();
   const { data: automations = [], isLoading } = useAutomations();
   const toggle = useToggleAutomation();
@@ -108,6 +111,7 @@ export default function Automations() {
   };
 
   const handleToggle = async (a: Automation, next: boolean) => {
+    if (!canManage) return;
     if (next && limits.atLimit && !a.enabled) {
       toast({
         title: "Límite del plan alcanzado",
@@ -130,7 +134,7 @@ export default function Automations() {
           <h1 className="text-2xl font-bold tracking-tight">Automatizaciones</h1>
           <p className="text-sm text-muted-foreground mt-1">Pon tu CRM en piloto automático.</p>
         </div>
-        <div className="flex items-center gap-2">
+        {canManage && <div className="flex items-center gap-2">
           <PlanLimitBanner plan={tenantPlan} active={activeCount} />
           {tab === "recurrence" ? (
             <Button onClick={() => { setEditingRecurrence(null); setRecurrenceOpen(true); }}>
@@ -141,7 +145,7 @@ export default function Automations() {
               <Plus className="h-4 w-4 mr-1.5" /> Nueva automatización
             </Button>
           )}
-        </div>
+        </div>}
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -174,7 +178,7 @@ export default function Automations() {
           illustration={<EmptyIllustration variant="automations" />}
           title={tab === "active" ? "No tienes automatizaciones activas" : "Nada por aquí"}
           description="Crea tu primera automatización en segundos desde una plantilla lista o describiéndola con IA."
-          action={!limits.locked ? { label: "Crear automatización", onClick: () => setGalleryOpen(true) } : undefined}
+          action={canManage && !limits.locked ? { label: "Crear automatización", onClick: () => setGalleryOpen(true) } : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -182,6 +186,7 @@ export default function Automations() {
             <AutomationCard
               key={a.id}
               automation={a}
+              readOnly={!canManage}
               onToggle={(next) => handleToggle(a, next)}
               onEdit={() => { setEditing(a); setPrefill(null); setBuilderOpen(true); }}
               onDuplicate={async () => {
@@ -207,7 +212,7 @@ export default function Automations() {
         confirmLabel="Eliminar"
         destructive
         onConfirm={async () => {
-          if (!deleteFor) return;
+          if (!deleteFor || !canManage) return;
           try {
             await del.mutateAsync(deleteFor.id);
             toast({ title: "Automatización eliminada" });

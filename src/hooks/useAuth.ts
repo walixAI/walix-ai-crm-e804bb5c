@@ -68,6 +68,7 @@ export function useInitAuth() {
     const loadAndApply = async (userId: string) => {
       setContextLoading(true);
       const ctx = await loadUserContext(userId);
+      if (useAuthStore.getState().user?.id !== userId) return;
       if (!ctx.accountValid) {
         await forceSignOut(reset);
         lastLoadedUserId.current = null;
@@ -104,6 +105,13 @@ export function useInitAuth() {
         return;
       }
 
+      if (session?.user.id !== useAuthStore.getState().user?.id) {
+        setContextLoading(true);
+        setRoles([]);
+        setOrganizations([]);
+        setActiveTenantId(null);
+        lastLoadedUserId.current = null;
+      }
       setSession(session);
       if (session?.user) {
         // Si ya cargamos el contexto de este usuario, no recargues al re-emitir SIGNED_IN.

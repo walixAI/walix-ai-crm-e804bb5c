@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { shortDocumentTitle, documentFilename } from "../../../supabase/functions/_shared/document-name";
+import { recoverableDelete } from "./documentDeletion";
 export { shortDocumentTitle } from "../../../supabase/functions/_shared/document-name";
 
 export const DOCS_BUCKET = "tenant-documents";
@@ -71,6 +72,16 @@ function useInvalidate() {
   return () => { qc.invalidateQueries({ queryKey: ["doc-categories"] }); qc.invalidateQueries({ queryKey: ["documents"] }); };
 }
 
+async function deleteFilesAndRecord(paths: string[], deleteRecord: () => Promise<void>) {
+  const bucket = supabase.storage.from(DOCS_BUCKET);
+  await recoverableDelete(paths, {
+    backup: async (path) => { const { data, error } = await bucket.download(path); if (error || !data) throw error ?? new Error("No se pudo respaldar el archivo"); return data; },
+    remove: async (items) => { const { error } = await bucket.remove(items); if (error) throw error; },
+    deleteRecord,
+    restore: async (path, data) => { const { error } = await bucket.upload(path, data, { upsert: true, contentType: data.type }); if (error) throw error; },
+  });
+}
+
 export function useSaveCategory() {
   const inv = useInvalidate();
   const { data: tenantId } = useTenantId();
@@ -94,9 +105,13 @@ export function useDeleteCategory() {
   const inv = useInvalidate();
   return useMutation({
     mutationFn: async (cat: { id: string; paths: string[] }) => {
-      if (cat.paths.length) await supabase.storage.from(DOCS_BUCKET).remove(cat.paths);
-      const { error } = await supabase.from("document_categories").delete().eq("id", cat.id);
-      if (error) throw error;
+      const { data: docs, error: listError } = await supabase.from("documents").select("storage_path").eq("category_id", cat.id);
+      if (listError) throw listError;
+      await deleteFilesAndRecord((docs ?? []).map((d) => d.storage_path), async () => {
+        const { data, error } = await supabase.from("document_categories").delete().eq("id", cat.id).select("id");
+        if (error) throw error;
+        if (!data?.length) throw new Error("No se pudo eliminar la categoría");
+      });
     },
     onSuccess: inv,
   });
@@ -143,9 +158,11 @@ export function useDeleteDocument() {
   const inv = useInvalidate();
   return useMutation({
     mutationFn: async (d: TenantDocument) => {
-      await supabase.storage.from(DOCS_BUCKET).remove([d.storage_path]);
-      const { error } = await supabase.from("documents").delete().eq("id", d.id);
-      if (error) throw error;
+      await deleteFilesAndRecord([d.storage_path], async () => {
+        const { data, error } = await supabase.from("documents").delete().eq("id", d.id).select("id");
+        if (error) throw error;
+        if (!data?.length) throw new Error("No se pudo eliminar el documento");
+      });
     },
     onSuccess: inv,
   });

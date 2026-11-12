@@ -49,6 +49,7 @@ export interface PipelineDeal {
   updatedAt: string;
   /** Fecha real en que se marcó como ganada (null si no está ganada). */
   wonAt: string | null;
+  lostAt?: string | null;
   /* Diagnóstico de por qué no avanza */
   currentBlockerId: string | null;
   blockerSetAt: string | null;
@@ -81,6 +82,7 @@ function mapDeal(r: any, users?: TenantUser[]): PipelineDeal {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     wonAt: r.won_at ?? null,
+    lostAt: r.lost_at ?? null,
     currentBlockerId: r.current_blocker_id ?? null,
     blockerSetAt: r.blocker_set_at ?? null,
     blockerExpectedAt: r.blocker_expected_at ?? null,

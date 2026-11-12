@@ -18,7 +18,6 @@ export interface WhatsappChannel {
   status: ChannelStatus;
   last_error: string | null;
   connected_at: string | null;
-  access_token: string | null;
   last_inbound_at: string | null;
   last_inbound_from: string | null;
   last_webhook_at: string | null;
@@ -27,6 +26,8 @@ export interface WhatsappChannel {
   position: number;
   is_platform: boolean;
 }
+
+export const WA_CHANNEL_COLUMNS = "id,tenant_id,kind,provider,display_name,phone_number,phone_number_id,business_account_id,verify_token,status,last_error,connected_at,last_inbound_at,last_inbound_from,last_webhook_at,is_default,label,position,is_platform";
 
 export interface WhatsappUserAccess {
   id: string;
@@ -51,7 +52,7 @@ export function useWhatsappChannels(tenantId: string | null | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_channels")
-        .select("*")
+        .select(WA_CHANNEL_COLUMNS)
         .eq("tenant_id", tenantId!)
         .order("kind")
         .order("is_default", { ascending: false })
@@ -132,7 +133,7 @@ export function useUpsertChannel(tenantId: string) {
           status: "pending" as const,
           last_error: null,
           ...(input.label !== undefined ? { label: input.label } : {}),
-          ...(hasNewToken ? { access_token: input.access_token! } : {}),
+          ...(hasNewToken ? { access_token: input.access_token } : {}),
         };
         const { error } = await supabase.from("whatsapp_channels").update(update).eq("id", existing.id);
         if (error) throw error;

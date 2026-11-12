@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hasTenantManagementRole } from "../_shared/tenant-authorization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,8 +86,8 @@ Deno.serve(async (req) => {
     if (!tenantId) return bad(400, "Sin tenant activo");
 
     // Admin role check (cached for this request)
-    const { data: rolesData } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    const isAdmin = (rolesData ?? []).some((r: any) => r.role === "tenant_admin" || r.role === "tenant_owner" || r.role === "platform_owner" || r.role === "platform_staff");
+    const { data: rolesData } = await supabase.from("user_roles").select("role, tenant_id").eq("user_id", userId);
+    const isAdmin = hasTenantManagementRole(rolesData ?? [], tenantId);
 
     const body = (await req.json()) as Body;
     if (!body?.kind || !body?.payload) return bad(400, "Cuerpo inválido");
@@ -96,6 +97,21 @@ Deno.serve(async (req) => {
     const ADMIN_KINDS: Kind[] = ["create_contact_source", "create_contact_stage", "create_pipeline_stage"];
     if (ADMIN_KINDS.includes(body.kind) && !isAdmin) {
       return bad(403, "Solo administradores pueden modificar la configuración");
+    }
+
+    // The same reference checks apply before preview and before execution.
+    for (const [field, table] of [["deal_id", "deals"], ["contact_id", "contacts"], ["stage_id", "pipeline_stages"], ["pipeline_id", "pipelines"], ["conversation_id", "conversations"]] as const) {
+      if (p[field] == null) continue;
+      if (!isUuid(p[field])) return bad(400, `${field} inválido`);
+      const { data: reference, error } = await supabase.from(table).select("id").eq("id", p[field]).eq("tenant_id", tenantId).maybeSingle();
+      if (error || !reference) return bad(404, "Registro no disponible en tu empresa");
+    }
+    if (p.assignee_id != null) {
+      if (!isUuid(p.assignee_id)) return bad(400, "Asesor inválido");
+      const { data: member, error } = await supabase.rpc("user_can_use_tenant", { _user_id: p.assignee_id, _tenant_id: tenantId });
+      if (error || member !== true) return bad(403, "El asesor no pertenece a tu empresa");
+      const { data: repOnly, error: roleError } = await supabase.rpc("is_rep_only", { _user_id: userId, _tenant_id: tenantId });
+      if (roleError || (repOnly && p.assignee_id !== userId)) return bad(403, "Solo puedes asignarte tus tareas");
     }
 
     // ─── PREVIEW MODE: read current state, compute diff, do NOT write ───
@@ -287,7 +303,8 @@ Deno.serve(async (req) => {
         const upd: any = { stage_id: stage.id, stage_name: stage.name, is_won: !!stage.is_won, is_lost: !!stage.is_lost };
         const { data, error } = await supabase.from("deals").update(upd).eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         result = { stage_name: stage.name };
         break;
       }
@@ -299,7 +316,8 @@ Deno.serve(async (req) => {
         if (!Object.keys(upd).length) return bad(400, "Nada para actualizar");
         const { data, error } = await supabase.from("deals").update(upd).eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "mark_deal_won": {
@@ -308,7 +326,8 @@ Deno.serve(async (req) => {
           .update({ is_won: true, is_lost: false, probability: 100 })
           .eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "mark_deal_lost": {
@@ -319,7 +338,8 @@ Deno.serve(async (req) => {
         if (typeof p.lost_comment === "string") upd.lost_comment = p.lost_comment;
         const { data, error } = await supabase.from("deals").update(upd).eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "create_task": {
@@ -359,7 +379,8 @@ Deno.serve(async (req) => {
         if (!Object.keys(upd).length) return bad(400, "Nada para actualizar");
         const { data, error } = await supabase.from("contacts").update(upd).eq("id", p.contact_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "contact"; target_id = data?.id ?? p.contact_id;
+        if (!data) return bad(404, "Contacto no disponible");
+        target_type = "contact"; target_id = data.id;
         break;
       }
       case "create_contact": {
@@ -418,7 +439,8 @@ Deno.serve(async (req) => {
           .update({ contact_id: p.contact_id })
           .eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "send_whatsapp_message": {
