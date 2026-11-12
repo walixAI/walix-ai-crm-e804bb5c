@@ -1,5 +1,13 @@
 # Información unificada del prospecto
 
+# Auditoría integral solicitada
+
+- [x] Comprobar integridad de datos en las 14 empresas y controles anónimos; sin certificar aislamiento autenticado.
+- [x] Ejecutar 61 pruebas existentes y revisar acciones/permisos por código; 20 rutas privadas comprobadas sin sesión.
+- [x] Revisar seguridad de interfaz, funciones y base de datos; entregar diagnóstico con hallazgos y cobertura explícita, sin cambios comerciales.
+- [ ] Incorporar resultado del análisis profundo de seguridad — espera su notificación de finalización.
+- [ ] Verificar acciones autenticadas por empresa y rol — pendiente de una sesión autorizada; la cuenta del solicitante no pudo obtenerse automáticamente.
+
 # Nombres de documentos
 
 - [x] Acortar automáticamente títulos al subir, editar y adjuntar documentos; envíos del asesor y agente desplegados.
