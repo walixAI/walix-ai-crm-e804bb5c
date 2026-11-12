@@ -303,7 +303,8 @@ Deno.serve(async (req) => {
         const upd: any = { stage_id: stage.id, stage_name: stage.name, is_won: !!stage.is_won, is_lost: !!stage.is_lost };
         const { data, error } = await supabase.from("deals").update(upd).eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         result = { stage_name: stage.name };
         break;
       }
@@ -315,7 +316,8 @@ Deno.serve(async (req) => {
         if (!Object.keys(upd).length) return bad(400, "Nada para actualizar");
         const { data, error } = await supabase.from("deals").update(upd).eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "mark_deal_won": {
@@ -324,7 +326,8 @@ Deno.serve(async (req) => {
           .update({ is_won: true, is_lost: false, probability: 100 })
           .eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "mark_deal_lost": {
@@ -335,7 +338,8 @@ Deno.serve(async (req) => {
         if (typeof p.lost_comment === "string") upd.lost_comment = p.lost_comment;
         const { data, error } = await supabase.from("deals").update(upd).eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "create_task": {
@@ -375,7 +379,8 @@ Deno.serve(async (req) => {
         if (!Object.keys(upd).length) return bad(400, "Nada para actualizar");
         const { data, error } = await supabase.from("contacts").update(upd).eq("id", p.contact_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "contact"; target_id = data?.id ?? p.contact_id;
+        if (!data) return bad(404, "Contacto no disponible");
+        target_type = "contact"; target_id = data.id;
         break;
       }
       case "create_contact": {
@@ -434,7 +439,8 @@ Deno.serve(async (req) => {
           .update({ contact_id: p.contact_id })
           .eq("id", p.deal_id).select("id").maybeSingle();
         if (error) return bad(400, error.message);
-        target_type = "deal"; target_id = data?.id ?? p.deal_id;
+        if (!data) return bad(404, "Oportunidad no disponible");
+        target_type = "deal"; target_id = data.id;
         break;
       }
       case "send_whatsapp_message": {
