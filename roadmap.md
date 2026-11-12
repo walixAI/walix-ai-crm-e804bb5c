@@ -2,6 +2,9 @@
 
 # Auditoría integral solicitada
 
+- [ ] Secuencia autorizada el 12 de noviembre: (1) comunicaciones legítimas, (2) duplicados y seguridad de correo, (3) dependencias, (4) validación por empresa/rol, (5) decisiones de fechas, (6) nuevo análisis y cierre. No habilitar demos ni implementar la propuesta del chat público; solicitar destinatarios/costos antes de pruebas con envíos reales.
+- [ ] Paso 1: lectura de buzón programada comprobada por last_sync_at 2026-11-12 05:55:08 UTC, una cuenta y cero errores; sin mensajes WA/correos ni llamadas recientes para certificar entregas. Prueba real espera empresa/contacto autorizado y aceptación del costo habitual; telefonía depende de número configurado. No adelantar el paso 2 mientras esta comprobación espere autorización.
+
 - [x] Bloque 1: función administrativa retirada; prueba y rechazo desplegado 410 comprobados; registros disponibles no demuestran uso indebido.
 - [x] Bloque 2: permisos de automatizaciones/claves de entrada, roles del copiloto, consultas privilegiadas, importaciones y envíos segmentados reforzados; credenciales sin lectura de usuarios; chat público sin identidad CRM heredada; cachés privadas limpiadas.
 - [x] Bloque 4: comparativos constantes retirados, tasa real por cierre, lost_at estable, reportes relativos y paginación de indicadores/diagnóstico; eliminación con respaldo y recuperación; 76 pruebas de aplicación y una de función retiradas aprobadas.
