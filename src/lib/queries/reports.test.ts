@@ -25,13 +25,14 @@ it("relative report boundaries advance instead of staying at the mount date", ()
   expect(next.from).toEqual(first.from);
 });
 it("keeps loaded report data while the minute refresh is pending", async () => {
+  vi.useFakeTimers();
   fetchState.blocked = false;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: React.ReactNode }) => createElement(QueryClientProvider, { client }, children);
   const hook = renderHook(() => useReportsData({ period: { preset: "today" }, sellers: [] }), { wrapper });
-  await waitFor(() => expect(hook.result.current.data).not.toBeNull());
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+  expect(hook.result.current.data).not.toBeNull();
   const previous = hook.result.current.data;
-  vi.useFakeTimers();
   fetchState.blocked = true;
   await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
   expect(client.getQueryCache().getAll()).toHaveLength(1);

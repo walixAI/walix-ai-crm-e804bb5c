@@ -8,8 +8,8 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("../_shared/request-security.ts", () => ({ requireInternalRequest: () => null }));
 vi.mock("../_shared/transactional-email-templates/logged-send.ts", () => ({ sendAndLog: vi.fn() }));
-vi.mock("npm:@supabase/supabase-js@2/cors", () => ({ corsHeaders: {} }));
-vi.mock("npm:@supabase/supabase-js@2", () => ({ createClient: () => ({
+vi.mock("@supabase/supabase-js/cors", () => ({ corsHeaders: {} }));
+vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({
   rpc: async () => ({ data: [{ contact_id: "contact", last_inbound: "2020-01-01T00:00:00Z" }], error: null }),
   from: (table: string) => {
     const chain: any = {};
