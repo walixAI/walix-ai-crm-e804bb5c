@@ -10,8 +10,8 @@
 - [ ] Fechas de pérdida históricas: 138 sin fecha confiable en la nueva columna; no usar última edición ni inventar fecha — espera confirmar criterio de recuperación histórica.
 - [ ] Segunda etapa: validación integral y dependencias siguen pendientes; el 12 de noviembre Erick autorizó explícitamente corregir los 37 avisos seleccionados, incluyendo comunicaciones y procesos afectados.
 - [x] Avisos seleccionados: autenticación de seis procesos internos, cinco agendas autenticadas, firmas de Meta, rechazo de roles falsos, permisos de identidad/pronósticos, invitaciones pendientes y destinos de correo públicos; 80 pruebas aprobadas y rechazos en funciones desplegadas comprobados.
-- [ ] Chat web público: propuesta de protección y presupuesto pendiente de aprobación; no exigir inicio de sesión ni aplicar límites a medida sin aceptar ese mecanismo.
-- [x] Decisión de Erick: conservar destinos libres de pruebas de WhatsApp para demos y copias de correo; sus dos avisos permanecen activos, sin corregir ni descartar.
+- [ ] «1. Propuesta para el chat público»: pausada por Erick; recordársela al retomar auditoría, sin implementar límites todavía.
+- [x] Decisión de Erick: demos de WhatsApp apagadas con bloqueo previo a cualquier envío; solo habilitarlas por petición expresa en este chat. Copias de correo conservadas, aviso residual activo.
 - [x] Comprobar integridad de datos en las 14 empresas y controles anónimos; sin certificar aislamiento autenticado.
 - [x] Ejecutar 61 pruebas existentes y revisar acciones/permisos por código; 20 rutas privadas comprobadas sin sesión.
 - [x] Revisar seguridad de interfaz, funciones y base de datos; entregar diagnóstico con hallazgos y cobertura explícita, sin cambios comerciales.

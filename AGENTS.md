@@ -1,5 +1,7 @@
 # AGENTS
 
+- Platform demo sends use a deployment-controlled gate before credentials or network access, never a caller-provided enable flag; why: disabling demos must block direct endpoint calls without affecting normal messaging.
+
 - Scheduled HTTP workers validate managed cron authentication or an exact server credential; schedules use the managed scheduling tools; why: unauthenticated requests and decoded role claims cannot authorize global work.
 - Meta inbound events verify HMAC-SHA256 over the untouched body before processing; why: forged provider events must not create records or send replies.
 - Mail sockets resolve and reject non-public addresses, pin the selected address and preserve TLS servername; why: configurable SMTP/IMAP must not reach private networks or follow DNS rebinding.
