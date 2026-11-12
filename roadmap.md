@@ -2,6 +2,7 @@
 
 # Auditoría integral solicitada
 
+- [ ] Ejecutar el plan de corrección por bloques de riesgo — pendiente de aprobación del plan.
 - [x] Comprobar integridad de datos en las 14 empresas y controles anónimos; sin certificar aislamiento autenticado.
 - [x] Ejecutar 61 pruebas existentes y revisar acciones/permisos por código; 20 rutas privadas comprobadas sin sesión.
 - [x] Revisar seguridad de interfaz, funciones y base de datos; entregar diagnóstico con hallazgos y cobertura explícita, sin cambios comerciales.
