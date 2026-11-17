@@ -42,6 +42,7 @@ interface Props {
 
 export function CallButton({ contactId, phone, contactName, size = "sm", variant = "outline" }: Props) {
   const [mode, setMode] = useState<"phone" | "browser">("phone");
+  const [chooserOpen, setChooserOpen] = useState(false);
   const [provider, setProvider] = useState("");
   const [callStatus, setCallStatus] = useState("queued");
   const [summary, setSummary] = useState("");
@@ -153,14 +154,29 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
 
   return (
     <>
-      <Button size={size} variant={variant} onClick={() => void start("phone")} disabled={!phone || state === "starting" || state === "ringing" || state === "ending"} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
+      <Button size={size} variant={variant} onClick={() => setChooserOpen(true)} disabled={!phone || state === "starting" || state === "ringing" || state === "ending"} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
         <Phone className="h-4 w-4" />
         {size !== "icon" && <span className="ml-1.5">Llamar</span>}
       </Button>
 
-      <Button size={size} variant={variant} disabled={!phone || state === "starting" || state === "ringing" || state === "ending"} title="Llamar desde computadora" onClick={() => void start("browser")}>
-        <Monitor className="h-4 w-4" />{size !== "icon" && <span className="ml-1.5">Computadora</span>}
-      </Button>
+      <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Cómo quieres llamar?</DialogTitle>
+            <DialogDescription>{contactName ?? phone} · {phone}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <button type="button" className="flex items-start gap-3 rounded-lg border border-border p-4 text-left hover:bg-accent transition-colors" onClick={() => { setChooserOpen(false); void start("browser"); }}>
+              <Monitor className="h-5 w-5 mt-0.5 text-primary" />
+              <span><span className="block font-medium">Computadora / dispositivo</span><span className="block text-sm text-muted-foreground">Hablas con micrófono y audífonos desde Walix.</span></span>
+            </button>
+            <button type="button" className="flex items-start gap-3 rounded-lg border border-border p-4 text-left hover:bg-accent transition-colors" onClick={() => { setChooserOpen(false); void start("phone"); }}>
+              <Phone className="h-5 w-5 mt-0.5 text-primary" />
+              <span><span className="block font-medium">Mi celular</span><span className="block text-sm text-muted-foreground">Primero suena tu celular; al contestar se marca al contacto.</span></span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing") return; setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-md">

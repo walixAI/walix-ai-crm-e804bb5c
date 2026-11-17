@@ -23,6 +23,7 @@ describe("CallButton failure handling", () => {
     const originalUrl = window.location.href;
     render(<CallButton contactId="c1" phone="+525555555555" />);
     fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Mi celular/ }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledWith(reason));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(window.location.href).toBe(originalUrl);
@@ -37,6 +38,7 @@ describe("CallButton failure handling", () => {
     mocks.invoke.mockResolvedValueOnce({ data: { ok: true, call: { id: "call1" }, provider: "twilio" }, error: null });
     render(<CallButton phone="+525555555555" />);
     fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Mi celular/ }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     await screen.findByRole("button", { name: "Colgar" });
@@ -49,6 +51,7 @@ describe("CallButton failure handling", () => {
     mocks.invoke.mockResolvedValueOnce({ data: { ok: true }, error: null });
     render(<CallButton contactId="c1" phone="+525555555555" />);
     fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Mi celular/ }));
     await screen.findByRole("button", { name: "Contestó" });
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Solicitó información" } });
     fireEvent.click(screen.getByRole("button", { name: "Contestó" }));
