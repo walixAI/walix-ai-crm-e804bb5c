@@ -1,5 +1,7 @@
 # AGENTS
 
+- Browser call audio routes through Twilio AudioHelper with real device IDs; native phone audio stays OS-controlled; why: web UI must not promise unavailable speaker/Bluetooth routing.
+
 - CallTranscript shares provider-driven processing and completed presentation between the dialer and call analysis; the open analysis resolves the latest tenant-scoped call query, never a frozen selection; why: progress must reflect real transcription without extra AI requests.
 
 - Call activity reads consolidate automatic results, AI notes and advisor follow-ups by tenant/contact/call_id with latest advisor labels and provider duration; raw records remain auditable and consolidated entries cannot be independently deleted; why: one visible attempt must not discard evidence or reappear as partial duplicates.

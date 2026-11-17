@@ -2,6 +2,9 @@
 
 # Marcador con dos modalidades
 
+- [x] Agregar selección real de micrófono/salida antes y durante llamadas por navegador; detección y actualización de dispositivos, permisos y aviso de incompatibilidad. 10 pruebas aprobadas y selección comprobada con dispositivos de muestra en 1280, 744 y 390 px. Celular controla altavoz/teléfono/Bluetooth en su pantalla de llamada.
+- [ ] Comprobar audio con bocinas/audífonos/Bluetooth físicos durante llamada real: requiere dispositivo físico y sesión autorizada; no se hicieron llamadas nuevas.
+
 - [x] Unificar cada intento en historial de contacto/oportunidad y reportes, conservando resultado automático, resumen IA y tipificación; aplica a entradas existentes/nuevas sin borrar evidencia. 17 pruebas aprobadas; presentación comprobada con datos de muestra en computadora y celular.
 - [ ] Comprobar el historial unificado con sesión del solicitante: no hay sesión disponible para su cuenta; requiere iniciar sesión en la vista previa.
 

@@ -12,6 +12,7 @@ import { Device, type Call } from "@twilio/voice-sdk";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { usePhoneCallPermissions } from "@/lib/queries/phoneCallPermissions";
 import { CallTranscript } from "./CallTranscript";
+import { CallAudioControls, applyCallAudio, type AudioSelection } from "./CallAudioControls";
 
 type CallState = "idle" | "starting" | "ringing" | "ending" | "failed";
 
@@ -45,6 +46,8 @@ interface Props {
 export function CallButton({ contactId, phone, contactName, size = "sm", variant = "outline" }: Props) {
   const [mode, setMode] = useState<"phone" | "browser">("phone");
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [audioSettings, setAudioSettings] = useState(false);
+  const [audioSelection, setAudioSelection] = useState<AudioSelection>({ input: "default", output: "default" });
   const permissions = usePhoneCallPermissions(chooserOpen);
   const [provider, setProvider] = useState("");
   const [callStatus, setCallStatus] = useState("queued");
@@ -122,6 +125,10 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
     if (selectedMode === "browser" && data.token) {
       device.current = new Device(data.token, { closeProtection: true });
       device.current.on("error", () => { setFailure("No se pudo conectar el audio de la computadora"); setState("failed"); });
+      if (device.current.audio) {
+        try { await applyCallAudio(device.current.audio, audioSelection); }
+        catch { toast.error("No se pudo usar el audio seleccionado. Se usará el predeterminado; puedes cambiarlo durante la llamada."); }
+      }
       browserCall.current = await device.current.connect({ params: { WalixCallId: data.call.id } });
       browserCall.current.on("error", () => { setFailure("La conexión de audio se interrumpió"); setState("failed"); });
     }
@@ -167,7 +174,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
       </Button>
 
       <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
-        <DialogContent className="walix-dialer sm:max-w-[420px] p-0 gap-0 rounded-lg">
+        <DialogContent className="walix-dialer sm:max-w-[420px] max-h-[85dvh] overflow-y-auto p-0 gap-0 rounded-lg">
           <DialogHeader className="dialer-topbar px-6 py-4 pr-12 text-left">
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-foreground/15"><Phone className="h-5 w-5" /></div>
@@ -191,6 +198,8 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
               {permissions.isFetching ? <Loader2 className="animate-spin text-muted-foreground" /> : permissions.data?.can_use_phone ? <ArrowUpRight className="text-muted-foreground group-hover:text-primary" /> : <LockKeyhole className="text-muted-foreground" />}
             </Button>
             {permissions.isError && <Button variant="ghost" size="sm" onClick={() => void permissions.refetch()}>Reintentar autorización</Button>}
+            <Button variant="outline" size="sm" onClick={() => setAudioSettings(!audioSettings)}><Headphones className="mr-2 h-4 w-4" />{audioSettings ? "Ocultar audio" : "Configurar audio del dispositivo"}</Button>
+            {audioSettings && <CallAudioControls selection={audioSelection} onChange={setAudioSelection} />}
           </div>
           <div className="dialer-footer flex items-center justify-center gap-2 px-5 py-3 text-xs"><Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />Seguimiento de la llamada</div>
         </DialogContent>
@@ -233,6 +242,8 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                 <p className="text-sm text-muted-foreground mt-1">{provider === "twilio" ? ({ queued: mode === "phone" ? "Llamando a tu celular" : "Conectando audio", ringing: "Marcando al contacto", answered: "Contacto conectado", completed: "Llamada terminada", failed: "Falló", no_answer: "Sin respuesta", busy: "Ocupado", voicemail: "Buzón de voz" }[callStatus] ?? "Esperando estado") : "Llamada en curso"}</p>
                 <p className="mt-3 inline-flex items-center justify-center gap-2 text-xs text-muted-foreground">{mode === "phone" ? <Phone className="h-3.5 w-3.5" /> : <Headphones className="h-3.5 w-3.5" />}{mode === "phone" ? "Audio en tu celular" : "Audio en la computadora"}</p>
               </div>
+              {mode === "browser" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) && <CallAudioControls selection={audioSelection} onChange={setAudioSelection} audio={device.current?.audio} />}
+              {mode === "phone" && <p className="flex items-start gap-2 text-xs text-muted-foreground"><Phone className="mt-0.5 h-4 w-4 shrink-0" />Elige teléfono, altavoz o Bluetooth en la pantalla de llamada de tu celular.</p>}
               <Textarea
                 className="dialer-notes resize-none" aria-label="Notas de la llamada"
                 placeholder="Notas de la llamada (opcional)…"
