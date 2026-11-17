@@ -163,45 +163,45 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
       </Button>
 
       <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
-        <DialogContent className="sm:max-w-[460px] p-0 gap-0 rounded-lg overflow-hidden [&>button]:text-primary-foreground [&>button]:hover:bg-primary-foreground/15">
-          <DialogHeader className="bg-gradient-brand px-5 py-4 pr-12 text-left text-primary-foreground">
+        <DialogContent className="walix-dialer sm:max-w-[420px] p-0 gap-0 rounded-lg">
+          <DialogHeader className="dialer-topbar px-6 py-4 pr-12 text-left">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-foreground/15"><Phone className="h-5 w-5" /></div>
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-foreground/15"><Phone className="h-5 w-5" /></div>
               <div><DialogTitle className="text-base tracking-normal">Walix Marcador</DialogTitle><DialogDescription className="mt-1 text-xs text-primary-foreground/80">Nueva llamada</DialogDescription></div>
             </div>
           </DialogHeader>
-          <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-5 py-4">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"><UserRound className="h-5 w-5" /></div>
-            <div className="min-w-0"><p className="font-semibold text-sm break-words">{contactName ?? "Contacto"}</p><p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{phone}</p></div>
+          <div className="dialer-contact flex flex-col items-center gap-3 px-6 pb-5 pt-4 text-center">
+            <div className="dialer-avatar grid h-20 w-20 shrink-0 place-items-center rounded-full [&>svg]:h-10 [&>svg]:w-10"><UserRound className="h-5 w-5" /></div>
+            <div className="min-w-0 w-full"><p className="font-semibold text-xl break-words">{contactName ?? "Contacto"}</p><p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{phone}</p></div>
           </div>
-          <div className="grid gap-3 p-5">
+          <div className="grid gap-3 px-6 pb-6">
             <h3 className="text-sm font-semibold">¿Cómo quieres llamar?</h3>
-            <Button variant="outline" className="group h-auto min-h-24 w-full justify-start gap-3 whitespace-normal p-4 text-left hover:border-primary/40 hover:bg-primary/5" onClick={() => { setChooserOpen(false); void start("browser"); }}>
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Monitor /></span>
+            <Button variant="outline" className="dialer-option group h-auto min-h-24 w-full justify-start gap-4 whitespace-normal p-4 text-left" onClick={() => { setChooserOpen(false); void start("browser"); }}>
+              <span className="dialer-option-icon grid h-12 w-12 shrink-0 place-items-center rounded-full"><Monitor /></span>
               <span className="min-w-0 flex-1"><span className="block font-semibold">Computadora / dispositivo</span><span className="mt-1 flex items-center gap-1.5 text-xs font-normal text-muted-foreground"><Headphones className="h-3.5 w-3.5" />Micrófono y audífonos</span></span>
               <ArrowUpRight className="text-muted-foreground group-hover:text-primary" />
             </Button>
-            <Button variant="outline" disabled={!permissions.data?.can_use_phone || permissions.isFetching} className="group h-auto min-h-24 w-full justify-start gap-3 whitespace-normal p-4 text-left hover:border-primary/40 hover:bg-primary/5" onClick={() => { setChooserOpen(false); void start("phone"); }}>
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground"><Phone /></span>
+            <Button variant="outline" disabled={!permissions.data?.can_use_phone || permissions.isFetching} className="dialer-option group h-auto min-h-24 w-full justify-start gap-4 whitespace-normal p-4 text-left" onClick={() => { setChooserOpen(false); void start("phone"); }}>
+              <span className="dialer-option-icon grid h-12 w-12 shrink-0 place-items-center rounded-full"><Phone /></span>
               <span className="min-w-0 flex-1"><span className="block font-semibold">Mi celular</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{permissions.isFetching ? "Consultando autorización…" : permissions.isError ? "No se pudo verificar tu permiso" : permissions.data?.can_use_phone ? "Recibes la llamada en tu celular personal" : "Requiere autorización de un administrador o propietario"}</span></span>
               {permissions.isFetching ? <Loader2 className="animate-spin text-muted-foreground" /> : permissions.data?.can_use_phone ? <ArrowUpRight className="text-muted-foreground group-hover:text-primary" /> : <LockKeyhole className="text-muted-foreground" />}
             </Button>
             {permissions.isError && <Button variant="ghost" size="sm" onClick={() => void permissions.refetch()}>Reintentar autorización</Button>}
           </div>
-          <div className="flex items-center gap-2 border-t border-border bg-muted/30 px-5 py-3 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />Seguimiento de la llamada</div>
+          <div className="dialer-footer flex items-center justify-center gap-2 px-5 py-3 text-xs"><Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />Seguimiento de la llamada</div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus)) return; if (!v) setHungUp(false); setOpen(v); if (!v) reset(); }}>
-        <DialogContent className="sm:max-w-[460px] p-0 gap-0 rounded-lg [&>button]:text-primary-foreground [&>button]:hover:bg-primary-foreground/15">
-          <DialogHeader className="bg-gradient-brand rounded-t-lg px-5 py-4 pr-12 text-left text-primary-foreground">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-foreground/15"><Phone className="h-5 w-5" /></div>
-              <div className="min-w-0"><DialogTitle className="text-base tracking-normal break-words">Llamada a {contactName ?? phone}</DialogTitle><DialogDescription className="mt-1 text-xs text-primary-foreground/80">{phone}</DialogDescription></div>
-            </div>
+        <DialogContent className="walix-dialer sm:max-w-[420px] p-0 gap-0 rounded-lg">
+          <DialogHeader className="items-center px-6 pb-0 pt-6 text-center sm:text-center">
+            <p className="dialer-eyebrow mb-5 text-xs font-medium">Walix Marcador</p>
+            <div className="dialer-avatar mb-4 grid h-20 w-20 shrink-0 place-items-center rounded-full"><UserRound className="h-10 w-10" /></div>
+            <DialogTitle className="w-full text-2xl leading-tight tracking-normal break-words">{contactName ?? "Contacto"}</DialogTitle>
+            <DialogDescription className="mt-2 text-sm tabular-nums">{phone}</DialogDescription>
           </DialogHeader>
 
-          <div className="p-5">
+          <div className="px-6 pb-6 pt-3">
           {state === "starting" && (
             <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /> Iniciando llamada…
@@ -224,14 +224,13 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
 
           {state === "ringing" && (
             <div className="space-y-4">
-              <div className="text-center py-5 border-b border-border">
-                <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">{mode === "phone" ? <Phone className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}</div>
-                <div className="text-4xl font-mono font-semibold tabular-nums min-h-10">{mm}:{ss}</div>
+              <div className="text-center pb-5 pt-2">
+                <div className="text-4xl font-light tabular-nums min-h-10">{mm}:{ss}</div>
                 <p className="text-sm text-muted-foreground mt-1">{provider === "twilio" ? ({ queued: mode === "phone" ? "Llamando a tu celular" : "Conectando audio", ringing: "Marcando al contacto", answered: "Contacto conectado", completed: "Llamada terminada", failed: "Falló", no_answer: "Sin respuesta", busy: "Ocupado", voicemail: "Buzón de voz" }[callStatus] ?? "Esperando estado") : "Llamada en curso"}</p>
-                <p className="text-xs text-muted-foreground mt-2">{mode === "phone" ? "Audio en tu celular" : "Audio en la computadora"}</p>
+                <p className="mt-3 inline-flex items-center justify-center gap-2 text-xs text-muted-foreground">{mode === "phone" ? <Phone className="h-3.5 w-3.5" /> : <Headphones className="h-3.5 w-3.5" />}{mode === "phone" ? "Audio en tu celular" : "Audio en la computadora"}</p>
               </div>
               <Textarea
-                className="resize-none bg-muted/30"
+                className="dialer-notes resize-none" aria-label="Notas de la llamada"
                 placeholder="Notas de la llamada (opcional)…"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -248,12 +247,12 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                   <p className="text-sm text-muted-foreground">Llamada colgada. El resultado automático se registrará en cuanto Twilio lo confirme.</p>
                   {contactId && <Button onClick={() => { setOpen(false); setHungUp(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
                   <Button variant="outline" onClick={() => { setOpen(false); setHungUp(false); reset(); }}>Cerrar</Button>
-                </> : <Button variant="destructive" onClick={async () => {
+                </> : <div className="flex flex-col items-center gap-2 pt-2"><Button variant="destructive" size="icon" className="dialer-hangup h-16 w-16 rounded-full [&_svg]:h-7 [&_svg]:w-7" aria-label="Colgar" title="Colgar" onClick={async () => {
                   browserCall.current?.disconnect();
                   setHungUp(true);
                   const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
                   if (error || !data?.ok) toast.error(await callError(data, error));
-                }}><PhoneOff className="h-4 w-4 mr-2" />Colgar</Button>}
+                }}><PhoneOff /></Button><span className="text-xs text-muted-foreground">Colgar</span></div>}
               </div> : <><p className="text-xs text-muted-foreground">Al terminar, marca el resultado:</p>
               <div className="grid grid-cols-2 gap-2">
                 {OUTCOMES.map((o) => (

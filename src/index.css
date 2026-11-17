@@ -83,6 +83,14 @@
 
     --gradient-brand: linear-gradient(135deg, hsl(239 84% 60%), hsl(189 94% 43%));
     --gradient-hero: linear-gradient(135deg, hsl(244 75% 18%), hsl(239 84% 35%));
+    --dialer-top: 249 69% 64%;
+    --dialer-bottom: 217 76% 48%;
+    --dialer-foreground: 0 0% 100%;
+    --dialer-avatar: 245 100% 94%;
+    --dialer-icon: 231 73% 58%;
+    --gradient-dialer: linear-gradient(165deg, hsl(var(--dialer-top)), hsl(var(--dialer-bottom)));
+    --shadow-dialer-control: 0 6px 18px hsl(220 65% 20% / 0.2);
+
     --gradient-soft: linear-gradient(180deg, hsl(210 40% 98%), hsl(217 33% 96%));
 
     --shadow-sm: 0 1px 2px 0 hsl(215 28% 17% / 0.05);
@@ -196,4 +204,53 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .human-attention { animation: none; background-color: hsl(var(--warning) / 0.1); }
+}
+
+/* Shared call surfaces: reference-inspired, without changing call behavior. */
+.walix-dialer {
+  background: var(--gradient-dialer);
+  color: hsl(var(--dialer-foreground));
+  border-color: hsl(var(--dialer-foreground) / 0.25);
+}
+.walix-dialer .text-muted-foreground,
+.walix-dialer [id$="description"] {
+  color: hsl(var(--dialer-foreground) / 0.8);
+}
+.walix-dialer .text-primary { color: hsl(var(--dialer-foreground)); }
+.walix-dialer > button:last-child {
+  color: hsl(var(--dialer-foreground));
+  background: hsl(var(--dialer-foreground) / 0.12);
+  border-radius: 50%;
+  padding: 6px;
+}
+.dialer-topbar { border-bottom: 1px solid hsl(var(--dialer-foreground) / 0.15); }
+.dialer-avatar, .dialer-option-icon {
+  color: hsl(var(--dialer-icon));
+  background: hsl(var(--dialer-avatar));
+}
+.dialer-avatar { border: 6px solid hsl(var(--dialer-foreground) / 0.18); }
+.dialer-eyebrow { color: hsl(var(--dialer-foreground) / 0.8); }
+.walix-dialer .dialer-option,
+.walix-dialer button.border {
+  background: hsl(var(--dialer-foreground) / 0.1);
+  border-color: hsl(var(--dialer-foreground) / 0.25);
+  color: hsl(var(--dialer-foreground));
+}
+.walix-dialer .dialer-option:hover,
+.walix-dialer button.border:hover {
+  background: hsl(var(--dialer-foreground) / 0.2);
+  border-color: hsl(var(--dialer-foreground) / 0.5);
+}
+.walix-dialer .dialer-notes {
+  background: hsl(var(--dialer-foreground) / 0.1);
+  color: hsl(var(--dialer-foreground));
+  border-color: hsl(var(--dialer-foreground) / 0.25);
+}
+.walix-dialer .dialer-notes::placeholder { color: hsl(var(--dialer-foreground) / 0.7); }
+.dialer-footer { border-top: 1px solid hsl(var(--dialer-foreground) / 0.15); }
+.dialer-hangup { box-shadow: var(--shadow-dialer-control); }
+.walix-dialer .text-destructive {
+  color: hsl(var(--dialer-foreground));
+  border-left: 3px solid hsl(var(--destructive));
+  padding-left: 12px;
 }
