@@ -54,6 +54,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   const device = useRef<Device | null>(null);
   const browserCall = useRef<Call | null>(null);
   const [open, setOpen] = useState(false);
+  const [hungUp, setHungUp] = useState(false);
   const [state, setState] = useState<CallState>("idle");
   const [callId, setCallId] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -191,7 +192,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
         </DialogContent>
       </Dialog>
 
-      <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing") return; setOpen(v); if (!v) reset(); }}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus)) return; if (!v) setHungUp(false); setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-[460px] p-0 gap-0 rounded-lg [&>button]:text-primary-foreground [&>button]:hover:bg-primary-foreground/15">
           <DialogHeader className="bg-gradient-brand rounded-t-lg px-5 py-4 pr-12 text-left text-primary-foreground">
             <div className="flex items-center gap-3">
@@ -243,8 +244,13 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                   {summary && <p className="text-sm">{summary}</p>}
                   {contactId && <Button onClick={() => { setOpen(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
                   <Button variant="outline" onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
+                </> : hungUp ? <>
+                  <p className="text-sm text-muted-foreground">Llamada colgada. El resultado automático se registrará en cuanto Twilio lo confirme.</p>
+                  {contactId && <Button onClick={() => { setOpen(false); setHungUp(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
+                  <Button variant="outline" onClick={() => { setOpen(false); setHungUp(false); reset(); }}>Cerrar</Button>
                 </> : <Button variant="destructive" onClick={async () => {
                   browserCall.current?.disconnect();
+                  setHungUp(true);
                   const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
                   if (error || !data?.ok) toast.error(await callError(data, error));
                 }}><PhoneOff className="h-4 w-4 mr-2" />Colgar</Button>}
