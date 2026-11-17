@@ -136,6 +136,20 @@ Deno.serve(async (req) => {
       if (!contact?.email) return j({ error: "El contacto no tiene correo" }, 400);
       if (!isSup && contact.owner_id !== uid && thread?.owner_id !== uid) return j({ error: "Este lead no es tuyo" }, 403);
 
+      // CC: only valid addresses belonging to this tenant's contacts or team, max 5.
+      const ccRaw: unknown[] = Array.isArray(cc) ? cc : [];
+      const ccList = [...new Set(ccRaw.map((e) => String(e ?? "").trim().toLowerCase()).filter(Boolean))];
+      if (ccList.length > 5) return j({ error: "Máximo 5 direcciones en copia" }, 400);
+      if (ccList.some((e) => e.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))) return j({ error: "Correo en copia inválido" }, 400);
+      if (ccList.length) {
+        const [{ data: cc1 }, { data: cc2 }] = await Promise.all([
+          sb.from("contacts").select("email").eq("tenant_id", tenantId).in("email", ccList),
+          sb.from("profiles").select("email").eq("tenant_id", tenantId).in("email", ccList),
+        ]);
+        const known = new Set([...(cc1 ?? []), ...(cc2 ?? [])].map((r: any) => String(r.email ?? "").toLowerCase()));
+        if (ccList.some((e) => !known.has(e))) return j({ error: "Solo puedes copiar a contactos o miembros de tu empresa" }, 400);
+      }
+
       // Elegir cuenta según la política del tenant
       const { data: settings } = await sb.from("email_settings").select("send_mode").eq("tenant_id", tenantId).maybeSingle();
       const mode = settings?.send_mode ?? "mixed";
@@ -158,14 +172,14 @@ Deno.serve(async (req) => {
         const { data } = await sb.from("email_messages").select("message_id").eq("thread_id", thread.id).not("message_id", "is", null).order("sent_at", { ascending: false }).limit(1).maybeSingle();
         lastMsg = data;
       }
-      const { messageId } = await smtpSend(acc, { to: [contact.email], cc: cc ?? [], subject: subj, text: finalText, html: textToHtml(finalText), inReplyTo: lastMsg?.message_id, references: lastMsg?.message_id, attachments });
+      const { messageId } = await smtpSend(acc, { to: [contact.email], cc: ccList, subject: subj, text: finalText, html: textToHtml(finalText), inReplyTo: lastMsg?.message_id, references: lastMsg?.message_id, attachments });
 
       const { data: deal } = await sb.from("deals").select("id").eq("contact_id", contact.id).eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (!thread) {
         const { data } = await sb.from("email_threads").insert({ tenant_id: tenantId, account_id: acc.id, contact_id: contact.id, deal_id: deal?.id ?? null, owner_id: contact.owner_id ?? uid, subject: subj }).select("*").single();
         thread = data;
       }
-      await sb.from("email_messages").insert({ tenant_id: tenantId, thread_id: thread.id, account_id: acc.id, direction: "outbound", from_email: acc.email, to_emails: [contact.email], cc_emails: cc ?? [], subject: subj, body_text: finalText, message_id: messageId, in_reply_to: lastMsg?.message_id ?? null, sent_by: uid });
+      await sb.from("email_messages").insert({ tenant_id: tenantId, thread_id: thread.id, account_id: acc.id, direction: "outbound", from_email: acc.email, to_emails: [contact.email], cc_emails: ccList, subject: subj, body_text: finalText, message_id: messageId, in_reply_to: lastMsg?.message_id ?? null, sent_by: uid });
       await sb.from("email_threads").update({ last_message_at: new Date().toISOString(), last_snippet: finalText.slice(0, 160), unread: false }).eq("id", thread.id);
       await sb.from("activities").insert({ tenant_id: tenantId, contact_id: contact.id, deal_id: deal?.id ?? null, agent_id: uid, type: "email", description: `Email enviado: ${subj}\n${finalText.slice(0, 400)}`, metadata: { direction: "outbound", thread_id: thread.id } }).then(() => {}, () => {});
       return j({ ok: true, thread_id: thread.id });

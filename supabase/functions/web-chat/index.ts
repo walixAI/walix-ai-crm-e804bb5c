@@ -23,6 +23,9 @@ const Body = z.object({
 });
 
 const MAX_MSGS_PER_SESSION = 40;
+const MAX_AI_REPLIES_PER_TENANT_DAY = 600;
+const MAX_SESSIONS_PER_AGENT_DAY = 300;
+const dayStart = () => new Date(Date.now() - 24 * 3600_000).toISOString();
 
 function widget(endpoint: string, key: string, name: string) {
   return `(function(){if(window.__walixChat)return;window.__walixChat=1;
@@ -98,6 +101,9 @@ Deno.serve(async (req) => {
           try { dealId = await ensureLeadDeal(sb, agent.tenant_id, contactId, { name, source: "Chat web", attributionId: null } as any); } catch (e) { console.error("ensureLeadDeal", e); }
         }
       }
+      const { count: sessToday } = await sb.from("web_chat_sessions").select("id", { count: "exact", head: true })
+        .eq("agent_id", agent.id).gte("created_at", dayStart());
+      if ((sessToday ?? 0) >= MAX_SESSIONS_PER_AGENT_DAY) return json({ error: "Chat no disponible por el momento" }, 429);
       const { data: s, error } = await sb.from("web_chat_sessions").insert({
         tenant_id: agent.tenant_id, agent_id: agent.id, pipeline_id: agent.pipeline_id, contact_id: contactId, deal_id: dealId,
         visitor_name: name, visitor_phone: phone, visitor_email: email,
@@ -120,6 +126,11 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true }).limit(MAX_MSGS_PER_SESSION + 5);
     if ((past ?? []).filter((m: any) => m.role === "visitor").length >= MAX_MSGS_PER_SESSION) {
       return json({ reply: "Gracias por tu interés. Un asesor dará seguimiento a tu conversación muy pronto." });
+    }
+    const { count: repliesToday } = await sb.from("web_chat_messages").select("id", { count: "exact", head: true })
+      .eq("tenant_id", agent.tenant_id).eq("role", "agent").gte("created_at", dayStart());
+    if ((repliesToday ?? 0) >= MAX_AI_REPLIES_PER_TENANT_DAY) {
+      return json({ reply: "Gracias por escribirnos. Un asesor dará seguimiento a tu conversación muy pronto." });
     }
     await sb.from("web_chat_messages").insert({ tenant_id: agent.tenant_id, session_id: s.id, role: "visitor", body: b.text });
 
