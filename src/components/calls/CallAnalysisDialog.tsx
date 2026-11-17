@@ -5,9 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, ClipboardCheck } from "lucide-react";
+import { Loader2, Sparkles, ClipboardCheck, Pencil, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
+import { CallTranscript } from "./CallTranscript";
 
 interface Props { call: any | null; onClose: () => void }
 
@@ -17,8 +18,10 @@ export default function CallAnalysisDialog({ call, onClose }: Props) {
   const [transcript, setTranscript] = useState("");
   const [busy, setBusy] = useState(false);
   const [followUp, setFollowUp] = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  useEffect(() => { setTranscript(call?.transcript ?? ""); }, [call?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setEditing(false); setTranscript(call?.transcript ?? ""); }, [call?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!editing) setTranscript(call?.transcript ?? ""); }, [call?.transcript, editing]);
 
   const s = call?.ai_suggestions ?? null;
 
@@ -41,19 +44,17 @@ export default function CallAnalysisDialog({ call, onClose }: Props) {
   return (
     <>
       <Dialog open={!!call && !followUp} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />Análisis de la llamada</DialogTitle>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto rounded-lg p-0 gap-0">
+          <DialogHeader className="border-b border-border bg-muted/30 px-6 py-5 pr-12 text-left">
+            <DialogTitle className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10"><Sparkles className="h-5 w-5 text-primary" /></span>Análisis de la llamada</DialogTitle>
             <DialogDescription>{call?.contacts?.name ?? call?.to_number}</DialogDescription>
           </DialogHeader>
 
+          <div className="space-y-5 p-6">
+          <CallTranscript status={s?.transcription_status} transcript={call?.transcript} summary={call?.ai_summary} analyzing={busy} />
           {call?.ai_summary ? (
             <div className="space-y-3 text-sm">
-              <div className="rounded-lg border border-border bg-muted/40 p-3">
-                <p className="font-medium mb-1">Resumen</p>
-                <p className="text-muted-foreground">{call.ai_summary}</p>
-              </div>
-              {s?.next_step && <p><span className="font-medium">Siguiente paso: </span>{s.next_step}</p>}
+              {s?.next_step && <div className="border-y border-border py-3"><p className="mb-1 flex items-center gap-2 font-medium"><ArrowRight className="h-4 w-4 text-primary" />Siguiente paso</p><p className="break-words text-muted-foreground leading-relaxed">{s.next_step}</p></div>}
               <div className="flex flex-wrap gap-2">
                 {s?.sentiment && <Badge variant="outline">Ánimo: {s.sentiment}</Badge>}
                 {s?.outcome_label && <Badge variant="secondary">Resultado sugerido: {s.outcome_label}</Badge>}
@@ -78,20 +79,17 @@ export default function CallAnalysisDialog({ call, onClose }: Props) {
                 </Button>
               )}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Cuando el proveedor entregue la transcripción, la IA la analizará sola. También puedes pegarla aquí.
-            </p>
-          )}
+          ) : null}
 
-          <div className="space-y-2 pt-2">
-            <p className="text-sm font-medium">Transcripción</p>
-            <Textarea rows={6} value={transcript} onChange={(e) => setTranscript(e.target.value)}
-              placeholder="Asesor: Hola… / Lead: Me interesa…" />
-            <Button variant="outline" className="w-full" disabled={busy} onClick={analyze}>
+          {s?.transcription_status !== "processing" && <div className="space-y-3 border-t border-border pt-4">
+            <div className="flex items-center justify-between gap-3"><p className="text-sm font-medium">Transcripción</p><Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(!editing)}>{editing ? <X className="mr-2 h-4 w-4" /> : <Pencil className="mr-2 h-4 w-4" />}{editing ? "Cancelar" : call?.transcript ? "Editar" : "Agregar texto"}</Button></div>
+            {editing && <Textarea rows={6} value={transcript} onChange={(e) => setTranscript(e.target.value)} aria-label="Editar transcripción"
+              placeholder="Asesor: Hola… / Contacto: Me interesa…" className="resize-y leading-relaxed" />}
+            <Button variant="outline" className="w-full" disabled={busy || transcript.trim().length < 20} onClick={analyze}>
               {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
               {call?.ai_summary ? "Volver a analizar" : "Analizar con IA"}
             </Button>
+          </div>}
           </div>
         </DialogContent>
       </Dialog>

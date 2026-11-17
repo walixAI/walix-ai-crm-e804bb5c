@@ -34,12 +34,13 @@ export default function Calls() {
   const { data: calls, isLoading } = useQuery({
     queryKey: ["calls", activeTenantId],
     enabled: !!activeTenantId,
-    refetchInterval: 15000,
+    refetchInterval: analysisCall ? 2500 : 15000,
     queryFn: async () => {
+      if (!activeTenantId) return [];
       const { data, error } = await supabase
         .from("calls")
         .select("id, direction, status, to_number, from_number, duration_seconds, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
-        .eq("tenant_id", activeTenantId!)
+        .eq("tenant_id", activeTenantId)
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -129,7 +130,7 @@ export default function Calls() {
           })}
         </div>
       )}
-          <CallAnalysisDialog call={analysisCall} onClose={() => setAnalysisCall(null)} />
+          <CallAnalysisDialog call={calls?.find((c) => c.id === analysisCall?.id) ?? analysisCall} onClose={() => setAnalysisCall(null)} />
         </TabsContent>
         <TabsContent value="campanas" className="mt-4">
           <CallCampaignsTab />

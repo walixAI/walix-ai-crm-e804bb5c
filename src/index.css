@@ -249,6 +249,27 @@
 .walix-dialer .dialer-notes::placeholder { color: hsl(var(--dialer-foreground) / 0.7); }
 .dialer-footer { border-top: 1px solid hsl(var(--dialer-foreground) / 0.15); }
 .dialer-hangup { box-shadow: var(--shadow-dialer-control); }
+.call-ai-processing { background: hsl(var(--primary) / 0.04); }
+.call-ai-wave span { animation: call-ai-wave 1.2s ease-in-out infinite alternate; }
+.call-ai-wave span:nth-child(3n + 1) { animation-delay: -0.8s; }
+.call-ai-wave span:nth-child(3n + 2) { animation-delay: -0.4s; }
+.call-ai-wave span:nth-child(2n) { height: 20px; }
+.call-ai-track span { animation: call-ai-scan 2s ease-in-out infinite alternate; }
+.call-ai-result { animation: call-ai-reveal 250ms ease-out; }
+@keyframes call-ai-wave { from { transform: scaleY(0.25); opacity: 0.5; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes call-ai-scan { from { transform: translateX(0); } to { transform: translateX(200%); } }
+@keyframes call-ai-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.walix-dialer .call-ai-processing,
+.walix-dialer .call-transcript-details { background: hsl(var(--dialer-foreground) / 0.08); border-color: hsl(var(--dialer-foreground) / 0.25); }
+.walix-dialer .call-ai-wave span,
+.walix-dialer .call-ai-track span { background: hsl(var(--dialer-foreground)); }
+.walix-dialer .call-ai-track { background: hsl(var(--dialer-foreground) / 0.15); }
+.walix-dialer .call-ai-processing > div > span { background: hsl(var(--dialer-foreground) / 0.15); }
+.walix-dialer .call-ai-result .border-primary,
+.walix-dialer .call-transcript-details > div { border-color: hsl(var(--dialer-foreground) / 0.25); }
+@media (prefers-reduced-motion: reduce) {
+  .call-ai-wave span, .call-ai-track span, .call-ai-result { animation: none; }
+}
 .walix-dialer .text-destructive {
   color: hsl(var(--dialer-foreground));
   border-left: 3px solid hsl(var(--destructive));

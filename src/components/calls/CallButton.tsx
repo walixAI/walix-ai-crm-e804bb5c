@@ -11,6 +11,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Device, type Call } from "@twilio/voice-sdk";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { usePhoneCallPermissions } from "@/lib/queries/phoneCallPermissions";
+import { CallTranscript } from "./CallTranscript";
 
 type CallState = "idle" | "starting" | "ringing" | "ending" | "failed";
 
@@ -49,6 +50,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   const [callStatus, setCallStatus] = useState("queued");
   const [summary, setSummary] = useState("");
   const [transcriptionStatus, setTranscriptionStatus] = useState("");
+  const [transcript, setTranscript] = useState("");
   const [suggestedOutcome, setSuggestedOutcome] = useState<string | null>(null);
   const [dealId, setDealId] = useState<string | null>(null);
   const device = useRef<Device | null>(null);
@@ -80,6 +82,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
       if (cancelled || error || !data?.call) return;
       const row = data.call;
       setCallStatus(row.status); setSummary(row.ai_summary ?? ""); setTranscriptionStatus(row.ai_suggestions?.transcription_status ?? "");
+      setTranscript(row.transcript ?? "");
       setSuggestedOutcome(row.ai_suggestions?.outcome_id ?? null); setDealId(row.deal_id ?? null);
       if (row.duration_seconds != null) setSeconds(row.duration_seconds);
     };
@@ -91,6 +94,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   const reset = () => {
     browserCall.current?.disconnect(); device.current?.destroy(); browserCall.current = null; device.current = null;
     setState("idle"); setCallId(null); setSeconds(0); setNotes(""); setFailure(""); setSummary(""); setCallStatus("queued");
+    setTranscript(""); setTranscriptionStatus("");
     if (timer.current) clearInterval(timer.current);
   };
 
@@ -193,7 +197,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
       </Dialog>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus)) return; if (!v) setHungUp(false); setOpen(v); if (!v) reset(); }}>
-        <DialogContent className="walix-dialer sm:max-w-[420px] p-0 gap-0 rounded-lg">
+        <DialogContent className="walix-dialer sm:max-w-[420px] max-h-[85dvh] overflow-y-auto p-0 gap-0 rounded-lg">
           <DialogHeader className="items-center px-6 pb-0 pt-6 text-center sm:text-center">
             <p className="dialer-eyebrow mb-5 text-xs font-medium">Walix Marcador</p>
             <div className="dialer-avatar mb-4 grid h-20 w-20 shrink-0 place-items-center rounded-full"><UserRound className="h-10 w-10" /></div>
@@ -239,8 +243,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
               {provider === "twilio" ? <div className="space-y-3 [&>button]:w-full">
                 {["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) ? <>
                   <p className="text-sm">Resultado automático registrado.</p>
-                  {transcriptionStatus && <p className="text-xs text-muted-foreground">Transcripción: {({ processing: "en proceso", completed: "lista", failed: "no disponible; grabación conservada" }[transcriptionStatus] ?? transcriptionStatus)}</p>}
-                  {summary && <p className="text-sm">{summary}</p>}
+                  <CallTranscript status={transcriptionStatus} transcript={transcript} summary={summary} />
                   {contactId && <Button onClick={() => { setOpen(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
                   <Button variant="outline" onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
                 </> : hungUp ? <>
