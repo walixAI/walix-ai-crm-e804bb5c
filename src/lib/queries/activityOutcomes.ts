@@ -111,6 +111,7 @@ export function filterOutcomes(
 }
 
 export interface LogFollowUpInput {
+  callId?: string | null;
   contactId: string | null;
   dealId: string | null;
   stageId: string | null;
@@ -160,6 +161,8 @@ export function useLogFollowUp() {
         description: input.description,
         occurred_at: input.occurredAt,
         metadata: {
+          call_id: input.callId ?? null,
+          source: input.callId ? "advisor_call_follow_up" : "manual",
           activity_kind: input.kind,
           activity_kind_label: k?.label ?? input.kind,
           direction: k?.direction ?? "none",

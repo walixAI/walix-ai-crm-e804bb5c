@@ -1,5 +1,10 @@
 # Información unificada del prospecto
 
+# Marcador con dos modalidades
+
+- [x] Implementar celular y computadora, callbacks firmados, resultados automáticos separados de tipificación manual y transcripción IA de grabaciones; pruebas del marcador y eventos aprobadas.
+- [ ] Activar computadora y validar llamadas/transcripción reales: requiere Auth Token de la subcuenta capturado en el canal, sesión autorizada del solicitante y destinatario de prueba; la sesión del solicitante no pudo obtenerse.
+
 # Auditoría integral solicitada
 
 - [x] Avisos de monitoreo del 12 de noviembre: corregida selección enabled, contador definido y consultas de los tres disparadores contra columnas vigentes; función desplegada y rechazo 401 comprobado. Cuatro pruebas del proceso cubren disparadores y fallo de consulta sin envíos reales; ejecución real de la siguiente agenda aún no observada. Reportes actualizan con clave estable y fechas resueltas en cada consulta; prueba de actualización pendiente conserva datos y pantalla autenticada de SXP comprobada durante 65 segundos. Compilación sin errores; no se modificaron otros avisos.

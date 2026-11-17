@@ -23,6 +23,7 @@ const CRED_FIELDS: Record<string, { key: string; label: string; placeholder: str
     { key: "account_sid", label: "Account SID", placeholder: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
     { key: "api_key_sid", label: "API Key SID", placeholder: "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
     { key: "api_key_secret", label: "API Key Secret", placeholder: "Se guarda cifrada, nunca se muestra" },
+    { key: "auth_token", label: "Auth Token de la subcuenta", placeholder: "Necesario para verificar eventos de Twilio" },
   ],
   telnyx: [
     { key: "api_key", label: "API Key", placeholder: "Se guarda cifrada, nunca se muestra" },
@@ -31,12 +32,12 @@ const CRED_FIELDS: Record<string, { key: string; label: string; placeholder: str
 };
 
 function collectCredentials(form: any): Record<string, string> | null {
-  const fields = CRED_FIELDS[form.provider] ?? [];
+  const fields = (CRED_FIELDS[form.provider] ?? []).filter((f) => f.key !== "auth_token");
   if (!fields.length) return null;
   const filled = fields.filter((f) => String(form[f.key] ?? "").trim());
-  if (!filled.length) return null;
+  if (!filled.length) return form.auth_token?.trim() ? { auth_token: form.auth_token.trim() } : null;
   if (filled.length !== fields.length) throw new Error("Completa todas las credenciales del proveedor");
-  return Object.fromEntries(fields.map((f) => [f.key, String(form[f.key]).trim()]));
+  return Object.fromEntries([...fields.map((f) => [f.key, String(form[f.key]).trim()]), ...(form.auth_token?.trim() ? [["auth_token", form.auth_token.trim()]] : [])]);
 }
 
 export function CallsSettingsTab({ tenantId }: Props) {
@@ -54,7 +55,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
   };
   const [form, setForm] = useState({
     name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "",
-    account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "",
+    account_sid: "", api_key_sid: "", api_key_secret: "", auth_token: "", api_key: "", connection_id: "",
   });
 
   const { data: channels } = useQuery({
@@ -69,6 +70,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
 
   const save = useMutation({
     mutationFn: async () => {
+      const creds = collectCredentials(form);
       const payload = {
         name: form.name.trim(),
         provider: form.provider,
@@ -88,7 +90,6 @@ export function CallsSettingsTab({ tenantId }: Props) {
         if (error) throw error;
         channelId = data.id;
       }
-      const creds = collectCredentials(form);
       if (creds) {
         const { data: res, error } = await supabase.functions.invoke("telephony-api", {
           body: { action: "save_credentials", channel_id: channelId, credentials: creds },
@@ -115,12 +116,12 @@ export function CallsSettingsTab({ tenantId }: Props) {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "", account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "" });
+    setForm({ name: "", provider: "simulated", phone_number: "", record_calls: true, recording_notice: "", account_sid: "", api_key_sid: "", api_key_secret: "", auth_token: "", api_key: "", connection_id: "" });
     setOpen(true);
   };
   const openEdit = (c: any) => {
     setEditing(c);
-    setForm({ name: c.name, provider: c.provider, phone_number: c.phone_number ?? "", record_calls: c.record_calls, recording_notice: c.recording_notice ?? "", account_sid: "", api_key_sid: "", api_key_secret: "", api_key: "", connection_id: "" });
+    setForm({ name: c.name, provider: c.provider, phone_number: c.phone_number ?? "", record_calls: c.record_calls, recording_notice: c.recording_notice ?? "", account_sid: "", api_key_sid: "", api_key_secret: "", auth_token: "", api_key: "", connection_id: "" });
     setOpen(true);
   };
 
@@ -165,6 +166,12 @@ export function CallsSettingsTab({ tenantId }: Props) {
                 </p>
               </div>
               <Switch checked={c.status === "active"} onCheckedChange={() => toggleStatus.mutate({ id: c.id, status: c.status })} />
+              {c.provider === "twilio" && <Button size="sm" variant="outline" onClick={async () => {
+                const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "browser_setup", channel_id: c.id } });
+                let message = data?.error;
+                if (error && "context" in error) { try { message = (await error.context.json()).error; } catch { /* no JSON */ } }
+                if (error || message) toast.error(message ?? "No se pudo habilitar"); else toast.success("Llamadas desde computadora habilitadas");
+              }}>Habilitar computadora</Button>}
               <Button size="sm" variant="outline" onClick={() => setPbx(c)}><Network className="h-4 w-4 mr-1" /> Conmutador</Button>
               <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
             </div>
@@ -223,7 +230,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
                     <div key={f.key} className="space-y-1">
                       <Label className="text-xs">{f.label}</Label>
                       <Input
-                        type={f.key.includes("secret") || f.key === "api_key" ? "password" : "text"}
+                        type={f.key.includes("secret") || f.key === "api_key" || f.key === "auth_token" ? "password" : "text"}
                         value={(form as any)[f.key]}
                         onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                         placeholder={f.placeholder}

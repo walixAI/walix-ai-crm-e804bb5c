@@ -25,6 +25,7 @@ import {
 } from "@/lib/queries/dealDiagnostics";
 
 interface Props {
+  callId?: string | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   contactId: string | null;
@@ -97,6 +98,7 @@ type DiagMode = "none" | "blocked" | "lost";
 export function LogFollowUpDialog({
   open, onOpenChange, contactId, dealId = null, stageId = null, pipelineId = null, allowDealPicker = false,
   initialDescription = "", initialOutcomeId = null,
+  callId = null,
 }: Props) {
   const { data: pipelines = [] } = usePipelines();
   const { data: contactDeals = [] } = useContactPipelineDeals(allowDealPicker ? contactId ?? undefined : undefined);
@@ -291,6 +293,7 @@ export function LogFollowUpDialog({
     if (diagMode === "lost" && !lossReasonId) return toast.error("Selecciona por qué se perdió");
     try {
       await log.mutateAsync({
+        callId,
         contactId,
         dealId: selectedDealId,
         stageId: effectiveStageId,

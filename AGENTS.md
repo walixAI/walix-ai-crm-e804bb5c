@@ -1,5 +1,7 @@
 # AGENTS
 
+- Twilio browser and phone calls share provider-signed callbacks; prospect-leg events maintain one automatic activity, while advisor follow-ups carry call_id separately and recording transcription is claimed once; why: advisor answers, manual labels and retries must not fabricate or duplicate prospect outcomes.
+
 - Platform demo sends use a deployment-controlled gate before credentials or network access, never a caller-provided enable flag; why: disabling demos must block direct endpoint calls without affecting normal messaging.
 
 - Scheduled HTTP workers validate managed cron authentication or an exact server credential; schedules use the managed scheduling tools; why: unauthenticated requests and decoded role claims cannot authorize global work.

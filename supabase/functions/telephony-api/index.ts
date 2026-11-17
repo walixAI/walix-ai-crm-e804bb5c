@@ -4,6 +4,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getTelephonyProvider } from "../_shared/telephony-provider.ts";
 import { routeInboundCall } from "../_shared/telephony-routing.ts";
 import { decryptCredentials, encryptCredentials } from "../_shared/telephony-creds.ts";
+import twilio from "npm:twilio@5.10.4";
+import { twilioRequest } from "../_shared/twilio-auth.ts";
 
 const CRED_KEYS: Record<string, string[]> = {
   twilio: ["account_sid", "api_key_sid", "api_key_secret"],
@@ -43,7 +45,25 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
 
+    if (action === "browser_setup") {
+      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId);
+      if (!(roles ?? []).some((r: any) => ADMIN_ROLES.includes(r.role))) return json({ error: "Solo administradores pueden habilitar llamadas desde computadora" }, 403);
+      const { data: channel } = await admin.from("call_channels").select("*").eq("id", body.channel_id).eq("tenant_id", tenantId).maybeSingle();
+      if (!channel || channel.provider !== "twilio" || !channel.credentials_encrypted) return json({ error: "Configura primero el canal Twilio" }, 400);
+      const creds = await decryptCredentials(channel.credentials_encrypted);
+      if (!creds.auth_token) return json({ error: "Captura el Auth Token de esta subcuenta para verificar los eventos de Twilio" }, 400);
+      if (!creds.twiml_app_sid) {
+        const app = await twilioRequest(creds, "Applications.json", new URLSearchParams({ FriendlyName: "Walix Voice", VoiceUrl: `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${channel.webhook_token}&leg=browser`, VoiceMethod: "POST" }));
+        creds.twiml_app_sid = app.sid;
+        const { error } = await admin.from("call_channels").update({ credentials_encrypted: await encryptCredentials(creds) }).eq("id", channel.id);
+        if (error) throw error;
+      }
+      return json({ ok: true });
+    }
+
     if (action === "start") {
+      const mode = body.mode ?? "phone";
+      if (!["phone", "browser"].includes(mode)) return json({ error: "Modalidad inválida" }, 400);
       const contactId = body?.contact_id as string | undefined;
       const toNumber = (body?.to_number as string | undefined)?.trim();
       if (!toNumber || toNumber.length < 6) return json({ error: "Número destino inválido" }, 400);
@@ -75,6 +95,7 @@ serve(async (req) => {
       const credentials = channel.credentials_encrypted
         ? await decryptCredentials(channel.credentials_encrypted)
         : null;
+      if (channel.provider === "twilio" && !credentials?.auth_token) return json({ error: "Guarda el Auth Token de la subcuenta en el canal Twilio para registrar resultados automáticos seguros" }, 400);
       const { data: caller } = await admin.from("profiles").select("phone").eq("id", user.id).maybeSingle();
 
       const provider = getTelephonyProvider({
@@ -82,16 +103,27 @@ serve(async (req) => {
         phone_number: channel.phone_number,
         credentials,
       });
+      const callId = crypto.randomUUID();
+      const callbackBase = channel.webhook_token ? `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${channel.webhook_token}&call_id=${callId}` : null;
+      if (mode === "browser") {
+        if (channel.provider !== "twilio" || !credentials?.twiml_app_sid || !credentials.auth_token) return json({ error: "Un administrador debe habilitar llamadas desde computadora en Configuración → Llamadas" }, 400);
+        const AccessToken = twilio.jwt.AccessToken;
+        const token = new AccessToken(credentials.account_sid, credentials.api_key_sid, credentials.api_key_secret, { identity: user.id, ttl: 300 });
+        token.addGrant(new AccessToken.VoiceGrant({ outgoingApplicationSid: credentials.twiml_app_sid, incomingAllow: false }));
+        const { data: call, error } = await admin.from("calls").insert({ id: callId, tenant_id: tenantId, channel_id: channel.id, contact_id: contactId ?? null, deal_id: dealId, user_id: user.id, direction: "outbound", from_number: channel.phone_number, to_number: toNumber, status: "queued", metadata: { mode: "browser" }, started_at: new Date().toISOString() }).select("id,status").single();
+        if (error) throw error;
+        return json({ ok: true, call, provider: channel.provider, mode, token: token.toJwt() });
+      }
       const started = await provider.startCall(toNumber, channel.phone_number, {
         bridgingTo: caller?.phone ?? null,
         recordCalls: !!channel.record_calls,
         recordingNotice: channel.recording_notice ?? null,
-        statusCallbackUrl: channel.webhook_token
-          ? `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${channel.webhook_token}`
-          : null,
+        statusCallbackUrl: callbackBase ? `${callbackBase}&leg=advisor` : null,
+        dialCallbackUrl: callbackBase ? `${callbackBase}&leg=lead` : null,
       });
 
       const { data: call, error: insErr } = await admin.from("calls").insert({
+        id: callId,
         tenant_id: tenantId,
         channel_id: channel.id,
         contact_id: contactId ?? null,
@@ -107,6 +139,13 @@ serve(async (req) => {
       if (insErr) throw insErr;
 
       return json({ ok: true, call, provider: channel.provider });
+    }
+
+    if (action === "status") {
+      const { data: call, error } = await userClient.from("calls").select("id,status,answered_at,ended_at,duration_seconds,transcript,ai_summary,ai_suggestions,deal_id").eq("id", body.call_id).eq("tenant_id", tenantId).maybeSingle();
+      if (error) throw error;
+      if (!call) return json({ error: "Llamada no encontrada" }, 404);
+      return json({ ok: true, call });
     }
 
     if (action === "end") {
@@ -129,6 +168,15 @@ serve(async (req) => {
         if (!canManage) return json({ error: "Solo puedes cerrar tus propias llamadas" }, 403);
       }
 
+      const { data: channel } = await admin.from("call_channels").select("*").eq("id", call.channel_id).eq("tenant_id", tenantId).maybeSingle();
+      if (channel?.provider === "twilio") {
+        if (call.provider_call_id && channel.credentials_encrypted) {
+          const credentials = await decryptCredentials(channel.credentials_encrypted);
+          await twilioRequest(credentials, `Calls/${call.provider_call_id}.json`, new URLSearchParams({ Status: "completed" }));
+        }
+        // The provider, not a manual button, establishes connection and duration.
+        return json({ ok: true });
+      }
       const { error: upErr } = await admin.from("calls").update({
         status, outcome, notes,
         duration_seconds: duration,
@@ -182,7 +230,7 @@ serve(async (req) => {
         return json({ error: "Solo administradores pueden guardar credenciales" }, 403);
       }
       const { data: channel } = await admin.from("call_channels")
-        .select("id, provider, webhook_token").eq("id", channelId).eq("tenant_id", tenantId).maybeSingle();
+        .select("id, provider, webhook_token, credentials_encrypted").eq("id", channelId).eq("tenant_id", tenantId).maybeSingle();
       if (!channel) return json({ error: "Canal no encontrado" }, 404);
 
       const allowed = CRED_KEYS[channel.provider] ?? [];
@@ -193,7 +241,18 @@ serve(async (req) => {
         if (typeof v === "string" && v.trim()) clean[key] = v.trim();
       }
       if (Object.keys(clean).length !== allowed.length) {
-        return json({ error: "Faltan credenciales por capturar" }, 400);
+        if (channel.provider === "twilio" && Object.keys(clean).length === 0 && typeof incoming.auth_token === "string" && incoming.auth_token.trim() && channel.credentials_encrypted) {
+          Object.assign(clean, await decryptCredentials(channel.credentials_encrypted));
+        } else return json({ error: "Faltan credenciales por capturar" }, 400);
+      }
+
+      if (channel.provider === "twilio") {
+        const previous = channel.credentials_encrypted ? await decryptCredentials(channel.credentials_encrypted) : {};
+        if (previous.account_sid === clean.account_sid) {
+          if (previous.twiml_app_sid) clean.twiml_app_sid = previous.twiml_app_sid;
+          if (previous.auth_token) clean.auth_token = previous.auth_token;
+        }
+        if (typeof incoming.auth_token === "string" && incoming.auth_token.trim()) clean.auth_token = incoming.auth_token.trim();
       }
 
       const patch: Record<string, unknown> = { credentials_encrypted: await encryptCredentials(clean) };

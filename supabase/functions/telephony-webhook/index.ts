@@ -5,6 +5,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { routeInboundCall } from "../_shared/telephony-routing.ts";
 import { analyzeCall } from "../_shared/call-analyzer.ts";
+import { decryptCredentials } from "../_shared/telephony-creds.ts";
+import { validTwilioSignature } from "../_shared/twilio-auth.ts";
+import { providerResult, FINAL_CALL_STATUSES } from "../_shared/call-events.ts";
+import { buildDialTwiml } from "../_shared/telephony-provider.ts";
+import { transcribeRecording } from "../_shared/call-transcription.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -61,11 +66,51 @@ serve(async (req) => {
     if (!token) return ok({ ok: true, ignored: true });
 
     const { data: channel } = await admin.from("call_channels")
-      .select("id, tenant_id, phone_number, pbx_config, provider")
+      .select("id, tenant_id, phone_number, pbx_config, provider, credentials_encrypted, record_calls, recording_notice")
       .eq("webhook_token", token).maybeSingle();
     if (!channel) return ok({ ok: true, ignored: true }, 401);
 
     const payload = await readPayload(req);
+
+    if (channel.provider === "twilio") {
+      const creds = channel.credentials_encrypted ? await decryptCredentials(channel.credentials_encrypted) : {};
+      if (!creds.auth_token) return ok({ error: "Configura el Auth Token del canal para verificar eventos" }, 403);
+      const publicUrl = `${SUPABASE_URL}/functions/v1/telephony-webhook${url.search}`;
+      if (!await validTwilioSignature(publicUrl, payload, req.headers.get("x-twilio-signature"), creds.auth_token)) return ok({ error: "Firma inválida" }, 403);
+      const leg = url.searchParams.get("leg") ?? "lead";
+      const browserStart = leg === "browser";
+      const callId = browserStart ? payload.WalixCallId : url.searchParams.get("call_id");
+      let query = admin.from("calls").select("*").eq("tenant_id", channel.tenant_id).eq("channel_id", channel.id);
+      query = callId ? query.eq("id", callId) : query.eq("provider_call_id", payload.ParentCallSid ?? payload.CallSid);
+      const { data: call } = await query.maybeSingle();
+      if (!call) return ok({ error: "Llamada no encontrada" }, 404);
+      const xml = (body: string) => new Response(body, { headers: { ...corsHeaders, "Content-Type": "text/xml" } });
+      if (browserStart) {
+        if (call.metadata?.mode !== "browser" || payload.From !== `client:${call.user_id}` || call.provider_call_id || call.ended_at) return ok({ error: "Llamada no autorizada" }, 403);
+        const { data: claimed, error } = await admin.from("calls").update({ provider_call_id: payload.CallSid }).eq("id", call.id).is("provider_call_id", null).select("id").maybeSingle();
+        if (error || !claimed) return ok({ error: "Llamada ya iniciada" }, 409);
+        const base = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${token}&call_id=${call.id}`;
+        return xml(buildDialTwiml({ lead: call.to_number, callerId: channel.phone_number, record: channel.record_calls, notice: channel.recording_notice, dialCallbackUrl: `${base}&leg=lead`, recordingCallbackUrl: `${base}&leg=recording` }));
+      }
+      if (payload.RecordingSid && payload.RecordingStatus === "completed") {
+        await admin.from("calls").update({ recording_url: `https://api.twilio.com/2010-04-01/Accounts/${creds.account_sid}/Recordings/${payload.RecordingSid}` }).eq("id", call.id);
+        const job = transcribeRecording(admin, channel, call.id, payload.RecordingSid);
+        if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job); else await job;
+        return ok({ ok: true });
+      }
+      const result = providerResult(payload, leg);
+      if (result && !call.ended_at) {
+        const patch: Record<string, unknown> = { status: result.status };
+        if (result.status === "answered" && !call.answered_at) patch.answered_at = new Date().toISOString();
+        if (FINAL_CALL_STATUSES.includes(result.status)) {
+          patch.ended_at = new Date().toISOString();
+          patch.duration_seconds = result.duration;
+        }
+        const { error } = await admin.from("calls").update(patch).eq("id", call.id).is("ended_at", null);
+        if (error) throw error;
+      }
+      return payload.DialCallStatus ? xml("<Response><Hangup/></Response>") : ok({ ok: true });
+    }
 
     // Formato Telnyx v2: data.event_type, data.payload.call_control_id
     const eventType: string | undefined = payload?.data?.event_type ?? payload?.event_type;

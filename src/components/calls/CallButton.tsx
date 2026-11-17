@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, Loader2 } from "lucide-react";
+import { Phone, PhoneOff, Loader2, Monitor } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { FunctionsHttpError } from "@supabase/supabase-js";
+import { Device, type Call } from "@twilio/voice-sdk";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 
 type CallState = "idle" | "starting" | "ringing" | "ending" | "failed";
@@ -40,6 +41,15 @@ interface Props {
 }
 
 export function CallButton({ contactId, phone, contactName, size = "sm", variant = "outline" }: Props) {
+  const [mode, setMode] = useState<"phone" | "browser">("phone");
+  const [provider, setProvider] = useState("");
+  const [callStatus, setCallStatus] = useState("queued");
+  const [summary, setSummary] = useState("");
+  const [transcriptionStatus, setTranscriptionStatus] = useState("");
+  const [suggestedOutcome, setSuggestedOutcome] = useState<string | null>(null);
+  const [dealId, setDealId] = useState<string | null>(null);
+  const device = useRef<Device | null>(null);
+  const browserCall = useRef<Call | null>(null);
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<CallState>("idle");
   const [callId, setCallId] = useState<string | null>(null);
@@ -50,23 +60,47 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (state === "ringing") {
+    if (state === "ringing" && (provider !== "twilio" || callStatus === "answered")) {
       timer.current = setInterval(() => setSeconds((s) => s + 1), 1000);
     }
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, [state]);
+  }, [state, provider, callStatus]);
+
+  useEffect(() => () => { browserCall.current?.disconnect(); device.current?.destroy(); }, []);
+
+  useEffect(() => {
+    if (!callId || provider !== "twilio" || !open) return;
+    let cancelled = false;
+    const poll = async () => {
+      const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "status", call_id: callId } });
+      if (cancelled || error || !data?.call) return;
+      const row = data.call;
+      setCallStatus(row.status); setSummary(row.ai_summary ?? ""); setTranscriptionStatus(row.ai_suggestions?.transcription_status ?? "");
+      setSuggestedOutcome(row.ai_suggestions?.outcome_id ?? null); setDealId(row.deal_id ?? null);
+      if (row.duration_seconds != null) setSeconds(row.duration_seconds);
+    };
+    void poll();
+    const interval = setInterval(poll, 2500);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [callId, provider, open]);
 
   const reset = () => {
-    setState("idle"); setCallId(null); setSeconds(0); setNotes(""); setFailure("");
+    browserCall.current?.disconnect(); device.current?.destroy(); browserCall.current = null; device.current = null;
+    setState("idle"); setCallId(null); setSeconds(0); setNotes(""); setFailure(""); setSummary(""); setCallStatus("queued");
     if (timer.current) clearInterval(timer.current);
   };
 
-  const start = async () => {
+  const start = async (selectedMode: "phone" | "browser" = mode) => {
+    setMode(selectedMode);
     if (!phone) { toast.error("Este contacto no tiene número de teléfono"); return; }
     setOpen(true); setState("starting");
     try {
+    if (selectedMode === "browser") {
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mic.getTracks().forEach((track) => track.stop());
+    }
     const { data, error } = await supabase.functions.invoke("telephony-api", {
-      body: { action: "start", contact_id: contactId, to_number: phone },
+      body: { action: "start", contact_id: contactId, to_number: phone, mode: selectedMode },
     });
     const dialTel = () => { window.location.href = `tel:${phone.replace(/[^\d+]/g, "")}`; };
     if (error || !data?.ok) {
@@ -76,7 +110,13 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
     }
     // Canal simulado: no sale ninguna llamada real, se marca desde el dispositivo y se registra el resultado
     if (data.provider === "simulated") dialTel();
-    setCallId(data.call.id);
+    setCallId(data.call.id); setProvider(data.provider); setCallStatus("queued");
+    if (selectedMode === "browser" && data.token) {
+      device.current = new Device(data.token, { closeProtection: true });
+      device.current.on("error", () => { setFailure("No se pudo conectar el audio de la computadora"); setState("failed"); });
+      browserCall.current = await device.current.connect({ params: { WalixCallId: data.call.id } });
+      browserCall.current.on("error", () => { setFailure("La conexión de audio se interrumpió"); setState("failed"); });
+    }
     setState("ringing");
     } catch (error) {
       const message = await callError(null, error);
@@ -113,9 +153,13 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
 
   return (
     <>
-      <Button size={size} variant={variant} onClick={start} disabled={!phone || state === "starting" || state === "ending"} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
+      <Button size={size} variant={variant} onClick={() => void start("phone")} disabled={!phone || state === "starting" || state === "ringing" || state === "ending"} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
         <Phone className="h-4 w-4" />
         {size !== "icon" && <span className="ml-1.5">Llamar</span>}
+      </Button>
+
+      <Button size={size} variant={variant} disabled={!phone || state === "starting" || state === "ringing" || state === "ending"} title="Llamar desde computadora" onClick={() => void start("browser")}>
+        <Monitor className="h-4 w-4" />{size !== "icon" && <span className="ml-1.5">Computadora</span>}
       </Button>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing") return; setOpen(v); if (!v) reset(); }}>
@@ -139,7 +183,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
               <p role="alert" className="text-sm text-destructive">{failure}</p>
               <p className="text-sm text-muted-foreground">No se confirmó ninguna llamada ni se registró un resultado. El marcador del dispositivo requiere una aplicación de llamadas instalada.</p>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={start}>Reintentar</Button>
+                <Button size="sm" onClick={() => void start(mode)}>Reintentar</Button>
                 <Button size="sm" variant="outline" onClick={() => {
                   if (phone) window.location.href = `tel:${phone.replace(/[^\d+]/g, "")}`;
                 }}><Phone className="h-4 w-4 mr-1" />Abrir marcador</Button>
@@ -152,7 +196,8 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
             <div className="space-y-4">
               <div className="text-center py-4">
                 <div className="text-3xl font-mono font-semibold tabular-nums">{mm}:{ss}</div>
-                <p className="text-sm text-muted-foreground mt-1">Llamada en curso</p>
+                <p className="text-sm text-muted-foreground mt-1">{provider === "twilio" ? ({ queued: mode === "phone" ? "Llamando a tu celular" : "Conectando audio", ringing: "Marcando al contacto", answered: "Contacto conectado", completed: "Llamada terminada", failed: "Falló", no_answer: "Sin respuesta", busy: "Ocupado", voicemail: "Buzón de voz" }[callStatus] ?? "Esperando estado") : "Llamada en curso"}</p>
+                <p className="text-xs text-muted-foreground mt-2">{mode === "phone" ? "Audio en tu celular" : "Audio en la computadora"}</p>
               </div>
               <Textarea
                 placeholder="Notas de la llamada (opcional)…"
@@ -160,7 +205,19 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
               />
-              <p className="text-xs text-muted-foreground">Al terminar, marca el resultado:</p>
+              {provider === "twilio" ? <div className="space-y-2">
+                {["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) ? <>
+                  <p className="text-sm">Resultado automático registrado.</p>
+                  {transcriptionStatus && <p className="text-xs text-muted-foreground">Transcripción: {({ processing: "en proceso", completed: "lista", failed: "no disponible; grabación conservada" }[transcriptionStatus] ?? transcriptionStatus)}</p>}
+                  {summary && <p className="text-sm">{summary}</p>}
+                  {contactId && <Button onClick={() => { setOpen(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
+                  <Button variant="outline" onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
+                </> : <Button variant="destructive" onClick={async () => {
+                  browserCall.current?.disconnect();
+                  const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
+                  if (error || !data?.ok) toast.error(await callError(data, error));
+                }}><PhoneOff className="h-4 w-4 mr-2" />Colgar</Button>}
+              </div> : <><p className="text-xs text-muted-foreground">Al terminar, marca el resultado:</p>
               <div className="grid grid-cols-2 gap-2">
                 {OUTCOMES.map((o) => (
                   <Button key={o.value} variant={o.value === "completed" ? "default" : "outline"} size="sm" onClick={() => end(o.value)}>
@@ -168,7 +225,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                     {o.label}
                   </Button>
                 ))}
-              </div>
+              </div></>}
             </div>
           )}
 
@@ -183,8 +240,11 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
         open={followUpOpen}
         onOpenChange={(value) => { setFollowUpOpen(value); if (!value) reset(); }}
         contactId={contactId}
+        callId={callId}
+        dealId={dealId}
+        initialOutcomeId={suggestedOutcome}
         allowDealPicker
-        initialDescription={`No se pudo iniciar la llamada desde Walix: ${failure}. ${notes}`.trim()}
+        initialDescription={failure ? `No se pudo iniciar la llamada desde Walix: ${failure}. ${notes}`.trim() : `${summary} ${notes}`.trim()}
       />}
     </>
   );

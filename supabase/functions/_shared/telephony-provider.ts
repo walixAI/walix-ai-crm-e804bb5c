@@ -21,6 +21,7 @@ export interface StartCallOptions {
   recordingNotice?: string | null;
   /** URL de callback de estado del proveedor. */
   statusCallbackUrl?: string | null;
+  dialCallbackUrl?: string | null;
 }
 
 export interface TelephonyProvider {
@@ -44,15 +45,20 @@ export function buildDialTwiml(o: {
   record: boolean;
   notice?: string | null;
   recordingCallbackUrl?: string | null;
+  dialCallbackUrl?: string | null;
+  callerId?: string | null;
 }): string {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const say = o.notice && o.notice.trim() ? `<Say language="es-mx">${esc(o.notice.trim())}</Say>` : "";
   let rec = "";
   if (o.record) {
     rec = ' record="record-from-answer-dual"';
     if (o.recordingCallbackUrl) rec += ` recordingStatusCallback="${esc(o.recordingCallbackUrl)}"`;
   }
-  return `<Response>${say}<Dial timeout="30"${rec}><Number noWrap="true">${esc(o.lead)}</Number></Dial></Response>`;
+  const action = o.dialCallbackUrl ? ` action="${esc(o.dialCallbackUrl)}" method="POST"` : "";
+  const caller = o.callerId ? ` callerId="${esc(o.callerId)}"` : "";
+  const events = o.dialCallbackUrl ? ` statusCallback="${esc(o.dialCallbackUrl)}" statusCallbackEvent="initiated ringing answered completed" machineDetection="Enable" amdStatusCallback="${esc(o.dialCallbackUrl)}"` : "";
+  return `<Response>${say}<Dial timeout="30"${rec}${action}${caller}><Number${events}>${esc(o.lead)}</Number></Dial></Response>`;
 }
 
 class TelnyxProvider implements TelephonyProvider {
@@ -115,9 +121,14 @@ class TwilioProvider implements TelephonyProvider {
         record: !!opts.recordCalls,
         notice: opts.recordingNotice,
         recordingCallbackUrl: opts.statusCallbackUrl ?? null,
+        dialCallbackUrl: opts.dialCallbackUrl,
+        callerId: fromNumber,
       }),
     });
-    if (opts.statusCallbackUrl) body.set("StatusCallback", opts.statusCallbackUrl);
+    if (opts.statusCallbackUrl) {
+      body.set("StatusCallback", opts.statusCallbackUrl);
+      body.set("StatusCallbackEvent", "completed");
+    }
 
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Calls.json`, {
       method: "POST",

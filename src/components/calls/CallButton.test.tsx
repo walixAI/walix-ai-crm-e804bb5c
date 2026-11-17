@@ -39,12 +39,12 @@ describe("CallButton failure handling", () => {
     fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
-    await screen.findByRole("button", { name: "Contestó" });
-    expect(mocks.invoke).toHaveBeenCalledTimes(2);
+    await screen.findByRole("button", { name: "Colgar" });
+    expect(mocks.invoke).toHaveBeenCalledWith("telephony-api", { body: { action: "start", contact_id: undefined, to_number: "+525555555555", mode: "phone" } });
   });
 
   it("keeps the call ID and notes when saving the result fails", async () => {
-    mocks.invoke.mockResolvedValueOnce({ data: { ok: true, call: { id: "call1" }, provider: "twilio" }, error: null });
+    mocks.invoke.mockResolvedValueOnce({ data: { ok: true, call: { id: "call1" }, provider: "telnyx" }, error: null });
     mocks.invoke.mockResolvedValueOnce({ data: { ok: false, error: "No se guardó" }, error: null });
     mocks.invoke.mockResolvedValueOnce({ data: { ok: true }, error: null });
     render(<CallButton contactId="c1" phone="+525555555555" />);

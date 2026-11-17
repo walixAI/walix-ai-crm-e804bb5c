@@ -365,6 +365,13 @@
       "when": 1794461251393,
       "tag": "0051_secure_identity_and_forecast_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794945074760,
+      "tag": "0052_call_automatic_follow_up",
+      "breakpoints": true
     }
   ]
 }
