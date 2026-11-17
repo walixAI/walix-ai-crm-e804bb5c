@@ -249,6 +249,13 @@
 .walix-dialer .dialer-notes::placeholder { color: hsl(var(--dialer-foreground) / 0.7); }
 .dialer-footer { border-top: 1px solid hsl(var(--dialer-foreground) / 0.15); }
 .dialer-hangup { box-shadow: var(--shadow-dialer-control); }
+@media (max-height: 750px) {
+  .dialer-active-header { padding-top: 16px; }
+  .dialer-active-header .dialer-eyebrow { margin-bottom: 8px; }
+  .dialer-active-header .dialer-avatar { width: 48px; height: 48px; margin-bottom: 8px; border-width: 3px; }
+  .dialer-active-header .dialer-avatar svg { width: 24px; height: 24px; }
+  .dialer-active-header h2 { font-size: 18px; }
+}
 .call-ai-processing { background: hsl(var(--primary) / 0.04); }
 .call-ai-wave span { animation: call-ai-wave 1.2s ease-in-out infinite alternate; }
 .call-ai-wave span:nth-child(3n + 1) { animation-delay: -0.8s; }

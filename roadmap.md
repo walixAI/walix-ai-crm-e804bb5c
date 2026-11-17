@@ -2,6 +2,8 @@
 
 # Marcador con dos modalidades
 
+- [x] Mantener Colgar en una franja fija fuera del contenido desplazable y compactar encabezado en pantallas bajas; comprobado visible y pulsable sin desplazamiento en siete tamaños, incluidos tablet, celular y horizontal. 10 pruebas aprobadas; llamadas de muestra sin gasto real.
+
 - [x] Agregar selección real de micrófono/salida antes y durante llamadas por navegador; detección y actualización de dispositivos, permisos y aviso de incompatibilidad. 10 pruebas aprobadas y selección comprobada con dispositivos de muestra en 1280, 744 y 390 px. Celular controla altavoz/teléfono/Bluetooth en su pantalla de llamada.
 - [ ] Comprobar audio con bocinas/audífonos/Bluetooth físicos durante llamada real: requiere dispositivo físico y sesión autorizada; no se hicieron llamadas nuevas.
 

@@ -206,15 +206,15 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
       </Dialog>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus)) return; if (!v) setHungUp(false); setOpen(v); if (!v) reset(); }}>
-        <DialogContent className="walix-dialer sm:max-w-[420px] max-h-[85dvh] overflow-y-auto p-0 gap-0 rounded-lg">
-          <DialogHeader className="items-center px-6 pb-0 pt-6 text-center sm:text-center">
+        <DialogContent className="walix-dialer dialer-active flex flex-col sm:max-w-[420px] max-h-[calc(100dvh-2rem)] overflow-hidden p-0 gap-0 rounded-lg">
+          <DialogHeader className="dialer-active-header shrink-0 items-center px-6 pb-0 pt-6 text-center sm:text-center">
             <p className="dialer-eyebrow mb-5 text-xs font-medium">Walix Marcador</p>
             <div className="dialer-avatar mb-4 grid h-20 w-20 shrink-0 place-items-center rounded-full"><UserRound className="h-10 w-10" /></div>
             <DialogTitle className="w-full text-2xl leading-tight tracking-normal break-words">{contactName ?? "Contacto"}</DialogTitle>
             <DialogDescription className="mt-2 text-sm tabular-nums">{phone}</DialogDescription>
           </DialogHeader>
 
-          <div className="px-6 pb-6 pt-3">
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-6 pb-4 pt-3">
           {state === "starting" && (
             <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /> Iniciando llamada…
@@ -261,12 +261,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                   <p className="text-sm text-muted-foreground">Llamada colgada. El resultado automático se registrará en cuanto Twilio lo confirme.</p>
                   {contactId && <Button onClick={() => { setOpen(false); setHungUp(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
                   <Button variant="outline" onClick={() => { setOpen(false); setHungUp(false); reset(); }}>Cerrar</Button>
-                </> : <div className="flex flex-col items-center gap-2 pt-2"><Button variant="destructive" size="icon" className="dialer-hangup h-16 w-16 rounded-full [&_svg]:h-7 [&_svg]:w-7" aria-label="Colgar" title="Colgar" onClick={async () => {
-                  browserCall.current?.disconnect();
-                  setHungUp(true);
-                  const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
-                  if (error || !data?.ok) toast.error(await callError(data, error));
-                }}><PhoneOff /></Button><span className="text-xs text-muted-foreground">Colgar</span></div>}
+                </> : null}
               </div> : <><p className="text-xs text-muted-foreground">Al terminar, marca el resultado:</p>
               <div className="grid grid-cols-2 gap-2">
                 {OUTCOMES.map((o) => (
@@ -285,6 +280,14 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
             </div>
           )}
           </div>
+          {state === "ringing" && provider === "twilio" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) && <div className="dialer-footer shrink-0 flex flex-col items-center gap-1 px-6 py-3">
+            <Button variant="destructive" size="icon" className="dialer-hangup h-14 w-14 rounded-full [&_svg]:h-6 [&_svg]:w-6" aria-label="Colgar" title="Colgar" onClick={async () => {
+              browserCall.current?.disconnect();
+              setHungUp(true);
+              const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
+              if (error || !data?.ok) toast.error(await callError(data, error));
+            }}><PhoneOff /></Button><span className="text-xs text-muted-foreground">Colgar</span>
+          </div>}
         </DialogContent>
       </Dialog>
       {contactId && followUpOpen && <LogFollowUpDialog
