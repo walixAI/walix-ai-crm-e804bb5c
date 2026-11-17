@@ -281,6 +281,9 @@ export function LogFollowUpDialog({
     if (!description.trim() && !outcome) return toast.error("Selecciona un resultado o escribe un comentario");
     if (available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
     if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
+    if (!occurred || Number.isNaN(new Date(occurred).getTime())) {
+      return toast.error(outcome?.isWon ? "Indica la fecha de ganado completa" : "Indica la fecha completa del seguimiento");
+    }
     if (outcome?.isWon && new Date(fromLocalInput(occurred)).getTime() > Date.now()) {
       return toast.error("La fecha de ganado no puede ser futura");
     }
