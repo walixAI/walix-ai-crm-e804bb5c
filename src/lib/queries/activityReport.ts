@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, resolveOwner } from "@/lib/queries/tenantUsers";
+import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
 
 export type ActivityScope = "tenant" | "mine";
 
@@ -44,7 +45,7 @@ export function useActivityReport(params: { from: string; to: string; scope: Act
       }
       const { data, error } = await q;
       if (error) throw error;
-      const rows = data ?? [];
+      const rows = consolidateCallActivities(data ?? []);
 
       const contactIds = Array.from(new Set(rows.map((r: any) => r.contact_id).filter(Boolean)));
       const dealIds = Array.from(new Set(rows.map((r: any) => r.deal_id).filter(Boolean)));

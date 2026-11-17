@@ -7,6 +7,8 @@ import { aiMemory } from "@/services/aiMemory";
 import { useHumanAttention } from "@/lib/queries/humanAttention";
 import { toast } from "sonner";
 import { fetchNextServiceDates, formatServiceMonths } from "@/lib/queries/recurrence";
+import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
+import { readAllPages } from "./paginate";
 
 export interface Pipeline {
   id: string;
@@ -709,14 +711,14 @@ export function useDealActivity(dealId: string | undefined) {
     queryKey: ["deal-activity", dealId],
     enabled: !!dealId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!dealId) return [];
+      const data = await readAllPages((start, end) => supabase
         .from("activities")
         .select("*")
-        .eq("deal_id", dealId!)
+        .eq("deal_id", dealId)
         .order("occurred_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return data ?? [];
+        .order("id").range(start, end));
+      return consolidateCallActivities(data);
     },
   });
 }

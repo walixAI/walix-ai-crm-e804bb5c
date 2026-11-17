@@ -6,6 +6,8 @@ import { buildContactSuggestions, type ContactSuggestion, type LastInbound } fro
 import { useTenantId } from "@/lib/queries/tenant";
 
 import { reassignContact } from "@/services/contactAssignment";
+import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
+import { readAllPages } from "./paginate";
 
 const colors = [
   "hsl(239 84% 60%)",
@@ -337,23 +339,23 @@ export function useContactActivity(contactId: string | undefined) {
     queryKey: ["contact-activity", contactId, users?.length ?? 0],
     enabled: !!contactId,
     queryFn: async (): Promise<ActivityRow[]> => {
-      const [{ data: actData, error: actErr }, { data: taskData, error: taskErr }] = await Promise.all([
-        supabase
+      if (!contactId) return [];
+      const [actData, { data: taskData, error: taskErr }] = await Promise.all([
+        readAllPages((start, end) => supabase
         .from("activities")
         .select("*")
-        .eq("contact_id", contactId!)
+        .eq("contact_id", contactId)
         .order("occurred_at", { ascending: false })
-          .limit(20),
+        .order("id").range(start, end)),
         supabase
           .from("tasks")
           .select("*")
-          .eq("contact_id", contactId!)
+          .eq("contact_id", contactId)
           .order("created_at", { ascending: false })
           .limit(20),
       ]);
-      if (actErr) throw actErr;
       if (taskErr) throw taskErr;
-      const acts: ActivityRow[] = (actData ?? []).map((a: any) => {
+      const acts: ActivityRow[] = consolidateCallActivities(actData).map((a: any) => {
         const owner = resolveOwner(users, a.agent_id);
         return {
           id: a.id, type: a.type, description: a.description,

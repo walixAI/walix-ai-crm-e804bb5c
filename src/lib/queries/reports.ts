@@ -5,6 +5,7 @@ import { useTenantId } from "@/lib/queries/tenant";
 import { useTenantUsers, type TenantUser } from "@/lib/queries/tenantUsers";
 import type { ReportFilters } from "@/lib/reports/filters";
 import { readAllPages } from "./paginate";
+import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
 
 // ─────────────────────────────────────────────────────────────────
 // Period helpers
@@ -114,7 +115,7 @@ async function fetchRange(tenantId: string, from: Date, to: Date): Promise<RawDa
       .eq("tenant_id", tenantId)
       .gte("created_at", fromISO).lte("created_at", toISO).order("id").range(start, end)),
     readAllPages((start, end) => supabase.from("activities")
-      .select("id, type, deal_id, contact_id, agent_id, occurred_at")
+      .select("id, type, deal_id, contact_id, agent_id, occurred_at, metadata")
       .eq("tenant_id", tenantId)
       .gte("occurred_at", fromISO).lte("occurred_at", toISO).order("id").range(start, end)),
     readAllPages((start, end) => supabase.from("deal_stage_history")
@@ -132,7 +133,7 @@ async function fetchRange(tenantId: string, from: Date, to: Date): Promise<RawDa
   return {
     deals:        deals as RawDataset["deals"],
     contacts:     contacts as RawDataset["contacts"],
-    activities:   activities as RawDataset["activities"],
+    activities:   consolidateCallActivities(activities) as RawDataset["activities"],
     stageHistory: stageHistory as RawDataset["stageHistory"],
     stages:       (stages.data       ?? []) as RawDataset["stages"],
   };

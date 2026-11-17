@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
+import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
 
 export interface DrilldownFilters {
   from: string | null; // ISO date
@@ -59,7 +60,7 @@ export function useFunnelDrilldown(filters: DrilldownFilters) {
       if (filters.to) q = q.lte("occurred_at", filters.to);
       const { data, error } = await q;
       if (error) throw error;
-      const acts = data ?? [];
+      const acts = consolidateCallActivities(data ?? []);
 
       const contactIds = [...new Set(acts.map((a: any) => a.contact_id).filter(Boolean))];
       const agentIds = [...new Set(acts.map((a: any) => a.agent_id).filter(Boolean))];
