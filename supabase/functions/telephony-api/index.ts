@@ -6,6 +6,7 @@ import { routeInboundCall } from "../_shared/telephony-routing.ts";
 import { decryptCredentials, encryptCredentials } from "../_shared/telephony-creds.ts";
 import twilio from "npm:twilio@5.10.4";
 import { twilioRequest } from "../_shared/twilio-auth.ts";
+import { canUsePhone, canEditPhonePolicy } from "../_shared/phone-call-policy.ts";
 
 const CRED_KEYS: Record<string, string[]> = {
   twilio: ["account_sid", "api_key_sid", "api_key_secret"],
@@ -44,6 +45,46 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
+
+    if (["phone_permissions", "save_phone_permissions", "start"].includes(action)) {
+      const { data: roles, error: roleError } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId);
+      if (roleError) throw roleError;
+      const { data: member, error: memberError } = await admin.from("profiles").select("is_active").eq("id", user.id).maybeSingle();
+      if (memberError) throw memberError;
+      const isMember = !!roles?.length && member?.is_active === true;
+      if (!isMember) return json({ error: "No tienes acceso activo a esta empresa" }, 403);
+      const { data: policy, error: policyError } = await admin.from("tenant_phone_call_settings").select("allow_all,allowed_user_ids").eq("tenant_id", tenantId).maybeSingle();
+      if (policyError) throw policyError;
+      const canManage = canEditPhonePolicy((roles ?? []).map((r: { role: string }) => r.role));
+      if (action === "phone_permissions") {
+        let members: { id: string; full_name: string | null; phone: string | null }[] = [];
+        if (canManage) {
+          const { data: memberRoles, error } = await admin.from("user_roles").select("user_id").eq("tenant_id", tenantId);
+          if (error) throw error;
+          const ids = [...new Set((memberRoles ?? []).map((r: { user_id: string }) => r.user_id))];
+          if (ids.length) {
+            const { data, error } = await admin.from("profiles").select("id,full_name,phone").in("id", ids).eq("is_active", true).order("full_name");
+            if (error) throw error;
+            members = data ?? [];
+          }
+        }
+        return json({ ok: true, can_manage: canManage, can_use_phone: canUsePhone(policy, user.id, isMember), ...(canManage ? { policy: policy ?? { allow_all: true, allowed_user_ids: [] }, members } : {}) });
+      }
+      if (action === "save_phone_permissions") {
+        if (!canManage) return json({ error: "Solo el propietario puede configurar llamadas por celular" }, 403);
+        if (typeof body.allow_all !== "boolean" || !Array.isArray(body.allowed_user_ids) || body.allowed_user_ids.length > 1000 || body.allowed_user_ids.some((id: unknown) => typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) return json({ error: "Selecciona usuarios válidos" }, 400);
+        const ids: string[] = [...new Set<string>(body.allowed_user_ids)];
+        if (ids.length) {
+          const { data, error } = await admin.from("user_roles").select("user_id").eq("tenant_id", tenantId).in("user_id", ids);
+          if (error) throw error;
+          if (new Set((data ?? []).map((r: { user_id: string }) => r.user_id)).size !== ids.length) return json({ error: "Los usuarios deben pertenecer a esta empresa" }, 403);
+        }
+        const { error } = await admin.from("tenant_phone_call_settings").upsert({ tenant_id: tenantId, allow_all: body.allow_all, allowed_user_ids: ids, updated_by: user.id, updated_at: new Date().toISOString() });
+        if (error) throw error;
+        return json({ ok: true });
+      }
+      if ((body.mode ?? "phone") === "phone" && !canUsePhone(policy, user.id, isMember)) return json({ error: "El propietario no te ha autorizado a llamar desde tu celular. Puedes usar la computadora." }, 403);
+    }
 
     if (action === "browser_setup") {
       const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId);

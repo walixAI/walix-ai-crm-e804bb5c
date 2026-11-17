@@ -2,16 +2,27 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), error: vi.fn(), success: vi.fn(), followUp: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), error: vi.fn(), success: vi.fn(), followUp: vi.fn(), permissions: { data: { can_use_phone: true }, isFetching: false, isError: false, refetch: vi.fn() } }));
+vi.mock("@/lib/queries/phoneCallPermissions", () => ({ usePhoneCallPermissions: () => mocks.permissions }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock("sonner", () => ({ toast: { error: mocks.error, success: mocks.success } }));
 vi.mock("@/components/activity/LogFollowUpDialog", () => ({ LogFollowUpDialog: (props: unknown) => { mocks.followUp(props); return null; } }));
 import { CallButton } from "./CallButton";
 
 afterEach(cleanup);
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); mocks.permissions.data.can_use_phone = true; });
 
 describe("CallButton failure handling", () => {
+  it("does not start a phone call without owner permission", () => {
+    mocks.permissions.data.can_use_phone = false;
+    render(<CallButton contactId="c1" phone="+525555555555" />);
+    fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
+    const phone = screen.getByRole("button", { name: /Mi celular/ });
+    expect(phone).toBeDisabled();
+    fireEvent.click(phone);
+    expect(mocks.invoke).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Computadora \/ dispositivo/ })).toBeEnabled();
+  });
   it.each([
     [401, "Sesión inválida"],
     [400, "No hay canal de llamadas configurado. Pide a un administrador que lo active en Configuración → Llamadas."],

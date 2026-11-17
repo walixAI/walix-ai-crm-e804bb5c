@@ -2,6 +2,8 @@
 
 # Marcador con dos modalidades
 
+- [x] Mejorar las ventanas del marcador con el estilo de Copiloto y permitir al propietario autorizar llamadas por celular para todos o usuarios seleccionados; control previo al proveedor desplegado, pruebas de permisos y marcador aprobadas, selector comprobado en computadora/móvil con datos de prueba.
+- [ ] Validar guardado y lectura de permisos con propietario autenticado: no fue posible obtener la sesión del solicitante; requiere iniciar sesión en la vista previa. No se hicieron llamadas reales.
 - [x] Implementar celular y computadora, callbacks firmados, resultados automáticos separados de tipificación manual y transcripción IA de grabaciones; pruebas del marcador y eventos aprobadas.
 - [ ] Activar computadora y validar llamadas/transcripción reales: requiere Auth Token de la subcuenta capturado en el canal, sesión autorizada del solicitante y destinatario de prueba; la sesión del solicitante no pudo obtenerse.
 

@@ -372,6 +372,13 @@
       "when": 1794945074760,
       "tag": "0052_call_automatic_follow_up",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794949216916,
+      "tag": "0053_tenant_phone_call_permissions",
+      "breakpoints": true
     }
   ]
 }

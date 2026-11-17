@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Phone, Plus, Pencil, Network, PhoneIncoming } from "lucide-react";
 import { PbxConfigDialog } from "./PbxConfigDialog";
+import { PhoneCallPermissions } from "./PhoneCallPermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -190,6 +191,8 @@ export function CallsSettingsTab({ tenantId }: Props) {
           </div>
         </div>
       )}
+
+      <PhoneCallPermissions />
 
       <PbxConfigDialog channel={pbx} tenantId={tenantId} open={!!pbx} onOpenChange={(v) => !v && setPbx(null)}
         onSaved={() => qc.invalidateQueries({ queryKey: ["call-channels", tenantId] })} />

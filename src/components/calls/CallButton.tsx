@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, Loader2, Monitor } from "lucide-react";
+import { Phone, PhoneOff, Loader2, Monitor, Headphones, ArrowUpRight, LockKeyhole, UserRound, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Device, type Call } from "@twilio/voice-sdk";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
+import { usePhoneCallPermissions } from "@/lib/queries/phoneCallPermissions";
 
 type CallState = "idle" | "starting" | "ringing" | "ending" | "failed";
 
@@ -43,6 +44,7 @@ interface Props {
 export function CallButton({ contactId, phone, contactName, size = "sm", variant = "outline" }: Props) {
   const [mode, setMode] = useState<"phone" | "browser">("phone");
   const [chooserOpen, setChooserOpen] = useState(false);
+  const permissions = usePhoneCallPermissions(chooserOpen);
   const [provider, setProvider] = useState("");
   const [callStatus, setCallStatus] = useState("queued");
   const [summary, setSummary] = useState("");
@@ -160,34 +162,45 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
       </Button>
 
       <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>¿Cómo quieres llamar?</DialogTitle>
-            <DialogDescription>{contactName ?? phone} · {phone}</DialogDescription>
+        <DialogContent className="sm:max-w-[460px] p-0 gap-0 rounded-lg overflow-hidden [&>button]:text-primary-foreground [&>button]:hover:bg-primary-foreground/15">
+          <DialogHeader className="bg-gradient-brand px-5 py-4 pr-12 text-left text-primary-foreground">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-foreground/15"><Phone className="h-5 w-5" /></div>
+              <div><DialogTitle className="text-base tracking-normal">Walix Marcador</DialogTitle><DialogDescription className="mt-1 text-xs text-primary-foreground/80">Nueva llamada</DialogDescription></div>
+            </div>
           </DialogHeader>
-          <div className="grid gap-3">
-            <button type="button" className="flex items-start gap-3 rounded-lg border border-border p-4 text-left hover:bg-accent transition-colors" onClick={() => { setChooserOpen(false); void start("browser"); }}>
-              <Monitor className="h-5 w-5 mt-0.5 text-primary" />
-              <span><span className="block font-medium">Computadora / dispositivo</span><span className="block text-sm text-muted-foreground">Hablas con micrófono y audífonos desde Walix.</span></span>
-            </button>
-            <button type="button" className="flex items-start gap-3 rounded-lg border border-border p-4 text-left hover:bg-accent transition-colors" onClick={() => { setChooserOpen(false); void start("phone"); }}>
-              <Phone className="h-5 w-5 mt-0.5 text-primary" />
-              <span><span className="block font-medium">Mi celular</span><span className="block text-sm text-muted-foreground">Primero suena tu celular; al contestar se marca al contacto.</span></span>
-            </button>
+          <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-5 py-4">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"><UserRound className="h-5 w-5" /></div>
+            <div className="min-w-0"><p className="font-semibold text-sm break-words">{contactName ?? "Contacto"}</p><p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{phone}</p></div>
           </div>
+          <div className="grid gap-3 p-5">
+            <h3 className="text-sm font-semibold">¿Cómo quieres llamar?</h3>
+            <Button variant="outline" className="group h-auto min-h-24 w-full justify-start gap-3 whitespace-normal p-4 text-left hover:border-primary/40 hover:bg-primary/5" onClick={() => { setChooserOpen(false); void start("browser"); }}>
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Monitor /></span>
+              <span className="min-w-0 flex-1"><span className="block font-semibold">Computadora / dispositivo</span><span className="mt-1 flex items-center gap-1.5 text-xs font-normal text-muted-foreground"><Headphones className="h-3.5 w-3.5" />Micrófono y audífonos</span></span>
+              <ArrowUpRight className="text-muted-foreground group-hover:text-primary" />
+            </Button>
+            <Button variant="outline" disabled={!permissions.data?.can_use_phone || permissions.isFetching} className="group h-auto min-h-24 w-full justify-start gap-3 whitespace-normal p-4 text-left hover:border-primary/40 hover:bg-primary/5" onClick={() => { setChooserOpen(false); void start("phone"); }}>
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground"><Phone /></span>
+              <span className="min-w-0 flex-1"><span className="block font-semibold">Mi celular</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{permissions.isFetching ? "Consultando autorización…" : permissions.isError ? "No se pudo verificar tu permiso" : permissions.data?.can_use_phone ? "Recibes la llamada en tu celular personal" : "Requiere autorización del propietario"}</span></span>
+              {permissions.isFetching ? <Loader2 className="animate-spin text-muted-foreground" /> : permissions.data?.can_use_phone ? <ArrowUpRight className="text-muted-foreground group-hover:text-primary" /> : <LockKeyhole className="text-muted-foreground" />}
+            </Button>
+            {permissions.isError && <Button variant="ghost" size="sm" onClick={() => void permissions.refetch()}>Reintentar autorización</Button>}
+          </div>
+          <div className="flex items-center gap-2 border-t border-border bg-muted/30 px-5 py-3 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />Seguimiento de la llamada</div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v && state === "ringing") return; setOpen(v); if (!v) reset(); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-primary" />
-              Llamada a {contactName ?? phone}
-            </DialogTitle>
-            <DialogDescription>{phone}</DialogDescription>
+        <DialogContent className="sm:max-w-[460px] p-0 gap-0 rounded-lg [&>button]:text-primary-foreground [&>button]:hover:bg-primary-foreground/15">
+          <DialogHeader className="bg-gradient-brand rounded-t-lg px-5 py-4 pr-12 text-left text-primary-foreground">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-foreground/15"><Phone className="h-5 w-5" /></div>
+              <div className="min-w-0"><DialogTitle className="text-base tracking-normal break-words">Llamada a {contactName ?? phone}</DialogTitle><DialogDescription className="mt-1 text-xs text-primary-foreground/80">{phone}</DialogDescription></div>
+            </div>
           </DialogHeader>
 
+          <div className="p-5">
           {state === "starting" && (
             <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /> Iniciando llamada…
@@ -210,18 +223,20 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
 
           {state === "ringing" && (
             <div className="space-y-4">
-              <div className="text-center py-4">
-                <div className="text-3xl font-mono font-semibold tabular-nums">{mm}:{ss}</div>
+              <div className="text-center py-5 border-b border-border">
+                <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">{mode === "phone" ? <Phone className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}</div>
+                <div className="text-4xl font-mono font-semibold tabular-nums min-h-10">{mm}:{ss}</div>
                 <p className="text-sm text-muted-foreground mt-1">{provider === "twilio" ? ({ queued: mode === "phone" ? "Llamando a tu celular" : "Conectando audio", ringing: "Marcando al contacto", answered: "Contacto conectado", completed: "Llamada terminada", failed: "Falló", no_answer: "Sin respuesta", busy: "Ocupado", voicemail: "Buzón de voz" }[callStatus] ?? "Esperando estado") : "Llamada en curso"}</p>
                 <p className="text-xs text-muted-foreground mt-2">{mode === "phone" ? "Audio en tu celular" : "Audio en la computadora"}</p>
               </div>
               <Textarea
+                className="resize-none bg-muted/30"
                 placeholder="Notas de la llamada (opcional)…"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
               />
-              {provider === "twilio" ? <div className="space-y-2">
+              {provider === "twilio" ? <div className="space-y-3 [&>button]:w-full">
                 {["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) ? <>
                   <p className="text-sm">Resultado automático registrado.</p>
                   {transcriptionStatus && <p className="text-xs text-muted-foreground">Transcripción: {({ processing: "en proceso", completed: "lista", failed: "no disponible; grabación conservada" }[transcriptionStatus] ?? transcriptionStatus)}</p>}
@@ -250,6 +265,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
               <Loader2 className="h-5 w-5 animate-spin" /> Guardando…
             </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
       {contactId && followUpOpen && <LogFollowUpDialog
