@@ -5,5 +5,5 @@ export function canUsePhone(policy: PhoneCallPolicy | null, userId: string, isAc
 }
 
 export function canEditPhonePolicy(roles: string[]): boolean {
-  return roles.includes("tenant_owner");
+  return roles.includes("tenant_owner") || roles.includes("tenant_admin");
 }

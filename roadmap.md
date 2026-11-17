@@ -2,6 +2,7 @@
 
 # Marcador con dos modalidades
 
+- [x] Permitir a administradores y propietarios configurar permisos de llamadas por celular dentro de su empresa; 17 pruebas aprobadas. La comprobación autenticada sigue pendiente porque no se pudo obtener la sesión del solicitante.
 - [x] Mejorar las ventanas del marcador con el estilo de Copiloto y permitir al propietario autorizar llamadas por celular para todos o usuarios seleccionados; control previo al proveedor desplegado, pruebas de permisos y marcador aprobadas, selector comprobado en computadora/móvil con datos de prueba.
 - [ ] Validar guardado y lectura de permisos con propietario autenticado: no fue posible obtener la sesión del solicitante; requiere iniciar sesión en la vista previa. No se hicieron llamadas reales.
 - [x] Implementar celular y computadora, callbacks firmados, resultados automáticos separados de tipificación manual y transcripción IA de grabaciones; pruebas del marcador y eventos aprobadas.

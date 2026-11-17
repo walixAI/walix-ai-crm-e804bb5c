@@ -71,7 +71,7 @@ serve(async (req) => {
         return json({ ok: true, can_manage: canManage, can_use_phone: canUsePhone(policy, user.id, isMember), ...(canManage ? { policy: policy ?? { allow_all: true, allowed_user_ids: [] }, members } : {}) });
       }
       if (action === "save_phone_permissions") {
-        if (!canManage) return json({ error: "Solo el propietario puede configurar llamadas por celular" }, 403);
+        if (!canManage) return json({ error: "Solo administradores y propietarios pueden configurar llamadas por celular" }, 403);
         if (typeof body.allow_all !== "boolean" || !Array.isArray(body.allowed_user_ids) || body.allowed_user_ids.length > 1000 || body.allowed_user_ids.some((id: unknown) => typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) return json({ error: "Selecciona usuarios válidos" }, 400);
         const ids: string[] = [...new Set<string>(body.allowed_user_ids)];
         if (ids.length) {
@@ -83,7 +83,7 @@ serve(async (req) => {
         if (error) throw error;
         return json({ ok: true });
       }
-      if ((body.mode ?? "phone") === "phone" && !canUsePhone(policy, user.id, isMember)) return json({ error: "El propietario no te ha autorizado a llamar desde tu celular. Puedes usar la computadora." }, 403);
+      if ((body.mode ?? "phone") === "phone" && !canUsePhone(policy, user.id, isMember)) return json({ error: "Un administrador o propietario debe autorizarte a llamar desde tu celular. Puedes usar la computadora." }, 403);
     }
 
     if (action === "browser_setup") {

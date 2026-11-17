@@ -10,9 +10,15 @@ describe("tenant phone permissions", () => {
     expect(canUsePhone(policy, "selected", true)).toBe(true);
     expect(canUsePhone(policy, "other", true)).toBe(false);
   });
-  it("restricts configuration to the tenant owner", () => {
+  it("allows the tenant owner to configure phone permissions", () => {
     expect(canEditPhonePolicy(["tenant_owner"])).toBe(true);
-    expect(canEditPhonePolicy(["tenant_admin", "sales_manager", "sales_rep"])).toBe(false);
+  });
+  it("allows the tenant administrator to configure phone permissions", () => {
+    expect(canEditPhonePolicy(["tenant_admin"])).toBe(true);
+  });
+  it("does not grant configuration to managers or advisors", () => {
+    expect(canEditPhonePolicy(["sales_manager", "sales_rep"])).toBe(false);
+    expect(canEditPhonePolicy([])).toBe(false);
   });
   it("rejects inactive or nonmember users even when selected", () => {
     expect(canUsePhone({ allow_all: false, allowed_user_ids: ["other"] }, "other", false)).toBe(false);

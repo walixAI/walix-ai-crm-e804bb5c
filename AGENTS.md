@@ -1,6 +1,6 @@
 # AGENTS
 
-- Tenant phone-bridge permissions are stored separately and changed only by the active tenant owner through telephony-api; every phone start validates active membership and the current policy before provider access, while browser calls remain independent; why: hidden controls cannot enforce spending permissions.
+- Tenant phone-bridge permissions are stored separately and changed only by active-tenant owners or administrators through telephony-api; every phone start validates active membership and the current policy before provider access, while browser calls remain independent; why: hidden controls cannot enforce spending permissions.
 
 - Twilio browser and phone calls share provider-signed callbacks; prospect-leg events maintain one automatic activity, while advisor follow-ups carry call_id separately and recording transcription is claimed once; why: advisor answers, manual labels and retries must not fabricate or duplicate prospect outcomes.
 

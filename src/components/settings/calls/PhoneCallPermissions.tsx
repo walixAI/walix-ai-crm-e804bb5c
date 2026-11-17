@@ -31,7 +31,7 @@ export function PhoneCallPermissions() {
   return <section className="border-t border-border pt-6 space-y-4">
     <div className="flex items-center gap-3">
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><ShieldCheck className="h-5 w-5" /></div>
-      <div><h3 className="font-semibold">Llamadas desde el celular</h3><p className="text-xs text-muted-foreground">Autorización del propietario · número compartido de la empresa</p></div>
+      <div><h3 className="font-semibold">Llamadas desde el celular</h3><p className="text-xs text-muted-foreground">Autorización de administradores y propietarios · número compartido de la empresa</p></div>
     </div>
     <RadioGroup value={all ? "all" : "selected"} onValueChange={(v) => setAll(v === "all")} className="grid gap-3 sm:grid-cols-2" disabled={save.isPending}>
       <Label htmlFor="phone-all" className="flex items-center gap-3 rounded-lg border border-border p-4 cursor-pointer has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"><RadioGroupItem value="all" id="phone-all" /><Users className="h-4 w-4 text-primary" />Todos los usuarios</Label>

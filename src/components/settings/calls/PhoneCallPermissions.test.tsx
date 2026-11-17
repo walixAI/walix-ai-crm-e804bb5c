@@ -14,15 +14,15 @@ beforeEach(() => { mocks.data.can_manage = true; mocks.request.mockReset(); mock
 function renderPermissions() {
   render(<QueryClientProvider client={new QueryClient()}><PhoneCallPermissions /></QueryClientProvider>);
 }
-describe("owner phone authorization", () => {
-  it("saves only the advisors selected by the owner", async () => {
+describe("phone authorization management", () => {
+  it("saves only the advisors selected by an authorized administrator or owner", async () => {
     renderPermissions();
     fireEvent.click(screen.getByRole("radio", { name: /Solo algunos usuarios/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Autorizar a Asesor uno" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar permisos" }));
     await waitFor(() => expect(mocks.request).toHaveBeenCalledWith({ action: "save_phone_permissions", allow_all: false, allowed_user_ids: ["advisor-1"] }));
   });
-  it("does not expose editing to a non-owner", () => {
+  it("does not expose editing without management permission", () => {
     mocks.data.can_manage = false;
     renderPermissions();
     expect(screen.queryByRole("button", { name: "Guardar permisos" })).not.toBeInTheDocument();
