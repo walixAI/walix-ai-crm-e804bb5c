@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.wa_charge_conversation(uuid, uuid, uuid, uuid, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.wa_charge_conversation(uuid, uuid, uuid, uuid, text, text) TO service_role;

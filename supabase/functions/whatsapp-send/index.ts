@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     // Cobro por conversación (ventana de 24 h). Si ya hay ventana abierta no cobra.
     let billing: any = null;
     if (channel?.status === "connected" && conv.contact_id) {
-      const { data: charge, error: chargeErr } = await sb.rpc("wa_charge_conversation", {
+      const { data: charge, error: chargeErr } = await channelClient.rpc("wa_charge_conversation", {
         _tenant_id: conv.tenant_id,
         _contact_id: conv.contact_id,
         _conversation_id: conv.id,

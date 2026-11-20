@@ -386,6 +386,13 @@
       "when": 1795194981831,
       "tag": "0054_call_typification_classes",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1795214885590,
+      "tag": "0055_revoke_wa_charge_conversation_client",
+      "breakpoints": true
     }
   ]
 }
