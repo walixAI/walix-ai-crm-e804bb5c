@@ -84,6 +84,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_connection_result: boolean
           is_lost: boolean
           is_won: boolean
           label: string
@@ -101,6 +102,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_connection_result?: boolean
           is_lost?: boolean
           is_won?: boolean
           label: string
@@ -118,6 +120,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_connection_result?: boolean
           is_lost?: boolean
           is_won?: boolean
           label?: string

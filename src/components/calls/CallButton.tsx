@@ -11,6 +11,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Device, type Call } from "@twilio/voice-sdk";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { usePhoneCallPermissions } from "@/lib/queries/phoneCallPermissions";
+import { isEffectiveCall } from "@/lib/activities/consolidateCalls";
 import { CallTranscript } from "./CallTranscript";
 import { CallAudioControls, applyCallAudio, type AudioSelection } from "./CallAudioControls";
 
@@ -34,6 +35,16 @@ const OUTCOMES = [
   { value: "voicemail", label: "Buzón de voz" },
   { value: "failed", label: "Falló" },
 ];
+
+/** Cómo se describe un intento que no llegó a una conversación. */
+const ATTEMPT_LABEL: Record<string, string> = {
+  queued: "no llegó a marcar",
+  ringing: "no contestó a tiempo",
+  no_answer: "sin respuesta",
+  busy: "línea ocupada",
+  voicemail: "buzón de voz",
+  failed: "falló",
+};
 
 interface Props {
   contactId?: string;
@@ -166,6 +177,9 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
 
+  /** ¿Hubo conversación real? Un intento no conectado no se tipifica. */
+  const effective = isEffectiveCall({ status: callStatus, duration: seconds }, summary);
+
   return (
     <>
       <Button size={size} variant={variant} onClick={() => setChooserOpen(true)} disabled={!phone || state === "starting" || state === "ringing" || state === "ending"} title={phone ? `Llamar a ${phone}` : "Sin teléfono"}>
@@ -252,16 +266,25 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
                 rows={2}
               />
               {provider === "twilio" ? <div className="space-y-3 [&>button]:w-full">
-                {["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) ? <>
-                  <p className="text-sm">Resultado automático registrado.</p>
+                {["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) ? (effective ? <>
+                  <p className="text-sm">Llamada efectiva registrada.</p>
                   <CallTranscript status={transcriptionStatus} transcript={transcript} summary={summary} />
                   {contactId && <Button onClick={() => { setOpen(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
                   <Button variant="outline" onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
-                </> : hungUp ? <>
+                </> : <>
+                  <p className="text-sm">Intento registrado: {ATTEMPT_LABEL[callStatus] ?? "no conectado"}.</p>
+                  <p className="text-xs text-muted-foreground">No hubo conversación, así que no se tipifica. Programa el reintento cuando quieras.</p>
+                  {contactId && <Button onClick={() => { setOpen(false); setFollowUpOpen(true); }}>Programar reintento</Button>}
+                  <Button variant="outline" onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
+                </>) : hungUp ? (effective ? <>
                   <p className="text-sm text-muted-foreground">Llamada colgada. El resultado automático se registrará en cuanto Twilio lo confirme.</p>
                   {contactId && <Button onClick={() => { setOpen(false); setHungUp(false); setFollowUpOpen(true); }}>Tipificar y registrar seguimiento</Button>}
                   <Button variant="outline" onClick={() => { setOpen(false); setHungUp(false); reset(); }}>Cerrar</Button>
-                </> : null}
+                </> : <>
+                  <p className="text-sm text-muted-foreground">Llamada colgada sin conversación. El intento se registrará en cuanto Twilio lo confirme.</p>
+                  {contactId && <Button onClick={() => { setOpen(false); setHungUp(false); setFollowUpOpen(true); }}>Programar reintento</Button>}
+                  <Button variant="outline" onClick={() => { setOpen(false); setHungUp(false); reset(); }}>Cerrar</Button>
+                </>) : null}
               </div> : <><p className="text-xs text-muted-foreground">Al terminar, marca el resultado:</p>
               <div className="grid grid-cols-2 gap-2">
                 {OUTCOMES.map((o) => (
@@ -295,6 +318,7 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
         onOpenChange={(value) => { setFollowUpOpen(value); if (!value) reset(); }}
         contactId={contactId}
         callId={callId}
+        callMode={effective ? "effective" : "attempt"}
         dealId={dealId}
         initialOutcomeId={suggestedOutcome}
         allowDealPicker

@@ -38,6 +38,8 @@ interface Props {
   initialDescription?: string;
   /** resultado sugerido para preseleccionar si aplica a la etapa */
   initialOutcomeId?: string | null;
+  /** llamada conectada = se tipifica; intento no conectado = solo reintento */
+  callMode?: "effective" | "attempt" | null;
 }
 
 /** Fecha (YYYY-MM-DD) a N días de hoy. */
@@ -99,7 +101,10 @@ export function LogFollowUpDialog({
   open, onOpenChange, contactId, dealId = null, stageId = null, pipelineId = null, allowDealPicker = false,
   initialDescription = "", initialOutcomeId = null,
   callId = null,
+  callMode = null,
 }: Props) {
+  /** Un intento que no conectó no se tipifica: solo se programa el reintento. */
+  const isAttempt = callMode === "attempt";
   const { data: pipelines = [] } = usePipelines();
   const { data: contactDeals = [] } = useContactPipelineDeals(allowDealPicker ? contactId ?? undefined : undefined);
   const { data: allStages = [] } = useStages();
@@ -250,7 +255,7 @@ export function LogFollowUpDialog({
   }, [outcomeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (available.length && !available.some((o) => o.id === outcomeId)) setOutcomeId(available[0].id);
+    if (!isAttempt && available.length && !available.some((o) => o.id === outcomeId)) setOutcomeId(available[0].id);
     if (!available.length) setOutcomeId("");
   }, [available, outcomeId]);
 
@@ -280,8 +285,11 @@ export function LogFollowUpDialog({
   const isAdvancing = !!outcome && !outcome.isWon && !outcome.isLost && targetStage !== "none";
 
   async function save() {
-    if (!description.trim() && !outcome) return toast.error("Selecciona un resultado o escribe un comentario");
-    if (available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
+    if (!description.trim() && !outcome && !isAttempt) return toast.error("Selecciona un resultado o escribe un comentario");
+    if (!isAttempt && available.length > 0 && !outcome) return toast.error("Selecciona el resultado en el paso 2");
+    if (callMode === "effective" && typifications.length > 0 && !typification) {
+      return toast.error("Elige la tipificación de lo que dijo el lead");
+    }
     if (hasNext && !nextDay) return toast.error("Indica cuándo vuelves a contactar");
     if (!occurred || Number.isNaN(new Date(occurred).getTime())) {
       return toast.error(outcome?.isWon ? "Indica la fecha de ganado completa" : "Indica la fecha completa del seguimiento");
@@ -396,10 +404,10 @@ export function LogFollowUpDialog({
             </Select>
           </div>
 
-          {/* 2. ¿Qué pasó? */}
+          {/* 2. ¿Qué pasó? (un intento no conectado no se tipifica) */}
           <div className="space-y-1.5">
-            <Label className="text-base">2. ¿Qué pasó?</Label>
-            {available.length === 0 ? (
+            <Label className="text-base">{isAttempt ? "Notas del reintento" : "2. ¿Qué pasó?"}</Label>
+            {!isAttempt && (available.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">
                 No hay resultados configurados para esta etapa, así que puedes guardar el seguimiento solo con tu nota.
                 Para tener opciones de resultado, configúralas en Ajustes → Seguimiento.
@@ -413,19 +421,19 @@ export function LogFollowUpDialog({
                   ))}
                 </SelectContent>
               </Select>
-            )}
+            ))}
             <Textarea
               rows={3}
               maxLength={2000}
               className="text-base"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Comentarios (opcional)…"
+              placeholder={isAttempt ? "Ej. Volver a marcar por la tarde…" : "Comentarios (opcional)…"}
             />
           </div>
 
           {/* 2b. Tipificación (qué dijo el lead) */}
-          {typifications.length > 0 && (
+          {!isAttempt && typifications.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-base">Tipificación</Label>
               <p className="text-xs text-muted-foreground">

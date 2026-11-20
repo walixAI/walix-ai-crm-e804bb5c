@@ -43,6 +43,8 @@ export interface ActivityOutcome {
   isWon: boolean;
   /** cierra la oportunidad como perdida */
   isLost: boolean;
+  /** lo reporta el proveedor de telefonía (sin respuesta, ocupado, buzón, falló); el asesor no lo elige */
+  isConnectionResult: boolean;
 }
 
 export type StageBehavior = "advance" | "suggest" | "stay";
@@ -67,6 +69,7 @@ function mapOutcome(r: any): ActivityOutcome {
     stageBehavior: (r.stage_behavior ?? "stay") as StageBehavior,
     isWon: !!r.is_won,
     isLost: !!r.is_lost,
+    isConnectionResult: !!r.is_connection_result,
   };
 }
 
@@ -87,17 +90,25 @@ export function useActivityOutcomes(pipelineId?: string | null) {
   });
 }
 
+/** Las dos direcciones de llamada comparten catálogo de resultados. */
+const CALL_KINDS = new Set(["llamada_saliente", "llamada_entrante"]);
+
 /** Tipificaciones aplicables a una etapa + tipo de actividad. */
 export function filterOutcomes(
   all: ActivityOutcome[],
   stageId: string | null | undefined,
   kind: string | null | undefined,
 ) {
+  const isCall = !!kind && CALL_KINDS.has(kind);
   const list = all
     .filter((o) => o.isActive)
+    // Los hechos de conexión (sin respuesta, ocupado, buzón, falló) los registra Walix solo.
+    .filter((o) => !o.isConnectionResult)
     // Sin etapa (p. ej. seguimiento sin oportunidad) se muestran todas las opciones.
     .filter((o) => !stageId || !o.stageId || o.stageId === stageId)
-    .filter((o) => !o.activityKind || o.activityKind === kind)
+    .filter((o) => !o.activityKind
+      || o.activityKind === kind
+      || (isCall && CALL_KINDS.has(o.activityKind)))
     .sort((a, b) => a.position - b.position);
   if (stageId) return list;
   // Sin etapa: evitar repetir la misma tipificación de varias etapas.
@@ -313,6 +324,7 @@ export function useUpsertActivityOutcome() {
         stage_behavior: input.stageBehavior ?? "stay",
         is_won: input.isWon ?? false,
         is_lost: input.isLost ?? false,
+        is_connection_result: input.isConnectionResult ?? false,
       };
       if (input.id) {
         const { error } = await (supabase as any).from("activity_outcomes").update(row).eq("id", input.id);

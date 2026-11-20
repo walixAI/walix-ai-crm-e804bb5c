@@ -72,4 +72,40 @@ describe("CallButton failure handling", () => {
     await waitFor(() => expect(mocks.success).toHaveBeenCalledTimes(1));
     expect(mocks.invoke).toHaveBeenLastCalledWith("telephony-api", { body: expect.objectContaining({ action: "end", call_id: "call1", notes: "Solicitó información" }) });
   });
+
+  it("shows a call that never connected as an attempt with only a retry", async () => {
+    mocks.invoke.mockImplementation(async (_fn: string, opts: any) => {
+      const action = opts?.body?.action;
+      if (action === "start") return { data: { ok: true, call: { id: "call1" }, provider: "twilio" }, error: null };
+      if (action === "status") {
+        return { data: { ok: true, call: { status: "no_answer", duration_seconds: 0, transcription_status: "none", ai_summary: "" } }, error: null };
+      }
+      return { data: { ok: true }, error: null };
+    });
+    render(<CallButton contactId="c1" phone="+525555555555" />);
+    fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Mi celular/ }));
+    expect(await screen.findByText(/Intento registrado: sin respuesta/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Programar reintento" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Tipificar/ })).not.toBeInTheDocument();
+    mocks.invoke.mockReset();
+  });
+
+  it("asks the advisor to typify a call that was answered", async () => {
+    mocks.invoke.mockImplementation(async (_fn: string, opts: any) => {
+      const action = opts?.body?.action;
+      if (action === "start") return { data: { ok: true, call: { id: "call1" }, provider: "twilio" }, error: null };
+      if (action === "status") {
+        return { data: { ok: true, call: { status: "completed", duration_seconds: 43, transcription_status: "completed", ai_summary: "Pidió cotización." } }, error: null };
+      }
+      return { data: { ok: true }, error: null };
+    });
+    render(<CallButton contactId="c1" phone="+525555555555" />);
+    fireEvent.click(screen.getByRole("button", { name: "Llamar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Mi celular/ }));
+    expect(await screen.findByText(/Llamada efectiva registrada/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tipificar y registrar seguimiento" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Programar reintento" })).not.toBeInTheDocument();
+    mocks.invoke.mockReset();
+  });
 });

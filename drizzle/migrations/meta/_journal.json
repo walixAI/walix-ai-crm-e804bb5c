@@ -379,6 +379,13 @@
       "when": 1794949216916,
       "tag": "0053_tenant_phone_call_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1795194981831,
+      "tag": "0054_call_typification_classes",
+      "breakpoints": true
     }
   ]
 }

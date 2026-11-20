@@ -197,6 +197,15 @@ export function OutcomesTab() {
                 />
                 <span className="text-[11px] text-muted-foreground">Próxima acción</span>
               </div>
+              <div className="flex items-center gap-1">
+                <Switch
+                  checked={o.isConnectionResult}
+                  onCheckedChange={(v) => upsert.mutate({ ...o, pipelineId: o.pipelineId, isConnectionResult: v })}
+                />
+                <span className="text-[11px] text-muted-foreground" title="Lo registra Walix solo al terminar la llamada; no aparece en la lista del asesor">
+                  Hecho de conexión
+                </span>
+              </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-danger" onClick={() => del.mutate(o.id)}>
                 <Trash2 className="h-4 w-4" />
               </Button>

@@ -45,9 +45,10 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
   // Resultados de la etapa actual y sus tipificaciones
   let outcomes: any[] = [];
   if (pipelineId) {
-    const { data } = await admin.from("activity_outcomes").select("id, label, stage_id")
+    const { data } = await admin.from("activity_outcomes").select("id, label, stage_id, is_connection_result")
       .eq("tenant_id", call.tenant_id).eq("pipeline_id", pipelineId).eq("is_active", true);
-    outcomes = (data ?? []).filter((o: any) => !o.stage_id || o.stage_id === deal?.stage_id);
+    // Los hechos de conexión (sin respuesta, ocupado, buzón, falló) ya los registró el proveedor.
+    outcomes = (data ?? []).filter((o: any) => (!o.stage_id || o.stage_id === deal?.stage_id) && !o.is_connection_result);
   }
   let typs: any[] = [];
   if (outcomes.length) {

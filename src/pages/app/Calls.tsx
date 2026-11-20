@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ import CallCampaignsTab from "@/components/calls/CallCampaignsTab";
 import CallAnalysisDialog from "@/components/calls/CallAnalysisDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { isEffectiveCall } from "@/lib/activities/consolidateCalls";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   queued: { label: "En cola", variant: "outline" },
@@ -58,6 +59,23 @@ export default function Calls() {
     );
   });
 
+  /** Intentos y llamadas efectivas del historial visible. */
+  const metrics = useMemo(() => {
+    const rows = calls ?? [];
+    const effective = rows.filter((c: any) => isEffectiveCall(
+      { status: c.status, duration: c.duration_seconds },
+      c.ai_summary ?? "",
+    )).length;
+    const attempts = rows.length - effective;
+    return {
+      total: rows.length,
+      effective,
+      attempts,
+      rate: rows.length ? Math.round((effective / rows.length) * 100) : 0,
+      perEffective: effective ? (attempts / effective).toFixed(1) : "—",
+    };
+  }, [calls]);
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -73,6 +91,20 @@ export default function Calls() {
           onChange={(e) => setQ(e.target.value)}
           className="max-w-xs"
         />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {[
+          { label: "Intentos", value: metrics.attempts, hint: "Llamadas que no llegaron a una conversación" },
+          { label: "Llamadas efectivas", value: metrics.effective, hint: "Contestaron y hubo duración" },
+          { label: "Tasa de conexión", value: `${metrics.rate}%`, hint: "Efectivas sobre todas las llamadas" },
+          { label: "Intentos hasta conectar", value: metrics.perEffective, hint: "Promedio de intentos por cada llamada efectiva" },
+        ].map((m) => (
+          <div key={m.label} className="rounded-xl border border-border bg-card p-3" title={m.hint}>
+            <div className="text-xs text-muted-foreground">{m.label}</div>
+            <div className="text-xl font-semibold tabular-nums">{m.value}</div>
+          </div>
+        ))}
       </div>
 
       <Tabs defaultValue="historial">
@@ -93,6 +125,7 @@ export default function Calls() {
         <div className="space-y-2">
           {filtered.map((c: any) => {
             const st = STATUS_LABEL[c.status] ?? { label: c.status, variant: "outline" as const };
+            const eff = isEffectiveCall({ status: c.status, duration: c.duration_seconds }, c.ai_summary ?? "");
             return (
               <div key={c.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
                 <div className="shrink-0">
@@ -110,6 +143,7 @@ export default function Calls() {
                       <span className="font-medium truncate">{c.to_number}</span>
                     )}
                     <Badge variant={st.variant}>{st.label}</Badge>
+                    <Badge variant={eff ? "default" : "secondary"}>{eff ? "Llamada efectiva" : "Intento"}</Badge>
                     {c.outcome && <span className="text-xs text-muted-foreground">{c.outcome}</span>}
                   </div>
                   <div className="text-xs text-muted-foreground flex items-center gap-3 mt-1 flex-wrap">

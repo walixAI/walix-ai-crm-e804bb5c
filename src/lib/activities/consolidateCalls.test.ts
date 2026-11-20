@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consolidateCallActivities } from "./consolidateCalls";
+import { consolidateCallActivities, isEffectiveCall } from "./consolidateCalls";
 
 const auto = { id: "auto", tenant_id: "tenant1", contact_id: "contact1", type: "call", description: "Llamada finalizada", occurred_at: "2026-11-17T22:49:59Z", metadata: { call_id: "call1", source: "automatic_call_result", result: "Llamada finalizada", status: "completed", duration: 43 } };
 const analysis = { ...auto, id: "analysis", type: "note", description: "📞 Resumen IA de la llamada: Prueba de audio.", occurred_at: "2026-11-17T22:50:13Z", metadata: { call_id: "call1", source: "call_analysis" } };
@@ -28,5 +28,25 @@ describe("one activity per call attempt", () => {
     const rows = consolidateCallActivities([auto, advisor, corrected]);
     expect(rows).toHaveLength(1);
     expect(rows[0].metadata).toMatchObject({ result: "Agendado", duration: 43 });
+  });
+});
+
+describe("call attempt classification", () => {
+  it("marks a 43-second completed call as effective", () => {
+    expect(isEffectiveCall({ status: "completed", duration: 43 }, "Pidió cotización.")).toBe(true);
+  });
+  it("marks calls that never connected as attempts", () => {
+    expect(isEffectiveCall({ status: "no_answer", duration: 0 }, "")).toBe(false);
+    expect(isEffectiveCall({ status: "busy", duration: 0 }, "")).toBe(false);
+    expect(isEffectiveCall({ status: "failed", duration: 0 }, "")).toBe(false);
+    expect(isEffectiveCall({ status: "completed", duration: 0 }, "")).toBe(false);
+    expect(isEffectiveCall({ status: "voicemail", duration: 0 }, "")).toBe(false);
+  });
+  it("labels the consolidated entry as an attempt or an effective call", () => {
+    const attempt = { ...auto, metadata: { ...auto.metadata, status: "no_answer", duration: 0 } };
+    const rows = consolidateCallActivities([attempt] as any[]);
+    const done = consolidateCallActivities([auto] as any[]);
+    expect(rows[0].metadata.is_effective).toBe(false);
+    expect(done[0].metadata.is_effective).toBe(true);
   });
 });

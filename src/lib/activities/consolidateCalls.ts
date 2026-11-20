@@ -12,6 +12,18 @@ function metadata(row: CallActivity): Record<string, any> {
   return row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata as Record<string, any> : {};
 }
 
+/**
+ * Hubo conversación si el proveedor reportó duración, si la llamada quedó conectada
+ * o si existe transcripción/resumen de esa pierna. Sin eso es solo un intento.
+ */
+export function isEffectiveCall(autoMeta: Record<string, any>, summary = ""): boolean {
+  const duration = Number(autoMeta.duration);
+  if (Number.isFinite(duration) && duration > 0) return true;
+  if (autoMeta.status === "answered") return true;
+  if ((autoMeta.status === "completed" || autoMeta.status === "answered") && String(summary ?? "").trim()) return true;
+  return false;
+}
+
 /** One visible attempt; raw automatic, AI and advisor records remain intact for audit. */
 export function consolidateCallActivities<T extends CallActivity>(rows: T[]): T[] {
   const groups = new Map<string, T[]>();
@@ -46,6 +58,7 @@ export function consolidateCallActivities<T extends CallActivity>(rows: T[]): T[
         source: "consolidated_call",
         status: autoMeta.status,
         duration: autoMeta.duration,
+        is_effective: isEffectiveCall(autoMeta, summary),
         automatic_result: autoMeta.result,
         result: advisorMeta.result ?? autoMeta.result,
         ai_summary: summary,

@@ -2,9 +2,9 @@
 
 - Browser call audio routes through Twilio AudioHelper with real device IDs; native phone audio stays OS-controlled; why: web UI must not promise unavailable speaker/Bluetooth routing.
 
-- CallTranscript shares provider-driven processing and completed presentation between the dialer and call analysis; the open analysis resolves the latest tenant-scoped call query, never a frozen selection; why: progress must reflect real transcription without extra AI requests.
+- CallTranscript shares provider-driven processing and presentation between dialer and call analysis, resolving the latest tenant-scoped call query; why: progress must reflect real transcription without extra AI requests.
 
-- Call activity reads consolidate automatic results, AI notes and advisor follow-ups by tenant/contact/call_id with latest advisor labels and provider duration; raw records remain auditable and consolidated entries cannot be independently deleted; why: one visible attempt must not discard evidence or reappear as partial duplicates.
+- Call activity reads consolidate automatic results, AI notes and advisor follow-ups by tenant/contact/call_id with latest advisor labels; raw records stay auditable. Provider connection facts (no answer, busy, voicemail, failed) are flagged is_connection_result, hidden from advisors, who only typify answered calls; why: one attempt is one visible entry, a conversation is the advisor's judgment.
 
 - Tenant phone-bridge permissions are stored separately and changed only by active-tenant owners or administrators through telephony-api; every phone start validates active membership and the current policy before provider access, while browser calls remain independent; why: hidden controls cannot enforce spending permissions.
 

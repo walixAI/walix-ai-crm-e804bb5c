@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries/contacts";
 import { LogActivityDialog, type LogKind } from "./dialogs/LogActivityDialog";
 import { ConfirmDialog } from "@/components/walix/ConfirmDialog";
+import { cn } from "@/lib/utils";
 import { summarizeWaActivity } from "@/lib/activities/waSummary";
 
 const ICONS: Record<string, any> = {
@@ -51,8 +52,13 @@ export function ActivityItem({ contactId, activity }: Props) {
               <div className="text-sm whitespace-pre-wrap break-words">{summarizeWaActivity(activity.description, meta) ?? activity.description}</div>
               {meta.ai_summary && meta.ai_summary !== activity.description && <div className="mt-3 border-l-2 border-primary/40 pl-3"><p className="mb-1 text-xs font-medium text-muted-foreground">Resumen IA</p><p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{meta.ai_summary}</p></div>}
               {/* metadata badges */}
-              {(meta.result || meta.duration || meta.subject || meta.location) && (
+              {(meta.result || meta.duration || meta.subject || meta.location || meta.source === "consolidated_call") && (
                 <div className="flex flex-wrap gap-1 mt-1">
+                  {meta.source === "consolidated_call" && (
+                    <Badge tone={meta.is_effective ? "effective" : "attempt"}>
+                      {meta.is_effective ? "Llamada efectiva" : "Intento"}
+                    </Badge>
+                  )}
                   {meta.result && <Badge>{meta.result}</Badge>}
                   {meta.duration != null && <Badge>{typeof meta.duration === "number" ? `${meta.duration} s` : meta.duration}</Badge>}
                   {meta.typification_label && <Badge>{meta.typification_label}</Badge>}
@@ -129,6 +135,15 @@ export function ActivityItem({ contactId, activity }: Props) {
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-[10px] font-medium">{children}</span>;
+function Badge({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "effective" | "attempt" }) {
+  return (
+    <span className={cn(
+      "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium",
+      tone === "effective" && "bg-primary/10 text-primary",
+      tone === "attempt" && "bg-muted text-muted-foreground",
+      tone === "default" && "bg-muted text-foreground",
+    )}>
+      {children}
+    </span>
+  );
 }
