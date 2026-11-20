@@ -173,6 +173,12 @@ export function CallsSettingsTab({ tenantId }: Props) {
                 if (error && "context" in error) { try { message = (await error.context.json()).error; } catch { /* no JSON */ } }
                 if (error || message) toast.error(message ?? "No se pudo habilitar"); else toast.success("Llamadas desde computadora habilitadas");
               }}>Habilitar computadora</Button>}
+              {c.provider === "twilio" && <Button size="sm" variant="outline" onClick={async () => {
+                const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "inbound_setup", channel_id: c.id } });
+                let message = data?.error;
+                if (error && "context" in error) { try { message = (await error.context.json()).error; } catch { /* no JSON */ } }
+                if (error || message) toast.error(message ?? "No se pudo activar"); else toast.success("Entrantes activadas: Walix registrará y avisará para devolver la llamada");
+              }}><PhoneIncoming className="h-4 w-4 mr-1" /> Activar entrantes</Button>}
               <Button size="sm" variant="outline" onClick={() => setPbx(c)}><Network className="h-4 w-4 mr-1" /> Conmutador</Button>
               <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
             </div>

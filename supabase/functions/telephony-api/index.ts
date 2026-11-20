@@ -7,6 +7,7 @@ import { decryptCredentials, encryptCredentials } from "../_shared/telephony-cre
 import twilio from "npm:twilio@5.10.4";
 import { twilioRequest } from "../_shared/twilio-auth.ts";
 import { canUsePhone, canEditPhonePolicy } from "../_shared/phone-call-policy.ts";
+import { validateReceivingPreference } from "../_shared/inbound-phone-policy.ts";
 
 const CRED_KEYS: Record<string, string[]> = {
   twilio: ["account_sid", "api_key_sid", "api_key_secret"],
@@ -45,6 +46,39 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
+
+    if (action === "save_inbound_preference") {
+      const { data: roles, error: rolesError } = await admin.from("user_roles").select("role").eq("tenant_id", tenantId).eq("user_id", user.id).limit(1);
+      const { data: member, error: memberError } = await admin.from("profiles").select("is_active").eq("id", user.id).maybeSingle();
+      if (rolesError || memberError) throw rolesError ?? memberError;
+      if (!roles?.length || !member?.is_active) return json({ error: "No tienes acceso activo a esta empresa" }, 403);
+      const normalized = typeof body.phone_number === "string" ? body.phone_number.trim().replace(/[\s()-]/g, "") : "";
+      const { data: channels, error: channelError } = await admin.from("call_channels").select("phone_number").eq("phone_number", normalized).limit(1);
+      if (channelError) throw channelError;
+      const result = validateReceivingPreference(body.phone_enabled, body.phone_number, (channels ?? []).map((c: { phone_number: string }) => c.phone_number));
+      if (result.error) return json({ error: result.error }, 400);
+      const { error } = await admin.from("tenant_call_receiving_preferences").upsert({ tenant_id: tenantId, user_id: user.id, phone_enabled: result.enabled, phone_number: result.phone, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      return json({ ok: true });
+    }
+
+    if (action === "inbound_setup" || action === "inbound_status") {
+      const { data: roles, error: roleError } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId);
+      const { data: member } = await admin.from("profiles").select("is_active").eq("id", user.id).maybeSingle();
+      if (roleError) throw roleError;
+      if (!member?.is_active || !canEditPhonePolicy((roles ?? []).map((r: { role: string }) => r.role))) return json({ error: "Solo administradores y propietarios pueden activar la recepción" }, 403);
+      const { data: channel } = await admin.from("call_channels").select("*").eq("id", body.channel_id).eq("tenant_id", tenantId).eq("status", "active").maybeSingle();
+      if (!channel || channel.provider !== "twilio" || !channel.credentials_encrypted || !channel.webhook_token) return json({ error: "Configura primero un canal Twilio activo" }, 400);
+      const creds = await decryptCredentials(channel.credentials_encrypted);
+      if (!creds.auth_token) return json({ error: "Guarda el Auth Token de la subcuenta para verificar las entrantes" }, 400);
+      const numbers = await twilioRequest(creds, `IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(channel.phone_number)}`);
+      const number = numbers.incoming_phone_numbers?.find((n: { phone_number: string }) => n.phone_number === channel.phone_number);
+      if (!number?.sid) return json({ error: "El número no pertenece a esta subcuenta" }, 400);
+      const base = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${channel.webhook_token}`;
+      if (action === "inbound_status") return json({ ok: true, configured: number.voice_url === `${base}&leg=inbound`, has_voice_handler: !!number.voice_url, mode: "personal_preference" });
+      await twilioRequest(creds, `IncomingPhoneNumbers/${number.sid}.json`, new URLSearchParams({ VoiceUrl: `${base}&leg=inbound`, VoiceMethod: "POST", StatusCallback: `${base}&leg=inbound-status`, StatusCallbackMethod: "POST" }));
+      return json({ ok: true, mode: "personal_preference" });
+    }
 
     if (["phone_permissions", "save_phone_permissions", "start"].includes(action)) {
       const { data: roles, error: roleError } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId);
@@ -246,9 +280,10 @@ serve(async (req) => {
 
     if (action === "answer" || action === "decline") {
       const callId = body?.call_id as string | undefined;
-      const { data: call } = await admin.from("calls").select("id, tenant_id, user_id, status")
+      const { data: call } = await userClient.from("calls").select("id, tenant_id, user_id, status, provider_call_id")
         .eq("id", callId ?? "").maybeSingle();
       if (!call || call.tenant_id !== tenantId) return json({ error: "Llamada no encontrada" }, 404);
+      if (call.provider_call_id && !call.provider_call_id.startsWith("sim_")) return json({ error: "La recepción real se confirma por el proveedor, no desde este aviso" }, 409);
       if (call.user_id && call.user_id !== user.id) return json({ error: "Esta llamada es de otro asesor" }, 403);
       if (call.status !== "ringing") return json({ error: "La llamada ya no está sonando" }, 409);
       const now = new Date().toISOString();

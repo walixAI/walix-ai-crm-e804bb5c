@@ -29,9 +29,9 @@ export function isOpen(cfg: PbxConfig, fallbackTz: string, now = new Date()): bo
 function digits(s: string) { return (s ?? "").replace(/\D/g, ""); }
 
 export async function routeInboundCall(admin: any, opts: {
-  channel: any; fromNumber: string; digit?: string | null; providerCallId: string;
+  channel: any; fromNumber: string; digit?: string | null; providerCallId: string; notificationOnly?: boolean; useReceivingPreference?: boolean;
 }) {
-  const { channel, fromNumber, digit, providerCallId } = opts;
+  const { channel, fromNumber, digit, providerCallId, notificationOnly = false } = opts;
   const cfg: PbxConfig = channel.pbx_config ?? {};
   const tenantId = channel.tenant_id;
 
@@ -57,21 +57,38 @@ export async function routeInboundCall(admin: any, opts: {
   if (target === "user") userId = option?.user_id ?? null;
   if ((target === "queue" || (target === "assigned" && !userId)) && (cfg.queue_user_ids ?? []).length) {
     // Reparto: el asesor de la fila con menos llamadas entrantes hoy
-    const ids = cfg.queue_user_ids!;
+    const ids = cfg.queue_user_ids ?? [];
     const since = new Date(); since.setHours(0, 0, 0, 0);
     const { data: recent } = await admin.from("calls").select("user_id")
       .eq("tenant_id", tenantId).eq("direction", "inbound").in("user_id", ids)
       .gte("created_at", since.toISOString());
     const count: Record<string, number> = Object.fromEntries(ids.map((i) => [i, 0]));
     (recent ?? []).forEach((r: any) => { count[r.user_id] = (count[r.user_id] ?? 0) + 1; });
-    userId = ids.slice().sort((a, b) => count[a] - count[b])[0];
+    userId = ids.slice().sort((a, b) => count[a] - count[b])[0] ?? null;
   }
   if (target === "voicemail") userId = contact?.owner_id ?? null;
+
+  // Never route a stale configuration to someone outside this company.
+  if (userId) {
+    const { data: roles, error: rolesError } = await admin.from("user_roles").select("user_id").eq("tenant_id", tenantId).eq("user_id", userId).limit(1);
+    const { data: member, error: memberError } = await admin.from("profiles").select("is_active").eq("id", userId).maybeSingle();
+    if (rolesError || memberError) throw rolesError ?? memberError;
+    if (!roles?.length || !member?.is_active) userId = null;
+  }
+
+  let receivingPhone: string | null = null;
+  if (opts.useReceivingPreference && userId && open && target !== "voicemail") {
+    const { data: preference, error: preferenceError } = await admin.from("tenant_call_receiving_preferences").select("phone_enabled,phone_number")
+      .eq("tenant_id", tenantId).eq("user_id", userId).maybeSingle();
+    if (preferenceError) throw preferenceError;
+    if (preference?.phone_enabled && /^\+[1-9]\d{7,14}$/.test(preference.phone_number ?? "")) receivingPhone = preference.phone_number;
+  }
+  const notifyOnly = opts.useReceivingPreference ? !receivingPhone : notificationOnly;
 
   let dealId: string | null = null;
   if (contact) {
     const { data: deal } = await admin.from("deals").select("id").eq("contact_id", contact.id)
-      .eq("tenant_id", tenantId).neq("stage", "won").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      .eq("tenant_id", tenantId).eq("is_won", false).eq("is_lost", false).order("created_at", { ascending: false }).limit(1).maybeSingle();
     dealId = deal?.id ?? null;
   }
 
@@ -85,31 +102,20 @@ export async function routeInboundCall(admin: any, opts: {
     direction: "inbound",
     from_number: fromNumber,
     to_number: channel.phone_number,
-    status: target === "voicemail" ? "voicemail" : "ringing",
+    status: notifyOnly || !userId ? "no_answer" : target === "voicemail" ? "voicemail" : "ringing",
     provider_call_id: providerCallId,
     started_at: now,
-    ended_at: target === "voicemail" ? now : null,
-    outcome: target === "voicemail" ? (open ? "Enviada a buzón por menú" : "Fuera de horario: buzón de voz") : null,
-    metadata: { pbx: { digit: digit ?? null, option: option?.label ?? null, target, open } },
+    ended_at: notifyOnly || !userId || target === "voicemail" ? now : null,
+    outcome: notifyOnly ? "Entrante registrada para devolución; sin conexión con asesor" : target === "voicemail" ? (open ? "Enviada a buzón por menú" : "Fuera de horario: buzón de voz") : !userId ? "Sin asesor disponible" : null,
+    metadata: { notification_only: notifyOnly, receiving_phone: receivingPhone, pbx: { digit: digit ?? null, option: option?.label ?? null, target, open } },
   }).select("id, status, user_id, contact_id").single();
-  if (error) throw error;
-
-  if (target === "voicemail" || !userId) {
-    // Avisar a quien deba devolver la llamada
-    const recipients = new Set<string>();
-    if (userId) recipients.add(userId);
-    const { data: sups } = await admin.from("user_roles").select("user_id")
-      .eq("tenant_id", tenantId).in("role", ["tenant_admin", "tenant_owner", "sales_manager"]);
-    (sups ?? []).forEach((s: any) => recipients.add(s.user_id));
-    const who = contact?.name ?? fromNumber;
-    const rows = [...recipients].map((uid) => ({
-      tenant_id: tenantId, user_id: uid, type: "inbound_call", severity: "warning",
-      title: target === "voicemail" ? `Llamada a buzón: ${who}` : `Llamada entrante sin asesor: ${who}`,
-      body: target === "voicemail" ? "Devuelve la llamada lo antes posible." : "Configura la fila de asesores en Configuración → Llamadas.",
-      link: contact ? `/contacts/${contact.id}` : "/llamadas",
-    }));
-    if (rows.length) await admin.from("notifications").insert(rows).then(() => {}, () => {});
+  if (error) {
+    if (error.code !== "23505") throw error;
+    const { data: existing, error: existingError } = await admin.from("calls").select("id,status,user_id,contact_id,metadata")
+      .eq("tenant_id", tenantId).eq("channel_id", channel.id).eq("direction", "inbound").eq("provider_call_id", providerCallId).single();
+    if (existingError) throw existingError;
+    return { call: existing, open, target, receivingPhone: existing?.status === "ringing" ? existing.metadata?.receiving_phone ?? null : null, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
   }
 
-  return { call, open, target, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
+  return { call, open, target, receivingPhone, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
 }

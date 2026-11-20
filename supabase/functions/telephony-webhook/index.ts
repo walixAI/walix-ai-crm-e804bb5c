@@ -7,7 +7,7 @@ import { routeInboundCall } from "../_shared/telephony-routing.ts";
 import { analyzeCall } from "../_shared/call-analyzer.ts";
 import { decryptCredentials } from "../_shared/telephony-creds.ts";
 import { validTwilioSignature } from "../_shared/twilio-auth.ts";
-import { providerResult, FINAL_CALL_STATUSES } from "../_shared/call-events.ts";
+import { providerResult, inboundDialResult, FINAL_CALL_STATUSES } from "../_shared/call-events.ts";
 import { buildDialTwiml } from "../_shared/telephony-provider.ts";
 import { transcribeRecording } from "../_shared/call-transcription.ts";
 
@@ -66,7 +66,7 @@ serve(async (req) => {
     if (!token) return ok({ ok: true, ignored: true });
 
     const { data: channel } = await admin.from("call_channels")
-      .select("id, tenant_id, phone_number, pbx_config, provider, credentials_encrypted, record_calls, recording_notice")
+      .select("id, tenant_id, phone_number, status, pbx_config, provider, credentials_encrypted, record_calls, recording_notice")
       .eq("webhook_token", token).maybeSingle();
     if (!channel) return ok({ ok: true, ignored: true }, 401);
 
@@ -78,13 +78,55 @@ serve(async (req) => {
       const publicUrl = `${SUPABASE_URL}/functions/v1/telephony-webhook${url.search}`;
       if (!await validTwilioSignature(publicUrl, payload, req.headers.get("x-twilio-signature"), creds.auth_token)) return ok({ error: "Firma inválida" }, 403);
       const leg = url.searchParams.get("leg") ?? "lead";
+      const xml = (body: string) => new Response(body, { headers: { ...corsHeaders, "Content-Type": "text/xml" } });
+      if (leg === "inbound") {
+        if (payload.Direction !== "inbound" || !payload.CallSid || payload.To !== channel.phone_number || channel.status === "paused") return ok({ error: "Entrante inválida" }, 400);
+        const routed = await routeInboundCall(admin, { channel, fromNumber: String(payload.From ?? ""), providerCallId: payload.CallSid, useReceivingPreference: true });
+        if (routed.receivingPhone && routed.call.status === "ringing") {
+          const base = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${encodeURIComponent(token)}&call_id=${routed.call.id}`;
+          const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const callback = escape(`${base}&leg=inbound-advisor`);
+          const screen = escape(`${base}&leg=inbound-screen`);
+          const rec = channel.record_calls ? ` record="record-from-answer-dual" recordingStatusCallback="${escape(`${base}&leg=recording`)}"` : "";
+          const notice = channel.record_calls && channel.recording_notice ? `<Say language="es-MX">${escape(channel.recording_notice)}</Say>` : "";
+          return xml(`<Response>${notice}<Dial answerOnBridge="true" timeout="30" callerId="${escape(channel.phone_number)}" action="${callback}" method="POST"${rec}><Number url="${screen}" method="POST">${escape(routed.receivingPhone)}</Number></Dial></Response>`);
+        }
+        const message = "En este momento no podemos atender tu llamada. Registramos tu número para dar seguimiento. Gracias por llamar.";
+        const escaped = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        return xml(`<Response><Say language="es-MX">${escaped}</Say><Hangup/></Response>`);
+      }
       const browserStart = leg === "browser";
       const callId = browserStart ? payload.WalixCallId : url.searchParams.get("call_id");
       let query = admin.from("calls").select("*").eq("tenant_id", channel.tenant_id).eq("channel_id", channel.id);
       query = callId ? query.eq("id", callId) : query.eq("provider_call_id", payload.ParentCallSid ?? payload.CallSid);
       const { data: call } = await query.maybeSingle();
       if (!call) return ok({ error: "Llamada no encontrada" }, 404);
-      const xml = (body: string) => new Response(body, { headers: { ...corsHeaders, "Content-Type": "text/xml" } });
+      if (leg === "inbound-status") {
+        // Caller hangups while the advisor is ringing must not leave a live row.
+        if (!call.ended_at && payload.CallStatus === "completed") {
+          const { error } = await admin.from("calls").update({ status: call.answered_at ? "completed" : "no_answer", ended_at: new Date().toISOString() }).eq("id", call.id).is("ended_at", null);
+          if (error) throw error;
+        }
+        return ok({ ok: true });
+      }
+      if (leg === "inbound-screen" || leg === "inbound-accept") {
+        if (call.direction !== "inbound" || call.ended_at || !call.metadata?.receiving_phone) return xml("<Response><Hangup/></Response>");
+        if (leg === "inbound-screen") {
+          const action = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${encodeURIComponent(token)}&call_id=${call.id}&leg=inbound-accept`.replace(/&/g, "&amp;");
+          return xml(`<Response><Gather numDigits="1" timeout="8" action="${action}" method="POST"><Say language="es-MX">Llamada entrante de Walix. Para aceptar presiona uno.</Say></Gather><Hangup/></Response>`);
+        }
+        if (payload.Digits !== "1") return xml("<Response><Hangup/></Response>");
+        const { error } = await admin.from("calls").update({ status: "answered", answered_at: new Date().toISOString() }).eq("id", call.id).is("ended_at", null);
+        if (error) throw error;
+        return xml("<Response/> ");
+      }
+      if (leg === "inbound-advisor") {
+        const result = inboundDialResult(payload, !!call.answered_at);
+        if (call.direction !== "inbound" || !result || !FINAL_CALL_STATUSES.includes(result.status)) return ok({ ok: true });
+        const { error } = await admin.from("calls").update({ status: result.status, ended_at: call.ended_at ?? new Date().toISOString(), duration_seconds: result.duration, ...(result.status === "completed" ? {} : { answered_at: null }) }).eq("id", call.id);
+        if (error) throw error;
+        return xml("<Response><Hangup/></Response>");
+      }
       if (browserStart) {
         if (call.metadata?.mode !== "browser" || payload.From !== `client:${call.user_id}` || call.provider_call_id || call.ended_at) return ok({ error: "Llamada no autorizada" }, 403);
         const { data: claimed, error } = await admin.from("calls").update({ provider_call_id: payload.CallSid }).eq("id", call.id).is("provider_call_id", null).select("id").maybeSingle();

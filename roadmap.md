@@ -1,3 +1,12 @@
+# Llamadas entrantes de Refrigeración
+
+- [x] Corregir recepción firmada de Twilio y avisar al responsable; sin asesor, fila configurada y administración/supervisión para no atendidas.
+- [x] Mostrar reporte de entrantes no atendidas, número, fecha y responsable, sin perder registros por paginación.
+- [x] Verificar avisos y reporte con sesión temporal de administrador, registros de prueba retirados y pruebas sin llamadas reales; computadora, tablet y móvil sin desbordamiento.
+- [x] Avisar en Walix por defecto y permitir que cada usuario active o apague la recepción en su celular, con aviso de costo y número válido; guardado y lectura tras recargar comprobados.
+- [x] Activar recepción real y leer de vuelta la configuración del número de Refrigeración en Twilio sin realizar llamadas con costo.
+- [ ] Comprobar audio y aceptación con tecla 1 en una llamada real: requiere destinatario y prueba telefónica autorizada; no se hicieron llamadas reales.
+
 # Tipificaciones: intentos y llamadas efectivas
 
 - [x] Migración y clasificación en base de datos: hecho de conexión marcado, resultados de llamada asignados al tipo «Llamada saliente», tipificaciones finas creadas para Refrigeración.

@@ -11,3 +11,10 @@ export function providerResult(p: Record<string, string>, leg: string) {
   const duration = Number(p.DialCallDuration ?? p.CallDuration ?? p.Duration);
   return { status, duration: Number.isFinite(duration) ? duration : null };
 }
+
+export function inboundDialResult(p: Record<string, string>, accepted: boolean) {
+  const result = providerResult(p, "inbound-advisor");
+  if (!result) return null;
+  if (result.status === "completed" && (!accepted || !result.duration)) return { ...result, status: "no_answer" };
+  return result;
+}

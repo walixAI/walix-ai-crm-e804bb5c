@@ -393,6 +393,27 @@
       "when": 1795214885590,
       "tag": "0055_revoke_wa_charge_conversation_client",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795216895012,
+      "tag": "0056_inbound_call_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1795217107578,
+      "tag": "0057_personal_inbound_phone_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1795217250473,
+      "tag": "0058_inbound_preference_server_writes",
+      "breakpoints": true
     }
   ]
 }

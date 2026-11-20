@@ -15,6 +15,9 @@ import CallAnalysisDialog from "@/components/calls/CallAnalysisDialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { isEffectiveCall } from "@/lib/activities/consolidateCalls";
+import { isMissedInbound } from "@/lib/activities/inboundCalls";
+import { readAllPages } from "@/lib/queries/paginate";
+import { IncomingPhonePreference } from "@/components/calls/IncomingPhonePreference";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   queued: { label: "En cola", variant: "outline" },
@@ -30,6 +33,7 @@ const STATUS_LABEL: Record<string, { label: string; variant: "default" | "second
 export default function Calls() {
   const { activeTenantId } = useAuth();
   const [q, setQ] = useState("");
+  const [view, setView] = useState("historial");
   const [analysisCall, setAnalysisCall] = useState<any | null>(null);
 
   const { data: calls, isLoading } = useQuery({
@@ -38,22 +42,31 @@ export default function Calls() {
     refetchInterval: analysisCall ? 2500 : 15000,
     queryFn: async () => {
       if (!activeTenantId) return [];
-      const { data, error } = await supabase
+      const rows = await readAllPages((from, to) => supabase
         .from("calls")
-        .select("id, direction, status, to_number, from_number, duration_seconds, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
+        .select("id, direction, status, to_number, from_number, duration_seconds, answered_at, user_id, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
         .eq("tenant_id", activeTenantId)
         .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data ?? [];
+        .order("id")
+        .range(from, to));
+      const ids = [...new Set(rows.flatMap((c) => c.user_id ? [c.user_id] : []))];
+      const names = new Map<string, string | null>();
+      for (let start = 0; start < ids.length; start += 100) {
+        const { data, error } = await supabase.from("profiles").select("id,full_name").in("id", ids.slice(start, start + 100));
+        if (error) throw error;
+        data?.forEach((p) => names.set(p.id, p.full_name));
+      }
+      return rows.map((c) => ({ ...c, advisorName: c.user_id ? names.get(c.user_id) ?? "Asesor asignado" : "Sin asesor · supervisión" }));
     },
   });
 
   const filtered = (calls ?? []).filter((c: any) => {
+    if (view === "perdidas" && !isMissedInbound(c)) return false;
     if (!q.trim()) return true;
     const s = q.toLowerCase();
     return (
       c.to_number?.toLowerCase().includes(s) ||
+      c.from_number?.toLowerCase().includes(s) ||
       c.contacts?.name?.toLowerCase().includes(s) ||
       c.outcome?.toLowerCase().includes(s)
     );
@@ -93,6 +106,7 @@ export default function Calls() {
         />
       </div>
 
+      <IncomingPhonePreference />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {[
           { label: "Intentos", value: metrics.attempts, hint: "Llamadas que no llegaron a una conversación" },
@@ -107,19 +121,19 @@ export default function Calls() {
         ))}
       </div>
 
-      <Tabs defaultValue="historial">
-        <TabsList>
+      <Tabs value={view} onValueChange={setView}>
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="historial">Historial</TabsTrigger>
+          <TabsTrigger value="perdidas">Entrantes no atendidas ({(calls ?? []).filter(isMissedInbound).length})</TabsTrigger>
           <TabsTrigger value="campanas">Campañas</TabsTrigger>
         </TabsList>
-        <TabsContent value="historial" className="mt-4">
+        <TabsContent value={view === "perdidas" ? "perdidas" : "historial"} className="mt-4">
       {isLoading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Phone className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p>Aún no hay llamadas registradas.</p>
-          <p className="text-sm">Usa el botón «Llamar» en cualquier contacto para empezar.</p>
+          <p>{view === "perdidas" ? "No hay llamadas entrantes sin atender." : "No hay llamadas que coincidan."}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -127,7 +141,7 @@ export default function Calls() {
             const st = STATUS_LABEL[c.status] ?? { label: c.status, variant: "outline" as const };
             const eff = isEffectiveCall({ status: c.status, duration: c.duration_seconds }, c.ai_summary ?? "");
             return (
-              <div key={c.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
+              <div key={c.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-4">
                 <div className="shrink-0">
                   {c.direction === "inbound"
                     ? <PhoneIncoming className="h-5 w-5 text-accent" />
@@ -140,9 +154,10 @@ export default function Calls() {
                         {c.contacts?.name ?? "Contacto"}
                       </Link>
                     ) : (
-                      <span className="font-medium truncate">{c.to_number}</span>
+                      <span className="font-medium truncate">{c.direction === "inbound" ? c.from_number : c.to_number}</span>
                     )}
                     <Badge variant={st.variant}>{st.label}</Badge>
+                    {isMissedInbound(c) && <Badge variant="destructive">Entrante no atendida</Badge>}
                     <Badge variant={eff ? "default" : "secondary"}>{eff ? "Llamada efectiva" : "Intento"}</Badge>
                     {c.outcome && <span className="text-xs text-muted-foreground">{c.outcome}</span>}
                   </div>
@@ -152,6 +167,8 @@ export default function Calls() {
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{Math.floor(c.duration_seconds / 60)}m {c.duration_seconds % 60}s</span>
                     )}
                     <span>{formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: es })}</span>
+                    <span>{new Date(c.created_at).toLocaleString("es-MX")}</span>
+                    {c.direction === "inbound" && <span>Responsable: {c.advisorName}</span>}
                   </div>
                   {c.notes && <p className="text-sm text-muted-foreground mt-1 truncate">{c.notes}</p>}
                   {c.ai_summary && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{c.ai_summary}</p>}

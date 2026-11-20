@@ -5394,6 +5394,45 @@ export type Database = {
           },
         ]
       }
+      tenant_call_receiving_preferences: {
+        Row: {
+          phone_enabled: boolean
+          phone_number: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          phone_enabled?: boolean
+          phone_number?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          phone_enabled?: boolean
+          phone_number?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_call_receiving_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_call_receiving_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_credit_balances: {
         Row: {
           ai_included: number
