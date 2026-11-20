@@ -1,12 +1,12 @@
 # Tipificaciones: intentos y llamadas efectivas
 
 - [x] Migración y clasificación en base de datos: hecho de conexión marcado, resultados de llamada asignados al tipo «Llamada saliente», tipificaciones finas creadas para Refrigeración.
-- [ ] Historial del contacto: etiqueta «Intento» / «Llamada efectiva» según estado y duración reales.
-- [ ] Marcador: un intento no conectado solo ofrece programar reintento; una llamada efectiva pide tipificación.
-- [ ] Registro de seguimiento: modo intento (solo siguiente paso) frente a modo efectiva (resultado + tipificación obligatoria si hay opciones).
-- [ ] La IA deja de sugerir hechos de conexión.
-- [ ] Indicadores en Llamadas: intentos, efectivas, tasa de conexión e intentos hasta conectar.
-- [ ] Explicar a Erick qué implica el esquema para el equipo de Refrigeración.
+- [x] Historial del contacto: etiqueta «Intento» / «Llamada efectiva» según estado y duración reales.
+- [x] Marcador: un intento no conectado solo ofrece programar reintento; una llamada efectiva pide tipificación.
+- [x] Registro de seguimiento: modo intento (solo siguiente paso) frente a modo efectiva (resultado + tipificación obligatoria si hay opciones).
+- [x] La IA deja de sugerir hechos de conexión.
+- [x] Indicadores en Llamadas: intentos, efectivas, tasa de conexión e intentos hasta conectar.
+- [x] Explicar a Erick qué implica el esquema para el equipo de Refrigeración.
 
 # Información unificada del prospecto
 
