@@ -31,10 +31,18 @@ export function IncomingCallPopup() {
     refetchInterval: 5000,
     queryFn: async () => {
       if (!tenantId || !userId) return null;
+      // Historical/missed alerts belong in the bell and report, not a blocking dialog.
+      const cutoff = new Date(Date.now() - 120000).toISOString();
+      const { data: ringing, error: callError } = await supabase.from("calls")
+        .select("id").eq("tenant_id", tenantId).eq("direction", "inbound")
+        .eq("status", "ringing").is("answered_at", null).gte("started_at", cutoff);
+      if (callError) throw callError;
+      if (!ringing?.length) return null;
       const { data, error } = await supabase.from("notifications")
         .select("id,title,body,type,data,created_at")
         .eq("tenant_id", tenantId).eq("user_id", userId)
-        .in("type", ["inbound_call", "missed_inbound_call"]).is("read_at", null)
+        .eq("type", "inbound_call").is("read_at", null).gte("created_at", cutoff)
+        .in("data->>call_id", ringing.map(row => row.id))
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
       return data;
@@ -89,7 +97,13 @@ export function IncomingCallPopup() {
     audio.current?.stop();
     if (!call) { if (openReport) navigate("/llamadas"); return; }
     setBusy(true);
-    const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", call.id).eq("tenant_id", tenantId ?? "").eq("user_id", userId ?? "");
+    const callId = details.call_id;
+    const update = supabase.from("notifications").update({ read_at: new Date().toISOString() })
+      .eq("tenant_id", tenantId ?? "").eq("user_id", userId ?? "")
+      .in("type", ["inbound_call", "missed_inbound_call"]);
+    const { error } = await (typeof callId === "string"
+      ? update.eq("data->>call_id", callId)
+      : update.eq("id", call.id));
     setBusy(false);
     if (error) { toast.error("No se pudo cerrar el aviso"); return; }
     await qc.invalidateQueries({ queryKey: key });
