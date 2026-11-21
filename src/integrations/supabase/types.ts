@@ -1436,6 +1436,8 @@ export type Database = {
           duration_seconds: number | null
           ended_at: string | null
           from_number: string | null
+          hangup_at: string | null
+          hangup_by: string | null
           id: string
           metadata: Json
           notes: string | null
@@ -1463,6 +1465,8 @@ export type Database = {
           duration_seconds?: number | null
           ended_at?: string | null
           from_number?: string | null
+          hangup_at?: string | null
+          hangup_by?: string | null
           id?: string
           metadata?: Json
           notes?: string | null
@@ -1490,6 +1494,8 @@ export type Database = {
           duration_seconds?: number | null
           ended_at?: string | null
           from_number?: string | null
+          hangup_at?: string | null
+          hangup_by?: string | null
           id?: string
           metadata?: Json
           notes?: string | null

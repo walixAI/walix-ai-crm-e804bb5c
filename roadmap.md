@@ -148,3 +148,9 @@
 ## Estados del asesor (Contact Center)
 - [x] Estados, pausas, bitácora con conexión/desconexión y horarios, tablero en vivo y CSV
 - [ ] Estado automático "En llamada" al contestar y pantalla para editar motivos/tiempos máximos
+
+## Quién terminó la llamada
+- [x] Guardar responsable y horario de cierre con evidencia, sin atribuir llamadas históricas; Colgar en Walix identifica asesor, fallo/ocupado identifica sistema, completed genérico no identifica persona.
+- [x] Mostrar el cierre en historial, análisis y ficha del contacto, leyendo la llamada original con alcance de empresa/contacto.
+- [x] Verificar lectura de las tres vistas con sesión temporal y datos guardados, bloqueo de edición directa, computadora/móvil y 57 pruebas aprobadas; sin llamadas con costo.
+- [ ] Validar cierre durante llamada real: requiere llamada telefónica autorizada; Twilio no identifica automáticamente al prospecto o al asesor que cuelga desde celular con sus callbacks actuales.

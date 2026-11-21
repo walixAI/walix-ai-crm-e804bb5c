@@ -28,6 +28,7 @@ import { AgentStatusTab } from "@/components/agent-status/AgentStatusTab";
 import { isRecordingDownloadable } from "../../../supabase/functions/_shared/call-recording";
 import { CallRecordingButton } from "@/components/calls/CallRecordingButton";
 import { IncomingPhonePreference } from "@/components/calls/IncomingPhonePreference";
+import { CallHangupDetails } from "@/components/calls/CallHangupDetails";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   queued: { label: "En cola", variant: "outline" },
@@ -60,7 +61,7 @@ export default function Calls() {
       const { from, to } = resolvePeriodRange(period);
       const rows = await readAllPages((pageFrom, pageTo) => supabase
         .from("calls")
-        .select("id, direction, status, to_number, from_number, duration_seconds, answered_at, recording_url, user_id, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
+        .select("id, direction, status, to_number, from_number, duration_seconds, answered_at, ended_at, hangup_by, hangup_at, recording_url, user_id, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
         .eq("tenant_id", activeTenantId)
         .gte("created_at", from.toISOString())
         .lte("created_at", to.toISOString())
@@ -262,6 +263,7 @@ function CallHistoryList({ rows, isLoading, onAnalyze, missedOnly = false }: {
                 <span>{new Date(c.created_at).toLocaleString("es-MX")}</span>
                 {c.direction === "inbound" && <span>Responsable: {c.advisorName ?? "Grupo de recepción · sin asignar"}</span>}
               </div>
+              {(c.ended_at || ["completed", "failed", "no_answer", "busy", "voicemail"].includes(c.status)) && <div className="mt-1"><CallHangupDetails hangup_by={c.hangup_by} hangup_at={c.hangup_at} /></div>}
               {(c as any).notes && <p className="mt-1 truncate text-sm text-muted-foreground">{(c as any).notes}</p>}
               {c.ai_summary && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.ai_summary}</p>}
             </div>

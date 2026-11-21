@@ -322,7 +322,8 @@ serve(async (req) => {
       const allowed = ["completed", "failed", "no_answer", "busy", "voicemail"];
       if (!allowed.includes(status)) return json({ error: "Estado inválido" }, 400);
 
-      const { data: call } = await admin.from("calls").select("id, tenant_id, user_id, provider_call_id, channel_id")
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(callId)) return json({ error: "Llamada inválida" }, 400);
+      const { data: call } = await admin.from("calls").select("id, tenant_id, user_id, provider_call_id, channel_id, ended_at, hangup_by, hangup_at")
         .eq("id", callId).single();
       if (!call || call.tenant_id !== tenantId) return json({ error: "Llamada no encontrada" }, 404);
       if (call.user_id !== user.id) {
@@ -332,11 +333,28 @@ serve(async (req) => {
         if (!canManage) return json({ error: "Solo puedes cerrar tus propias llamadas" }, 403);
       }
 
+      if (call.ended_at) return json({ ok: true });
+
       const { data: channel } = await admin.from("call_channels").select("*").eq("id", call.channel_id).eq("tenant_id", tenantId).maybeSingle();
       if (channel?.provider === "twilio") {
         if (call.provider_call_id && channel.credentials_encrypted) {
           const credentials = await decryptCredentials(channel.credentials_encrypted);
-          await twilioRequest(credentials, `Calls/${call.provider_call_id}.json`, new URLSearchParams({ Status: "completed" }));
+          const now = new Date().toISOString();
+          // Claim before contacting the provider so its callback cannot overwrite the actor.
+          const { data: claimed, error: claimError } = await admin.from("calls")
+            .update({ hangup_by: "agent", hangup_at: now }).eq("id", callId).eq("tenant_id", tenantId)
+            .is("ended_at", null).is("hangup_by", null).select("id").maybeSingle();
+          if (claimError) throw claimError;
+          if (!claimed) return json({ ok: true });
+          try {
+            await twilioRequest(credentials, `Calls/${call.provider_call_id}.json`, new URLSearchParams({ Status: "completed" }));
+          } catch (error) {
+            // A rejected request is not evidence that the advisor ended the call.
+            const { error: rollbackError } = await admin.from("calls").update({ hangup_by: null, hangup_at: call.hangup_at })
+              .eq("id", callId).eq("tenant_id", tenantId).eq("hangup_by", "agent").eq("hangup_at", now).is("ended_at", null);
+            if (rollbackError) throw rollbackError;
+            throw error;
+          }
         }
         // The provider, not a manual button, establishes connection and duration.
         return json({ ok: true });

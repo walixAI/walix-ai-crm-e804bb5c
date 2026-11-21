@@ -11,6 +11,7 @@ import { providerResult, inboundDialResult, FINAL_CALL_STATUSES } from "../_shar
 import { buildDialTwiml } from "../_shared/telephony-provider.ts";
 import { transcribeRecording } from "../_shared/call-transcription.ts";
 import { inboundBrowserIdentity, matchesInboundBrowser } from "../_shared/inbound-browser.ts";
+import { terminalHangup } from "../_shared/call-hangup.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -106,7 +107,9 @@ serve(async (req) => {
       if (leg === "inbound-status") {
         // Caller hangups while the advisor is ringing must not leave a live row.
         if (!call.ended_at && payload.CallStatus === "completed") {
-          const { error } = await admin.from("calls").update({ status: call.answered_at ? "completed" : "no_answer", ended_at: new Date().toISOString() }).eq("id", call.id).is("ended_at", null);
+          const now = new Date().toISOString();
+          const status = call.answered_at ? "completed" : "no_answer";
+          const { error } = await admin.from("calls").update({ status, ended_at: now, ...terminalHangup(status, now, call) }).eq("id", call.id).is("ended_at", null);
           if (error) throw error;
         }
         return ok({ ok: true });
@@ -140,7 +143,8 @@ serve(async (req) => {
       if (leg === "inbound-advisor") {
         const result = inboundDialResult(payload, !!call.answered_at);
         if (call.direction !== "inbound" || !result || !FINAL_CALL_STATUSES.includes(result.status)) return ok({ ok: true });
-        const { error } = await admin.from("calls").update({ status: result.status, ended_at: call.ended_at ?? new Date().toISOString(), duration_seconds: result.duration, ...(result.status === "completed" ? {} : { answered_at: null }) }).eq("id", call.id);
+        const now = call.ended_at ?? new Date().toISOString();
+        const { error } = await admin.from("calls").update({ status: result.status, ended_at: now, duration_seconds: result.duration, ...terminalHangup(result.status, now, call), ...(result.status === "completed" ? {} : { answered_at: null }) }).eq("id", call.id);
         if (error) throw error;
         return xml("<Response><Hangup/></Response>");
       }
@@ -165,7 +169,9 @@ serve(async (req) => {
       }
       if (leg === "advisor" && payload.CallStatus === "completed" && !call.ended_at && call.status === "queued") {
         // El asesor no confirmó (buzón o colgó): el cliente nunca fue marcado.
-        const { error } = await admin.from("calls").update({ status: "failed", ended_at: new Date().toISOString(), duration_seconds: 0, metadata: { ...(call.metadata ?? {}), advisor_not_confirmed: true } }).eq("id", call.id).is("ended_at", null);
+        const now = new Date().toISOString();
+        // An unconfirmed advisor leg may be voicemail or a person: do not guess.
+        const { error } = await admin.from("calls").update({ status: "failed", ended_at: now, hangup_at: call.hangup_at ?? now, duration_seconds: 0, metadata: { ...(call.metadata ?? {}), advisor_not_confirmed: true } }).eq("id", call.id).is("ended_at", null);
         if (error) throw error;
         return ok({ ok: true });
       }
@@ -176,6 +182,7 @@ serve(async (req) => {
         if (FINAL_CALL_STATUSES.includes(result.status)) {
           patch.ended_at = new Date().toISOString();
           patch.duration_seconds = result.duration;
+          Object.assign(patch, terminalHangup(result.status, String(patch.ended_at), call));
         }
         const { error } = await admin.from("calls").update(patch).eq("id", call.id).is("ended_at", null);
         if (error) throw error;
@@ -223,6 +230,7 @@ serve(async (req) => {
     if (status === "answered") update.answered_at = new Date().toISOString();
     if (status === "completed" || status === "busy" || status === "no_answer" || status === "failed" || status === "voicemail") {
       update.ended_at = new Date().toISOString();
+      Object.assign(update, terminalHangup(status, String(update.ended_at)));
       const secs = Number(p.call_leg_duration_secs ?? p.Duration);
       if (Number.isFinite(secs)) update.duration_seconds = secs;
     }

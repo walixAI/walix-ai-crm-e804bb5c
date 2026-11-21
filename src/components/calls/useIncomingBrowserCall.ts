@@ -95,9 +95,18 @@ export function useIncomingBrowserCall(tenantId?: string | null, userId?: string
       toast.error("Permite el micrófono para contestar en Walix");
     }
   };
-  const end = () => {
-    if (state === "ringing") current.current?.reject();
-    else current.current?.disconnect();
+  const end = async () => {
+    const incoming = current.current;
+    if (!incoming) return;
+    if (state === "ringing") { incoming.reject(); return; }
+    const callId = incoming.customParameters.get("WalixCallId");
+    if (callId) {
+      try {
+        const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
+        if (error || !data?.ok) { toast.error("No se pudo colgar la llamada. Intenta de nuevo."); return; }
+      } catch { toast.error("No se pudo colgar la llamada. Intenta de nuevo."); return; }
+    }
+    incoming.disconnect();
   };
   const toggleMute = () => { current.current?.mute(!muted); setMuted(!muted); };
   const device = call ? [...devices.current.values()].find(d => d.calls.includes(call)) : undefined;

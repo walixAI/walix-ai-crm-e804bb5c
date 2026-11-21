@@ -305,10 +305,10 @@ export function CallButton({ contactId, phone, contactName, size = "sm", variant
           </div>
           {state === "ringing" && provider === "twilio" && !hungUp && !["completed", "failed", "no_answer", "busy", "voicemail"].includes(callStatus) && <div className="dialer-footer shrink-0 flex flex-col items-center gap-1 px-6 py-3">
             <Button variant="destructive" size="icon" className="dialer-hangup h-14 w-14 rounded-full [&_svg]:h-6 [&_svg]:w-6" aria-label="Colgar" title="Colgar" onClick={async () => {
+              const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
+              if (error || !data?.ok) { toast.error(await callError(data, error)); return; }
               browserCall.current?.disconnect();
               setHungUp(true);
-              const { data, error } = await supabase.functions.invoke("telephony-api", { body: { action: "end", call_id: callId } });
-              if (error || !data?.ok) toast.error(await callError(data, error));
             }}><PhoneOff /></Button><span className="text-xs text-muted-foreground">Colgar</span>
           </div>}
         </DialogContent>

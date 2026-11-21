@@ -8,6 +8,9 @@ export interface CallsReportRow {
   status: string;
   duration_seconds: number | null;
   answered_at: string | null;
+  ended_at?: string | null;
+  hangup_by?: string | null;
+  hangup_at?: string | null;
   created_at: string;
   user_id: string | null;
   contact_id: string | null;

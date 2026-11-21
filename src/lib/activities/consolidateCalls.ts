@@ -25,7 +25,8 @@ export function isEffectiveCall(autoMeta: Record<string, any>, summary = ""): bo
 }
 
 /** One visible attempt; raw automatic, AI and advisor records remain intact for audit. */
-export function consolidateCallActivities<T extends CallActivity>(rows: T[]): T[] {
+export function consolidateCallActivities<T extends CallActivity>(rows: T[], calls: { id: string; tenant_id: string; contact_id: string | null; hangup_by: string | null; hangup_at: string | null; ended_at: string | null }[] = []): T[] {
+  const callEvidence = new Map(calls.map(c => [JSON.stringify([c.tenant_id, c.contact_id, c.id]), c]));
   const groups = new Map<string, T[]>();
   const result: T[] = [];
   for (const row of rows) {
@@ -64,6 +65,10 @@ export function consolidateCallActivities<T extends CallActivity>(rows: T[]): T[
         ai_summary: summary,
         related_activity_ids: ordered.map((r) => r.id),
         advisor_notes: advisor?.description ?? null,
+        // Read the authoritative call, never a manual follow-up's claimed initiator.
+        hangup_by: callEvidence.get(JSON.stringify([representative.tenant_id, representative.contact_id, metadata(representative).call_id]))?.hangup_by ?? null,
+        hangup_at: callEvidence.get(JSON.stringify([representative.tenant_id, representative.contact_id, metadata(representative).call_id]))?.hangup_at ?? null,
+        ended_at: callEvidence.get(JSON.stringify([representative.tenant_id, representative.contact_id, metadata(representative).call_id]))?.ended_at ?? null,
       },
     });
   }

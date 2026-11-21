@@ -435,6 +435,20 @@
       "when": 1795285356333,
       "tag": "0061_agent_status",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795292805119,
+      "tag": "0062_call_hangup_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795292852574,
+      "tag": "0063_preserve_first_call_hangup_evidence",
+      "breakpoints": true
     }
   ]
 }

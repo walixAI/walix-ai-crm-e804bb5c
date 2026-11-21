@@ -335,18 +335,24 @@ export interface ActivityRow {
 
 export function useContactActivity(contactId: string | undefined) {
   const { data: users } = useTenantUsers();
+  const { data: tenantId } = useTenantId();
   return useQuery({
-    queryKey: ["contact-activity", contactId, users?.length ?? 0],
-    enabled: !!contactId,
+    queryKey: ["contact-activity", contactId, tenantId, users?.length ?? 0],
+    enabled: !!contactId && !!tenantId,
+    refetchInterval: 15000,
     queryFn: async (): Promise<ActivityRow[]> => {
-      if (!contactId) return [];
-      const [actData, { data: taskData, error: taskErr }] = await Promise.all([
+      if (!contactId || !tenantId) return [];
+      const [actData, callData, { data: taskData, error: taskErr }] = await Promise.all([
         readAllPages((start, end) => supabase
         .from("activities")
         .select("*")
+        .eq("tenant_id", tenantId)
         .eq("contact_id", contactId)
         .order("occurred_at", { ascending: false })
         .order("id").range(start, end)),
+        readAllPages((start, end) => supabase.from("calls")
+          .select("id,tenant_id,contact_id,hangup_by,hangup_at,ended_at")
+          .eq("tenant_id", tenantId).eq("contact_id", contactId).order("id").range(start, end)),
         supabase
           .from("tasks")
           .select("*")
@@ -355,7 +361,7 @@ export function useContactActivity(contactId: string | undefined) {
           .limit(20),
       ]);
       if (taskErr) throw taskErr;
-      const acts: ActivityRow[] = consolidateCallActivities(actData).map((a: any) => {
+      const acts: ActivityRow[] = consolidateCallActivities(actData, callData).map((a: any) => {
         const owner = resolveOwner(users, a.agent_id);
         return {
           id: a.id, type: a.type, description: a.description,

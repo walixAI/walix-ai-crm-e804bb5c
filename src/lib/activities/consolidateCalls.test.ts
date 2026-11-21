@@ -6,6 +6,16 @@ const analysis = { ...auto, id: "analysis", type: "note", description: "📞 Res
 const advisor = { ...auto, id: "advisor", description: "Se confirmó el audio.", occurred_at: "2026-11-17T22:51:00Z", metadata: { call_id: "call1", source: "advisor_call_follow_up", result: "Contacto efectivo - sigue igual", typification_id: "typ1", typification_label: "Interesado" } };
 
 describe("one activity per call attempt", () => {
+  it("reads termination evidence from the matching tenant/contact call, not advisor metadata", () => {
+    const call = { id: "call1", tenant_id: "tenant1", contact_id: "contact1", hangup_by: "agent", hangup_at: "2026-11-21T20:25:00Z", ended_at: "2026-11-21T20:25:01Z" };
+    const rows = consolidateCallActivities([auto, { ...advisor, metadata: { ...advisor.metadata, hangup_by: "prospect" } }], [call]);
+    expect(rows[0].metadata).toMatchObject({ hangup_by: "agent", hangup_at: call.hangup_at, ended_at: call.ended_at });
+    expect(consolidateCallActivities([auto], [{ ...call, tenant_id: "tenant2" }])[0].metadata).toMatchObject({ hangup_by: null, hangup_at: null });
+    expect(consolidateCallActivities([auto], [{ ...call, contact_id: "other" }])[0].metadata).toMatchObject({ hangup_by: null, hangup_at: null });
+  });
+  it("keeps historical calls without fabricated termination evidence", () => {
+    expect(consolidateCallActivities([auto])[0].metadata).toMatchObject({ hangup_by: null, hangup_at: null });
+  });
   it("combines the answered 43-second call, AI summary and advisor result into one entry", () => {
     const rows = consolidateCallActivities([advisor, analysis, auto]);
     expect(rows).toHaveLength(1);

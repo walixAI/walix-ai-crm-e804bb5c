@@ -1,4 +1,5 @@
 import { CallRecordingButton } from "@/components/calls/CallRecordingButton";
+import { CallHangupDetails } from "@/components/calls/CallHangupDetails";
 import { isEffectiveCall } from "@/lib/activities/consolidateCalls";
 import { useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -55,6 +56,7 @@ export function ActivityItem({ contactId, activity }: Props) {
               {meta.ai_summary && meta.ai_summary !== activity.description && <div className="mt-3 border-l-2 border-primary/40 pl-3"><p className="mb-1 text-xs font-medium text-muted-foreground">Resumen IA</p><p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{meta.ai_summary}</p></div>}
               {activity.type === "call" && meta.call_id && isEffectiveCall(meta, meta.ai_summary ?? "") && <div className="mt-2"><CallRecordingButton callId={meta.call_id} /></div>}
               {/* metadata badges */}
+              {activity.type === "call" && meta.call_id && (meta.ended_at || ["completed", "failed", "no_answer", "busy", "voicemail"].includes(meta.status)) && <div className="mt-1"><CallHangupDetails hangup_by={meta.hangup_by} hangup_at={meta.hangup_at} /></div>}
               {(meta.result || meta.duration || meta.subject || meta.location || meta.source === "consolidated_call") && (
                 <div className="flex flex-wrap gap-1 mt-1">
                   {meta.source === "consolidated_call" && (
