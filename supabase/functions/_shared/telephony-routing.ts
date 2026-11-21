@@ -1,5 +1,6 @@
 // Enrutamiento de llamadas entrantes (PBX) compartido por telephony-api (simulador) y telephony-webhook (proveedor real).
 // deno-lint-ignore-file no-explicit-any
+import { defaultInboundPolicy, inboundRecipients, mayReceivePhone, profileReceivingPhone } from "./inbound-routing-policy.ts";
 
 export interface PbxConfig {
   enabled?: boolean;
@@ -77,11 +78,39 @@ export async function routeInboundCall(admin: any, opts: {
   }
 
   let receivingPhone: string | null = null;
-  if (opts.useReceivingPreference && userId && open && target !== "voicemail") {
-    const { data: preference, error: preferenceError } = await admin.from("tenant_call_receiving_preferences").select("phone_enabled,phone_number")
-      .eq("tenant_id", tenantId).eq("user_id", userId).maybeSingle();
-    if (preferenceError) throw preferenceError;
-    if (preference?.phone_enabled && /^\+[1-9]\d{7,14}$/.test(preference.phone_number ?? "")) receivingPhone = preference.phone_number;
+  let receivingTargets: { user_id: string; phone: string }[] = [];
+  let notificationUserIds: string[] | undefined;
+  if (opts.useReceivingPreference) {
+    const { data: policyData, error: policyError } = await admin.from("tenant_inbound_call_settings").select("*").eq("tenant_id", tenantId).maybeSingle();
+    const { data: memberRoles, error: roleError } = await admin.from("user_roles").select("user_id,role").eq("tenant_id", tenantId);
+    if (policyError || roleError) throw policyError ?? roleError;
+    const policy = policyData ?? defaultInboundPolicy;
+    const ids = [...new Set((memberRoles ?? []).map((r: any) => r.user_id))];
+    let members: any[] = [];
+    if (ids.length) {
+      const { data, error } = await admin.from("profiles").select("id,is_active,phone").in("id", ids).eq("is_active", true);
+      if (error) throw error;
+      members = data ?? [];
+    }
+    const activeRoles = (memberRoles ?? []).filter((r: any) => members.some(m => m.id === r.user_id));
+    // The assigned advisor wins; unknown or unassigned callers use the tenant's group.
+    notificationUserIds = inboundRecipients(policy, activeRoles, contact?.owner_id ?? null);
+    userId = notificationUserIds.length === 1 ? notificationUserIds[0] : null;
+    if (notificationUserIds.length && open && target !== "voicemail") {
+      const { data: preferences, error } = await admin.from("tenant_call_receiving_preferences").select("user_id,phone_enabled").eq("tenant_id", tenantId).in("user_id", notificationUserIds);
+      const { data: channels, error: channelsError } = await admin.from("call_channels").select("phone_number");
+      if (error || channelsError) throw error ?? channelsError;
+      receivingTargets = notificationUserIds.flatMap(id => {
+        const phone = profileReceivingPhone(members.find(m => m.id === id)?.phone, !!preferences?.find((p: any) => p.user_id === id)?.phone_enabled, mayReceivePhone(policy, id), (channels ?? []).map((c: any) => c.phone_number ?? ""));
+        return phone ? [{ user_id: id, phone }] : [];
+      });
+      // Twilio permits at most ten simultaneous Number destinations; rotate larger groups.
+      if (receivingTargets.length > 10) {
+        const offset = Math.floor(Date.now() / 1000) % receivingTargets.length;
+        receivingTargets = [...receivingTargets.slice(offset), ...receivingTargets.slice(0, offset)].slice(0, 10);
+      }
+      receivingPhone = receivingTargets[0]?.phone ?? null;
+    }
   }
   const notifyOnly = opts.useReceivingPreference ? !receivingPhone : notificationOnly;
 
@@ -102,20 +131,20 @@ export async function routeInboundCall(admin: any, opts: {
     direction: "inbound",
     from_number: fromNumber,
     to_number: channel.phone_number,
-    status: notifyOnly || !userId ? "no_answer" : target === "voicemail" ? "voicemail" : "ringing",
+    status: notifyOnly || (!opts.useReceivingPreference && !userId) ? "no_answer" : target === "voicemail" ? "voicemail" : "ringing",
     provider_call_id: providerCallId,
     started_at: now,
-    ended_at: notifyOnly || !userId || target === "voicemail" ? now : null,
-    outcome: notifyOnly ? "Entrante registrada para devolución; sin conexión con asesor" : target === "voicemail" ? (open ? "Enviada a buzón por menú" : "Fuera de horario: buzón de voz") : !userId ? "Sin asesor disponible" : null,
-    metadata: { notification_only: notifyOnly, receiving_phone: receivingPhone, pbx: { digit: digit ?? null, option: option?.label ?? null, target, open } },
+    ended_at: notifyOnly || (!opts.useReceivingPreference && !userId) || target === "voicemail" ? now : null,
+    outcome: notifyOnly ? "Entrante registrada para devolución; sin conexión con asesor" : target === "voicemail" ? (open ? "Enviada a buzón por menú" : "Fuera de horario: buzón de voz") : !userId && !receivingPhone ? "Sin asesor disponible" : null,
+    metadata: { notification_only: notifyOnly, receiving_phone: receivingPhone, receiving_targets: receivingTargets, ...(notificationUserIds ? { notification_user_ids: notificationUserIds, unassigned: !contact?.owner_id } : {}), pbx: { digit: digit ?? null, option: option?.label ?? null, target, open } },
   }).select("id, status, user_id, contact_id").single();
   if (error) {
     if (error.code !== "23505") throw error;
     const { data: existing, error: existingError } = await admin.from("calls").select("id,status,user_id,contact_id,metadata")
       .eq("tenant_id", tenantId).eq("channel_id", channel.id).eq("direction", "inbound").eq("provider_call_id", providerCallId).single();
     if (existingError) throw existingError;
-    return { call: existing, open, target, receivingPhone: existing?.status === "ringing" ? existing.metadata?.receiving_phone ?? null : null, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
+    return { call: existing, open, target, receivingPhone: existing?.status === "ringing" ? existing.metadata?.receiving_phone ?? null : null, receivingTargets: existing?.status === "ringing" ? existing.metadata?.receiving_targets ?? [] : [], greeting: open ? cfg.welcome_message : cfg.voicemail_message };
   }
 
-  return { call, open, target, receivingPhone, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
+  return { call, open, target, receivingPhone, receivingTargets, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
 }

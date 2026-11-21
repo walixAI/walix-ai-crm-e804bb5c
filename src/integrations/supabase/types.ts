@@ -3526,6 +3526,39 @@ export type Database = {
           },
         ]
       }
+      inbound_call_recipients: {
+        Row: {
+          call_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          call_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          call_id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_call_recipients_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_call_recipients_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -5478,6 +5511,44 @@ export type Database = {
             foreignKeyName: "tenant_credit_balances_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_inbound_call_settings: {
+        Row: {
+          allowed_user_ids: string[]
+          phone_mode: string
+          tenant_id: string
+          unassigned_mode: string
+          unassigned_user_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allowed_user_ids?: string[]
+          phone_mode?: string
+          tenant_id: string
+          unassigned_mode?: string
+          unassigned_user_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allowed_user_ids?: string[]
+          phone_mode?: string
+          tenant_id?: string
+          unassigned_mode?: string
+          unassigned_user_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_inbound_call_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },

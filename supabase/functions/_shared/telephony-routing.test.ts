@@ -10,7 +10,7 @@ function fakeAdmin(owner: string | null, queue: string[] = [], preference: { pho
       insert: (row: Record<string, any>) => { insert = row; inserted.push(row); return q; },
       single: async () => ({ data: { ...insert, id: "call-1" }, error: null }),
       maybeSingle: async () => ({ data: table === "contacts" ? { id: "contact-1", owner_id: owner, name: "Lead" } : table === "profiles" ? { is_active: true } : table === "tenants" ? { timezone: "America/Mexico_City" } : table === "tenant_call_receiving_preferences" ? preference : null, error: null }),
-      then: (resolve: any) => Promise.resolve({ data: table === "user_roles" ? [{ user_id: owner ?? queue[0] }] : [], error: null }).then(resolve),
+      then: (resolve: any) => Promise.resolve({ data: table === "user_roles" ? [{ user_id: owner ?? queue[0], role: "sales_rep" }] : table === "profiles" ? [{ id: owner ?? queue[0], is_active: true, phone: "+525500000001" }] : table === "tenant_call_receiving_preferences" && preference ? [{ user_id: owner ?? queue[0], ...preference }] : [], error: null }).then(resolve),
     };
     return q;
   } };
@@ -46,11 +46,13 @@ describe("enrutamiento de entrantes para devolución", () => {
     expect(result.receivingPhone).toBeNull();
     expect(inserted[0].status).toBe("no_answer");
   });
-  it("desvía solo al celular que el usuario activó", async () => {
-    const { admin, inserted } = fakeAdmin("advisor", [], { phone_enabled: true, phone_number: "+525500000001" });
+  it("desvía al número del perfil, no al número antiguo de la preferencia", async () => {
+    const { admin, inserted } = fakeAdmin("advisor", [], { phone_enabled: true, phone_number: "+525500000099" });
     const result = await routeInboundCall(admin, { channel, fromNumber: "+525500000000", providerCallId: "CA5", useReceivingPreference: true });
     expect(result.receivingPhone).toBe("+525500000001");
     expect(inserted[0].status).toBe("ringing");
     expect(inserted[0].ended_at).toBeNull();
+    expect(inserted[0].metadata.notification_user_ids).toEqual(["advisor"]);
+    expect(result.receivingTargets).toEqual([{ user_id: "advisor", phone: "+525500000001" }]);
   });
 });

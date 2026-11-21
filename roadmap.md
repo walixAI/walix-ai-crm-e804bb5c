@@ -1,5 +1,8 @@
 # Llamadas entrantes de Refrigeración
 
+- [x] Configurar por empresa destinatarios de llamadas sin asesor (específico, todos, supervisión o asesores) y permisos de recepción, usando el teléfono actual del perfil; guardado y lectura tras recargar verificados, asesor sin autorización bloqueado y reporte accesible al destinatario.
+- [x] Mostrar aviso verde con datos del llamante, timbre y voz; sonido y frase comprobados en navegador, modal visible en 1280, 812 y 390 px, no atendida leída en reporte; 36 pruebas aprobadas, datos temporales retirados, sin llamadas con costo. Falta probar aceptación y audio de una llamada telefónica real (pendiente existente).
+
 - [x] Corregir recepción firmada de Twilio y avisar al responsable; sin asesor, fila configurada y administración/supervisión para no atendidas.
 - [x] Mostrar reporte de entrantes no atendidas, número, fecha y responsable, sin perder registros por paginación.
 - [x] Verificar avisos y reporte con sesión temporal de administrador, registros de prueba retirados y pruebas sin llamadas reales; computadora, tablet y móvil sin desbordamiento.

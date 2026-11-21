@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Phone, Plus, Pencil, Network, PhoneIncoming } from "lucide-react";
 import { PbxConfigDialog } from "./PbxConfigDialog";
 import { PhoneCallPermissions } from "./PhoneCallPermissions";
+import { InboundCallSettings } from "./InboundCallSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -199,6 +200,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
       )}
 
       <PhoneCallPermissions />
+      <InboundCallSettings />
 
       <PbxConfigDialog channel={pbx} tenantId={tenantId} open={!!pbx} onOpenChange={(v) => !v && setPbx(null)}
         onSaved={() => qc.invalidateQueries({ queryKey: ["call-channels", tenantId] })} />

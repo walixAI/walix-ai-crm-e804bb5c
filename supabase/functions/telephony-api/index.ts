@@ -8,6 +8,7 @@ import twilio from "npm:twilio@5.10.4";
 import { twilioRequest } from "../_shared/twilio-auth.ts";
 import { canUsePhone, canEditPhonePolicy } from "../_shared/phone-call-policy.ts";
 import { validateReceivingPreference } from "../_shared/inbound-phone-policy.ts";
+import { defaultInboundPolicy, mayReceivePhone } from "../_shared/inbound-routing-policy.ts";
 
 const CRED_KEYS: Record<string, string[]> = {
   twilio: ["account_sid", "api_key_sid", "api_key_secret"],
@@ -47,16 +48,60 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
 
+    if (action === "inbound_policy" || action === "save_inbound_policy") {
+      const { data: roles, error: rolesError } = await admin.from("user_roles").select("role").eq("tenant_id", tenantId).eq("user_id", user.id);
+      const { data: member } = await admin.from("profiles").select("is_active,phone").eq("id", user.id).maybeSingle();
+      if (rolesError) throw rolesError;
+      if (!roles?.length || !member?.is_active) return json({ error: "No tienes acceso activo a esta empresa" }, 403);
+      const canManage = canEditPhonePolicy(roles.map((r: { role: string }) => r.role));
+      const { data: stored, error: policyError } = await admin.from("tenant_inbound_call_settings").select("*").eq("tenant_id", tenantId).maybeSingle();
+      if (policyError) throw policyError;
+      const policy = stored ?? defaultInboundPolicy;
+      if (action === "inbound_policy") {
+        const { data: preference, error } = await admin.from("tenant_call_receiving_preferences").select("phone_enabled").eq("tenant_id", tenantId).eq("user_id", user.id).maybeSingle();
+        if (error) throw error;
+        let members: unknown[] = [];
+        if (canManage) {
+          const { data: allRoles, error: roleError } = await admin.from("user_roles").select("user_id,role").eq("tenant_id", tenantId);
+          if (roleError) throw roleError;
+          const ids = [...new Set((allRoles ?? []).map((r: { user_id: string }) => r.user_id))];
+          if (ids.length) {
+            const { data, error: memberError } = await admin.from("profiles").select("id,full_name,phone").in("id", ids).eq("is_active", true).order("full_name");
+            if (memberError) throw memberError;
+            members = data ?? [];
+          }
+        }
+        return json({ ok: true, can_manage: canManage, can_receive_phone: mayReceivePhone(policy, user.id), phone: member.phone, phone_enabled: !!preference?.phone_enabled, ...(canManage ? { policy, members } : {}) });
+      }
+      if (!canManage) return json({ error: "Solo propietarios y administradores pueden configurar la recepción" }, 403);
+      const p = body.policy;
+      if (!p || !["specific", "all", "supervisors", "advisors"].includes(p.unassigned_mode) || !["none", "all", "selected"].includes(p.phone_mode) || !Array.isArray(p.allowed_user_ids) || p.allowed_user_ids.length > 1000 || p.allowed_user_ids.some((id: unknown) => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) || (p.unassigned_mode === "specific" && (typeof p.unassigned_user_id !== "string" || !/^[0-9a-f-]{36}$/i.test(p.unassigned_user_id)))) return json({ error: "Selecciona opciones y miembros válidos" }, 400);
+      const ids = [...new Set<string>([...p.allowed_user_ids, ...(p.unassigned_mode === "specific" ? [p.unassigned_user_id] : [])])];
+      if (ids.length) {
+        const { data: scoped, error } = await admin.from("user_roles").select("user_id").eq("tenant_id", tenantId).in("user_id", ids);
+        const { data: active, error: activeError } = await admin.from("profiles").select("id").in("id", ids).eq("is_active", true);
+        if (error || activeError) throw error ?? activeError;
+        if (ids.some(id => !scoped?.some((r: { user_id: string }) => r.user_id === id) || !active?.some((r: { id: string }) => r.id === id))) return json({ error: "Los destinatarios deben ser miembros activos de esta empresa" }, 403);
+      }
+      const { error } = await admin.from("tenant_inbound_call_settings").upsert({ tenant_id: tenantId, unassigned_mode: p.unassigned_mode, unassigned_user_id: p.unassigned_mode === "specific" ? p.unassigned_user_id : null, phone_mode: p.phone_mode, allowed_user_ids: [...new Set(p.allowed_user_ids)], updated_by: user.id, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      return json({ ok: true });
+    }
+
     if (action === "save_inbound_preference") {
       const { data: roles, error: rolesError } = await admin.from("user_roles").select("role").eq("tenant_id", tenantId).eq("user_id", user.id).limit(1);
-      const { data: member, error: memberError } = await admin.from("profiles").select("is_active").eq("id", user.id).maybeSingle();
+      const { data: member, error: memberError } = await admin.from("profiles").select("is_active,phone").eq("id", user.id).maybeSingle();
       if (rolesError || memberError) throw rolesError ?? memberError;
       if (!roles?.length || !member?.is_active) return json({ error: "No tienes acceso activo a esta empresa" }, 403);
-      const normalized = typeof body.phone_number === "string" ? body.phone_number.trim().replace(/[\s()-]/g, "") : "";
+      const { data: policy, error: policyError } = await admin.from("tenant_inbound_call_settings").select("*").eq("tenant_id", tenantId).maybeSingle();
+      if (policyError) throw policyError;
+      if (body.phone_enabled === true && !mayReceivePhone(policy ?? defaultInboundPolicy, user.id)) return json({ error: "Tu empresa no te ha autorizado a recibir llamadas en celular" }, 403);
+      const normalized = (member.phone ?? "").trim().replace(/[\s()-]/g, "");
       const { data: channels, error: channelError } = await admin.from("call_channels").select("phone_number").eq("phone_number", normalized).limit(1);
       if (channelError) throw channelError;
-      const result = validateReceivingPreference(body.phone_enabled, body.phone_number, (channels ?? []).map((c: { phone_number: string }) => c.phone_number));
+      const result = validateReceivingPreference(body.phone_enabled, body.phone_enabled === true ? member.phone : null, (channels ?? []).map((c: { phone_number: string }) => c.phone_number));
       if (result.error) return json({ error: result.error }, 400);
+      // Keep a profile snapshot for the legacy constraint; routing never reads it.
       const { error } = await admin.from("tenant_call_receiving_preferences").upsert({ tenant_id: tenantId, user_id: user.id, phone_enabled: result.enabled, phone_number: result.phone, updated_at: new Date().toISOString() });
       if (error) throw error;
       return json({ ok: true });
@@ -275,7 +320,7 @@ serve(async (req) => {
         .eq("tenant_id", tenantId).eq("status", "active").order("created_at").limit(1).maybeSingle();
       if (!channel) return json({ error: "No hay canal de llamadas activo" }, 400);
       const digit = body?.digit ? String(body.digit).slice(0, 1) : null;
-      const r = await routeInboundCall(admin, { channel, fromNumber, digit, providerCallId: `sim_in_${crypto.randomUUID()}` });
+      const r = await routeInboundCall(admin, { channel, fromNumber, digit, providerCallId: `sim_in_${crypto.randomUUID()}`, useReceivingPreference: true });
       return json({ ok: true, ...r });
     }
 

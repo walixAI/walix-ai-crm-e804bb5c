@@ -86,10 +86,10 @@ serve(async (req) => {
           const base = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${encodeURIComponent(token)}&call_id=${routed.call.id}`;
           const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const callback = escape(`${base}&leg=inbound-advisor`);
-          const screen = escape(`${base}&leg=inbound-screen`);
+          const numbers = routed.receivingTargets.map(target => `<Number url="${escape(`${base}&leg=inbound-screen&recipient=${target.user_id}`)}" method="POST">${escape(target.phone)}</Number>`).join("");
           const rec = channel.record_calls ? ` record="record-from-answer-dual" recordingStatusCallback="${escape(`${base}&leg=recording`)}"` : "";
           const notice = channel.record_calls && channel.recording_notice ? `<Say language="es-MX">${escape(channel.recording_notice)}</Say>` : "";
-          return xml(`<Response>${notice}<Dial answerOnBridge="true" timeout="30" callerId="${escape(channel.phone_number)}" action="${callback}" method="POST"${rec}><Number url="${screen}" method="POST">${escape(routed.receivingPhone)}</Number></Dial></Response>`);
+          return xml(`<Response>${notice}<Dial answerOnBridge="true" timeout="30" callerId="${escape(channel.phone_number)}" action="${callback}" method="POST"${rec}>${numbers}</Dial></Response>`);
         }
         const message = "En este momento no podemos atender tu llamada. Registramos tu número para dar seguimiento. Gracias por llamar.";
         const escaped = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -111,13 +111,17 @@ serve(async (req) => {
       }
       if (leg === "inbound-screen" || leg === "inbound-accept") {
         if (call.direction !== "inbound" || call.ended_at || !call.metadata?.receiving_phone) return xml("<Response><Hangup/></Response>");
+        const recipient = url.searchParams.get("recipient");
+        const destination = call.metadata?.receiving_targets?.find((t: { user_id: string; phone: string }) => t.user_id === recipient && t.phone === payload.To);
+        if (!destination) return xml("<Response><Hangup/></Response>");
         if (leg === "inbound-screen") {
-          const action = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${encodeURIComponent(token)}&call_id=${call.id}&leg=inbound-accept`.replace(/&/g, "&amp;");
+          const action = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${encodeURIComponent(token)}&call_id=${call.id}&leg=inbound-accept&recipient=${recipient}`.replace(/&/g, "&amp;");
           return xml(`<Response><Gather numDigits="1" timeout="8" action="${action}" method="POST"><Say language="es-MX">Llamada entrante de Walix. Para aceptar presiona uno.</Say></Gather><Hangup/></Response>`);
         }
         if (payload.Digits !== "1") return xml("<Response><Hangup/></Response>");
-        const { error } = await admin.from("calls").update({ status: "answered", answered_at: new Date().toISOString() }).eq("id", call.id).is("ended_at", null);
+        const { data: claimed, error } = await admin.from("calls").update({ status: "answered", answered_at: new Date().toISOString(), user_id: destination.user_id }).eq("id", call.id).is("ended_at", null).is("answered_at", null).select("id").maybeSingle();
         if (error) throw error;
+        if (!claimed) return xml("<Response><Hangup/></Response>");
         return xml("<Response/> ");
       }
       if (leg === "inbound-advisor") {

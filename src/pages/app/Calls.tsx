@@ -56,7 +56,7 @@ export default function Calls() {
         if (error) throw error;
         data?.forEach((p) => names.set(p.id, p.full_name));
       }
-      return rows.map((c) => ({ ...c, advisorName: c.user_id ? names.get(c.user_id) ?? "Asesor asignado" : "Sin asesor · supervisión" }));
+      return rows.map((c) => ({ ...c, advisorName: c.user_id ? names.get(c.user_id) ?? "Asesor asignado" : "Grupo de recepción · sin asignar" }));
     },
   });
 
