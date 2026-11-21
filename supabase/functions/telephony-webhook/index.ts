@@ -10,6 +10,7 @@ import { validTwilioSignature } from "../_shared/twilio-auth.ts";
 import { providerResult, inboundDialResult, FINAL_CALL_STATUSES } from "../_shared/call-events.ts";
 import { buildDialTwiml } from "../_shared/telephony-provider.ts";
 import { transcribeRecording } from "../_shared/call-transcription.ts";
+import { inboundBrowserIdentity, matchesInboundBrowser } from "../_shared/inbound-browser.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -82,14 +83,15 @@ serve(async (req) => {
       if (leg === "inbound") {
         if (payload.Direction !== "inbound" || !payload.CallSid || payload.To !== channel.phone_number || channel.status === "paused") return ok({ error: "Entrante inválida" }, 400);
         const routed = await routeInboundCall(admin, { channel, fromNumber: String(payload.From ?? ""), providerCallId: payload.CallSid, useReceivingPreference: true });
-        if (routed.receivingPhone && routed.call.status === "ringing") {
+        if ((routed.receivingPhone || routed.browserRecipients.length) && routed.call.status === "ringing") {
           const base = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${encodeURIComponent(token)}&call_id=${routed.call.id}`;
           const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const callback = escape(`${base}&leg=inbound-advisor`);
           const numbers = routed.receivingTargets.map(target => `<Number url="${escape(`${base}&leg=inbound-screen&recipient=${target.user_id}`)}" method="POST">${escape(target.phone)}</Number>`).join("");
+          const clients = routed.browserRecipients.map((id: string) => `<Client url="${escape(`${base}&leg=inbound-browser-accept&recipient=${id}`)}" method="POST"><Identity>${escape(inboundBrowserIdentity(channel.tenant_id, id))}</Identity><Parameter name="WalixCallId" value="${escape(routed.call.id)}"/><Parameter name="CallerNumber" value="${escape(String(payload.From ?? ""))}"/></Client>`).join("");
           const rec = channel.record_calls ? ` record="record-from-answer-dual" recordingStatusCallback="${escape(`${base}&leg=recording`)}"` : "";
           const notice = channel.record_calls && channel.recording_notice ? `<Say language="es-MX">${escape(channel.recording_notice)}</Say>` : "";
-          return xml(`<Response>${notice}<Dial answerOnBridge="true" timeout="30" callerId="${escape(channel.phone_number)}" action="${callback}" method="POST"${rec}>${numbers}</Dial></Response>`);
+          return xml(`<Response>${notice}<Dial answerOnBridge="true" timeout="30" callerId="${escape(channel.phone_number)}" action="${callback}" method="POST"${rec}>${clients}${numbers}</Dial></Response>`);
         }
         const message = "En este momento no podemos atender tu llamada. Registramos tu número para dar seguimiento. Gracias por llamar.";
         const escaped = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -108,6 +110,17 @@ serve(async (req) => {
           if (error) throw error;
         }
         return ok({ ok: true });
+      }
+      if (leg === "inbound-browser-accept") {
+        const recipient = url.searchParams.get("recipient");
+        if (call.direction !== "inbound" || call.ended_at || !recipient || !matchesInboundBrowser(channel.tenant_id, recipient, String(payload.To ?? ""), call.metadata?.browser_recipients ?? [])) return xml("<Response><Hangup/></Response>");
+        const { data: member } = await admin.from("profiles").select("is_active,active_tenant_id,tenant_id").eq("id", recipient).maybeSingle();
+        const { data: roles, error: roleError } = await admin.from("user_roles").select("user_id").eq("tenant_id", channel.tenant_id).eq("user_id", recipient).limit(1);
+        if (roleError) throw roleError;
+        if (!member?.is_active || (member.active_tenant_id ?? member.tenant_id) !== channel.tenant_id || !roles?.length) return xml("<Response><Hangup/></Response>");
+        const { data: claimed, error } = await admin.from("calls").update({ status: "answered", answered_at: new Date().toISOString(), user_id: recipient }).eq("id", call.id).is("ended_at", null).is("answered_at", null).select("id").maybeSingle();
+        if (error) throw error;
+        return xml(claimed ? "<Response/>" : "<Response><Hangup/></Response>");
       }
       if (leg === "inbound-screen" || leg === "inbound-accept") {
         if (call.direction !== "inbound" || call.ended_at || !call.metadata?.receiving_phone) return xml("<Response><Hangup/></Response>");

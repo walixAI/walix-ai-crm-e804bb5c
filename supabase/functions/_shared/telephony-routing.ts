@@ -1,6 +1,7 @@
 // Enrutamiento de llamadas entrantes (PBX) compartido por telephony-api (simulador) y telephony-webhook (proveedor real).
 // deno-lint-ignore-file no-explicit-any
 import { defaultInboundPolicy, inboundRecipients, mayReceivePhone, profileReceivingPhone } from "./inbound-routing-policy.ts";
+import { inboundBrowserRecipients } from "./inbound-browser.ts";
 
 export interface PbxConfig {
   enabled?: boolean;
@@ -112,7 +113,12 @@ export async function routeInboundCall(admin: any, opts: {
       receivingPhone = receivingTargets[0]?.phone ?? null;
     }
   }
-  const notifyOnly = opts.useReceivingPreference ? !receivingPhone : notificationOnly;
+  const browserRecipients = opts.useReceivingPreference && channel.provider === "twilio"
+    ? inboundBrowserRecipients(notificationUserIds ?? [], open, target, receivingTargets.length) : [];
+  // Client and Number destinations share Twilio's ten-destination limit.
+  receivingTargets = receivingTargets.slice(0, Math.max(0, 10 - browserRecipients.length));
+  receivingPhone = receivingTargets[0]?.phone ?? null;
+  const notifyOnly = opts.useReceivingPreference ? !receivingPhone && !browserRecipients.length : notificationOnly;
 
   let dealId: string | null = null;
   if (contact) {
@@ -135,16 +141,16 @@ export async function routeInboundCall(admin: any, opts: {
     provider_call_id: providerCallId,
     started_at: now,
     ended_at: notifyOnly || (!opts.useReceivingPreference && !userId) || target === "voicemail" ? now : null,
-    outcome: notifyOnly ? "Entrante registrada para devolución; sin conexión con asesor" : target === "voicemail" ? (open ? "Enviada a buzón por menú" : "Fuera de horario: buzón de voz") : !userId && !receivingPhone ? "Sin asesor disponible" : null,
-    metadata: { notification_only: notifyOnly, receiving_phone: receivingPhone, receiving_targets: receivingTargets, ...(notificationUserIds ? { notification_user_ids: notificationUserIds, unassigned: !contact?.owner_id } : {}), pbx: { digit: digit ?? null, option: option?.label ?? null, target, open } },
+    outcome: notifyOnly ? "Entrante registrada para devolución; sin conexión con asesor" : target === "voicemail" ? (open ? "Enviada a buzón por menú" : "Fuera de horario: buzón de voz") : !userId && !receivingPhone && !browserRecipients.length ? "Sin asesor disponible" : null,
+    metadata: { notification_only: notifyOnly, receiving_phone: receivingPhone, receiving_targets: receivingTargets, browser_recipients: browserRecipients, ...(notificationUserIds ? { notification_user_ids: notificationUserIds, unassigned: !contact?.owner_id } : {}), pbx: { digit: digit ?? null, option: option?.label ?? null, target, open } },
   }).select("id, status, user_id, contact_id").single();
   if (error) {
     if (error.code !== "23505") throw error;
     const { data: existing, error: existingError } = await admin.from("calls").select("id,status,user_id,contact_id,metadata")
       .eq("tenant_id", tenantId).eq("channel_id", channel.id).eq("direction", "inbound").eq("provider_call_id", providerCallId).single();
     if (existingError) throw existingError;
-    return { call: existing, open, target, receivingPhone: existing?.status === "ringing" ? existing.metadata?.receiving_phone ?? null : null, receivingTargets: existing?.status === "ringing" ? existing.metadata?.receiving_targets ?? [] : [], greeting: open ? cfg.welcome_message : cfg.voicemail_message };
+    return { call: existing, open, target, receivingPhone: existing?.status === "ringing" ? existing.metadata?.receiving_phone ?? null : null, receivingTargets: existing?.status === "ringing" ? existing.metadata?.receiving_targets ?? [] : [], browserRecipients: existing?.status === "ringing" ? existing.metadata?.browser_recipients ?? [] : [], greeting: open ? cfg.welcome_message : cfg.voicemail_message };
   }
 
-  return { call, open, target, receivingPhone, receivingTargets, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
+  return { call, open, target, receivingPhone, receivingTargets, browserRecipients, greeting: open ? cfg.welcome_message : cfg.voicemail_message };
 }

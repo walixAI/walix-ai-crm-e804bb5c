@@ -1,5 +1,8 @@
 # Llamadas entrantes de Refrigeración
 
+- [x] Recibir y contestar entrantes en Walix desde el aviso verde, mantener celular opcional y resultados firmados; 43 pruebas aprobadas, aceptación/silencio/cierre comprobados con proveedor local simulado en 1280, 812 y 390 px, lectura autenticada de recepción comprobada en empresa temporal sin canal. No certifica audio telefónico real.
+- [ ] Comprobar una llamada telefónica real contestada en Walix: requiere una llamada entrante y micrófono físico; no se hicieron llamadas con costo.
+
 - [x] Configurar por empresa destinatarios de llamadas sin asesor (específico, todos, supervisión o asesores) y permisos de recepción, usando el teléfono actual del perfil; guardado y lectura tras recargar verificados, asesor sin autorización bloqueado y reporte accesible al destinatario.
 - [x] Mostrar aviso verde con datos del llamante, timbre y voz; sonido y frase comprobados en navegador, modal visible en 1280, 812 y 390 px, no atendida leída en reporte; 36 pruebas aprobadas, datos temporales retirados, sin llamadas con costo. Falta probar aceptación y audio de una llamada telefónica real (pendiente existente).
 

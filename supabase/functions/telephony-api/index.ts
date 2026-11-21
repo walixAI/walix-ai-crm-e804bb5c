@@ -9,6 +9,7 @@ import { twilioRequest } from "../_shared/twilio-auth.ts";
 import { canUsePhone, canEditPhonePolicy } from "../_shared/phone-call-policy.ts";
 import { validateReceivingPreference } from "../_shared/inbound-phone-policy.ts";
 import { defaultInboundPolicy, mayReceivePhone } from "../_shared/inbound-routing-policy.ts";
+import { inboundBrowserIdentity } from "../_shared/inbound-browser.ts";
 
 const CRED_KEYS: Record<string, string[]> = {
   twilio: ["account_sid", "api_key_sid", "api_key_secret"],
@@ -47,6 +48,26 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
+
+    if (action === "inbound_browser_token") {
+      const { data: roles, error: roleError } = await admin.from("user_roles").select("role").eq("tenant_id", tenantId).eq("user_id", user.id).limit(1);
+      const { data: member, error: memberError } = await admin.from("profiles").select("is_active").eq("id", user.id).maybeSingle();
+      if (roleError || memberError) throw roleError ?? memberError;
+      if (!roles?.length || !member?.is_active) return json({ error: "Sin acceso activo a esta empresa" }, 403);
+      const { data: channels, error: channelError } = await admin.from("call_channels").select("id,credentials_encrypted").eq("tenant_id", tenantId).eq("provider", "twilio").eq("status", "active").order("created_at");
+      if (channelError) throw channelError;
+      const tokens = [];
+      for (const channel of channels ?? []) {
+        if (!channel.credentials_encrypted) continue;
+        const creds = await decryptCredentials(channel.credentials_encrypted);
+        if (!creds.account_sid || !creds.api_key_sid || !creds.api_key_secret) continue;
+        const AccessToken = twilio.jwt.AccessToken;
+        const token = new AccessToken(creds.account_sid, creds.api_key_sid, creds.api_key_secret, { identity: inboundBrowserIdentity(tenantId, user.id), ttl: 120 });
+        token.addGrant(new AccessToken.VoiceGrant({ incomingAllow: true }));
+        tokens.push({ channel_id: channel.id, token: token.toJwt() });
+      }
+      return json({ ok: true, tokens });
+    }
 
     if (action === "inbound_policy" || action === "save_inbound_policy") {
       const { data: roles, error: rolesError } = await admin.from("user_roles").select("role").eq("tenant_id", tenantId).eq("user_id", user.id);

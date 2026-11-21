@@ -17,7 +17,7 @@ export function IncomingPhonePreference() {
     try {
       await inboundRequest({ action: "save_inbound_preference", phone_enabled: enabled });
       await qc.invalidateQueries({ queryKey: ["inbound-policy"] });
-      toast.success(enabled ? "Recepción en tu celular activada" : "Solo recibirás avisos en Walix");
+      toast.success(enabled ? "Recepción en tu celular activada" : "Recepción en celular desactivada");
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo guardar tu elección"); }
     finally { setBusy(false); }
   };
@@ -30,6 +30,6 @@ export function IncomingPhonePreference() {
       <span className="text-sm">Teléfono de mi perfil: {data?.phone ?? "Sin registrar"}</span>
       <Button variant="outline" size="sm" asChild><Link to="/profile">Editar perfil</Link></Button>
     </div>
-    <p className="text-xs text-muted-foreground">{isError ? "No se pudo consultar tu elección. Intenta nuevamente." : !data?.can_receive_phone ? "Tu empresa desactivó la recepción en celular para tu usuario. Los avisos siguen llegando a Walix." : "El desvío al celular genera minutos adicionales. Al recibir la llamada, presiona 1 para aceptar. Apagado: solo avisos en Walix."}</p>
+    <p className="text-xs text-muted-foreground">{isError ? "No se pudo consultar tu elección. Intenta nuevamente." : !data?.can_receive_phone ? "Tu empresa desactivó la recepción en celular para tu usuario." : "El desvío al celular genera minutos adicionales."}</p>
   </section>;
 }
