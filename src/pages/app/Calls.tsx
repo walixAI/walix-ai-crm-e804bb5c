@@ -25,6 +25,8 @@ import { PeriodPicker } from "@/components/reports/PeriodPicker";
 import { periodLabel, type PeriodValue } from "@/lib/reports/filters";
 import { useTenant } from "@/lib/queries/tenant";
 import { AgentStatusTab } from "@/components/agent-status/AgentStatusTab";
+import { isRecordingDownloadable } from "../../../supabase/functions/_shared/call-recording";
+import { CallRecordingButton } from "@/components/calls/CallRecordingButton";
 import { IncomingPhonePreference } from "@/components/calls/IncomingPhonePreference";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -58,7 +60,7 @@ export default function Calls() {
       const { from, to } = resolvePeriodRange(period);
       const rows = await readAllPages((pageFrom, pageTo) => supabase
         .from("calls")
-        .select("id, direction, status, to_number, from_number, duration_seconds, answered_at, user_id, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
+        .select("id, direction, status, to_number, from_number, duration_seconds, answered_at, recording_url, user_id, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
         .eq("tenant_id", activeTenantId)
         .gte("created_at", from.toISOString())
         .lte("created_at", to.toISOString())
@@ -263,6 +265,7 @@ function CallHistoryList({ rows, isLoading, onAnalyze, missedOnly = false }: {
               {(c as any).notes && <p className="mt-1 truncate text-sm text-muted-foreground">{(c as any).notes}</p>}
               {c.ai_summary && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.ai_summary}</p>}
             </div>
+            {isRecordingDownloadable(c as any) && <div className="shrink-0"><CallRecordingButton callId={c.id} size="icon" /></div>}
             <Button size="sm" variant={c.ai_summary ? "secondary" : "outline"} className="shrink-0" onClick={() => onAnalyze(c)}>
               <Sparkles className="mr-1 h-4 w-4" />{c.ai_summary ? "Ver análisis" : "Analizar"}
             </Button>

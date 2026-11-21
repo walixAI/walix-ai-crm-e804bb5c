@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getTelephonyProvider } from "../_shared/telephony-provider.ts";
 import { routeInboundCall } from "../_shared/telephony-routing.ts";
+import { isRecordingDownloadable, recordingFileName } from "../_shared/call-recording.ts";
 import { decryptCredentials, encryptCredentials } from "../_shared/telephony-creds.ts";
 import twilio from "npm:twilio@5.10.4";
 import { twilioRequest } from "../_shared/twilio-auth.ts";
@@ -281,6 +282,27 @@ serve(async (req) => {
       if (insErr) throw insErr;
 
       return json({ ok: true, call, provider: channel.provider });
+    }
+
+    if (action === "recording_download") {
+      if (typeof body.call_id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.call_id)) return json({ error: "Llamada inválida" }, 400);
+      // RLS on the caller's client decides who may see this call.
+      const { data: call, error } = await userClient.from("calls").select("id,channel_id,status,recording_url,duration_seconds,answered_at,created_at,contacts(name)").eq("id", body.call_id).eq("tenant_id", tenantId).maybeSingle();
+      if (error) throw error;
+      if (!call) return json({ error: "Llamada no encontrada" }, 404);
+      if (!isRecordingDownloadable(call)) return json({ error: "Esta llamada no tiene grabación de una conversación" }, 404);
+      const { data: channel, error: chErr } = await admin.from("call_channels").select("credentials_encrypted,provider").eq("id", call.channel_id).eq("tenant_id", tenantId).maybeSingle();
+      if (chErr) throw chErr;
+      if (!channel?.credentials_encrypted || channel.provider !== "twilio") return json({ error: "Canal sin credenciales" }, 409);
+      const creds = await decryptCredentials(channel.credentials_encrypted);
+      const url = String(call.recording_url);
+      if (!url.startsWith(`https://api.twilio.com/2010-04-01/Accounts/${creds.account_sid}/Recordings/`)) return json({ error: "Grabación no válida" }, 409);
+      const user_ = creds.api_key_sid ?? creds.account_sid, pass = creds.api_key_secret ?? creds.auth_token;
+      const res = await fetch(`${url.replace(/\.(mp3|wav|json)$/, "")}.mp3`, { headers: { Authorization: `Basic ${btoa(`${user_}:${pass}`)}` } });
+      if (!res.ok) { console.error("recording fetch", res.status, await res.text()); return json({ error: "El proveedor no entregó la grabación", status: res.status }, 502); }
+      await admin.from("audit_log").insert({ tenant_id: tenantId, actor_id: user.id, actor_email: user.email, action: "call_recording_download", target_type: "call", target_id: call.id, metadata: {} });
+      const name = recordingFileName((call as any).contacts?.name ?? null, call.created_at);
+      return new Response(res.body, { headers: { ...corsHeaders, "Content-Type": "audio/mpeg", "Access-Control-Expose-Headers": "Content-Disposition", "Content-Disposition": `attachment; filename="${name}"` } });
     }
 
     if (action === "status") {

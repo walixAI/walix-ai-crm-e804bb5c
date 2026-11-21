@@ -1,3 +1,5 @@
+import { CallRecordingButton } from "@/components/calls/CallRecordingButton";
+import { isEffectiveCall } from "@/lib/activities/consolidateCalls";
 import { useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -51,6 +53,7 @@ export function ActivityItem({ contactId, activity }: Props) {
             <div className="flex-1 min-w-0">
               <div className="text-sm whitespace-pre-wrap break-words">{summarizeWaActivity(activity.description, meta) ?? activity.description}</div>
               {meta.ai_summary && meta.ai_summary !== activity.description && <div className="mt-3 border-l-2 border-primary/40 pl-3"><p className="mb-1 text-xs font-medium text-muted-foreground">Resumen IA</p><p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{meta.ai_summary}</p></div>}
+              {activity.type === "call" && meta.call_id && isEffectiveCall(meta, meta.ai_summary ?? "") && <div className="mt-2"><CallRecordingButton callId={meta.call_id} /></div>}
               {/* metadata badges */}
               {(meta.result || meta.duration || meta.subject || meta.location || meta.source === "consolidated_call") && (
                 <div className="flex flex-wrap gap-1 mt-1">

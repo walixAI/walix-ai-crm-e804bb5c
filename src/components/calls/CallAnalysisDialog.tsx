@@ -9,6 +9,8 @@ import { Loader2, Sparkles, ClipboardCheck, Pencil, X, ArrowRight } from "lucide
 import { toast } from "sonner";
 import { LogFollowUpDialog } from "@/components/activity/LogFollowUpDialog";
 import { CallTranscript } from "./CallTranscript";
+import { isRecordingDownloadable } from "../../../supabase/functions/_shared/call-recording";
+import { CallRecordingButton } from "./CallRecordingButton";
 
 interface Props { call: any | null; onClose: () => void }
 
@@ -51,6 +53,7 @@ export default function CallAnalysisDialog({ call, onClose }: Props) {
           </DialogHeader>
 
           <div className="space-y-5 p-6">
+          {call?.id && isRecordingDownloadable(call) && <CallRecordingButton key={call.id} callId={call.id} withPlayer />}
           <CallTranscript status={s?.transcription_status} transcript={call?.transcript} summary={call?.ai_summary} analyzing={busy} />
           {call?.ai_summary ? (
             <div className="space-y-3 text-sm">
