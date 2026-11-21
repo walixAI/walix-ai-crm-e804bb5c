@@ -1,138 +1,40 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useReportsContext } from "@/lib/reports/context";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-
-const INTENSITY_BG = [
-  "bg-muted",
-  "bg-success/10",
-  "bg-success/30",
-  "bg-success/60 text-white",
-  "bg-success text-white",
-] as const;
-
-function totalForCell(c: { whatsapp: number; notes: number; dealsMoved: number }) {
-  return c.whatsapp + c.notes + c.dealsMoved;
-}
-
-function intensity(total: number, max: number): number {
-  if (total === 0) return 0;
-  const ratio = total / Math.max(max, 1);
-  if (ratio < 0.25) return 1;
-  if (ratio < 0.5)  return 2;
-  if (ratio < 0.75) return 3;
-  return 4;
-}
+import { useReportsContext } from "@/lib/reports/context";
+import { TEAM_ACTIVITY_TYPES } from "@/lib/reports/reportRules";
+import { exportTeamActivity, filterTeamActivity } from "@/lib/reports/teamActivity";
+import { useTeamActivity } from "@/lib/queries/teamActivity";
+import type { PeriodValue } from "@/lib/reports/filters";
+import { PeriodPicker } from "./PeriodPicker";
 
 export function TeamActivityHeatmap() {
-  const { data, isLoading, users } = useReportsContext();
-
-  if (isLoading || !data) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-        <Skeleton className="h-48" />
-      </div>
-    );
-  }
-
-  const days = data.heatmapDays;
-  const usersWithData = users.filter(u => data.heatmap[u.id]);
-
-  if (usersWithData.length === 0) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-        <h2 className="font-semibold text-base mb-1">Actividad del equipo</h2>
-        <p className="text-sm text-muted-foreground italic text-center py-8">Sin actividad registrada esta semana.</p>
-      </div>
-    );
-  }
-
-  const max = Math.max(
-    1,
-    ...usersWithData.flatMap(s => data.heatmap[s.id].map(totalForCell)),
-  );
-
-  const rowTotals: Record<string, number> = usersWithData.reduce((acc, s) => {
-    acc[s.id] = data.heatmap[s.id].reduce((sum, c) => sum + totalForCell(c), 0);
-    return acc;
-  }, {} as Record<string, number>);
-
-  const colTotals = days.map((_, di) =>
-    usersWithData.reduce((sum, s) => sum + totalForCell(data.heatmap[s.id][di]), 0),
-  );
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-      <div className="mb-4">
-        <h2 className="font-semibold text-base">Actividad del equipo</h2>
-        <p className="text-xs text-muted-foreground">Mensajes WA · notas · deals movidos por día</p>
-      </div>
-
-      <TooltipProvider delayDuration={150}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-separate border-spacing-1">
-            <thead>
-              <tr>
-                <th className="text-left font-semibold text-muted-foreground px-1"></th>
-                {days.map(d => (
-                  <th key={d} className="text-center font-semibold text-muted-foreground px-1">{d}</th>
-                ))}
-                <th className="text-right font-semibold text-muted-foreground pl-2">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usersWithData.map(s => (
-                <tr key={s.id}>
-                  <td className="font-medium pr-2 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="h-5 w-5 rounded-full bg-primary/10 text-primary grid place-items-center text-[9px] font-bold">
-                        {s.initials}
-                      </span>
-                      {s.name}
-                    </span>
-                  </td>
-                  {data.heatmap[s.id].map((cell, di) => {
-                    const total = totalForCell(cell);
-                    const lvl = intensity(total, max);
-                    return (
-                      <td key={di} className="p-0">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className={cn(
-                              "h-9 rounded-md grid place-items-center font-semibold cursor-default",
-                              INTENSITY_BG[lvl],
-                            )}>
-                              {total > 0 ? total : ""}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <div className="text-xs space-y-0.5">
-                              <div className="font-semibold">{s.name} · {days[di]}</div>
-                              <div>WhatsApp: {cell.whatsapp}</div>
-                              <div>Notas: {cell.notes}</div>
-                              <div>Oportunidades movidas: {cell.dealsMoved}</div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                    );
-                  })}
-                  <td className="text-right pl-2 font-bold tabular-nums">{rowTotals[s.id]}</td>
-                </tr>
-              ))}
-              <tr>
-                <td className="font-semibold text-muted-foreground pt-2">Total</td>
-                {colTotals.map((t, i) => (
-                  <td key={i} className="text-center font-bold tabular-nums pt-2">{t}</td>
-                ))}
-                <td className="text-right font-bold tabular-nums pt-2 pl-2">
-                  {colTotals.reduce((a, b) => a + b, 0)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </TooltipProvider>
+  const {users}=useReportsContext();
+  const [period,setPeriod]=useState<PeriodValue>({preset:"month"});
+  const [type,setType]=useState("all");
+  const [user,setUser]=useState("all");
+  const [page,setPage]=useState(0);
+  const {data=[],isLoading,isError}=useTeamActivity(period);
+  const rows=useMemo(()=>filterTeamActivity(data,type,user),[data,type,user]);
+  useEffect(()=>setPage(0),[type,user,period]);
+  const pages=Math.max(1,Math.ceil(rows.length/15));
+  const current=Math.min(page,pages-1);
+  const summary=new Map<string,number>();
+  for(const row of rows) summary.set(row.type,(summary.get(row.type) ?? 0)+1);
+  return <section className="border-y border-border py-5 space-y-4" aria-label="Actividad del equipo">
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold text-base">Actividad del equipo</h2><Button size="sm" variant="outline" disabled={isLoading||isError||!rows.length} onClick={()=>exportTeamActivity(rows)}><FileSpreadsheet className="mr-2 h-4 w-4" />Exportar Excel</Button></div>
+    <div className="flex flex-wrap gap-2"><PeriodPicker value={period} onChange={setPeriod} />
+      <Select value={type} onValueChange={setType}><SelectTrigger className="w-full sm:w-64" aria-label="Tipo de actividad"><SelectValue /></SelectTrigger><SelectContent>{TEAM_ACTIVITY_TYPES.map(([key,label])=><SelectItem key={key} value={key}>{label}</SelectItem>)}</SelectContent></Select>
+      <Select value={user} onValueChange={setUser}><SelectTrigger className="w-full sm:w-56" aria-label="Usuario de actividad"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los usuarios</SelectItem><SelectItem value="unassigned">Sistema / sin asignar</SelectItem>{users.map(u=><SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent></Select>
     </div>
-  );
+    <div className="flex flex-wrap gap-x-5 gap-y-2 border-b border-border pb-3 text-xs"><span className="font-semibold">{rows.length} {rows.length===1 ? "actividad" : "actividades"}</span>{[...summary].map(([key,count])=><span key={key} className="text-muted-foreground">{TEAM_ACTIVITY_TYPES.find(([id])=>id===key)?.[1]} <strong className="text-foreground">{count}</strong></span>)}</div>
+    {isLoading ? <Skeleton className="h-48" /> : isError ? <p role="alert" className="text-sm text-destructive">No se pudo cargar la actividad del equipo.</p> : !rows.length ? <p className="py-8 text-center text-sm text-muted-foreground">Sin actividades con estos filtros.</p> : <div className="divide-y divide-border">{rows.slice(current*15,(current+1)*15).map(r=><div key={r.id} className="grid gap-2 py-3 sm:grid-cols-[155px_170px_1fr]">
+      <div className="text-xs text-muted-foreground"><time dateTime={r.at}>{new Date(r.at).toLocaleString("es-MX",{timeZone:"America/Mexico_City",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</time><div className="mt-1 font-medium text-foreground break-words">{r.userName}</div></div>
+      <div><span className="text-xs font-semibold">{TEAM_ACTIVITY_TYPES.find(([id])=>id===r.type)?.[1]}</span><p className="mt-1 text-xs text-muted-foreground break-words">{r.contact}</p></div>
+      <p className="text-sm line-clamp-2 break-words" title={r.description}>{r.description}</p>
+    </div>)}</div>}
+    <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-xs text-muted-foreground"><span>{rows.length ? current*15+1 : 0}–{Math.min((current+1)*15,rows.length)} de {rows.length}</span><div className="flex items-center gap-2"><Button variant="outline" size="icon" aria-label="Actividad anterior" disabled={!current} onClick={()=>setPage(current-1)}><ChevronLeft className="h-4 w-4" /></Button><span>{current+1} / {pages}</span><Button variant="outline" size="icon" aria-label="Actividad siguiente" disabled={current>=pages-1} onClick={()=>setPage(current+1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
+  </section>;
 }

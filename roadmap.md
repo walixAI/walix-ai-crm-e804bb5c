@@ -1,5 +1,11 @@
 # Llamadas entrantes de Refrigeración
 
+## Correcciones en Reportes
+- [x] Eliminar etapas duplicadas dentro de cada proceso del embudo; separar procesos y conservar conteos de oportunidades. Recorridos únicos por contacto con última oportunidad abierta.
+- [x] Rediseñar recorrido con detalles desplegables, lista de alto limitado y páginas de 15; conversiones muestran origen, avances únicos y porcentaje, sin IA ni indicador de IA.
+- [x] Actividad del equipo: llamadas entrantes/salientes, WhatsApp, email y otros tipos; periodo, usuario, páginas y Excel de todos los resultados filtrados.
+- [x] Comprobar 18 oportunidades → 17 leads únicos y páginas 15+2, etapas duplicadas agrupadas, filtros combinados y lectura del Excel descargado con sesión temporal; 21 pruebas aprobadas, sin errores en computadora/celular. Datos temporales retirados.
+
 - [x] Recibir y contestar entrantes en Walix desde el aviso verde, mantener celular opcional y resultados firmados; 43 pruebas aprobadas, aceptación/silencio/cierre comprobados con proveedor local simulado en 1280, 812 y 390 px, lectura autenticada de recepción comprobada en empresa temporal sin canal. No certifica audio telefónico real.
 - [ ] Comprobar una llamada telefónica real contestada en Walix: requiere una llamada entrante y micrófono físico; no se hicieron llamadas con costo.
 

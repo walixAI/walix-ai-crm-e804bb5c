@@ -6,6 +6,7 @@ import { useTenantUsers, type TenantUser } from "@/lib/queries/tenantUsers";
 import type { ReportFilters } from "@/lib/reports/filters";
 import { readAllPages } from "./paginate";
 import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
+import { buildStageReports } from "@/lib/reports/reportRules";
 
 // ─────────────────────────────────────────────────────────────────
 // Period helpers
@@ -93,19 +94,21 @@ interface RawDataset {
   }>;
   stageHistory: Array<{
     deal_id: string;
+    from_stage_id?: string | null;
+    to_stage_id?: string | null;
     from_stage_name: string | null;
     to_stage_name: string | null;
     changed_by: string | null;
     changed_at: string;
   }>;
-  stages: Array<{ id: string; name: string; position: number; is_won: boolean; is_lost: boolean }>;
+  stages: Array<{ id: string; name: string; position: number; is_won: boolean; is_lost: boolean; pipeline_id: string | null; pipelines?: { name: string } | null }>;
 }
 
 async function fetchRange(tenantId: string, from: Date, to: Date): Promise<RawDataset> {
   const fromISO = from.toISOString();
   const toISO = to.toISOString();
 
-  const [deals, contacts, activities, stageHistory, stages] = await Promise.all([
+  const [deals, contacts, activities, stageHistory, stages, pipelines] = await Promise.all([
     readAllPages((start, end) => supabase.from("deals")
       .select("id, name, amount, owner_id, contact_id, stage_id, stage_name, is_won, is_lost, lost_reason, source, created_at, updated_at, won_at, lost_at")
       .eq("tenant_id", tenantId)
@@ -119,23 +122,21 @@ async function fetchRange(tenantId: string, from: Date, to: Date): Promise<RawDa
       .eq("tenant_id", tenantId)
       .gte("occurred_at", fromISO).lte("occurred_at", toISO).order("id").range(start, end)),
     readAllPages((start, end) => supabase.from("deal_stage_history")
-      .select("deal_id, from_stage_name, to_stage_name, changed_by, changed_at")
+      .select("deal_id, from_stage_id, to_stage_id, from_stage_name, to_stage_name, changed_by, changed_at")
       .eq("tenant_id", tenantId)
       .gte("changed_at", fromISO).lte("changed_at", toISO).order("id").range(start, end)),
-    supabase.from("pipeline_stages")
-      .select("id, name, position, is_won, is_lost")
-      .eq("tenant_id", tenantId)
-      .order("position", { ascending: true }),
+    readAllPages((start,end) => supabase.from("pipeline_stages")
+      .select("id, name, position, is_won, is_lost, pipeline_id")
+      .eq("tenant_id", tenantId).order("position").order("id").range(start,end)),
+    readAllPages((start,end) => supabase.from("pipelines").select("id,name").eq("tenant_id",tenantId).order("id").range(start,end)),
   ]);
-
-  if (stages.error)       throw stages.error;
 
   return {
     deals:        deals as RawDataset["deals"],
     contacts:     contacts as RawDataset["contacts"],
     activities:   consolidateCallActivities(activities) as RawDataset["activities"],
     stageHistory: stageHistory as RawDataset["stageHistory"],
-    stages:       (stages.data       ?? []) as RawDataset["stages"],
+    stages:       stages.map(s => ({ ...s, pipelines: pipelines.find(p => p.id === s.pipeline_id) ?? null })),
   };
 }
 
@@ -158,6 +159,8 @@ export interface FunnelStageRow {
   count: number;
   value: number;
   conversionFromPrev: number | null;
+  pipelineId?: string;
+  pipelineName?: string;
 }
 
 export interface SellerPerformanceRow {
@@ -205,6 +208,9 @@ export interface StageConversionRow {
   to: string;
   advanced: number;
   rate: number;
+  eligible?: number;
+  pipelineId?: string;
+  pipelineName?: string;
 }
 
 export interface ReportsData {
@@ -308,22 +314,9 @@ function deriveData(
   ];
 
   // ── Funnel ────────────────────────────────────────────
-  const stagesOrdered = [...curr.stages].sort((a, b) => a.position - b.position);
-  const dealsByStage = new Map<string, typeof deals>();
-  for (const d of deals) {
-    const key = d.stage_id ?? "__none";
-    const arr = dealsByStage.get(key) ?? [];
-    arr.push(d);
-    dealsByStage.set(key, arr);
-  }
-  const funnel: FunnelStageRow[] = stagesOrdered.map((s, i) => {
-    const arr = dealsByStage.get(s.id) ?? [];
-    const count = arr.length;
-    const value = arr.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-    const prev = i > 0 ? (dealsByStage.get(stagesOrdered[i - 1].id)?.length ?? 0) : 0;
-    const conv = i === 0 ? null : prev === 0 ? 0 : Math.round((count / prev) * 100);
-    return { id: s.id, name: s.name, count, value, conversionFromPrev: conv };
-  });
+  const stageReport = buildStageReports(curr.stages, deals, history);
+  const pipelineName = (id: string) => curr.stages.find(s => s.pipeline_id === id)?.pipelines?.name ?? "Proceso de ventas";
+  const funnel: FunnelStageRow[] = stageReport.funnel.map(s => ({ ...s, pipelineName: pipelineName(s.pipelineId) }));
 
   // ── Seller performance ───────────────────────────────
   const usersToShow = sellersFilter.length === 0
@@ -425,17 +418,7 @@ function deriveData(
   }
 
   // ── Stage conversions ────────────────────────────────
-  const stageConversions: StageConversionRow[] = [];
-  for (let i = 0; i < stagesOrdered.length - 1; i++) {
-    const from = stagesOrdered[i];
-    const to = stagesOrdered[i + 1];
-    const advanced = history.filter(
-      h => h.from_stage_name === from.name && h.to_stage_name === to.name,
-    ).length;
-    const fromCount = (dealsByStage.get(from.id) ?? []).length;
-    const rate = fromCount === 0 ? 0 : Math.round((advanced / fromCount) * 100);
-    stageConversions.push({ from: from.name, to: to.name, advanced, rate });
-  }
+  const stageConversions: StageConversionRow[] = stageReport.stageConversions.map(s => ({ ...s, pipelineName: pipelineName(s.pipelineId) }));
 
   const isEmpty =
     deals.length === 0 && contacts.length === 0 && activities.length === 0;
