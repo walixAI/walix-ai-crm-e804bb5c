@@ -135,3 +135,7 @@
 - [ ] Conexión con un clic de Google y Microsoft — espera que Erick registre la app de Walix en Google Cloud y Microsoft Entra.
 
 - [x] Módulo Documentos (categorías, permisos asesor/bot, adjuntar en WhatsApp/Email, envío por Agente)
+
+# Reporte de llamadas de Refrigeración
+
+- [ ] Revisar qué muestra hoy el reporte de llamadas (no atendidas, intentos, tasa de conexión, responsables) y decidir qué falta.
