@@ -195,6 +195,7 @@ serve(async (req) => {
         recordingNotice: channel.recording_notice ?? null,
         statusCallbackUrl: callbackBase ? `${callbackBase}&leg=advisor` : null,
         dialCallbackUrl: callbackBase ? `${callbackBase}&leg=lead` : null,
+        advisorAcceptUrl: callbackBase && channel.provider === "twilio" ? `${callbackBase}&leg=advisor-accept` : null,
       });
 
       const { data: call, error: insErr } = await admin.from("calls").insert({

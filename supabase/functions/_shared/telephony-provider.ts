@@ -22,6 +22,7 @@ export interface StartCallOptions {
   /** URL de callback de estado del proveedor. */
   statusCallbackUrl?: string | null;
   dialCallbackUrl?: string | null;
+  advisorAcceptUrl?: string | null;
 }
 
 export interface TelephonyProvider {
@@ -59,6 +60,12 @@ export function buildDialTwiml(o: {
   const caller = o.callerId ? ` callerId="${esc(o.callerId)}"` : "";
   const events = o.dialCallbackUrl ? ` statusCallback="${esc(o.dialCallbackUrl)}" statusCallbackEvent="initiated ringing answered completed" machineDetection="Enable" amdStatusCallback="${esc(o.dialCallbackUrl)}"` : "";
   return `<Response>${say}<Dial timeout="30"${rec}${action}${caller}><Number${events}>${esc(o.lead)}</Number></Dial></Response>`;
+}
+
+/** El asesor confirma con la tecla 1: un buzón no puede presionarla, así nunca se marca al cliente contra un buzón. */
+export function buildAdvisorScreenTwiml(acceptUrl: string): string {
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return `<Response><Gather numDigits="1" timeout="8" action="${esc(acceptUrl)}" method="POST"><Say language="es-MX">Llamada de Walix. Para conectar con tu cliente presiona uno.</Say></Gather><Hangup/></Response>`;
 }
 
 class TelnyxProvider implements TelephonyProvider {
@@ -116,7 +123,7 @@ class TwilioProvider implements TelephonyProvider {
     const body = new URLSearchParams({
       To: advisor,
       From: fromNumber,
-      Twiml: buildDialTwiml({
+      Twiml: opts.advisorAcceptUrl ? buildAdvisorScreenTwiml(opts.advisorAcceptUrl) : buildDialTwiml({
         lead: to,
         record: !!opts.recordCalls,
         notice: opts.recordingNotice,

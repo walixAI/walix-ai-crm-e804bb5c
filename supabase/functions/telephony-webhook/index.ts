@@ -127,6 +127,12 @@ serve(async (req) => {
         if (error) throw error;
         return xml("<Response><Hangup/></Response>");
       }
+      if (leg === "advisor-accept") {
+        // Solo un asesor real presiona 1; si contestó un buzón la llamada termina sin marcar al cliente.
+        if (call.direction !== "outbound" || call.ended_at || call.metadata?.mode === "browser" || payload.Digits !== "1") return xml("<Response><Hangup/></Response>");
+        const base = `${SUPABASE_URL}/functions/v1/telephony-webhook?token=${token}&call_id=${call.id}`;
+        return xml(buildDialTwiml({ lead: call.to_number, callerId: channel.phone_number, record: channel.record_calls, notice: channel.recording_notice, dialCallbackUrl: `${base}&leg=lead`, recordingCallbackUrl: `${base}&leg=recording` }));
+      }
       if (browserStart) {
         if (call.metadata?.mode !== "browser" || payload.From !== `client:${call.user_id}` || call.provider_call_id || call.ended_at) return ok({ error: "Llamada no autorizada" }, 403);
         const { data: claimed, error } = await admin.from("calls").update({ provider_call_id: payload.CallSid }).eq("id", call.id).is("provider_call_id", null).select("id").maybeSingle();
@@ -138,6 +144,12 @@ serve(async (req) => {
         await admin.from("calls").update({ recording_url: `https://api.twilio.com/2010-04-01/Accounts/${creds.account_sid}/Recordings/${payload.RecordingSid}` }).eq("id", call.id);
         const job = transcribeRecording(admin, channel, call.id, payload.RecordingSid);
         if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job); else await job;
+        return ok({ ok: true });
+      }
+      if (leg === "advisor" && payload.CallStatus === "completed" && !call.ended_at && call.status === "queued") {
+        // El asesor no confirmó (buzón o colgó): el cliente nunca fue marcado.
+        const { error } = await admin.from("calls").update({ status: "failed", ended_at: new Date().toISOString(), duration_seconds: 0, metadata: { ...(call.metadata ?? {}), advisor_not_confirmed: true } }).eq("id", call.id).is("ended_at", null);
+        if (error) throw error;
         return ok({ ok: true });
       }
       const result = providerResult(payload, leg);
