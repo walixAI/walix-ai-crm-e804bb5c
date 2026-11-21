@@ -24,6 +24,7 @@ import { downloadCSV } from "@/lib/reports/exportCsv";
 import { PeriodPicker } from "@/components/reports/PeriodPicker";
 import { periodLabel, type PeriodValue } from "@/lib/reports/filters";
 import { useTenant } from "@/lib/queries/tenant";
+import { AgentStatusTab } from "@/components/agent-status/AgentStatusTab";
 import { IncomingPhonePreference } from "@/components/calls/IncomingPhonePreference";
 
 const STATUS_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -167,6 +168,7 @@ export default function Calls() {
           <TabsTrigger value="historial">Historial</TabsTrigger>
           <TabsTrigger value="perdidas">Entrantes no atendidas ({missed.length})</TabsTrigger>
           <TabsTrigger value="responsables">Por responsable</TabsTrigger>
+          <TabsTrigger value="estados">Estados del equipo</TabsTrigger>
           <TabsTrigger value="campanas">Campañas</TabsTrigger>
         </TabsList>
 
@@ -189,6 +191,10 @@ export default function Calls() {
               else { setSortKey(k); setSortDir("desc"); }
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="estados" className="mt-4">
+          <AgentStatusTab period={period} />
         </TabsContent>
 
         <TabsContent value="campanas" className="mt-4">

@@ -1,3 +1,4 @@
+import { unavailableAgents } from "./agent-status.ts";
 // Enrutamiento de llamadas entrantes (PBX) compartido por telephony-api (simulador) y telephony-webhook (proveedor real).
 // deno-lint-ignore-file no-explicit-any
 import { defaultInboundPolicy, inboundRecipients, mayReceivePhone, profileReceivingPhone } from "./inbound-routing-policy.ts";
@@ -81,6 +82,7 @@ export async function routeInboundCall(admin: any, opts: {
   let receivingPhone: string | null = null;
   let receivingTargets: { user_id: string; phone: string }[] = [];
   let notificationUserIds: string[] | undefined;
+  let ringUnavailable = new Set<string>();
   if (opts.useReceivingPreference) {
     const { data: policyData, error: policyError } = await admin.from("tenant_inbound_call_settings").select("*").eq("tenant_id", tenantId).maybeSingle();
     const { data: memberRoles, error: roleError } = await admin.from("user_roles").select("user_id,role").eq("tenant_id", tenantId);
@@ -96,12 +98,21 @@ export async function routeInboundCall(admin: any, opts: {
     const activeRoles = (memberRoles ?? []).filter((r: any) => members.some(m => m.id === r.user_id));
     // The assigned advisor wins; unknown or unassigned callers use the tenant's group.
     notificationUserIds = inboundRecipients(policy, activeRoles, contact?.owner_id ?? null);
+    // Agent states: paused/offline advisors are notified but never rung; users without a state row keep legacy behavior.
+    const { data: states, error: statesError } = await admin.from("agent_status_current").select("user_id,kind,last_seen_at").eq("tenant_id", tenantId);
+    if (statesError) throw statesError;
+    const unavailable = unavailableAgents(states ?? [], Date.now());
+    if (contact?.owner_id && unavailable.has(contact.owner_id)) {
+      const overflow = inboundRecipients(policy, activeRoles, null).filter((id) => !unavailable.has(id));
+      notificationUserIds = [...new Set([contact.owner_id, ...overflow])];
+    }
+    ringUnavailable = unavailable;
     userId = notificationUserIds.length === 1 ? notificationUserIds[0] : null;
     if (notificationUserIds.length && open && target !== "voicemail") {
       const { data: preferences, error } = await admin.from("tenant_call_receiving_preferences").select("user_id,phone_enabled").eq("tenant_id", tenantId).in("user_id", notificationUserIds);
       const { data: channels, error: channelsError } = await admin.from("call_channels").select("phone_number");
       if (error || channelsError) throw error ?? channelsError;
-      receivingTargets = notificationUserIds.flatMap(id => {
+      receivingTargets = notificationUserIds.filter((id) => !ringUnavailable.has(id)).flatMap(id => {
         const phone = profileReceivingPhone(members.find(m => m.id === id)?.phone, !!preferences?.find((p: any) => p.user_id === id)?.phone_enabled, mayReceivePhone(policy, id), (channels ?? []).map((c: any) => c.phone_number ?? ""));
         return phone ? [{ user_id: id, phone }] : [];
       });
@@ -114,7 +125,7 @@ export async function routeInboundCall(admin: any, opts: {
     }
   }
   const browserRecipients = opts.useReceivingPreference && channel.provider === "twilio"
-    ? inboundBrowserRecipients(notificationUserIds ?? [], open, target, receivingTargets.length) : [];
+    ? inboundBrowserRecipients((notificationUserIds ?? []).filter((id) => !ringUnavailable.has(id)), open, target, receivingTargets.length) : [];
   // Client and Number destinations share Twilio's ten-destination limit.
   receivingTargets = receivingTargets.slice(0, Math.max(0, 10 - browserRecipients.length));
   receivingPhone = receivingTargets[0]?.phone ?? null;

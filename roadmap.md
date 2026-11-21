@@ -144,3 +144,7 @@
 - [x] Tabla por responsable con salientes, efectivas, tasa, entrantes, no atendidas y última actividad, ordenable; sin asesor aparece como «Grupo de recepción · sin asignar».
 - [x] Exportar CSV con resumen, desglose por responsable y el número de cada entrante no atendida; archivo descargado y leído, 22 líneas con el nombre de la empresa.
 - [x] 5 pruebas nuevas del reporte y 169 pruebas del proyecto aprobadas; pantalla comprobada como propietario de Refrigeración en 1280 px.
+
+## Estados del asesor (Contact Center)
+- [x] Estados, pausas, bitácora con conexión/desconexión y horarios, tablero en vivo y CSV
+- [ ] Estado automático "En llamada" al contestar y pantalla para editar motivos/tiempos máximos

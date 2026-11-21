@@ -16,6 +16,8 @@ import { TenantSwitcher } from "@/components/layout/TenantSwitcher";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AgentsActivityIndicator } from "@/components/agents/AgentsActivityIndicator";
 import { MobileNavSheet } from "@/components/layout/MobileNavSheet";
+import { AgentStatusSelector } from "@/components/agent-status/AgentStatusSelector";
+import { markAgentOffline } from "@/hooks/useAgentStatus";
 import { HumanAttentionBanner } from "@/components/walix/HumanAttention";
 
 const ROTATING_PLACEHOLDERS = [
@@ -29,7 +31,7 @@ const ROTATING_PLACEHOLDERS = [
 ];
 
 export function TopBar() {
-  const { user } = useAuth();
+  const { user, activeTenantId } = useAuth();
   const navigate = useNavigate();
   const openCopilot = useCopilot((s) => s.openDrawer);
   const { allowed: copilotWebAllowed } = useCopilotWebAccess();
@@ -54,6 +56,7 @@ export function TopBar() {
     .split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
 
   const signOut = async () => {
+    try { await markAgentOffline(activeTenantId); } catch { /* sign-out must still proceed */ }
     await supabase.auth.signOut();
     navigate("/login");
   };
@@ -105,6 +108,8 @@ export function TopBar() {
         </button>
         )}
       </div>
+
+      <AgentStatusSelector />
 
       <div data-tour="notifications" className="shrink-0">
         <NotificationsBell />

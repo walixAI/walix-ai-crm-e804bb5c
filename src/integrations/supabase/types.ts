@@ -157,6 +157,151 @@ export type Database = {
           },
         ]
       }
+      agent_status_current: {
+        Row: {
+          kind: string
+          last_seen_at: string
+          reason_id: string | null
+          reason_name: string
+          set_by: string | null
+          since: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          kind?: string
+          last_seen_at?: string
+          reason_id?: string | null
+          reason_name?: string
+          set_by?: string | null
+          since?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          kind?: string
+          last_seen_at?: string
+          reason_id?: string | null
+          reason_name?: string
+          set_by?: string | null
+          since?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_status_current_reason_id_fkey"
+            columns: ["reason_id"]
+            isOneToOne: false
+            referencedRelation: "agent_status_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_status_current_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_status_log: {
+        Row: {
+          created_at: string
+          end_cause: string | null
+          ended_at: string | null
+          ended_by: string | null
+          id: string
+          kind: string
+          reason_id: string | null
+          reason_name: string
+          set_by: string | null
+          started_at: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_cause?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          kind: string
+          reason_id?: string | null
+          reason_name: string
+          set_by?: string | null
+          started_at: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_cause?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          kind?: string
+          reason_id?: string | null
+          reason_name?: string
+          set_by?: string | null
+          started_at?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_status_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_status_reasons: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          kind: string
+          max_minutes: number | null
+          name: string
+          productive: boolean
+          sort_order: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind: string
+          max_minutes?: number | null
+          name: string
+          productive?: boolean
+          sort_order?: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: string
+          max_minutes?: number | null
+          name?: string
+          productive?: boolean
+          sort_order?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_status_reasons_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_runs: {
         Row: {
           actions_taken: number
@@ -6853,6 +6998,15 @@ export type Database = {
         Args: { _deal_id: string; _pattern: string; _reason: string }
         Returns: boolean
       }
+      agent_status_heartbeat: { Args: never; Returns: Json }
+      agent_status_is_admin: {
+        Args: { _tenant: string; _uid: string }
+        Returns: boolean
+      }
+      agent_status_is_supervisor: {
+        Args: { _tenant: string; _uid: string }
+        Returns: boolean
+      }
       ai_cleanup_old_data: { Args: never; Returns: undefined }
       ai_recompute_next_run: { Args: { p_agent_id: string }; Returns: string }
       ai_run_due_agents: { Args: never; Returns: number }
@@ -7046,6 +7200,10 @@ export type Database = {
           status: string
         }[]
       }
+      seed_agent_status_reasons: {
+        Args: { _tenant: string }
+        Returns: undefined
+      }
       seed_default_activity_outcomes: {
         Args: { _pipeline_id: string; _tenant_id: string }
         Returns: number
@@ -7065,6 +7223,10 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: undefined
+      }
+      set_agent_status: {
+        Args: { _cause?: string; _reason_id: string; _user_id?: string }
+        Returns: Json
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
