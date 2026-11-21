@@ -21,7 +21,11 @@ En Configuración → Llamadas → "Estados del asesor":
 - Nueva pestaña en Llamadas: "Equipo en vivo" con cada asesor, su estado actual y tiempo en él, llamadas atendidas hoy.
 
 ## Reporte
-- En la pestaña "Por responsable": tiempo disponible, en llamada, en cada pausa, % ocupación y adherencia (pausas excedidas). Incluido en el CSV.
+- **Bitácora de estados** (nueva pestaña en Llamadas): una fila por cada cambio con asesor, estado/motivo, hora de inicio, hora de fin, duración y quién hizo el cambio. Ej.: "Moises Cornejo · Pausa: Coaching · 10:00 am – 10:34 am · 34 min".
+- Incluye **conexión** (inicio de sesión / primer estado del día) y **desconexión** (cierre de sesión, desconexión automática por inactividad o cambio manual), con hora exacta.
+- Filtros por periodo, asesor y estado; horas en hora de México.
+- Resumen por responsable: primera conexión y última desconexión del día, tiempo disponible, en llamada, en cada pausa, % ocupación y pausas excedidas.
+- Exportación CSV de la bitácora completa y del resumen.
 
 ## Detalles técnicos
 - Tablas nuevas con RLS por tenant + GRANTs:
