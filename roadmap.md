@@ -138,4 +138,9 @@
 
 # Reporte de llamadas de Refrigeración
 
-- [ ] Revisar qué muestra hoy el reporte de llamadas (no atendidas, intentos, tasa de conexión, responsables) y decidir qué falta.
+- [x] Revisar qué muestra hoy el reporte de llamadas (no atendidas, intentos, tasa de conexión, responsables) y decidir qué falta.
+- [x] Separar salientes y entrantes con su propio resumen: marcadas/efectivas/tasa/intentos hasta conectar y recibidas/atendidas/no atendidas/tasa de atención; comprobado con datos reales de Refrigeración (18 marcadas, 9 efectivas, 50%, 6 recibidas, 0 atendidas, 5 no atendidas).
+- [x] Filtrar todo el reporte por periodo (Hoy, Esta semana, Este mes, Últimos 3 meses, personalizado) con las fechas resueltas dentro de cada consulta; al cambiar a Hoy quedaron 0 salientes y 3 entrantes no atendidas.
+- [x] Tabla por responsable con salientes, efectivas, tasa, entrantes, no atendidas y última actividad, ordenable; sin asesor aparece como «Grupo de recepción · sin asignar».
+- [x] Exportar CSV con resumen, desglose por responsable y el número de cada entrante no atendida; archivo descargado y leído, 22 líneas con el nombre de la empresa.
+- [x] 5 pruebas nuevas del reporte y 169 pruebas del proyecto aprobadas; pantalla comprobada como propietario de Refrigeración en 1280 px.
