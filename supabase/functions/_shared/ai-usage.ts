@@ -36,6 +36,10 @@ function periodStart() {
 export async function recordAiUsage(u: AiUsageInput) {
   try {
     const svc = serviceClient();
+    if (u.userId) {
+      const { data: prof } = await svc.from("profiles").select("email").eq("id", u.userId).maybeSingle();
+      if (String(prof?.email ?? "").toLowerCase().endsWith("@walix-test.io")) return; // cuentas QA internas: sin registro ni cobro
+    }
     const iterations = Math.max(1, u.iterations ?? 1);
     const inputTokens = u.inputTokens ?? 0;
     const outputTokens = u.outputTokens ?? 0;

@@ -1,3 +1,4 @@
+import { isInternalTestEmail } from "@/lib/internalUsers";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,15 +40,16 @@ export function AgentStatusTab({ period }: { period: PeriodValue }) {
   const members = useQuery({
     queryKey: ["agent-team-members", activeTenantId], enabled: !!activeTenantId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id,full_name").eq("tenant_id", activeTenantId!).order("full_name");
+      const { data, error } = await supabase.from("profiles").select("id,full_name,email").eq("tenant_id", activeTenantId!).order("full_name");
       if (error) throw error;
       return data ?? [];
     },
   });
+  const hiddenIds = useMemo(() => new Set((members.data ?? []).filter((m) => isInternalTestEmail(m.email)).map((m) => m.id)), [members.data]);
   const liveRows = useMemo(() => {
     const byUser = new Map((team.data ?? []).map((t) => [t.user_id, t]));
-    return (members.data ?? []).map((m) => ({ member: m, status: byUser.get(m.id) ?? null }));
-  }, [team.data, members.data]);
+    return (members.data ?? []).filter((m) => !hiddenIds.has(m.id)).map((m) => ({ member: m, status: byUser.get(m.id) ?? null }));
+  }, [team.data, members.data, hiddenIds]);
   const log = useQuery({
     queryKey: ["agent-log", activeTenantId, period.preset, period.from ?? null, period.to ?? null], enabled: !!activeTenantId, refetchInterval: 30_000,
     queryFn: async () => {
@@ -70,7 +72,7 @@ export function AgentStatusTab({ period }: { period: PeriodValue }) {
     },
   });
   const nm = names.data ?? new Map<string, string>();
-  const rows = (log.data?.rows ?? []).filter((r) => (who === "all" || r.user_id === who) && (kind === "all" || r.kind === kind));
+  const rows = (log.data?.rows ?? []).filter((r) => !hiddenIds.has(r.user_id) && (who === "all" || r.user_id === who) && (kind === "all" || r.kind === kind));
   const maxBy = Object.fromEntries(reasons.map((r) => [r.name, r.max_minutes]));
   const summary = log.data ? buildAgentSummary(rows, log.data, maxBy, now) : [];
   const stale = (t: any) => t.kind === "available" && now - Date.parse(t.last_seen_at) > 180_000;
@@ -104,7 +106,7 @@ export function AgentStatusTab({ period }: { period: PeriodValue }) {
       <div className="flex items-center gap-2 flex-wrap">
         <Select value={who} onValueChange={setWho}>
           <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Todos los asesores</SelectItem>{[...new Set((log.data?.rows ?? []).map((r) => r.user_id))].map((id) => <SelectItem key={id} value={id}>{nm.get(id) ?? "Usuario"}</SelectItem>)}</SelectContent>
+          <SelectContent><SelectItem value="all">Todos los asesores</SelectItem>{[...new Set((log.data?.rows ?? []).map((r) => r.user_id).filter((id) => !hiddenIds.has(id)))].map((id) => <SelectItem key={id} value={id}>{nm.get(id) ?? "Usuario"}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={kind} onValueChange={setKind}>
           <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
