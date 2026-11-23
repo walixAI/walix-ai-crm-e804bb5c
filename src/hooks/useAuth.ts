@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore, type Role, type OrgMembership } from "@/store/auth";
 import { useCopilot } from "@/store/copilot";
 import { toastError } from "@/lib/toast";
+import { markAgentAvailableOnLogin } from "@/lib/agentStatus";
 
 async function loadUserContextOnce(userId: string) {
   const [rolesRes, profileRes, membershipsRes] = await Promise.all([
@@ -80,6 +81,8 @@ export function useInitAuth() {
       setActiveTenantId(ctx.activeTenantId);
       lastLoadedUserId.current = userId;
       setContextLoading(false);
+      // Al iniciar sesión el asesor entra en Disponible para recibir llamadas.
+      void markAgentAvailableOnLogin(userId, ctx.activeTenantId).catch(() => { /* el login no debe fallar por esto */ });
     };
 
     // 1. Listener FIRST
