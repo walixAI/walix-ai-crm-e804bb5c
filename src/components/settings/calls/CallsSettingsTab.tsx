@@ -220,7 +220,7 @@ export function CallsSettingsTab({ tenantId }: Props) {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Nombre</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej. Admisiones SCALA" />
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej. Ventas principal" />
             </div>
             <div className="space-y-1.5">
               <Label>Proveedor</Label>

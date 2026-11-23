@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 type Kind = "web_domain" | "meta_form" | "meta_ad_account" | "google_ads_account";
 
 const KINDS: { kind: Kind; title: string; help: string; placeholder: string; icon: typeof Globe }[] = [
-  { kind: "web_domain", title: "Dominios de tu sitio web", help: "Solo se aceptan leads de formularios web enviados desde estos dominios (incluye sus subdominios).", placeholder: "utel.edu.mx", icon: Globe },
+  { kind: "web_domain", title: "Dominios de tu sitio web", help: "Solo se aceptan leads de formularios web enviados desde estos dominios (incluye sus subdominios).", placeholder: "tuempresa.com", icon: Globe },
   { kind: "meta_form", title: "Formularios de Meta Ads", help: "Los leads de estos formularios entran a tu empresa. Usa el ID del formulario.", placeholder: "ID del formulario, ej. 1234567890", icon: FileText },
   { kind: "meta_ad_account", title: "Cuentas publicitarias de Meta", help: "Solo se aceptan leads de anuncios de estas cuentas.", placeholder: "act_1234567890", icon: Megaphone },
   { kind: "google_ads_account", title: "Cuentas de Google Ads", help: "Solo se aceptan leads de anuncios de estas cuentas.", placeholder: "123-456-7890", icon: Search },
