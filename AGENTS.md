@@ -33,7 +33,7 @@
 - DB triggers synchronize opportunity stage/product labels; views share latestActiveOpportunity and invalidate contact/history queries; why: screens must agree. Explicit new programs override old contact profiles; existing name/amount edits share EditDealQuickDialog; why: no inherited names or duplicate editors.
 - Profile-derived opportunity names and confirmed numeric amounts/catalog prices are synchronized by contact/deal triggers to the latest open deal, tracking last auto-filled values to preserve advisor overrides; why: bot and advisor profiling must behave identically without guessing prices or changing historical opportunities.
 
-- Shell uses overflow-x-clip (no duplicate scrollbars); documents use a private bucket with signed links.
+- Shell uses overflow-x-clip; documents use a private bucket with signed links.
 
 - Sales agent behavior lives in supabase/functions/_shared/sales-agent.ts, shared by WhatsApp, web chat and test; why: one brain for all channels.
 - WhatsApp, contact and deal advisor panels share the contact-keyed lead brief; deal probabilities come from persisted deals and profiling completeness stays separate, because different screens must not invent competing prospect assessments.
@@ -59,4 +59,4 @@
 - Call start failures remain visible and device dialing is explicit; manual outcomes reuse LogFollowUpDialog, while provider outcomes require a returned call ID; why: a tel: handoff does not confirm a call or justify a fabricated result.
 - Tenant-specific opportunity naming is configured via tenants.deal_name_template (NULL = default) and applied in sync_opportunity_labels through deal_auto_name, recalculating only while the name equals profile_auto_name; why: per-tenant behavior lives in data, never hardcoded tenant checks, and advisor edits win.
 - Pipeline "active" lens counts open deals from creation until closed, regardless of period start; why: stage filters must never hide live opportunities created in earlier months.
-- Accounts with @walix-test.io email are internal QA: hidden from team views and never logged or charged for AI usage (recordAiUsage); why: QA activity must not distort tenant reports or billing.
+- @walix-test.io accounts are internal QA: hidden in team views, never logged/charged for AI; why: no distorted reports or billing.
