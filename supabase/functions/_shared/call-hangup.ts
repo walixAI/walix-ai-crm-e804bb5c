@@ -25,6 +25,14 @@ export function inboundDialHangup(status: string, parentStatus: string, existing
   return {};
 }
 
+/** Outbound <Dial> action: parent leg is the advisor; a completed parent means the advisor hung up. */
+export function outboundDialHangup(status: string, parentStatus: string, existing?: string | null): HangupEvidence {
+  if (existing) return {};
+  if (status === "completed") return { hangup_by: parentStatus === "completed" ? "agent" : "prospect" };
+  if (status === "no_answer") return { hangup_by: parentStatus === "completed" ? "agent" : "system" };
+  return {};
+}
+
 export function hangupLabel(by?: string | null): string {
   switch (by) {
     case "prospect": return "Colgó el prospecto";

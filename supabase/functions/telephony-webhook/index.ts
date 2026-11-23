@@ -11,7 +11,7 @@ import { providerResult, inboundDialResult, FINAL_CALL_STATUSES } from "../_shar
 import { buildDialTwiml } from "../_shared/telephony-provider.ts";
 import { transcribeRecording } from "../_shared/call-transcription.ts";
 import { inboundBrowserIdentity, matchesInboundBrowser } from "../_shared/inbound-browser.ts";
-import { inboundDialHangup, terminalHangup } from "../_shared/call-hangup.ts";
+import { inboundDialHangup, outboundDialHangup, terminalHangup } from "../_shared/call-hangup.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -184,6 +184,8 @@ serve(async (req) => {
           patch.ended_at = new Date().toISOString();
           patch.duration_seconds = result.duration;
           Object.assign(patch, terminalHangup(result.status, String(patch.ended_at), call));
+          // Outbound <Dial> action: the parent leg is the advisor, the dialed leg is the prospect.
+          if (leg === "lead" && payload.DialCallStatus) Object.assign(patch, outboundDialHangup(result.status, String(payload.CallStatus ?? ""), call.hangup_by));
         }
         const { error } = await admin.from("calls").update(patch).eq("id", call.id).is("ended_at", null);
         if (error) throw error;

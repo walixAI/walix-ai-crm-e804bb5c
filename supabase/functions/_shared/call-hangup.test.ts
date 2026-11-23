@@ -28,3 +28,11 @@ describe("inbound dial hangup", () => {
   it("ring timeout is the system", () => expect(idh("no_answer", "in-progress").hangup_by).toBe("system"));
   it("keeps existing evidence", () => expect(idh("completed", "completed", "agent").hangup_by).toBeUndefined());
 });
+
+import { outboundDialHangup as odh } from "./call-hangup";
+describe("outbound dial hangup", () => {
+  it("prospect leg ended while advisor connected means the prospect hung up", () => expect(odh("completed", "in-progress").hangup_by).toBe("prospect"));
+  it("advisor leg completed means the advisor hung up", () => expect(odh("completed", "completed").hangup_by).toBe("agent"));
+  it("unanswered prospect is a system timeout", () => expect(odh("no_answer", "in-progress").hangup_by).toBe("system"));
+  it("keeps the Walix button evidence", () => expect(odh("completed", "in-progress", "agent").hangup_by).toBeUndefined());
+});
