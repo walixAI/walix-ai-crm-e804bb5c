@@ -11,7 +11,7 @@ import { providerResult, inboundDialResult, FINAL_CALL_STATUSES } from "../_shar
 import { buildDialTwiml } from "../_shared/telephony-provider.ts";
 import { transcribeRecording } from "../_shared/call-transcription.ts";
 import { inboundBrowserIdentity, matchesInboundBrowser } from "../_shared/inbound-browser.ts";
-import { terminalHangup } from "../_shared/call-hangup.ts";
+import { inboundDialHangup, terminalHangup } from "../_shared/call-hangup.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -109,7 +109,8 @@ serve(async (req) => {
         if (!call.ended_at && payload.CallStatus === "completed") {
           const now = new Date().toISOString();
           const status = call.answered_at ? "completed" : "no_answer";
-          const { error } = await admin.from("calls").update({ status, ended_at: now, ...terminalHangup(status, now, call) }).eq("id", call.id).is("ended_at", null);
+          // The caller's own leg ended before anyone answered: the prospect hung up.
+          const { error } = await admin.from("calls").update({ status, ended_at: now, ...terminalHangup(status, now, call), ...(!call.hangup_by && !call.answered_at ? { hangup_by: "prospect" } : {}) }).eq("id", call.id).is("ended_at", null);
           if (error) throw error;
         }
         return ok({ ok: true });
@@ -144,7 +145,7 @@ serve(async (req) => {
         const result = inboundDialResult(payload, !!call.answered_at);
         if (call.direction !== "inbound" || !result || !FINAL_CALL_STATUSES.includes(result.status)) return ok({ ok: true });
         const now = call.ended_at ?? new Date().toISOString();
-        const { error } = await admin.from("calls").update({ status: result.status, ended_at: now, duration_seconds: result.duration, ...terminalHangup(result.status, now, call), ...(result.status === "completed" ? {} : { answered_at: null }) }).eq("id", call.id);
+        const { error } = await admin.from("calls").update({ status: result.status, ended_at: now, duration_seconds: result.duration, ...terminalHangup(result.status, now, call), ...inboundDialHangup(result.status, String(payload.CallStatus ?? ""), call.hangup_by), ...(result.status === "completed" ? {} : { answered_at: null }) }).eq("id", call.id);
         if (error) throw error;
         return xml("<Response><Hangup/></Response>");
       }

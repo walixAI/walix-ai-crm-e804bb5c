@@ -14,6 +14,17 @@ export function terminalHangup(status: string, now: string, existing: HangupEvid
   };
 }
 
+/**
+ * Twilio <Dial> action: if the parent (caller) leg is already completed the prospect hung up;
+ * if it is still in progress the advisor leg ended it. Unanswered dials end by timeout (system).
+ */
+export function inboundDialHangup(status: string, parentStatus: string, existing?: string | null): HangupEvidence {
+  if (existing) return {};
+  if (status === "completed") return { hangup_by: parentStatus === "completed" ? "prospect" : "agent" };
+  if (status === "no_answer") return { hangup_by: parentStatus === "completed" ? "prospect" : "system" };
+  return {};
+}
+
 export function hangupLabel(by?: string | null): string {
   switch (by) {
     case "prospect": return "Colgó el prospecto";

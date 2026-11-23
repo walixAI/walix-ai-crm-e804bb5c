@@ -21,3 +21,10 @@ describe("termination evidence", () => {
     expect(terminalHangup("answered", at)).toEqual({});
   });
 });
+import { inboundDialHangup as idh } from "./call-hangup";
+describe("inbound dial hangup", () => {
+  it("caller leg completed means the prospect hung up", () => expect(idh("completed", "completed").hangup_by).toBe("prospect"));
+  it("caller still connected means the advisor hung up", () => expect(idh("completed", "in-progress").hangup_by).toBe("agent"));
+  it("ring timeout is the system", () => expect(idh("no_answer", "in-progress").hangup_by).toBe("system"));
+  it("keeps existing evidence", () => expect(idh("completed", "completed", "agent").hangup_by).toBeUndefined());
+});
