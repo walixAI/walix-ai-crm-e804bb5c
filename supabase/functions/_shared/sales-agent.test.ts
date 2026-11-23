@@ -71,7 +71,7 @@ describe("Reglas de conversación del agente", () => {
     expect(prompt).toContain("Si ya mencionó una carrera o una duda, responde a eso");
   });
   it("respeta Híbrida y consulta asistencia antes de canalizar", () => {
-    expect(prompt).toContain("si puede o quiere asistir un par de horas a la semana a una sede de Utel");
+    expect(prompt).toContain("si puede o quiere asistir un par de horas a la semana a una sede de la institución");
     expect(prompt).toContain("Si no puede o no quiere, ofrece Online sin insistir");
     expect(prompt).toContain("registra por confirmar, sin asumir aceptación ni rechazo");
   });
