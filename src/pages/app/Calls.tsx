@@ -263,7 +263,7 @@ function CallHistoryList({ rows, isLoading, onAnalyze, missedOnly = false }: {
                 <span>{new Date(c.created_at).toLocaleString("es-MX")}</span>
                 {c.direction === "inbound" && <span>Responsable: {c.advisorName ?? "Grupo de recepción · sin asignar"}</span>}
               </div>
-              {(c.ended_at || ["completed", "failed", "no_answer", "busy", "voicemail"].includes(c.status)) && <div className="mt-1"><CallHangupDetails hangup_by={c.hangup_by} hangup_at={c.hangup_at} /></div>}
+              {(c.ended_at || ["completed", "failed", "no_answer", "busy", "voicemail"].includes(c.status)) && <div className="mt-1"><CallHangupDetails hangup_by={c.hangup_by} hangup_at={c.hangup_at} userId={c.user_id} /></div>}
               {(c as any).notes && <p className="mt-1 truncate text-sm text-muted-foreground">{(c as any).notes}</p>}
               {c.ai_summary && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.ai_summary}</p>}
             </div>
