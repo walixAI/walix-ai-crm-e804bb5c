@@ -36,6 +36,18 @@ export function AgentStatusTab({ period }: { period: PeriodValue }) {
       return data ?? [];
     },
   });
+  const members = useQuery({
+    queryKey: ["agent-team-members", activeTenantId], enabled: !!activeTenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("id,full_name").eq("tenant_id", activeTenantId!).order("full_name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const liveRows = useMemo(() => {
+    const byUser = new Map((team.data ?? []).map((t) => [t.user_id, t]));
+    return (members.data ?? []).map((m) => ({ member: m, status: byUser.get(m.id) ?? null }));
+  }, [team.data, members.data]);
   const log = useQuery({
     queryKey: ["agent-log", activeTenantId, period.preset, period.from ?? null, period.to ?? null], enabled: !!activeTenantId, refetchInterval: 30_000,
     queryFn: async () => {
@@ -67,18 +79,18 @@ export function AgentStatusTab({ period }: { period: PeriodValue }) {
     <div className="space-y-6">
       <section className="rounded-xl border border-border bg-card">
         <div className="px-4 py-3 border-b border-border font-semibold text-sm">Equipo en vivo</div>
-        {team.isLoading ? <Skeleton className="h-24 m-4" /> : !(team.data ?? []).length ? (
-          <p className="p-4 text-sm text-muted-foreground">Nadie ha elegido estado todavía. Cada asesor lo cambia desde el botón de estado en la barra superior.</p>
+        {team.isLoading || members.isLoading ? <Skeleton className="h-24 m-4" /> : !liveRows.length ? (
+          <p className="p-4 text-sm text-muted-foreground">No hay miembros en esta empresa todavía.</p>
         ) : (
           <div className="divide-y divide-border">
-            {team.data!.map((t) => (
-              <div key={t.user_id} className="flex items-center gap-3 px-4 py-2.5 text-sm flex-wrap">
-                <span className={cn("h-2.5 w-2.5 rounded-full", kindDot(stale(t) ? "offline" : t.kind))} />
-                <span className="font-medium min-w-[140px]">{nm.get(t.user_id) ?? "Usuario"}</span>
-                <span className="flex-1">{stale(t) ? "Sin conexión" : t.kind === "pause" ? `Pausa: ${t.reason_name}` : t.reason_name}</span>
-                <span className="tabular-nums text-muted-foreground">desde {fmtTime(t.since)} · {elapsed(t.since, now)}</span>
+            {liveRows.map(({ member, status: t }) => (
+              <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 text-sm flex-wrap">
+                <span className={cn("h-2.5 w-2.5 rounded-full", kindDot(!t || stale(t) ? "offline" : t.kind))} />
+                <span className="font-medium min-w-[140px]">{member.full_name ?? "Usuario"}</span>
+                <span className="flex-1">{!t ? "Nunca se ha conectado" : stale(t) ? "Sin conexión" : t.kind === "pause" ? `Pausa: ${t.reason_name}` : t.reason_name}</span>
+                <span className="tabular-nums text-muted-foreground">{t ? `desde ${fmtTime(t.since)} · ${elapsed(t.since, now)}` : "—"}</span>
                 {isSup && (
-                  <Select value={t.reason_id ?? undefined} onValueChange={(v) => change.mutate({ reasonId: v, userId: t.user_id }, { onError: (e: any) => toastError("No se pudo cambiar", e.message) })}>
+                  <Select value={t?.reason_id ?? undefined} onValueChange={(v) => change.mutate({ reasonId: v, userId: member.id }, { onError: (e: any) => toastError("No se pudo cambiar", e.message) })}>
                     <SelectTrigger className="h-8 w-[170px]"><SelectValue placeholder="Cambiar" /></SelectTrigger>
                     <SelectContent>{reasons.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
                   </Select>
