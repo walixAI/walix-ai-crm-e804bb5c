@@ -197,7 +197,7 @@ export default function Calls() {
         </TabsContent>
 
         <TabsContent value="estados" className="mt-4">
-          <AgentStatusTab period={period} />
+          <AgentStatusTab period={period} onPeriodChange={setPeriod} />
         </TabsContent>
 
         <TabsContent value="campanas" className="mt-4">

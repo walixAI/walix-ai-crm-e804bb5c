@@ -9,6 +9,7 @@ import { resolvePeriodRange } from "@/lib/queries/reports";
 import type { PeriodValue } from "@/lib/reports/filters";
 import { buildAgentSummary, buildAgentStatusCSV, fmtTime, minutesBetween, type AgentStatusLogRow } from "@/lib/reports/agentStatusReport";
 import { downloadCSV } from "@/lib/reports/exportCsv";
+import { PeriodPicker } from "@/components/reports/PeriodPicker";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +20,7 @@ import { toastError } from "@/lib/toast";
 
 const CAUSE: Record<string, string> = { manual: "El asesor", logout: "Cerró sesión", supervisor: "Supervisor", inactividad: "Sin conexión", reconexion: "Reconectó" };
 
-export function AgentStatusTab({ period }: { period: PeriodValue }) {
+export function AgentStatusTab({ period, onPeriodChange }: { period: PeriodValue; onPeriodChange?: (p: PeriodValue) => void }) {
   const { activeTenantId, roles } = useAuth();
   const isSup = roles.some((r) => ["tenant_owner", "tenant_admin", "sales_manager", "super_admin", "platform_owner", "platform_staff"].includes(r));
   const { data: reasons = [] } = useAgentReasons();
@@ -104,6 +105,7 @@ export function AgentStatusTab({ period }: { period: PeriodValue }) {
       </section>
 
       <div className="flex items-center gap-2 flex-wrap">
+        {onPeriodChange && <PeriodPicker value={period} onChange={onPeriodChange} />}
         <Select value={who} onValueChange={setWho}>
           <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">Todos los asesores</SelectItem>{[...new Set((log.data?.rows ?? []).map((r) => r.user_id).filter((id) => !hiddenIds.has(id)))].map((id) => <SelectItem key={id} value={id}>{nm.get(id) ?? "Usuario"}</SelectItem>)}</SelectContent>
