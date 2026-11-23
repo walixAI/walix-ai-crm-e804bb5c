@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { Calendar as CalendarIcon, Check } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+import { Calendar as CalendarIcon, Check, ChevronLeft } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { type PeriodPreset, type PeriodValue, periodLabel } from "@/lib/reports/filters";
 
@@ -18,56 +21,98 @@ interface Props {
   onChange: (v: PeriodValue) => void;
 }
 
+function toDateRange(value: PeriodValue): DateRange | undefined {
+  if (value.preset !== "custom" || !value.from || !value.to) return undefined;
+  return { from: parseISO(value.from), to: parseISO(value.to) };
+}
+
 export function PeriodPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState(value.from ?? "");
-  const [to, setTo] = useState(value.to ?? "");
+  const [customMode, setCustomMode] = useState(value.preset === "custom");
+  const [range, setRange] = useState<DateRange | undefined>(toDateRange(value));
 
-  const apply = (preset: PeriodPreset) => {
-    if (preset === "custom") {
-      if (!from || !to) return;
-      onChange({ preset: "custom", from, to });
-    } else {
-      onChange({ preset });
-    }
+  const applyPreset = (preset: PeriodPreset) => {
+    onChange({ preset });
+    setCustomMode(false);
     setOpen(false);
   };
 
+  const handleSelect = (next: DateRange | undefined) => {
+    setRange(next);
+    // Un solo gesto: al elegir inicio y fin se aplica y se cierra.
+    if (next?.from && next?.to) {
+      onChange({
+        preset: "custom",
+        from: format(next.from, "yyyy-MM-dd"),
+        to: format(next.to, "yyyy-MM-dd"),
+      });
+      setOpen(false);
+    }
+  };
+
+  const openCustom = () => {
+    setRange(value.preset === "custom" ? toDateRange(value) : undefined);
+    setCustomMode(true);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setCustomMode(value.preset === "custom"); }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <CalendarIcon className="h-4 w-4" />
           {periodLabel(value)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="end">
-        <div className="space-y-1">
-          {PRESETS.map(p => (
+      <PopoverContent className="w-auto p-2" align="end">
+        {!customMode ? (
+          <div className="w-56 space-y-1">
+            {PRESETS.map(p => (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p.id)}
+                className={cn(
+                  "w-full flex items-center justify-between rounded-md px-2.5 py-2 text-sm hover:bg-muted transition-colors",
+                  value.preset === p.id && "bg-primary/10 text-primary font-medium",
+                )}
+              >
+                {p.label}
+                {value.preset === p.id && <Check className="h-4 w-4" />}
+              </button>
+            ))}
+            <div className="border-t border-border my-2" />
             <button
-              key={p.id}
-              onClick={() => apply(p.id)}
+              onClick={openCustom}
               className={cn(
                 "w-full flex items-center justify-between rounded-md px-2.5 py-2 text-sm hover:bg-muted transition-colors",
-                value.preset === p.id && "bg-primary/10 text-primary font-medium",
+                value.preset === "custom" && "bg-primary/10 text-primary font-medium",
               )}
             >
-              {p.label}
-              {value.preset === p.id && <Check className="h-4 w-4" />}
+              Personalizado
+              {value.preset === "custom" && <Check className="h-4 w-4" />}
             </button>
-          ))}
-          <div className="border-t border-border my-2" />
-          <div className="px-2 py-1 space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Personalizado</div>
-            <div className="grid grid-cols-2 gap-2">
-              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-xs" />
-              <Input type="date" value={to}   onChange={e => setTo(e.target.value)}   className="h-8 text-xs" />
-            </div>
-            <Button size="sm" className="w-full h-8 text-xs" onClick={() => apply("custom")} disabled={!from || !to}>
-              Aplicar rango
-            </Button>
           </div>
-        </div>
+        ) : (
+          <div>
+            <div className="flex items-center gap-2 px-1 pb-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCustomMode(false)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-xs font-medium text-muted-foreground">
+                Elige la fecha de inicio y la final
+              </div>
+            </div>
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={handleSelect}
+              numberOfMonths={1}
+              locale={es}
+              disabled={{ after: new Date() }}
+              initialFocus
+              className={cn("p-2 pointer-events-auto")}
+            />
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
