@@ -15,6 +15,18 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => {
   return chain;
 } } }));
 afterEach(() => vi.useRealTimers());
+it("includes November 1 through the entire November 23, 2026 in Mexico City time", () => {
+  const range = resolvePeriodRange({ preset: "custom", from: "2026-11-01", to: "2026-11-23" });
+  expect(range.from.toISOString()).toBe("2026-11-01T06:00:00.000Z");
+  expect(range.to.toISOString()).toBe("2026-11-24T05:59:59.999Z");
+  const recordedStatus = Date.parse("2026-11-24T00:27:15.049Z");
+  expect(recordedStatus).toBeGreaterThanOrEqual(range.from.getTime());
+  expect(recordedStatus).toBeLessThanOrEqual(range.to.getTime());
+});
+it("includes a complete day when the start and end dates are the same", () => {
+  const range = resolvePeriodRange({ preset: "custom", from: "2026-11-23", to: "2026-11-23" });
+  expect(range.to.getTime() - range.from.getTime() + 1).toBe(86_400_000);
+});
 it("relative report boundaries advance instead of staying at the mount date", () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-11-12T05:00:00Z"));

@@ -1,5 +1,8 @@
 # Llamadas entrantes de Refrigeración
 
+## Periodo personalizado
+- [x] Corregir el rango del 1 al 23 de noviembre de 2026 para incluir el día final completo y exigir inicio/fin al cambiar un rango previo; 9 pruebas aprobadas y lectura real devuelve 21 estados de 2 asesores, excluyendo QA. Pantalla con sesión del solicitante no verificada: no hay sesión disponible.
+
 ## Correcciones en Reportes
 - [x] Eliminar etapas duplicadas dentro de cada proceso del embudo; separar procesos y conservar conteos de oportunidades. Recorridos únicos por contacto con última oportunidad abierta.
 - [x] Rediseñar recorrido con detalles desplegables, lista de alto limitado y páginas de 15; conversiones muestran origen, avances únicos y porcentaje, sin IA ni indicador de IA.

@@ -51,12 +51,16 @@ export function PeriodPicker({ value, onChange }: Props) {
   };
 
   const openCustom = () => {
-    setRange(value.preset === "custom" ? toDateRange(value) : undefined);
+    setRange(undefined);
     setCustomMode(true);
   };
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setCustomMode(value.preset === "custom"); }}>
+    <Popover open={open} onOpenChange={(o) => {
+      setOpen(o);
+      setCustomMode(value.preset === "custom");
+      if (o) setRange(undefined);
+    }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <CalendarIcon className="h-4 w-4" />
@@ -67,7 +71,8 @@ export function PeriodPicker({ value, onChange }: Props) {
         {!customMode ? (
           <div className="w-56 space-y-1">
             {PRESETS.map(p => (
-              <button
+              <Button
+                variant="ghost"
                 key={p.id}
                 onClick={() => applyPreset(p.id)}
                 className={cn(
@@ -77,10 +82,11 @@ export function PeriodPicker({ value, onChange }: Props) {
               >
                 {p.label}
                 {value.preset === p.id && <Check className="h-4 w-4" />}
-              </button>
+              </Button>
             ))}
             <div className="border-t border-border my-2" />
-            <button
+            <Button
+              variant="ghost"
               onClick={openCustom}
               className={cn(
                 "w-full flex items-center justify-between rounded-md px-2.5 py-2 text-sm hover:bg-muted transition-colors",
@@ -89,7 +95,7 @@ export function PeriodPicker({ value, onChange }: Props) {
             >
               Personalizado
               {value.preset === "custom" && <Check className="h-4 w-4" />}
-            </button>
+            </Button>
           </div>
         ) : (
           <div>
@@ -104,6 +110,7 @@ export function PeriodPicker({ value, onChange }: Props) {
             <Calendar
               mode="range"
               selected={range}
+              defaultMonth={toDateRange(value)?.from}
               onSelect={handleSelect}
               numberOfMonths={1}
               locale={es}
