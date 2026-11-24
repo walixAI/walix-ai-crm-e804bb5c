@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/lib/queries/tenant";
+import { localDayEnd } from "../../../supabase/functions/_shared/date-range";
 
 export interface RunRateData {
   /** "amount" = meta en dinero, "count" = meta en cantidad de ventas. */
@@ -134,7 +135,7 @@ export function useRunRate() {
         .select("amount, deal_type, won_at, product_category_id")
         .eq("is_won", true)
         .gte("won_at", monthStart.toISOString())
-        .lte("won_at", new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59).toISOString());
+        .lte("won_at", localDayEnd(monthEnd).toISOString());
 
       const soldByCategory = new Map<string, number>();
       let sold = 0;

@@ -23,7 +23,9 @@ it("scopes all activity sources to tenant and period and counts one inbound call
   expect(result.current.data?.[0]).toMatchObject({type:"inbound_call",userId:"user",userName:"Ana",contact:"Juan"});
   for(const table of ["activities","calls","deal_stage_history"]){
     expect(state.filters).toContainEqual([table,"tenant_id","tenant"]);
-    expect(state.filters).toContainEqual([table,table==="calls"?"created_at":table==="activities"?"occurred_at":"changed_at","2026-11-20T00:00:00.000Z"]);
+    const dateColumn = table==="calls"?"created_at":table==="activities"?"occurred_at":"changed_at";
+    expect(state.filters).toContainEqual([table,dateColumn,"2026-11-20T06:00:00.000Z"]);
+    expect(state.filters).toContainEqual([table,dateColumn,"2026-11-23T05:59:59.999Z"]);
   }
   expect(state.invoke).not.toHaveBeenCalled();client.clear();
 });

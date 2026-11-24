@@ -1,6 +1,7 @@
 # Llamadas entrantes de Refrigeración
 
 ## Periodo personalizado
+- [x] Revisar consumidores de rangos personalizados, gráficas/actividad del tablero, vistas de oportunidades, consultas del Copiloto, exportaciones, periodos mensuales, procesos y funciones de base de datos; corregir límites incompletos sin cambiar registros ni permisos. 24 pruebas aprobadas; cobertura documentada. Pantalla con sesión del solicitante no verificada por falta de sesión disponible.
 - [x] Corregir el rango del 1 al 23 de noviembre de 2026 para incluir el día final completo y exigir inicio/fin al cambiar un rango previo; 9 pruebas aprobadas y lectura real devuelve 21 estados de 2 asesores, excluyendo QA. Pantalla con sesión del solicitante no verificada: no hay sesión disponible.
 
 ## Correcciones en Reportes

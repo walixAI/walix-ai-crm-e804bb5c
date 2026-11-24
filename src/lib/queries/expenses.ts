@@ -5,6 +5,7 @@ import { useTenantId } from "@/lib/queries/tenant";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTenantUsers } from "@/lib/queries/tenantUsers";
 import { logAudit, fetchAuditLog, type AuditEntry } from "@/services/audit";
+import { localDayEnd } from "../../../supabase/functions/_shared/date-range";
 
 const EXPENSE_TRACKED_FIELDS = ["amount", "category_id", "incurred_at", "description", "status", "kind"] as const;
 
@@ -258,7 +259,7 @@ export function useMonthProfitability() {
         supabase.from("deals").select("amount")
           .eq("is_won", true)
           .gte("won_at", from.toISOString())
-          .lte("won_at", new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59).toISOString()),
+          .lte("won_at", localDayEnd(to).toISOString()),
         supabase.from("expenses" as any).select("amount")
           .eq("status", "confirmed")
           .gte("incurred_at", from.toISOString().slice(0, 10))

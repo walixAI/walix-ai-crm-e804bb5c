@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { computePipelineHealth, type PipelineHealth } from "@/lib/pipelineHealth";
 import { readAllPages } from "./paginate";
 import { dashboardMetrics } from "./dashboardMetrics";
+import { dateBoundary, mexicoDateKey } from "../../../supabase/functions/_shared/date-range";
 
 export interface KpiBundle {
   pipelineValue: number;
@@ -125,8 +126,8 @@ export function usePipelineByStage(
       let dq = supabase.from("deals").select("amount,stage_id,is_won,is_lost,updated_at");
       if (from && to) {
         dq = dq
-          .gte("updated_at", new Date(`${from}T00:00:00`).toISOString())
-          .lte("updated_at", new Date(`${to}T23:59:59`).toISOString());
+          .gte("updated_at", dateBoundary(from, "start"))
+          .lte("updated_at", dateBoundary(to, "end"));
       } else if (days) {
         const since = new Date(Date.now() - days * 86400000);
         since.setHours(0, 0, 0, 0);
@@ -152,9 +153,9 @@ export function useDealsClosedTimeline(
   return useQuery({
     queryKey: ["deals-closed-timeline", days, pipelineId, from, to],
     queryFn: async () => {
-      const since = from ? new Date(`${from}T00:00:00`) : new Date(Date.now() - days * 86400000);
-      since.setHours(0,0,0,0);
-      const until = to ? new Date(`${to}T23:59:59`) : null;
+      const since = from ? new Date(dateBoundary(from, "start")) : new Date(Date.now() - days * 86400000);
+      if (!from) since.setHours(0,0,0,0);
+      const until = to ? new Date(dateBoundary(to, "end")) : null;
       let stageIds: Set<string> | null = null;
       if (pipelineId !== "all") {
         const { data: st } = await supabase
@@ -171,10 +172,10 @@ export function useDealsClosedTimeline(
       const buckets = new Map<string, number>();
       for (let i = 0; i < days; i++) {
         const d = new Date(since); d.setDate(since.getDate() + i);
-        buckets.set(d.toISOString().slice(0, 10), 0);
+        buckets.set(from ? mexicoDateKey(d) : d.toISOString().slice(0, 10), 0);
       }
       (data ?? []).forEach((d: any) => {
-        const k = String(d.won_at ?? d.updated_at).slice(0, 10);
+        const k = from ? mexicoDateKey(d.won_at ?? d.updated_at) : String(d.won_at ?? d.updated_at).slice(0, 10);
         buckets.set(k, (buckets.get(k) ?? 0) + Number(d.amount));
       });
       return Array.from(buckets.entries()).map(([k, v], i) => ({

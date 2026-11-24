@@ -13,6 +13,7 @@ import {
   type ActivityScope,
 } from "@/lib/queries/activityReport";
 import { toast } from "sonner";
+import { dateBoundary } from "../../../supabase/functions/_shared/date-range";
 
 const activityIcon: Record<string, { icon: typeof MoveRight; color: string }> = {
   deal: { icon: MoveRight, color: "text-primary bg-primary/10" },
@@ -54,8 +55,8 @@ export function ActivityReportCard() {
   const [userFilter, setUserFilter] = useState<string>("all");
 
   const { from, to } = rangeFor(preset, customFrom, customTo);
-  const fromIso = `${from}T00:00:00.000Z`;
-  const toIso = `${to}T23:59:59.999Z`;
+  const fromIso = dateBoundary(from, "start");
+  const toIso = dateBoundary(to, "end");
 
   const { data: rows = [], isLoading } = useActivityReport({
     from: fromIso,

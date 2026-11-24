@@ -7,6 +7,7 @@ import type { ReportFilters } from "@/lib/reports/filters";
 import { readAllPages } from "./paginate";
 import { consolidateCallActivities } from "@/lib/activities/consolidateCalls";
 import { buildStageReports } from "@/lib/reports/reportRules";
+import { dateBoundary } from "../../../supabase/functions/_shared/date-range";
 
 // ─────────────────────────────────────────────────────────────────
 // Period helpers
@@ -40,8 +41,8 @@ export function resolvePeriodRange(p: ReportFilters["period"]): PeriodRange {
     case "custom": {
       // Date-only strings are UTC midnight by default, excluding the final day.
       // Reports display Mexico City time: include both complete selected days.
-      from = p.from ? new Date(`${p.from}T00:00:00.000-06:00`) : new Date(now.getTime() - 30 * 86400_000);
-      const t = p.to ? new Date(`${p.to}T23:59:59.999-06:00`) : now;
+      from = p.from ? new Date(dateBoundary(p.from, "start")) : new Date(now.getTime() - 30 * 86400_000);
+      const t = p.to ? new Date(dateBoundary(p.to, "end")) : now;
       const span = t.getTime() - from.getTime();
       const prevTo = new Date(from.getTime() - 1);
       const prevFrom = new Date(prevTo.getTime() - span);

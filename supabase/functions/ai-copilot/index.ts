@@ -14,6 +14,7 @@ import {
   type BulkEntity,
 } from "../_shared/bulk-edit.ts";
 import { getDisabledNativeTools, filterTools } from "../_shared/native-caps.ts";
+import { dateBoundary, nextDateBoundary } from "../_shared/date-range.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1085,8 +1086,8 @@ async function executeTool(
             to = new Date(monday.getTime() + 7 * 86400000);
           }
         }
-        if (args.date_from) from = new Date(`${String(args.date_from).slice(0, 10)}T00:00:00`);
-        if (args.date_to) to = new Date(new Date(`${String(args.date_to).slice(0, 10)}T00:00:00`).getTime() + 86400000);
+        if (args.date_from) from = new Date(dateBoundary(String(args.date_from).slice(0, 10), "start"));
+        if (args.date_to) to = nextDateBoundary(String(args.date_to).slice(0, 10));
 
         const { data: rolesAct } = await sb.from("user_roles").select("role").eq("user_id", userId);
         const isAdminAct = (rolesAct ?? []).some((r: any) =>
