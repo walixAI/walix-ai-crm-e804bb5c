@@ -115,14 +115,15 @@ export default function Calls() {
           <Button size="sm" variant="outline" onClick={exportCSV} disabled={rows.length === 0}>
             <Download className="mr-1.5 h-4 w-4" /> Exportar CSV
           </Button>
-          <Input
-            placeholder="Buscar por número, contacto o resultado…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="max-w-xs"
-          />
         </div>
       </div>
+
+      <Input
+        placeholder="Buscar por número, contacto o resultado…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="w-full"
+      />
 
       <IncomingPhonePreference />
 
