@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { latestActiveOpportunity } from "@/lib/pipeline/currentOpportunity";
+import { useTypificationSuggestion } from "./useTypificationSuggestion";
 import { toast } from "sonner";
-import { ArrowRight, CircleSlash, PauseCircle, Check } from "lucide-react";
+import { ArrowRight, CircleSlash, PauseCircle, Check, Sparkles, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ import {
   ACTIVITY_KINDS, filterOutcomes, useActivityOutcomes, useLogFollowUp,
 } from "@/lib/queries/activityOutcomes";
 import {
-  useOutcomeTypifications, typificationsForOutcome, suggestTypification,
+  useOutcomeTypifications, typificationsForOutcome,
 } from "@/lib/queries/typifications";
 import {
   useDealBlockers, useDealLossReasons, useDealDiagnostic, daysSince,
@@ -176,22 +177,15 @@ export function LogFollowUpDialog({
     setAiSuggestedId("");
   }, [outcomeId]);
 
-  // Sugerencia de IA según conversación + comentario del asesor (con pausa al escribir).
-  useEffect(() => {
-    if (!open || !outcomeId || !contactId) return;
-    if (!typificationsForOutcome(allTypifications, outcomeId).length) return;
-    let cancelled = false;
-    const t = setTimeout(() => {
-      suggestTypification(contactId, outcomeId, description).then((id) => {
-        if (cancelled || !id) return;
-        setAiSuggestedId((prevAi) => {
-          setTypificationId((cur) => (!cur || cur === prevAi ? id : cur));
-          return id;
-        });
-      });
-    }, description.trim() ? 900 : 0);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [outcomeId, open, contactId, description]); // eslint-disable-line react-hooks/exhaustive-deps
+  const suggestion = useTypificationSuggestion({
+    open, contactId, callId, outcomeId, enabled: !isAttempt && typifications.length > 0,
+    initialNote: initialDescription, note: description,
+    onSuggestion: (id) => {
+      if (!typifications.some(t => t.id === id)) return;
+      setTypificationId(cur => (!cur || cur === aiSuggestedId ? id : cur));
+      setAiSuggestedId(id);
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -435,7 +429,13 @@ export function LogFollowUpDialog({
           {/* 2b. Tipificación (qué dijo el lead) */}
           {!isAttempt && typifications.length > 0 && (
             <div className="space-y-1.5">
-              <Label className="text-base">Tipificación</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-base">Tipificación</Label>
+                <Button type="button" variant="ghost" size="sm" disabled={suggestion.busy} onClick={suggestion.refresh}>
+                  {suggestion.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Actualizar sugerencia
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 ¿Qué mejor describe lo que dijo el lead?
               </p>

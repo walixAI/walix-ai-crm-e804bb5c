@@ -1,5 +1,3 @@
-import { installAiUsageTracking } from "../_shared/ai-track.ts";
-installAiUsageTracking("call_analyzer");
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { analyzeCall } from "../_shared/call-analyzer.ts";
@@ -27,7 +25,7 @@ Deno.serve(async (req) => {
     if (!visible) return json({ error: "Llamada no encontrada" }, 404);
 
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const r = await analyzeCall(admin, callId, transcript);
+    const r = await analyzeCall(admin, callId, transcript, u.user.id);
     if (!r.ok) return json({ error: r.error }, r.status);
     return json(r);
   } catch (e) {

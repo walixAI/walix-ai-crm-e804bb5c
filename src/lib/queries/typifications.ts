@@ -99,10 +99,11 @@ export async function suggestTypification(
   contactId: string,
   outcomeId: string,
   note?: string,
+  callId?: string | null,
 ): Promise<string | null> {
   try {
     const { data, error } = await (supabase as any).functions.invoke("typification-suggest", {
-      body: { contactId, outcomeId, note: (note ?? "").slice(0, 1000) },
+      body: { contactId, outcomeId, note: (note ?? "").slice(0, 1000), callId: callId ?? undefined },
     });
     if (error || !data?.typificationId) return null;
     return data.typificationId as string;

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCreditBalance } from "@/lib/queries/aiModels";
 import { usePlanLimits } from "@/lib/queries/planLimits";
 import { MessageCircle, Sparkles } from "lucide-react";
+import { readAllPages } from "@/lib/queries/paginate";
 
 const SURFACE_LABEL: Record<string, string> = {
   copilot: "Copiloto",
@@ -12,6 +13,7 @@ const SURFACE_LABEL: Record<string, string> = {
   typification_suggest: "Tipificación sugerida",
   dashboard_ai_widgets: "Tablero con IA",
   call_transcription: "Transcripción de llamadas",
+  call_analyzer: "Análisis de llamadas",
   pipeline_ai: "Pipeline con IA",
   sales_agent: "Agente de ventas",
   whatsapp: "Comandos por WhatsApp",
@@ -32,18 +34,18 @@ export function MonthlyUsageSummary({ tenantId, plan }: { tenantId: string; plan
       const now = new Date();
       const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
       const [ai, wa] = await Promise.all([
-        supabase.from("ai_usage_log").select("surface, iterations").eq("tenant_id", tenantId).gte("created_at", since).limit(20000),
-        supabase.from("whatsapp_conversation_billing").select("credits_charged").eq("tenant_id", tenantId).gte("created_at", since).limit(20000),
+        readAllPages((from, to) => supabase.from("ai_usage_log").select("surface, iterations").eq("tenant_id", tenantId).gte("created_at", since).order("id").range(from, to)),
+        readAllPages((from, to) => supabase.from("whatsapp_conversation_billing").select("credits_charged").eq("tenant_id", tenantId).gte("created_at", since).order("id").range(from, to)),
       ]);
       const by = new Map<string, number>();
       let actions = 0;
-      for (const r of ai.data ?? []) {
+      for (const r of ai) {
         const n = r.iterations ?? 1;
         actions += n;
         by.set(r.surface, (by.get(r.surface) ?? 0) + n);
       }
       let paid = 0, free = 0;
-      for (const r of wa.data ?? []) (Number(r.credits_charged ?? 0) > 0 ? paid++ : free++);
+      for (const r of wa) (Number(r.credits_charged ?? 0) > 0 ? paid++ : free++);
       return { actions, top: [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4), paid, free };
     },
   });
@@ -62,7 +64,7 @@ export function MonthlyUsageSummary({ tenantId, plan }: { tenantId: string; plan
         <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" /> IA este mes</div>
         <div>
           <p className="text-3xl font-bold">{n(actions)} <span className="text-sm font-normal text-muted-foreground">acciones realizadas</span></p>
-          {freeActions > 0 && <p className="text-xs text-muted-foreground">{n(freeActions)} fueron sugerencias sin costo</p>}
+          {freeActions > 0 && <p className="text-xs text-muted-foreground">Las acciones y los créditos del plan se contabilizan por separado.</p>}
         </div>
         <Meter used={aiUsed} total={aiTotal} label="créditos del plan usados" />
         {!!data?.top.length && (

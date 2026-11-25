@@ -1,5 +1,11 @@
 # Llamadas entrantes de Refrigeración
 
+## Optimización de IA de llamadas
+- [x] Registrar análisis automáticos explícitamente con tokens y asesor/solicitante; exclusión de QA conservada, sin descuentos nuevos ni ajustes históricos. Facturación lee todas las páginas del mes y distingue acciones de créditos.
+- [x] Evitar sugerencias repetidas al escribir y reutilizar la tipificación guardada si coincide el resultado/comentario; actualización explícita y solicitudes idénticas deduplicadas por apertura.
+- [x] 14 pruebas aprobadas y tres funciones desplegadas; sesión temporal comprobó sugerencia reutilizada sin IA nueva, escritura sin solicitudes y seguimiento guardado/leído. Datos temporales retirados. El registro de una inferencia nueva en producción no se ejercitó para evitar consumo adicional.
+- [ ] Cuantificar ahorro real: requiere una ventana posterior con tráfico comparable y registros de consumo ya incorporados; no estimar porcentaje a partir de código.
+
 ## Periodo personalizado
 - [x] Revisar consumidores de rangos personalizados, gráficas/actividad del tablero, vistas de oportunidades, consultas del Copiloto, exportaciones, periodos mensuales, procesos y funciones de base de datos; corregir límites incompletos sin cambiar registros ni permisos. 24 pruebas aprobadas; cobertura documentada. Pantalla con sesión del solicitante no verificada por falta de sesión disponible.
 - [x] Corregir el rango del 1 al 23 de noviembre de 2026 para incluir el día final completo y exigir inicio/fin al cambiar un rango previo; 9 pruebas aprobadas y lectura real devuelve 21 estados de 2 asesores, excluyendo QA. Pantalla con sesión del solicitante no verificada: no hay sesión disponible.

@@ -2,6 +2,7 @@ import { installAiUsageTracking } from "../_shared/ai-track.ts";
 installAiUsageTracking("typification_suggest");
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isUuid } from "../_shared/tenant-authorization.ts";
+import { storedCallTypification } from "../_shared/call-suggestion.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,8 @@ const corsHeaders = {
 interface Body {
   contactId: string;
   outcomeId: string;
+  callId?: string;
+  note?: string;
 }
 
 /** Sugiere la tipificación más probable para un seguimiento según la conversación reciente. */
@@ -36,6 +39,7 @@ Deno.serve(async (req) => {
 
     const body = (await req.json().catch(() => ({}))) as Partial<Body>;
     if (!isUuid(body.contactId) || !isUuid(body.outcomeId)) return json({ error: "Identificadores inválidos" }, 400);
+    if (body.callId !== undefined && !isUuid(body.callId)) return json({ error: "Llamada inválida" }, 400);
     const { data: contact } = await supabase.from("contacts").select("id,tenant_id").eq("id", body.contactId).maybeSingle();
     if (!contact) return json({ error: "Contacto no disponible" }, 404);
 
@@ -49,6 +53,16 @@ Deno.serve(async (req) => {
       .order("position", { ascending: true });
     if (tErr) return json({ error: tErr.message }, 500);
     if (!typs?.length) return json({ typificationId: null });
+
+    const note = String(body.note ?? "").trim().slice(0, 1000);
+    if (body.callId) {
+      const { data: call, error } = await supabase.from("calls")
+        .select("ai_summary,ai_suggestions").eq("id", body.callId)
+        .eq("contact_id", body.contactId).eq("tenant_id", contact.tenant_id).maybeSingle();
+      if (error || !call) return json({ error: "Llamada no disponible" }, 404);
+      const saved = storedCallTypification(call, body.outcomeId, note, typs.map(t => t.id));
+      if (saved) return json({ typificationId: saved, reused: true });
+    }
 
     // Contexto: últimos mensajes de la conversación del contacto.
     const { data: convs } = await supabase
@@ -70,7 +84,6 @@ Deno.serve(async (req) => {
         .map((m: any) => `${m.direction === "inbound" ? "Lead" : "Asesor"}: ${String(m.body ?? "").slice(0, 300)}`)
         .join("\n");
     }
-    const note = String((body as any).note ?? "").trim().slice(0, 1000);
     if (!transcript.trim() && !note) return json({ typificationId: null });
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");

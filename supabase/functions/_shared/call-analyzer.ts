@@ -1,4 +1,6 @@
-import { setAiUsageContext } from "./ai-track.ts";
+import type {} from "./generated/ai-gateway/models.d.ts";
+import { generateChatCompletion, GatewayError } from "npm:@lovable.dev/ai-gateway@0.1.13";
+import { recordAiUsage } from "./ai-usage.ts";
 // Análisis IA de una llamada: resumen, perfilamiento, resultado y tipificación sugeridos.
 // El perfilamiento solo llena campos vacíos (lo editado por el asesor manda);
 // resultado/tipificación quedan como sugerencia hasta que el asesor confirma el seguimiento.
@@ -7,19 +9,15 @@ export type AnalyzeResult =
   | { ok: true; summary: string; profileApplied: string[] }
   | { ok: false; status: number; error: string };
 
-export async function analyzeCall(admin: any, callId: string, transcriptOverride?: string): Promise<AnalyzeResult> {
+export async function analyzeCall(admin: any, callId: string, transcriptOverride?: string, actorId?: string): Promise<AnalyzeResult> {
   const { data: call } = await admin.from("calls")
-    .select("id, tenant_id, contact_id, deal_id, direction, transcript, notes")
+    .select("id, tenant_id, user_id, contact_id, deal_id, direction, transcript, notes")
     .eq("id", callId).maybeSingle();
-  if (call?.tenant_id) setAiUsageContext({ tenantId: call.tenant_id });
   if (!call) return { ok: false, status: 404, error: "Llamada no encontrada" };
 
   const transcript = String(transcriptOverride ?? call.transcript ?? "").trim().slice(0, 20000);
   if (transcript.length < 20) return { ok: false, status: 400, error: "La llamada no tiene transcripción suficiente" };
   if (transcriptOverride) await admin.from("calls").update({ transcript }).eq("id", callId);
-
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return { ok: false, status: 500, error: "IA no configurada" };
 
   // Oportunidad y pipeline
   let deal: any = null;
@@ -78,10 +76,7 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
     `Resultados posibles:\n${outcomes.map((o) => `- ${o.id}: ${o.label}`).join("\n") || "(ninguno)"}\n\n` +
     `Tipificaciones (por resultado):\n${typs.map((t) => `- ${t.id} [resultado ${t.outcome_id}]: ${t.label} (${t.sentiment})`).join("\n") || "(ninguna)"}`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await generateChatCompletion({
       model: "openai/gpt-6-astra",
       reasoning_effort: "low",
       response_format: { type: "json_schema", json_schema: { name: "call_analysis", strict: true, schema } },
@@ -94,13 +89,22 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
         { role: "user", content: prompt },
       ],
       max_completion_tokens: 1500,
-    }),
+  }, { maxRetries: 0 }).catch((error: unknown) => {
+    if (!(error instanceof GatewayError)) throw error;
+    console.error("[call-analysis] gateway", error.code, error.httpStatus);
+    return error;
   });
-  if (!res.ok) {
-    const msg = res.status === 402 ? "Sin créditos de IA disponibles" : res.status === 429 ? "IA saturada, intenta en un momento" : "No se pudo analizar la llamada";
-    return { ok: false, status: res.status === 402 || res.status === 429 || res.status === 403 ? res.status : 502, error: msg };
+  if (data instanceof GatewayError) {
+    const status = data.httpStatus;
+    return { ok: false, status: status === 402 || status === 429 || status === 403 ? status : 502,
+      error: status === 402 ? "Sin créditos de IA disponibles" : status === 429 ? "IA saturada, intenta en un momento" : "No se pudo analizar la llamada" };
   }
-  const data = await res.json();
+  // Explicitly awaited here: provider callbacks use legacy serve(), not Deno.serve().
+  // A successful model response counts even if parsing or persistence later fails.
+  await recordAiUsage({ tenantId: call.tenant_id, userId: actorId ?? call.user_id,
+    surface: "call_analyzer", model: "openai/gpt-6-astra", charge: false,
+    inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens,
+    totalTokens: data.usage?.total_tokens });
   let parsed: any;
   try { parsed = JSON.parse(String(data?.choices?.[0]?.message?.content ?? "")); } catch { parsed = null; }
   if (!parsed?.summary) return { ok: false, status: 502, error: "La IA no devolvió un análisis válido" };

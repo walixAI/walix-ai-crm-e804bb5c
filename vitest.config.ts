@@ -12,6 +12,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "npm:@lovable.dev/ai-gateway@0.1.13": "@lovable.dev/ai-gateway",
       "npm:@supabase/supabase-js@2/cors": "@supabase/supabase-js/cors",
       "npm:@supabase/supabase-js@2": "@supabase/supabase-js",
       "@": path.resolve(__dirname, "./src"),
