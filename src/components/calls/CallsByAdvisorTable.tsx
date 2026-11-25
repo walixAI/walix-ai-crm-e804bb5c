@@ -1,9 +1,10 @@
 import { ArrowUpDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { AdvisorCallRow } from "@/lib/reports/callsReport";
+import { formatCallMinutes, type AdvisorCallRow } from "@/lib/reports/callsReport";
+import { Button } from "@/components/ui/button";
 
-type SortKey = "outboundTotal" | "outboundEffective" | "outboundRate" | "inboundReceived" | "inboundMissed";
+export type SortKey = "outboundTotal" | "outboundEffective" | "outboundRate" | "inboundReceived" | "inboundMissed" | "durationSeconds";
 
 const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
   { key: "outboundTotal", label: "Salientes", hint: "Llamadas marcadas desde Walix" },
@@ -11,6 +12,7 @@ const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
   { key: "outboundRate", label: "Tasa %", hint: "Efectivas sobre las marcadas" },
   { key: "inboundReceived", label: "Entrantes", hint: "Llamadas que llegaron al número" },
   { key: "inboundMissed", label: "No atendidas", hint: "Entrantes que nadie contestó" },
+  { key: "durationSeconds", label: "Minutos", hint: "Duración registrada acumulada de llamadas entrantes y salientes" },
 ];
 
 function sortRows(rows: AdvisorCallRow[], key: SortKey, dir: "asc" | "desc"): AdvisorCallRow[] {
@@ -57,9 +59,9 @@ export function CallsByAdvisorTable({ rows, isLoading, sortKey, sortDir, onSort 
               <th className="px-4 py-2 text-left font-semibold">Responsable</th>
               {COLUMNS.map((c) => (
                 <th key={c.key} className="px-3 py-2 text-right font-semibold" title={c.hint}>
-                  <button className="inline-flex items-center gap-1 hover:text-primary" onClick={() => onSort(c.key)}>
+                  <Button variant="ghost" className="h-auto p-0 gap-1" onClick={() => onSort(c.key)}>
                     {c.label} <ArrowUpDown className="h-3 w-3" />
-                  </button>
+                  </Button>
                 </th>
               ))}
               <th className="px-3 py-2 text-right font-semibold">Última actividad</th>
@@ -78,6 +80,7 @@ export function CallsByAdvisorTable({ rows, isLoading, sortKey, sortDir, onSort 
                 <td className={cn("px-3 py-3 text-right tabular-nums", a.inboundMissed > 0 && "font-semibold text-destructive")}>
                   {a.inboundMissed}
                 </td>
+                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{formatCallMinutes(a.durationSeconds)}</td>
                 <td className="px-3 py-3 text-right text-xs tabular-nums text-muted-foreground">
                   {a.lastActivity ? new Date(a.lastActivity).toLocaleString("es-MX") : "—"}
                 </td>

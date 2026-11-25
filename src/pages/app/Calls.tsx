@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,14 +12,17 @@ import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CallCampaignsTab from "@/components/calls/CallCampaignsTab";
 import CallAnalysisDialog from "@/components/calls/CallAnalysisDialog";
-import { CallsByAdvisorTable } from "@/components/calls/CallsByAdvisorTable";
+import { CallsByAdvisorTable, type SortKey } from "@/components/calls/CallsByAdvisorTable";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { isEffectiveCall } from "@/lib/activities/consolidateCalls";
 import { isMissedInbound } from "@/lib/activities/inboundCalls";
 import { readAllPages } from "@/lib/queries/paginate";
 import { resolvePeriodRange } from "@/lib/queries/reports";
-import { buildCallsReport, buildCallsReportCSV, type CallsReportRow } from "@/lib/reports/callsReport";
+import { buildCallsReport, buildCallsReportCSV, filterCallsByAdvisor, formatCallMinutes, type CallsReportRow } from "@/lib/reports/callsReport";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { downloadCSV } from "@/lib/reports/exportCsv";
 import { PeriodPicker } from "@/components/reports/PeriodPicker";
 import { periodLabel, type PeriodValue } from "@/lib/reports/filters";
@@ -48,26 +51,32 @@ export default function Calls() {
   const [view, setView] = useState("historial");
   const [analysisCall, setAnalysisCall] = useState<any | null>(null);
   const [period, setPeriod] = useState<PeriodValue>({ preset: "month" });
-  const [sortKey, setSortKey] = useState<"outboundTotal" | "outboundEffective" | "outboundRate" | "inboundReceived" | "inboundMissed">("outboundTotal");
+  const [allTime, setAllTime] = useState(false);
+  const [advisor, setAdvisor] = useState("all");
+  useEffect(() => { setAdvisor("all"); }, [activeTenantId]);
+  const [sortKey, setSortKey] = useState<SortKey>("outboundTotal");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const { data: calls, isLoading } = useQuery({
-    queryKey: ["calls", activeTenantId, period.preset, period.from ?? null, period.to ?? null],
+  const { data: calls, isLoading, isError } = useQuery({
+    queryKey: ["calls", activeTenantId, allTime, period.preset, period.from ?? null, period.to ?? null],
     enabled: !!activeTenantId,
     refetchInterval: analysisCall ? 2500 : 15000,
     queryFn: async () => {
       if (!activeTenantId) return [];
       // Las fechas relativas se resuelven dentro de la consulta, no antes de reintentar.
       const { from, to } = resolvePeriodRange(period);
-      const rows = await readAllPages((pageFrom, pageTo) => supabase
+      const rows = await readAllPages((pageFrom, pageTo) => {
+        let query = supabase
         .from("calls")
         .select("id, direction, status, to_number, from_number, duration_seconds, answered_at, ended_at, hangup_by, hangup_at, recording_url, user_id, outcome, notes, created_at, contact_id, deal_id, transcript, ai_summary, ai_suggestions, contacts(name)")
         .eq("tenant_id", activeTenantId)
-        .gte("created_at", from.toISOString())
-        .lte("created_at", to.toISOString())
+        ;
+        if (!allTime) query = query.gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
+        return query
         .order("created_at", { ascending: false })
         .order("id")
-        .range(pageFrom, pageTo));
+        .range(pageFrom, pageTo);
+      });
       const ids = [...new Set(rows.flatMap((c) => c.user_id ? [c.user_id] : []))];
       const names = new Map<string, string | null>();
       for (let start = 0; start < ids.length; start += 100) {
@@ -79,8 +88,10 @@ export default function Calls() {
     },
   });
 
-  const rows = (calls ?? []) as CallsReportRow[];
-  const report = useMemo(() => buildCallsReport(rows), [calls]);
+  const availableRows = (calls ?? []) as CallsReportRow[];
+  const advisors = useMemo(() => buildCallsReport(availableRows).byAdvisor, [calls]);
+  const rows = useMemo(() => filterCallsByAdvisor(availableRows, advisor), [calls, advisor]);
+  const report = useMemo(() => buildCallsReport(rows), [rows]);
 
   const missed = rows.filter((c) => isMissedInbound(c));
 
@@ -98,7 +109,7 @@ export default function Calls() {
 
   const exportCSV = () => {
     const name = `llamadas-${period.preset}-${new Date().toISOString().slice(0, 10)}.csv`;
-    downloadCSV(name, buildCallsReportCSV(report, rows, { periodLabel: periodLabel(period), tenantName: tenant?.name ?? null }));
+    downloadCSV(name, buildCallsReportCSV(report, rows, { periodLabel: allTime ? "Todo el historial" : periodLabel(period), tenantName: tenant?.name ?? null }));
   };
 
   return (
@@ -111,7 +122,11 @@ export default function Calls() {
           <p className="text-sm text-muted-foreground">Historial y desempeño de llamadas de tu equipo</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <PeriodPicker value={period} onChange={setPeriod} />
+          <div className="flex items-center gap-2">
+            <Switch id="calls-all-time" checked={allTime} onCheckedChange={setAllTime} />
+            <Label htmlFor="calls-all-time">Todo el historial</Label>
+          </div>
+          {!allTime && <PeriodPicker value={period} onChange={setPeriod} />}
           <Button size="sm" variant="outline" onClick={exportCSV} disabled={rows.length === 0}>
             <Download className="mr-1.5 h-4 w-4" /> Exportar CSV
           </Button>
@@ -126,6 +141,31 @@ export default function Calls() {
       />
 
       <IncomingPhonePreference />
+
+      <section aria-label="Minutos de llamadas" className="space-y-3 border-y border-border py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-semibold"><Clock className="h-4 w-4 text-primary" /> Minutos de llamadas</h2>
+          <Select value={advisor} onValueChange={setAdvisor}>
+            <SelectTrigger aria-label="Responsable de llamadas" className="w-full sm:w-64"><SelectValue placeholder="Todos los responsables" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los responsables</SelectItem>
+              {advisors.map((a) => <SelectItem key={a.key} value={a.key}>{a.advisorName}</SelectItem>)}
+              {advisor !== "all" && !advisors.some((a) => a.key === advisor) && <SelectItem value={advisor}>Responsable sin llamadas en este periodo</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+        {isError ? <p className="text-sm text-destructive">No se pudieron cargar las llamadas. No hay un total disponible.</p> :
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[{ label: "Tiempo total", seconds: report.duration.totalSeconds }, { label: "Salientes", seconds: report.duration.outboundSeconds }, { label: "Entrantes", seconds: report.duration.inboundSeconds }].map((m) => (
+              <div key={m.label} className="min-w-0">
+                <div className="text-xs text-muted-foreground">{m.label}</div>
+                {isLoading ? <Skeleton className="mt-1 h-8 w-36" /> : <div className="text-xl font-semibold tabular-nums break-words">{formatCallMinutes(m.seconds)}</div>}
+              </div>
+            ))}
+          </div>}
+        <p className="text-xs text-muted-foreground">{allTime ? "Todo el historial" : periodLabel(period)} · Duración registrada; no equivale a minutos facturados por el proveedor.</p>
+        {!isLoading && !isError && report.duration.missing > 0 && <p className="text-xs text-muted-foreground">{report.duration.missing} llamada(s) sin duración registrada, excluidas del tiempo acumulado.</p>}
+      </section>
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">

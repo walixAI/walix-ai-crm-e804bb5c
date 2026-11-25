@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCallsReport, buildCallsReportCSV, type CallsReportRow } from "./callsReport";
+import { buildCallsReport, buildCallsReportCSV, filterCallsByAdvisor, formatCallMinutes, type CallsReportRow } from "./callsReport";
 
 const base = (over: Partial<CallsReportRow>): CallsReportRow => ({
   id: over.id ?? "c-" + Math.random().toString(36).slice(2),
@@ -14,6 +14,33 @@ const base = (over: Partial<CallsReportRow>): CallsReportRow => ({
 });
 
 describe("buildCallsReport", () => {
+  it("suma segundos antes de convertir a minutos y separa entrantes y salientes", () => {
+    const report = buildCallsReport([base({ duration_seconds: 40 }), base({ duration_seconds: 40 }), base({ direction: "inbound", duration_seconds: 65 })]);
+    expect(report.duration.totalSeconds).toBe(145);
+    expect(report.duration.outboundSeconds).toBe(80);
+    expect(report.duration.inboundSeconds).toBe(65);
+    expect(formatCallMinutes(report.duration.totalSeconds)).toBe("2 min 25 s");
+  });
+
+  it("muestra el total de cada usuario y conserva llamadas sin asignar", () => {
+    const rows = [base({ user_id: "a", duration_seconds: 75 }), base({ user_id: "b", duration_seconds: 120 }), base({ duration_seconds: 30 })];
+    expect(buildCallsReport(filterCallsByAdvisor(rows, "a")).duration.totalSeconds).toBe(75);
+    expect(buildCallsReport(filterCallsByAdvisor(rows, "unassigned")).duration.totalSeconds).toBe(30);
+    expect(buildCallsReport(filterCallsByAdvisor(rows, "all")).duration.totalSeconds).toBe(225);
+    expect(buildCallsReport(rows).byAdvisor.find((a) => a.advisorId === "b")?.durationSeconds).toBe(120);
+  });
+
+  it("no inventa duración faltante ni suma valores inválidos", () => {
+    const report = buildCallsReport([base({ duration_seconds: null }), base({ duration_seconds: -2 }), base({ duration_seconds: NaN }), base({ duration_seconds: 0 })]);
+    expect(report.duration.totalSeconds).toBe(0);
+    expect(report.duration.missing).toBe(3);
+  });
+
+  it("exporta el tiempo exacto por usuario sin redondear cada llamada", () => {
+    const rows = [base({ user_id: "a", advisorName: "Asesor A", duration_seconds: 40 }), base({ user_id: "a", advisorName: "Asesor A", duration_seconds: 40 })];
+    const csv = buildCallsReportCSV(buildCallsReport(rows), rows, { periodLabel: "Todo el historial" });
+    expect(csv.split("\n").find((line) => line.startsWith("Asesor A,"))?.split(",").slice(7, 9)).toEqual(["1.33", "80"]);
+  });
   it("resume salientes con datos reales de Refrigeración: 18 marcadas, 9 con duración", () => {
     const rows = [
       ...Array.from({ length: 9 }, (_, i) => base({ id: `o${i}`, duration_seconds: 42, answered_at: "2026-11-20T18:00:00Z", user_id: "qa" })),

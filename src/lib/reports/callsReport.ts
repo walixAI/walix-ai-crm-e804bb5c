@@ -52,17 +52,32 @@ export interface AdvisorCallRow {
   inboundReceived: number;
   inboundAnswered: number;
   inboundMissed: number;
+  durationSeconds: number;
   /** Última llamada del responsable dentro del periodo. */
   lastActivity: string | null;
 }
 
 export interface CallsReport {
+  duration: { totalSeconds: number; outboundSeconds: number; inboundSeconds: number; missing: number };
   outbound: DirectionSummary;
   inbound: InboundSummary;
   byAdvisor: AdvisorCallRow[];
 }
 
 const UNASSIGNED_LABEL = "Grupo de recepción · sin asignar";
+
+function durationSeconds(row: CallsReportRow): number {
+  return row.duration_seconds != null && Number.isFinite(row.duration_seconds) && row.duration_seconds > 0
+    ? row.duration_seconds : 0;
+}
+
+export function formatCallMinutes(seconds: number): string {
+  return `${Math.floor(seconds / 60).toLocaleString("es-MX")} min ${Math.floor(seconds % 60)} s`;
+}
+
+export function filterCallsByAdvisor(rows: CallsReportRow[], advisor: string): CallsReportRow[] {
+  return advisor === "all" ? rows : rows.filter((row) => (row.user_id ?? "unassigned") === advisor);
+}
 
 function percent(part: number, total: number): number {
   return total ? Math.round((part / total) * 100) : 0;
@@ -120,6 +135,7 @@ function summarizeAdvisors(rows: CallsReportRow[]): AdvisorCallRow[] {
       inboundReceived: inbound.length,
       inboundAnswered: inbound.filter((c) => !!c.answered_at).length,
       inboundMissed: inbound.filter((c) => isMissedInbound(c)).length,
+      durationSeconds: bucket.reduce((sum, row) => sum + durationSeconds(row), 0),
       lastActivity: bucket
         .map((c) => c.created_at)
         .sort()
@@ -141,6 +157,12 @@ export function buildCallsReport(rows: CallsReportRow[]): CallsReport {
   const outbound = rows.filter((c) => c.direction !== "inbound");
   const inbound = rows.filter((c) => c.direction === "inbound");
   return {
+    duration: {
+      totalSeconds: rows.reduce((sum, row) => sum + durationSeconds(row), 0),
+      outboundSeconds: outbound.reduce((sum, row) => sum + durationSeconds(row), 0),
+      inboundSeconds: inbound.reduce((sum, row) => sum + durationSeconds(row), 0),
+      missing: rows.filter((row) => row.duration_seconds == null || !Number.isFinite(row.duration_seconds) || row.duration_seconds < 0).length,
+    },
     outbound: summarizeOutbound(outbound),
     inbound: summarizeInbound(inbound),
     byAdvisor: summarizeAdvisors(rows),
@@ -167,16 +189,19 @@ export function buildCallsReportCSV(
     `# Reporte de llamadas ${opts.periodLabel} · generado ${new Date().toLocaleString("es-MX")}`,
     "",
     "# Resumen",
+    csvRow(["Tiempo total", "Tiempo saliente", "Tiempo entrante", "Llamadas sin duración"]),
+    csvRow([formatCallMinutes(report.duration.totalSeconds), formatCallMinutes(report.duration.outboundSeconds), formatCallMinutes(report.duration.inboundSeconds), report.duration.missing]),
     csvRow(["Salientes", "Marcadas", "Efectivas", "Intentos", "Tasa conexión %"]),
     csvRow(["", report.outbound.total, report.outbound.effective, report.outbound.attempts, report.outbound.rate]),
     csvRow(["Entrantes", "Recibidas", "Atendidas", "No atendidas", "Tasa atención %"]),
     csvRow(["", report.inbound.received, report.inbound.answered, report.inbound.missed, report.inbound.attentionRate]),
     "",
     "# Por responsable",
-    csvRow(["Responsable", "Salientes", "Efectivas", "Tasa %", "Entrantes", "Atendidas", "No atendidas", "Última actividad"]),
+    csvRow(["Responsable", "Salientes", "Efectivas", "Tasa %", "Entrantes", "Atendidas", "No atendidas", "Minutos", "Segundos totales", "Última actividad"]),
     ...report.byAdvisor.map((a) => csvRow([
       a.advisorName, a.outboundTotal, a.outboundEffective, a.outboundRate,
       a.inboundReceived, a.inboundAnswered, a.inboundMissed,
+      (a.durationSeconds / 60).toFixed(2), a.durationSeconds,
       a.lastActivity ? new Date(a.lastActivity).toLocaleString("es-MX") : "",
     ])),
     "",
