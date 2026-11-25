@@ -1238,6 +1238,51 @@ export type Database = {
           },
         ]
       }
+      call_analysis_runs: {
+        Row: {
+          call_id: string
+          created_at: string
+          fingerprint: string
+          finished_at: string | null
+          id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          fingerprint: string
+          finished_at?: string | null
+          id?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          fingerprint?: string
+          finished_at?: string | null
+          id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_analysis_runs_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_analysis_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_campaign_contacts: {
         Row: {
           attempts: number
@@ -7044,6 +7089,15 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      claim_call_analysis: {
+        Args: {
+          p_call_id: string
+          p_fingerprint: string
+          p_manual?: boolean
+          p_tenant_id: string
+        }
+        Returns: Json
       }
       close_recurrence_from_deal: { Args: { _deal_id: string }; Returns: Json }
       contact_last_inbound: {

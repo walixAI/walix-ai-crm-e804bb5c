@@ -1,23 +1,60 @@
 import type {} from "./generated/ai-gateway/models.d.ts";
 import { generateChatCompletion, GatewayError } from "npm:@lovable.dev/ai-gateway@0.1.13";
 import { recordAiUsage } from "./ai-usage.ts";
+import { nonConversationReason, transcriptFingerprint, compactCallCatalog } from "./call-analysis-policy.ts";
 // Análisis IA de una llamada: resumen, perfilamiento, resultado y tipificación sugeridos.
 // El perfilamiento solo llena campos vacíos (lo editado por el asesor manda);
 // resultado/tipificación quedan como sugerencia hasta que el asesor confirma el seguimiento.
 
 export type AnalyzeResult =
-  | { ok: true; summary: string; profileApplied: string[] }
+  | { ok: true; summary: string; profileApplied: string[]; reused?: boolean; skipped?: boolean }
   | { ok: false; status: number; error: string };
 
-export async function analyzeCall(admin: any, callId: string, transcriptOverride?: string, actorId?: string): Promise<AnalyzeResult> {
+export async function analyzeCall(admin: any, callId: string, transcriptOverride?: string, actorId?: string, manual = false): Promise<AnalyzeResult> {
   const { data: call } = await admin.from("calls")
-    .select("id, tenant_id, user_id, contact_id, deal_id, direction, transcript, notes")
+    .select("id, tenant_id, user_id, contact_id, deal_id, direction, transcript, ai_summary, ai_suggestions")
     .eq("id", callId).maybeSingle();
   if (!call) return { ok: false, status: 404, error: "Llamada no encontrada" };
 
   const transcript = String(transcriptOverride ?? call.transcript ?? "").trim().slice(0, 20000);
-  if (transcript.length < 20) return { ok: false, status: 400, error: "La llamada no tiene transcripción suficiente" };
-  if (transcriptOverride) await admin.from("calls").update({ transcript }).eq("id", callId);
+  const fingerprint = await transcriptFingerprint(transcript);
+  const oldFingerprint = await transcriptFingerprint(String(call.transcript ?? "").slice(0, 20000));
+  if (!manual && call.ai_summary && fingerprint === (call.ai_suggestions?.analysis_fingerprint ?? oldFingerprint)) {
+    return { ok: true, summary: call.ai_summary, profileApplied: [], reused: true };
+  }
+  const skipReason = manual ? null : nonConversationReason(transcript);
+  if (!skipReason && transcript.length < 20) return { ok: false, status: 400, error: "La llamada no tiene transcripción suficiente" };
+  const { data: claim, error: claimError } = await admin.rpc("claim_call_analysis", {
+    p_call_id: callId, p_tenant_id: call.tenant_id,
+    p_fingerprint: manual ? `${fingerprint}:${crypto.randomUUID()}` : fingerprint, p_manual: manual,
+  });
+  if (claimError) return { ok: false, status: 503, error: "No se pudo reservar el análisis" };
+  if (claim?.state !== "claimed") {
+    if (claim?.state === "skipped") return { ok: true, summary: "", profileApplied: [], skipped: true, reused: true };
+    if (claim?.state === "completed") {
+      const { data: saved } = await admin.from("calls").select("ai_summary,ai_suggestions").eq("id", callId).eq("tenant_id", call.tenant_id).maybeSingle();
+      if (saved?.ai_summary && saved.ai_suggestions?.analysis_fingerprint === fingerprint) return { ok: true, summary: saved.ai_summary, profileApplied: [], reused: true };
+    }
+    return { ok: false, status: 409, error: claim?.state === "processing" ? "La llamada ya se está analizando" : "El intento anterior no se repetirá automáticamente; solicita volver a analizar" };
+  }
+  const finish = async (status: string) => {
+    const { error } = await admin.from("call_analysis_runs").update({ status, finished_at: new Date().toISOString() })
+      .eq("id", claim.id).eq("tenant_id", call.tenant_id);
+    if (error) throw error;
+  };
+  try {
+  if (transcriptOverride !== undefined) {
+    const { error } = await admin.from("calls").update({ transcript }).eq("id", callId).eq("tenant_id", call.tenant_id);
+    if (error) throw error;
+  }
+  if (skipReason) {
+    const { error } = await admin.from("calls").update({ ai_summary: null, ai_suggestions: {
+      transcription_status: "completed", analysis_status: "skipped", analysis_skip_reason: skipReason, analysis_fingerprint: fingerprint } })
+      .eq("id", callId).eq("tenant_id", call.tenant_id);
+    if (error) throw error;
+    await finish("skipped");
+    return { ok: true, summary: "", profileApplied: [], skipped: true };
+  }
 
   // Oportunidad y pipeline
   let deal: any = null;
@@ -52,7 +89,7 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
   if (outcomes.length) {
     const { data } = await admin.from("outcome_typifications").select("id, label, sentiment, outcome_id")
       .eq("tenant_id", call.tenant_id).eq("is_active", true)
-      .in("outcome_id", outcomes.map((o) => o.id));
+      .or(`outcome_id.in.(${outcomes.map((o) => o.id).join(",")}),outcome_id.is.null`);
     typs = data ?? [];
   }
 
@@ -70,11 +107,9 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
     },
   };
 
-  const prompt =
-    `Transcripción de la llamada (${call.direction === "inbound" ? "entrante" : "saliente"}):\n${transcript}\n\n` +
-    `Campos de perfilamiento (key: etiqueta):\n${fields.map((f) => `- ${f.key}: ${f.label}`).join("\n") || "(ninguno)"}\n\n` +
-    `Resultados posibles:\n${outcomes.map((o) => `- ${o.id}: ${o.label}`).join("\n") || "(ninguno)"}\n\n` +
-    `Tipificaciones (por resultado):\n${typs.map((t) => `- ${t.id} [resultado ${t.outcome_id}]: ${t.label} (${t.sentiment})`).join("\n") || "(ninguna)"}`;
+  const compact = compactCallCatalog(fields, outcomes, typs);
+  const prompt = `Catálogo [alias, etiqueta]; tipificaciones [alias, resultado o null=global, etiqueta, sentimiento]:\n${compact.catalog}\n\n` +
+    `Transcripción ${call.direction === "inbound" ? "entrante" : "saliente"}:\n${transcript}`;
 
   const data = await generateChatCompletion({
       model: "openai/gpt-6-astra",
@@ -83,8 +118,8 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
       messages: [
         { role: "system", content:
           "Analizas llamadas de ventas en español. summary: 2-3 oraciones con lo que dijo el lead y lo acordado. " +
-          "profile: solo datos CONFIRMADOS por el lead, usando las keys dadas; no inventes ni deduzcas precios. " +
-          "outcome_id y typification_id: el id exacto de las listas (la tipificación debe pertenecer al resultado) o null si nada aplica claramente. " +
+          "profile: solo datos CONFIRMADOS por el lead, usando los alias f de campos; no inventes ni deduzcas precios. " +
+          "outcome_id y typification_id: alias o y t del catálogo (tipificación del resultado o global), o null si nada aplica claramente. " +
           "Detecta objeciones implícitas (lo está pensando, consulta con familia, dinero, tiempo)." },
         { role: "user", content: prompt },
       ],
@@ -95,6 +130,7 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
     return error;
   });
   if (data instanceof GatewayError) {
+    await finish("unknown");
     const status = data.httpStatus;
     return { ok: false, status: status === 402 || status === 429 || status === 403 ? status : 502,
       error: status === 402 ? "Sin créditos de IA disponibles" : status === 429 ? "IA saturada, intenta en un momento" : "No se pudo analizar la llamada" };
@@ -107,15 +143,17 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
     totalTokens: data.usage?.total_tokens });
   let parsed: any;
   try { parsed = JSON.parse(String(data?.choices?.[0]?.message?.content ?? "")); } catch { parsed = null; }
-  if (!parsed?.summary) return { ok: false, status: 502, error: "La IA no devolvió un análisis válido" };
+  if (!parsed?.summary) { await finish("failed"); return { ok: false, status: 502, error: "La IA no devolvió un análisis válido" }; }
 
-  const outcomeId = outcomes.some((o) => o.id === parsed.outcome_id) ? parsed.outcome_id : null;
-  const typ = typs.find((t) => t.id === parsed.typification_id && (!outcomeId || t.outcome_id === outcomeId));
+  const outcomeId = compact.outcomeMap.get(parsed.outcome_id) ?? null;
+  const typId = compact.typMap.get(parsed.typification_id);
+  const typ = typs.find((t) => t.id === typId && (t.outcome_id === null || (outcomeId && t.outcome_id === outcomeId)));
   const validKeys = new Set(fields.map((f) => f.key));
   const profile: Record<string, string> = {};
   for (const p of parsed.profile ?? []) {
     const v = String(p?.value ?? "").trim();
-    if (validKeys.has(p?.key) && v) profile[p.key] = v.slice(0, 300);
+    const key = compact.fieldMap.get(p?.key);
+    if (key && validKeys.has(key) && v) profile[key] = v.slice(0, 300);
   }
 
   // Aplicar perfilamiento solo en campos vacíos
@@ -131,12 +169,14 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
   }
 
   const suggestions = {
+    ...call.ai_suggestions, transcription_status: "completed", analysis_status: "completed", analysis_skip_reason: null, analysis_fingerprint: fingerprint,
     next_step: parsed.next_step, sentiment: parsed.sentiment, profile, profile_applied: applied,
     outcome_id: outcomeId, outcome_label: outcomes.find((o) => o.id === outcomeId)?.label ?? null,
     typification_id: typ?.id ?? null, typification_label: typ?.label ?? null,
     analyzed_at: new Date().toISOString(),
   };
-  await admin.from("calls").update({ ai_summary: parsed.summary, ai_suggestions: suggestions }).eq("id", callId);
+  const { error: saveError } = await admin.from("calls").update({ ai_summary: parsed.summary, ai_suggestions: suggestions }).eq("id", callId).eq("tenant_id", call.tenant_id);
+  if (saveError) throw saveError;
 
   if (call.contact_id) {
     const labels = fields.filter((f) => applied.includes(f.key)).map((f) => `${f.label}: ${profile[f.key]}`);
@@ -146,5 +186,10 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
       occurred_at: new Date().toISOString(), metadata: { call_id: callId, source: "call_analysis" },
     });
   }
+  await finish("completed");
   return { ok: true, summary: parsed.summary, profileApplied: applied };
+  } catch (error) {
+    await finish("unknown");
+    throw error;
+  }
 }

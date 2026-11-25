@@ -22,11 +22,11 @@ export async function transcribeRecording(admin: any, channel: any, callId: stri
     const result = await transcribeAudio({ model: "openai/gpt-transcribe", file: audio, language: "es" });
     const text = typeof result === "string" ? result : result.text;
     await recordAiUsage({ tenantId: channel.tenant_id, userId: claimed.user_id, surface: "call_transcription", model: "openai/gpt-transcribe", charge: false });
-    const { error: saveError } = await admin.from("calls").update({ transcript: text, ai_suggestions: { transcription_status: "completed" } }).eq("id", callId);
-    if (saveError) throw saveError;
-    if (text.trim().length >= 20) {
-      const analysis = await analyzeCall(admin, callId);
-      if (!analysis.ok) await admin.from("calls").update({ ai_suggestions: { transcription_status: "completed", analysis_error: analysis.error } }).eq("id", callId);
+    const analysis = await analyzeCall(admin, callId, text);
+    if (!analysis.ok && analysis.status !== 409) {
+      const { data: latest } = await admin.from("calls").select("ai_suggestions").eq("id", callId).maybeSingle();
+      await admin.from("calls").update({ transcript: text, ai_suggestions: { ...latest?.ai_suggestions,
+        transcription_status: "completed", analysis_error: analysis.error } }).eq("id", callId);
     }
   } catch {
     // Do not replay inference automatically: it may already have been billed.

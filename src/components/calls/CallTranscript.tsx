@@ -5,10 +5,12 @@ interface Props {
   transcript?: string;
   summary?: string;
   analyzing?: boolean;
+  analysisStatus?: string;
+  skipReason?: string;
 }
 
 /** Shared presentation driven by actual provider transcription state. */
-export function CallTranscript({ status, transcript, summary, analyzing = false }: Props) {
+export function CallTranscript({ status, transcript, summary, analyzing = false, analysisStatus, skipReason }: Props) {
   const processing = status === "processing" || analyzing;
   if (processing) return (
     <div className="call-ai-processing rounded-lg border border-border p-5" role="status" aria-live="polite">
@@ -32,6 +34,7 @@ export function CallTranscript({ status, transcript, summary, analyzing = false 
   if (!transcript && !summary && status !== "completed") return null;
   return (
     <section className="call-ai-result space-y-4" aria-label="Resultado de la transcripción">
+      {analysisStatus === "skipped" && <p role="status" className="text-sm text-muted-foreground">Análisis omitido: {skipReason === "voicemail" ? "solo se detectó el mensaje de buzón" : skipReason === "greeting" ? "solo se detectaron saludos" : "no se detectó conversación"}. La grabación se conservó.</p>}
       <div className="flex items-center gap-2 text-xs font-medium"><CheckCheck className="h-4 w-4 text-primary" />{transcript || status === "completed" ? "Transcripción lista" : "Análisis listo"}</div>
       {summary && <div className="border-l-2 border-primary pl-3"><p className="mb-1 flex items-center gap-2 text-xs font-semibold"><Sparkles className="h-3.5 w-3.5" />Resumen de la llamada</p><p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{summary}</p></div>}
       {transcript && <details className="call-transcript-details rounded-lg border border-border bg-muted/30" open={!summary}>

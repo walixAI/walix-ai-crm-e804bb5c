@@ -1,6 +1,8 @@
 # Llamadas entrantes de Refrigeración
 
 ## Optimización de IA de llamadas
+- [x] Segunda etapa: reserva persistente por llamada/transcripción con bloqueo de concurrencia; resultados inciertos no se repiten automáticamente. Omisión solo de marcadores exactos de silencio, saludos o mensaje estándar de buzón; audio y transcripción intactos. Catálogos con alias reversibles conservan etiquetas/relaciones, modelo y límite de salida.
+- [x] Prueba real en empresa temporal: dos reservas simultáneas → una aceptada y una bloqueada, empresa ajena rechazada, resultado reutilizado, reanálisis explícito permitido sin concurrencia, silencio omitido y leído de vuelta. Pantalla autenticada muestra motivo, texto completo y análisis manual habilitado tras recarga; sin inferencia ni llamadas telefónicas nuevas. Datos temporales retirados. Calidad comparativa del nuevo formato y ahorro en créditos aún sin medición.
 - [x] Registrar análisis automáticos explícitamente con tokens y asesor/solicitante; exclusión de QA conservada, sin descuentos nuevos ni ajustes históricos. Facturación lee todas las páginas del mes y distingue acciones de créditos.
 - [x] Evitar sugerencias repetidas al escribir y reutilizar la tipificación guardada si coincide el resultado/comentario; actualización explícita y solicitudes idénticas deduplicadas por apertura.
 - [x] 14 pruebas aprobadas y tres funciones desplegadas; sesión temporal comprobó sugerencia reutilizada sin IA nueva, escritura sin solicitudes y seguimiento guardado/leído. Datos temporales retirados. El registro de una inferencia nueva en producción no se ejercitó para evitar consumo adicional.

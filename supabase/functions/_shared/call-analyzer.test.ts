@@ -4,10 +4,10 @@ import { recordAiUsage } from "./ai-usage";
 import { analyzeCall } from "./call-analyzer";
 vi.mock("npm:@lovable.dev/ai-gateway@0.1.13", () => ({ generateChatCompletion: vi.fn(), GatewayError: class extends Error {} }));
 vi.mock("./ai-usage.ts", () => ({ recordAiUsage: vi.fn() }));
-function admin() {
-  return { from: vi.fn(() => {
+function admin(overrides: Record<string, unknown> = {}) {
+  return { rpc: vi.fn(async () => ({ data: { state: "claimed", id: "run" }, error: null })), from: vi.fn(() => {
     const q = { select: vi.fn(() => q), eq: vi.fn(() => q), update: vi.fn(() => q),
-      maybeSingle: vi.fn(async () => ({ data: { id: "call", tenant_id: "tenant", user_id: "advisor", transcript: "El prospecto solicita una visita de seguimiento.", direction: "outbound" } })) };
+      maybeSingle: vi.fn(async () => ({ data: { id: "call", tenant_id: "tenant", user_id: "advisor", transcript: "El prospecto solicita una visita de seguimiento.", direction: "outbound", ...overrides } })) };
     return q;
   }) };
 }
@@ -29,5 +29,43 @@ describe("call analysis usage", () => {
     vi.mocked(generateChatCompletion).mockResolvedValue({ choices: [{ message: { content: "invalid" } }] } as never);
     expect((await analyzeCall(admin(), "call")).ok).toBe(false);
     expect(recordAiUsage).toHaveBeenCalledTimes(1);
+  });
+  it("reuses an unchanged prior analysis without inference", async () => {
+    const svc = admin({ ai_summary: "Ya analizado" });
+    expect(await analyzeCall(svc, "call")).toMatchObject({ ok: true, reused: true, summary: "Ya analizado" });
+    expect(generateChatCompletion).not.toHaveBeenCalled();
+  });
+  it("blocks concurrent callbacks before inference", async () => {
+    const svc = admin();
+    svc.rpc.mockResolvedValue({ data: { state: "processing", id: "run" }, error: null });
+    expect(await analyzeCall(svc, "call")).toMatchObject({ ok: false, status: 409 });
+    expect(generateChatCompletion).not.toHaveBeenCalled();
+  });
+  it("does not automatically replay an uncertain prior attempt", async () => {
+    const svc = admin();
+    svc.rpc.mockResolvedValue({ data: { state: "unknown", id: "run" }, error: null });
+    expect(await analyzeCall(svc, "call")).toMatchObject({ ok: false, status: 409 });
+    expect(generateChatCompletion).not.toHaveBeenCalled();
+  });
+  it("changed transcripts are not confused with cached analyses", async () => {
+    const svc = admin({ ai_summary: "Anterior" });
+    await analyzeCall(svc, "call", "El prospecto ya no quiere la visita y pide otro horario.");
+    expect(generateChatCompletion).toHaveBeenCalledTimes(1);
+  });
+  it("manual requests bypass the previous successful cache", async () => {
+    const svc = admin({ ai_summary: "Anterior" });
+    await analyzeCall(svc, "call", undefined, "advisor", true);
+    expect(generateChatCompletion).toHaveBeenCalledTimes(1);
+    expect(svc.rpc).toHaveBeenCalledWith("claim_call_analysis", expect.objectContaining({ p_manual: true }));
+  });
+  it("skips greeting-only audio but preserves explicit manual analysis", async () => {
+    expect(await analyzeCall(admin({ transcript: "Hola. Buenos días. Hola." }), "call")).toMatchObject({ ok: true, skipped: true });
+    expect(generateChatCompletion).not.toHaveBeenCalled();
+    await analyzeCall(admin({ transcript: "Hola. Buenos días. Hola." }), "call", undefined, "advisor", true);
+    expect(generateChatCompletion).toHaveBeenCalledTimes(1);
+  });
+  it("keeps real conversations even with voicemail words or short duration", async () => {
+    expect(await analyzeCall(admin({ transcript: "Me mandó a buzón ayer, pero hoy sí quiero la visita." }), "call")).toMatchObject({ ok: true });
+    expect(generateChatCompletion).toHaveBeenCalledTimes(1);
   });
 });

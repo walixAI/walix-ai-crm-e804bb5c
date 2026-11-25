@@ -245,11 +245,10 @@ serve(async (req) => {
 
     // Transcripción entregada por el proveedor (Telnyx/Twilio): guardar y analizar con IA.
     const transcriptText: string | undefined = p.transcription_text ?? p.TranscriptionText;
-    if (transcriptText && String(transcriptText).trim().length >= 20) {
-      const { data: callRow } = await admin.from("calls").select("id, ai_summary").eq("provider_call_id", providerCallId).maybeSingle();
-      if (callRow && !callRow.ai_summary) {
-        await admin.from("calls").update({ transcript: String(transcriptText).slice(0, 20000) }).eq("id", callRow.id);
-        const r = await analyzeCall(admin, callRow.id);
+    if (typeof transcriptText === "string") {
+      const { data: callRow } = await admin.from("calls").select("id").eq("provider_call_id", providerCallId).maybeSingle();
+      if (callRow) {
+        const r = await analyzeCall(admin, callRow.id, String(transcriptText).slice(0, 20000));
         if (!r.ok) console.error("call analysis failed:", r.status, r.error);
       }
     }

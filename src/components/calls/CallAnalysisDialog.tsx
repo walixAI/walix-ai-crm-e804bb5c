@@ -56,7 +56,7 @@ export default function CallAnalysisDialog({ call, onClose }: Props) {
           <div className="space-y-5 p-6">
           {call && (call.ended_at || ["completed", "failed", "no_answer", "busy", "voicemail"].includes(call.status)) && <CallHangupDetails hangup_by={call.hangup_by} hangup_at={call.hangup_at} userId={(call as any).user_id} />}
           {call?.id && isRecordingDownloadable(call) && <CallRecordingButton key={call.id} callId={call.id} withPlayer />}
-          <CallTranscript status={s?.transcription_status} transcript={call?.transcript} summary={call?.ai_summary} analyzing={busy} />
+          <CallTranscript status={s?.transcription_status} transcript={call?.transcript} summary={call?.ai_summary} analyzing={busy || s?.analysis_status === "processing"} analysisStatus={s?.analysis_status} skipReason={s?.analysis_skip_reason} />
           {call?.ai_summary ? (
             <div className="space-y-3 text-sm">
               {s?.next_step && <div className="border-y border-border py-3"><p className="mb-1 flex items-center gap-2 font-medium"><ArrowRight className="h-4 w-4 text-primary" />Siguiente paso</p><p className="break-words text-muted-foreground leading-relaxed">{s.next_step}</p></div>}

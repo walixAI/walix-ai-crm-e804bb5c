@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     if (!visible) return json({ error: "Llamada no encontrada" }, 404);
 
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const r = await analyzeCall(admin, callId, transcript, u.user.id);
+    const r = await analyzeCall(admin, callId, transcript, u.user.id, true);
     if (!r.ok) return json({ error: r.error }, r.status);
     return json(r);
   } catch (e) {
