@@ -30,12 +30,12 @@ describe("markAgentAvailableOnLogin", () => {
     });
   });
 
-  it("does not reset the status again on reload within the same browser session", async () => {
+  it("sets Disponible again after a second genuine login in the same tab", async () => {
     maybeSingle.mockResolvedValue({ data: { id: "reason-available" } });
     rpc.mockResolvedValue({ error: null });
     await markAgentAvailableOnLogin("user-1", "tenant-1");
     await markAgentAvailableOnLogin("user-1", "tenant-1");
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
   it("does nothing without an active tenant", async () => {

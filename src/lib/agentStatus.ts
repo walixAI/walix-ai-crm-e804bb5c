@@ -1,23 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const LOGIN_FLAG_PREFIX = "agent-status-login:";
-
-function loginFlagKey(userId: string, tenantId: string) {
-  return `${LOGIN_FLAG_PREFIX}${userId}:${tenantId}`;
-}
-
 /**
- * Pone al asesor en "Disponible" al iniciar sesión. La marca en sessionStorage
- * evita reiniciar el estado en cada recarga de página dentro de la misma sesión
- * del navegador (si el asesor se puso en pausa, una recarga no lo reactiva).
+ * Solo se llama al autenticar desde una sesión cerrada, nunca al restaurarla.
+ * No usa marcas por pestaña: cada inicio de sesión real debe activar Disponible.
  */
 export async function markAgentAvailableOnLogin(userId: string, tenantId: string | null) {
-  if (!tenantId) return;
-  try {
-    if (sessionStorage.getItem(loginFlagKey(userId, tenantId))) return;
-  } catch {
-    // sessionStorage bloqueado: igual intentamos marcar disponible una vez.
-  }
+  if (!userId || !tenantId) return;
   const { data } = await supabase
     .from("agent_status_reasons")
     .select("id")
@@ -33,9 +21,4 @@ export async function markAgentAvailableOnLogin(userId: string, tenantId: string
     _cause: "login",
   } as any);
   if (error) throw error;
-  try {
-    sessionStorage.setItem(loginFlagKey(userId, tenantId), "1");
-  } catch {
-    // ignore
-  }
 }

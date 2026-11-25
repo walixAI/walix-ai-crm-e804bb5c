@@ -66,7 +66,8 @@ export function useInitAuth() {
   const lastLoadedUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    const loadAndApply = async (userId: string) => {
+    let sessionInitialized = false;
+    const loadAndApply = async (userId: string, isNewLogin = false) => {
       setContextLoading(true);
       const ctx = await loadUserContext(userId);
       if (useAuthStore.getState().user?.id !== userId) return;
@@ -81,8 +82,10 @@ export function useInitAuth() {
       setActiveTenantId(ctx.activeTenantId);
       lastLoadedUserId.current = userId;
       setContextLoading(false);
-      // Al iniciar sesión el asesor entra en Disponible para recibir llamadas.
-      void markAgentAvailableOnLogin(userId, ctx.activeTenantId).catch(() => { /* el login no debe fallar por esto */ });
+      // Restaurar una sesión, recargar o abrir otra pestaña conserva las pausas.
+      if (isNewLogin) {
+        void markAgentAvailableOnLogin(userId, ctx.activeTenantId).catch(() => { /* el login no debe fallar por esto */ });
+      }
     };
 
     // 1. Listener FIRST
@@ -108,6 +111,7 @@ export function useInitAuth() {
         return;
       }
 
+      const isNewLogin = sessionInitialized && event === "SIGNED_IN" && !useAuthStore.getState().session;
       if (session?.user.id !== useAuthStore.getState().user?.id) {
         setContextLoading(true);
         setRoles([]);
@@ -119,13 +123,14 @@ export function useInitAuth() {
       if (session?.user) {
         // Si ya cargamos el contexto de este usuario, no recargues al re-emitir SIGNED_IN.
         if (lastLoadedUserId.current === session.user.id) return;
-        setTimeout(() => { loadAndApply(session.user.id); }, 0);
+        setTimeout(() => { loadAndApply(session.user.id, isNewLogin); }, 0);
       }
     });
 
     // 2. Then check existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      sessionInitialized = true;
       setLoading(false);
       if (session?.user) {
         if (lastLoadedUserId.current !== session.user.id) {
