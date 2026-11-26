@@ -8,6 +8,18 @@ export function nonConversationReason(text: string): "silence" | "greeting" | "v
   return null;
 }
 
+const NON_CONVERSATION_STATUSES = new Set(["voicemail", "no_answer", "busy", "failed"]);
+
+/** La conversación confirmada corrige un falso intento, pero exige evidencia de conexión. */
+export function conversationStatusPatch(
+  call: { status?: string | null; answered_at?: string | null; duration_seconds?: number | null },
+  leadParticipated: boolean,
+): Record<string, string> {
+  const connected = !!call.answered_at || Number(call.duration_seconds) > 0;
+  if (!leadParticipated || !connected || !NON_CONVERSATION_STATUSES.has(call.status ?? "")) return {};
+  return { status: "completed" };
+}
+
 export async function transcriptFingerprint(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text.trim().replace(/\s+/g, " "));
   const digest = await crypto.subtle.digest("SHA-256", bytes);

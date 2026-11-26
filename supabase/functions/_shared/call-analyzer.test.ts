@@ -5,15 +5,16 @@ import { analyzeCall } from "./call-analyzer";
 vi.mock("npm:@lovable.dev/ai-gateway@0.1.13", () => ({ generateChatCompletion: vi.fn(), GatewayError: class extends Error {} }));
 vi.mock("./ai-usage.ts", () => ({ recordAiUsage: vi.fn() }));
 function admin(overrides: Record<string, unknown> = {}) {
-  return { rpc: vi.fn(async () => ({ data: { state: "claimed", id: "run" }, error: null })), from: vi.fn(() => {
-    const q = { select: vi.fn(() => q), eq: vi.fn(() => q), update: vi.fn(() => q),
+  const updates: { table: string; value: Record<string, unknown> }[] = [];
+  return { updates, rpc: vi.fn(async () => ({ data: { state: "claimed", id: "run" }, error: null })), from: vi.fn((table: string) => {
+    const q = { select: vi.fn(() => q), eq: vi.fn(() => q), update: vi.fn((value: Record<string, unknown>) => { updates.push({ table, value }); return q; }),
       maybeSingle: vi.fn(async () => ({ data: { id: "call", tenant_id: "tenant", user_id: "advisor", transcript: "El prospecto solicita una visita de seguimiento.", direction: "outbound", ...overrides } })) };
     return q;
   }) };
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(generateChatCompletion).mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ summary: "Quiere visita", profile: [] }) } }], usage: { prompt_tokens: 123, completion_tokens: 45, total_tokens: 168 } } as never);
+  vi.mocked(generateChatCompletion).mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ summary: "Quiere visita", lead_participated: false, profile: [] }) } }], usage: { prompt_tokens: 123, completion_tokens: 45, total_tokens: 168 } } as never);
 });
 describe("call analysis usage", () => {
   it("records automatic analysis once, attributed to the advisor, without deducting plan credits", async () => {
@@ -67,5 +68,18 @@ describe("call analysis usage", () => {
   it("keeps real conversations even with voicemail words or short duration", async () => {
     expect(await analyzeCall(admin({ transcript: "Me mandó a buzón ayer, pero hoy sí quiero la visita." }), "call")).toMatchObject({ ok: true });
     expect(generateChatCompletion).toHaveBeenCalledTimes(1);
+  });
+  it("replaces a false provider voicemail after confirming that the lead participated", async () => {
+    vi.mocked(generateChatCompletion).mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ summary: "La cliente pidió otra fecha", lead_participated: true, profile: [] }) } }] } as never);
+    const svc = admin({ status: "voicemail", answered_at: "2026-11-25T21:33:48Z" });
+    expect(await analyzeCall(svc, "call")).toMatchObject({ ok: true });
+    expect(svc.updates).toContainEqual({ table: "calls", value: expect.objectContaining({
+      status: "completed", ai_suggestions: expect.objectContaining({ lead_participated: true, provider_status: "voicemail" }),
+    }) });
+  });
+  it("does not turn an automated screening into an effective call", async () => {
+    const svc = admin({ status: "voicemail", answered_at: "2026-11-25T21:32:59Z" });
+    expect(await analyzeCall(svc, "call")).toMatchObject({ ok: true });
+    expect(svc.updates.filter(u => u.table === "calls").every(u => u.value.status !== "completed")).toBe(true);
   });
 });

@@ -12,14 +12,16 @@ function outcome(over: Partial<ActivityOutcome>): ActivityOutcome {
 }
 
 const noAnswer = outcome({ id: "no-ans", label: "No contestó", activityKind: "llamada_saliente", isConnectionResult: true });
+const voicemail = outcome({ id: "voicemail", label: "Buzón", activityKind: "llamada_saliente", isConnectionResult: true });
 const connected = outcome({ id: "conn", label: "Contacto efectivo - sigue igual", activityKind: "llamada_saliente" });
 const inboundOnly = outcome({ id: "in", label: "Llamada entrante atendida", activityKind: "llamada_entrante" });
 const anyKind = outcome({ id: "any", label: "Interesado", activityKind: null });
 
 describe("follow-up result options", () => {
   it("hides connection facts the provider already recorded from the advisor", () => {
-    const labels = filterOutcomes([noAnswer, connected, anyKind], null, "llamada_saliente").map((o) => o.label);
+    const labels = filterOutcomes([noAnswer, voicemail, connected, anyKind], null, "llamada_saliente").map((o) => o.label);
     expect(labels).not.toContain("No contestó");
+    expect(labels).not.toContain("Buzón");
     expect(labels).toContain("Contacto efectivo - sigue igual");
   });
 

@@ -1,7 +1,7 @@
 import type {} from "./generated/ai-gateway/models.d.ts";
 import { generateChatCompletion, GatewayError } from "npm:@lovable.dev/ai-gateway@0.1.13";
 import { recordAiUsage } from "./ai-usage.ts";
-import { nonConversationReason, transcriptFingerprint, compactCallCatalog } from "./call-analysis-policy.ts";
+import { nonConversationReason, transcriptFingerprint, compactCallCatalog, conversationStatusPatch } from "./call-analysis-policy.ts";
 // Análisis IA de una llamada: resumen, perfilamiento, resultado y tipificación sugeridos.
 // El perfilamiento solo llena campos vacíos (lo editado por el asesor manda);
 // resultado/tipificación quedan como sugerencia hasta que el asesor confirma el seguimiento.
@@ -12,7 +12,7 @@ export type AnalyzeResult =
 
 export async function analyzeCall(admin: any, callId: string, transcriptOverride?: string, actorId?: string, manual = false): Promise<AnalyzeResult> {
   const { data: call } = await admin.from("calls")
-    .select("id, tenant_id, user_id, contact_id, deal_id, direction, transcript, ai_summary, ai_suggestions")
+    .select("id, tenant_id, user_id, contact_id, deal_id, direction, status, answered_at, duration_seconds, transcript, ai_summary, ai_suggestions")
     .eq("id", callId).maybeSingle();
   if (!call) return { ok: false, status: 404, error: "Llamada no encontrada" };
 
@@ -95,9 +95,10 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
 
   const schema = {
     type: "object", additionalProperties: false,
-    required: ["summary", "next_step", "sentiment", "profile", "outcome_id", "typification_id"],
+    required: ["summary", "next_step", "sentiment", "lead_participated", "profile", "outcome_id", "typification_id"],
     properties: {
       summary: { type: "string" },
+      lead_participated: { type: "boolean" },
       next_step: { type: "string" },
       sentiment: { type: "string", enum: ["positivo", "neutral", "negativo"] },
       profile: { type: "array", items: { type: "object", additionalProperties: false, required: ["key", "value"],
@@ -118,6 +119,7 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
       messages: [
         { role: "system", content:
           "Analizas llamadas de ventas en español. summary: 2-3 oraciones con lo que dijo el lead y lo acordado. " +
+          "lead_participated: true solo si el cliente o prospecto habló durante la llamada; false si solo hubo buzón, saludos o un filtro automático, aunque el asesor haya dejado su nombre. " +
           "profile: solo datos CONFIRMADOS por el lead, usando los alias f de campos; no inventes ni deduzcas precios. " +
           "outcome_id y typification_id: alias o y t del catálogo (tipificación del resultado o global), o null si nada aplica claramente. " +
           "Detecta objeciones implícitas (lo está pensando, consulta con familia, dinero, tiempo)." },
@@ -168,14 +170,16 @@ export async function analyzeCall(admin: any, callId: string, transcriptOverride
     if (applied.length) await admin.from("contacts").update({ custom_fields: { ...cur, ...patch } }).eq("id", call.contact_id);
   }
 
+  const statusPatch = conversationStatusPatch(call, parsed.lead_participated === true);
   const suggestions = {
     ...call.ai_suggestions, transcription_status: "completed", analysis_status: "completed", analysis_skip_reason: null, analysis_fingerprint: fingerprint,
-    next_step: parsed.next_step, sentiment: parsed.sentiment, profile, profile_applied: applied,
+    next_step: parsed.next_step, sentiment: parsed.sentiment, lead_participated: parsed.lead_participated === true, profile, profile_applied: applied,
     outcome_id: outcomeId, outcome_label: outcomes.find((o) => o.id === outcomeId)?.label ?? null,
     typification_id: typ?.id ?? null, typification_label: typ?.label ?? null,
+    ...(statusPatch.status ? { provider_status: call.status, status_corrected_by: "call_analysis" } : {}),
     analyzed_at: new Date().toISOString(),
   };
-  const { error: saveError } = await admin.from("calls").update({ ai_summary: parsed.summary, ai_suggestions: suggestions }).eq("id", callId).eq("tenant_id", call.tenant_id);
+  const { error: saveError } = await admin.from("calls").update({ ai_summary: parsed.summary, ai_suggestions: suggestions, ...statusPatch }).eq("id", callId).eq("tenant_id", call.tenant_id);
   if (saveError) throw saveError;
 
   if (call.contact_id) {
