@@ -19,10 +19,15 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-const schema = z.object({
-  title: z.string().trim().min(1, "Título requerido").max(120, "Máximo 120 caracteres"),
-  due: z.string().optional(),
-});
+const schema = z
+  .object({
+    title: z.string().trim().min(1, "Título requerido").max(120, "Máximo 120 caracteres"),
+    due: z.string().optional(),
+  })
+  .refine((v) => !v.due || !Number.isNaN(new Date(v.due).getTime()), {
+    message: "La fecha de vencimiento no es válida",
+    path: ["due"],
+  });
 
 interface Props {
   open: boolean;
@@ -102,34 +107,37 @@ export function QuickTaskDialog({ open, deal, contactId, defaultTitle, task, onC
     const parsed = schema.safeParse({ title, due });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setLoading(true);
-    const dueIso = parsed.data.due ? new Date(parsed.data.due).toISOString() : null;
-    let error: any = null;
-    if (editing && task) {
-      const res = await supabase.from("tasks").update({
-        title: parsed.data.title,
-        due_at: dueIso,
-        assignee_id: assigneeId || null,
-      }).eq("id", task.id);
-      error = res.error;
-    } else {
-      const res = await supabase.from("tasks").insert({
-        tenant_id: tenantId,
-        deal_id: deal?.id ?? dealId ?? null,
-        contact_id: deal?.contactId ?? contactId ?? null,
-        title: parsed.data.title,
-        due_at: dueIso,
-        assignee_id: assigneeId || user?.id || null,
-      });
-      error = res.error;
+    try {
+      const dueIso = parsed.data.due ? new Date(parsed.data.due).toISOString() : null;
+      let error: any = null;
+      if (editing && task) {
+        const res = await supabase.from("tasks").update({
+          title: parsed.data.title,
+          due_at: dueIso,
+          assignee_id: assigneeId || null,
+        }).eq("id", task.id);
+        error = res.error;
+      } else {
+        const res = await supabase.from("tasks").insert({
+          tenant_id: tenantId,
+          deal_id: deal?.id ?? dealId ?? null,
+          contact_id: deal?.contactId ?? contactId ?? null,
+          title: parsed.data.title,
+          due_at: dueIso,
+          assignee_id: assigneeId || user?.id || null,
+        });
+        error = res.error;
+      }
+      if (error) return toast.error(error.message);
+      toast.success(editing ? "Tarea actualizada" : "Tarea creada");
+      qc.invalidateQueries({ queryKey: ["pipeline-deal-tasks-map"] });
+      qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
+      qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      onClose();
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success(editing ? "Tarea actualizada" : "Tarea creada");
-    qc.invalidateQueries({ queryKey: ["pipeline-deal-tasks-map"] });
-    qc.invalidateQueries({ queryKey: ["contact-activity", contactId] });
-    qc.invalidateQueries({ queryKey: ["contact-tasks", contactId] });
-    qc.invalidateQueries({ queryKey: ["tasks"] });
-    onClose();
   }
 
   return (

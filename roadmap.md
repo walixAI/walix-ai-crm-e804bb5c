@@ -1,3 +1,7 @@
+# Avisos de monitoreo del 26 de noviembre
+
+- [x] Guardar tareas con fecha ilegible: «Vence» con año inválido ya avisa «La fecha de vencimiento no es válida» en lugar de dejar el botón atascado en «Guardando…»; el botón se libera también si la base de datos rechaza el guardado. 3 pruebas nuevas y 278 del proyecto aprobadas; sesión temporal comprobó aviso sin atasco con año de 5 dígitos y guardado correcto con fecha válida (tarea leída en base de datos y retirada después).
+
 # Llamadas entrantes de Refrigeración
 
 ## Minutos de llamadas
