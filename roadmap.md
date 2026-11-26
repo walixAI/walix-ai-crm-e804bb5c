@@ -7,6 +7,9 @@
 ## Minutos de llamadas
 - [x] Mostrar tiempo acumulado total o por periodo y responsable, conservando segundos al sumar y exportando el desglose. 9 pruebas aprobadas; cuenta temporal autenticada comprobó mes (105 s), todo el historial (225 s), responsable (120 s), CSV y recarga; computadora/celular sin desbordamiento. Datos de muestra retirados, sin llamadas ni IA nuevas; no se usó la cuenta de Erick.
 
+## Bloque de recepción en celular
+- [x] Poner «Recibir llamadas en mi celular», el teléfono del perfil y el aviso de minutos en una sola línea, sin el botón «Editar perfil». 3 pruebas nuevas y 281 del proyecto aprobadas; sesión temporal comprobó una línea sin desbordamiento ni tapones en 1012 px y sin corte en 420 px.
+
 ## Optimización de IA de llamadas
 - [x] Segunda etapa: reserva persistente por llamada/transcripción con bloqueo de concurrencia; resultados inciertos no se repiten automáticamente. Omisión solo de marcadores exactos de silencio, saludos o mensaje estándar de buzón; audio y transcripción intactos. Catálogos con alias reversibles conservan etiquetas/relaciones, modelo y límite de salida.
 - [x] Prueba real en empresa temporal: dos reservas simultáneas → una aceptada y una bloqueada, empresa ajena rechazada, resultado reutilizado, reanálisis explícito permitido sin concurrencia, silencio omitido y leído de vuelta. Pantalla autenticada muestra motivo, texto completo y análisis manual habilitado tras recarga; sin inferencia ni llamadas telefónicas nuevas. Datos temporales retirados. Calidad comparativa del nuevo formato y ahorro en créditos aún sin medición.
